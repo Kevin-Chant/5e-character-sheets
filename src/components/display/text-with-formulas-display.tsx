@@ -1,10 +1,10 @@
 import { useCharacter } from "src/lib/hooks/use-character";
-import { isCustomFormulaWithDamage } from "src/lib/types";
+import { CustomFormula, isCustomFormulaWithDamage } from "src/lib/types";
 import {
   calculateCustomFormula,
   calculateCustomFormulaWithDamage,
+  formatCustomFormula,
   formatCustomFormulaWithDamage,
-  parseCustomFormula,
 } from "src/lib/utils";
 import ComponentWithPopover from "./component-with-popover";
 
@@ -15,6 +15,7 @@ interface FormulaTextWithTooltipProps {
 
 interface TextWithFormulasDisplayProps {
   templateString: string;
+  formulas: CustomFormula[];
 }
 
 function FormulaTextWithTooltip({
@@ -34,21 +35,23 @@ function FormulaTextWithTooltip({
 
 export default function TextWithFormulasDisplay({
   templateString,
+  formulas,
 }: TextWithFormulasDisplayProps) {
   const { character } = useCharacter();
   if (!character) return <></>;
-
-  const stringSegments = templateString.split(/({{[^}]+}})/).map((segment) => {
-    const match = segment.match(/{{([^}]+)}}/);
+  const calculatedFormulas = formulas.map((formula) =>
+    calculateCustomFormula(formula, character).toString()
+  );
+  const formattedFormulas = formulas.map((formula) =>
+    formatCustomFormula(formula, character, false)
+  );
+  let i = 0;
+  const stringSegments = templateString.split(/({{}})/).map((segment) => {
+    const match = segment.match(/{{}}/);
     if (match) {
-      const sourceFormula = match[1];
-      const parsedFormula = parseCustomFormula(sourceFormula);
-      const calculatedValue = isCustomFormulaWithDamage(parsedFormula)
-        ? formatCustomFormulaWithDamage(
-            calculateCustomFormulaWithDamage(parsedFormula, character),
-            character
-          )
-        : calculateCustomFormula(parsedFormula, character);
+      const sourceFormula = formattedFormulas[i];
+      const calculatedValue = calculatedFormulas[i];
+      i++;
       return { calculatedValue, sourceFormula };
     } else {
       return segment;

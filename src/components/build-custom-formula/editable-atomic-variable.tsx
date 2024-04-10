@@ -1,5 +1,5 @@
 import { isNumber, isString } from "lodash";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   DieOperation,
   OfficialClass,
@@ -36,9 +36,14 @@ export function EditableAtomicVariable({
   const { character } = useCharacter();
 
   const [emptyState, setEmptyState] = useState(false);
-  useEffect(() => {
+  const chooseValue = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    value: CustomFormula
+  ) => {
+    e.preventDefault();
+    setVar(value);
     setEmptyState(false);
-  }, [atomicVar]);
+  };
 
   if (!character) return <></>;
 
@@ -47,24 +52,48 @@ export function EditableAtomicVariable({
       <div>
         <p>Choose a type of variable</p>
         <div className="flex-grid">
-          <button onClick={() => setVar(1)}>Number</button>
-          <button onClick={() => setVar(StatKey.dex)}>Stat Modifier</button>
           <button
-            onClick={() => setVar([1, StandardDie.d8, DieOperation.roll])}
+            onClick={(e) => {
+              chooseValue(e, 1);
+            }}
+          >
+            Number
+          </button>
+          <button
+            onClick={(e) => {
+              chooseValue(e, StatKey.dex);
+            }}
+          >
+            Stat Modifier
+          </button>
+          <button
+            onClick={(e) => {
+              chooseValue(e, [1, StandardDie.d8, DieOperation.roll]);
+            }}
           >
             Dice
           </button>
-          <button onClick={() => setVar(OfficialClass.Fighter)}>
+          <button
+            onClick={(e) => {
+              chooseValue(e, OfficialClass.Fighter);
+            }}
+          >
             Level in a Class
           </button>
-          <button onClick={() => setVar(PB)}>Proficiency Bonus</button>
           <button
-            onClick={() =>
-              setVar({
+            onClick={(e) => {
+              chooseValue(e, PB);
+            }}
+          >
+            Proficiency Bonus
+          </button>
+          <button
+            onClick={(e) => {
+              chooseValue(e, {
                 operation: Operation.addition,
                 operands: [StatKey.dex, 2],
-              })
-            }
+              });
+            }}
           >
             Result of a Calculation
           </button>
@@ -160,7 +189,12 @@ export function EditableAtomicVariable({
   return (
     <div className="column">
       <div className="row">
-        <button onClick={() => setEmptyState(true)}>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            setEmptyState(true);
+          }}
+        >
           {"Change Variable Type"}
         </button>
         {removeVar && <button onClick={removeVar}>x</button>}

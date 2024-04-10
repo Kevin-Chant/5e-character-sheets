@@ -1,6 +1,5 @@
 import React from "react";
 import { Operation, StatKey } from "src/lib/data/data-definitions";
-import { FIELD } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   CustomFormula,
@@ -11,23 +10,22 @@ import {
 } from "src/lib/types";
 import { OPERATORS, formatExpression } from "src/lib/utils";
 import { EditableCustomFormula } from "./editable-custom-formula";
+import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 
 interface EditableExpressionProps {
   expr: Expression;
   setExpr: (newVal: CustomFormula) => void;
   edit: boolean;
-  setEdit: (newVal: boolean) => void;
-  fieldPath: FIELD;
+  subField?: string;
 }
 
 export function EditableExpression({
   expr,
   setExpr,
   edit,
-  setEdit,
-  fieldPath,
 }: EditableExpressionProps) {
   const { character } = useCharacter();
+  const { subField } = useTargetedField();
   if (!character) return <></>;
 
   const setOperation = (operation: Expression["operation"]) => {
@@ -66,16 +64,12 @@ export function EditableExpression({
   };
 
   if (!edit) {
-    return (
-      <div className="column">
-        <button onClick={() => setEdit(true)}>Edit</button>
-        <div>{formatExpression(expr, character, false)}</div>
-      </div>
-    );
+    return <div>{formatExpression(expr, character, false)}</div>;
   }
+  // TODO: clear expression if optional
+  // TODO: revert expression to atomic variable
   return (
     <>
-      <button onClick={() => setEdit(false)}>Done</button>
       <div className="row">
         <p className="font-medium">Formula type</p>
         <select
@@ -102,7 +96,7 @@ export function EditableExpression({
             setFormula={(newValue) => {
               setExpr({ ...expr, operand1: newValue });
             }}
-            fieldPath={fieldPath}
+            subField={subField ? `${subField}.operand1` : "operand1"}
           />
         )}
         {isDoubleOperandOperation(expr) && (
@@ -112,7 +106,7 @@ export function EditableExpression({
               setFormula={(newValue) => {
                 setExpr({ ...expr, operand1: newValue });
               }}
-              fieldPath={fieldPath}
+              subField={subField ? `${subField}.operand1` : "operand1"}
             />
             <p className="font-large margin-large nowrap">
               {OPERATORS[expr.operation].connector}
@@ -122,7 +116,7 @@ export function EditableExpression({
               setFormula={(newValue) => {
                 setExpr({ ...expr, operand2: newValue });
               }}
-              fieldPath={fieldPath}
+              subField={subField ? `${subField}.operand2` : "operand2"}
             />
           </>
         )}
@@ -143,13 +137,15 @@ export function EditableExpression({
                     const newOperands = JSON.parse(
                       JSON.stringify(expr.operands)
                     );
-                    newOperands.splice(i);
+                    newOperands.splice(i, 1);
                     setExpr({
                       operation: expr.operation,
                       operands: newOperands,
                     });
                   }}
-                  fieldPath={fieldPath}
+                  subField={
+                    subField ? `${subField}.operands.${i}` : `operands.${i}`
+                  }
                 />
                 {i < arr.length - 1 && (
                   <p className="font-large margin-large nowrap">
@@ -161,6 +157,7 @@ export function EditableExpression({
             <button
               onClick={(e) => {
                 e.preventDefault();
+                // TODO: persist new operands immediately so they can be edited (at least if they're formulas)
                 setExpr({
                   operation: expr.operation,
                   operands: expr.operands.concat([1]),

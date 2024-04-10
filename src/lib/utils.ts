@@ -1,6 +1,7 @@
 import Ajv from "ajv";
 import { isNumber, sum } from "lodash";
 import {
+  Addition,
   AtomicVariable,
   Character,
   ClassName,
@@ -10,7 +11,9 @@ import {
   DieDefinition,
   Expression,
   ExpressionCalculator,
+  HitDice,
   IClass,
+  SpellSlots,
   isArbitraryOperandOperation,
   isAtomicVariable,
   isClassName,
@@ -18,6 +21,7 @@ import {
   isDoubleOperandOperation,
   isExpression,
   isNonStandardDie,
+  isOfficialClass,
   isPb,
   isSingleOperandOperation,
   isStandardDie,
@@ -28,10 +32,18 @@ import {
   CoinType,
   CoinValues,
   DamageType,
+  DieOperation,
+  FIELD,
+  HIT_DICE,
+  OfficialClass,
   Operation,
+  SPELLCASTING_ABILITIES,
   SkillName,
+  SpellLevel,
+  StandardDie,
   StatKey,
 } from "./data/data-definitions";
+import { isNumericLiteral } from "typescript";
 
 const ORDINAL_SUFFIXES = ["th", "st", "nd", "rd"];
 
@@ -105,14 +117,14 @@ export function getPB(character: Character) {
   }
 }
 
-export function averageDie(die: DieDefinition) {
+export function averageDie(die: DieDefinition, rounder = Math.round) {
   let numFaces;
   if (isStandardDie(die)) {
     numFaces = parseInt(die.replace("d", ""));
   } else {
     numFaces = die.numFaces;
   }
-  return Math.round((numFaces + 1) / 2);
+  return rounder((numFaces + 1) / 2);
 }
 
 export function rollDie(die: DieDefinition) {
@@ -121,6 +133,28 @@ export function rollDie(die: DieDefinition) {
   throw new Error(
     "Tried to roll something that wasn't a die!" + JSON.stringify(die)
   );
+}
+
+export function getDieOperation(
+  operation: DieOperation
+): (die: DieDefinition) => number {
+  switch (operation) {
+    case "average":
+      return averageDie;
+    case "average-roundedup":
+      return (die) => averageDie(die, Math.ceil);
+    case "average-roundeddown":
+      return (die) => averageDie(die, Math.floor);
+    case "roll":
+      return rollDie;
+    case "max":
+      return (die: DieDefinition) =>
+        isStandardDie(die) ? parseInt(die.replace("d", "")) : die.numFaces;
+    default:
+      throw new Error(
+        "Reached unreachable code in getDieOperation due to" + operation
+      );
+  }
 }
 
 function formatOperator(
@@ -198,9 +232,11 @@ export function calculateAtomicVariable(
   // StatKeys pull the modifier for the specified stat
   if (isStatKey(atomicVariable))
     return modifier(character.stats[atomicVariable]);
-  // Die expressions take the average value of the die specified multiplied by the number specified
+  // Die expressions run the specified operation on the given die multiplied by the number specified
   if (isDieExpression(atomicVariable))
-    return atomicVariable[0] * averageDie(atomicVariable[1]);
+    return (
+      atomicVariable[0] * getDieOperation(atomicVariable[2])(atomicVariable[1])
+    );
   if (isPb(atomicVariable)) {
     return getPB(character);
   }
@@ -228,7 +264,7 @@ export function formatAtomicVariable(
   if (isStatKey(atomicVariable))
     return evaluateReferences
       ? withoutZero(modifier(character.stats[atomicVariable]))
-      : atomicVariable;
+      : `${atomicVariable} mod`;
   // Die expressions render in the form xdy where x is the number of dice and y is the number of faces per die
   if (isDieExpression(atomicVariable))
     return `${atomicVariable[0]}${
@@ -249,7 +285,7 @@ export function formatAtomicVariable(
   );
 }
 
-function formatCustomFormula(
+export function formatCustomFormula(
   formula: CustomFormula,
   character: Character,
   evaluateReferences: boolean = true
@@ -300,11 +336,16 @@ export function formatExpression(
 
 export function formatCustomFormulaWithDamage(
   formula: CustomFormulaWithDamage,
-  character: Character
+  character: Character,
+  evaluateReferences: boolean = true
 ) {
   return (Object.entries(formula) as Array<[DamageType, CustomFormula]>)
     .map(([damageType, customFormula]) => {
-      return `${formatCustomFormula(customFormula, character)} ${damageType}`;
+      return `${formatCustomFormula(
+        customFormula,
+        character,
+        evaluateReferences
+      )} ${damageType}`;
     })
     .join(", ");
 }
@@ -355,17 +396,6 @@ export function calculateCustomFormulaWithDamage(
   );
 }
 
-export function parseCustomFormula(
-  formulaString: string
-): CustomFormula | CustomFormulaWithDamage {
-  // TODO
-  // split string on instances of damage types using generated union from enum
-  // for each substring, split on +/- with or without whitespace
-  // for each segment, find a way to split on multiplication
-  // for the item being multiplied in each segment, parse either one of the statkeys, a die type, or a constant int
-  return 30;
-}
-
 export function totalGP(coins: CoinAmounts) {
   return sum(
     (Object.entries(coins) as Array<[CoinType, number]>).map(
@@ -401,7 +431,7 @@ export function levelInClass(className: ClassName, character: Character) {
 export function traverse(path: string, obj: any) {
   let result: any = obj;
   path.split(".").forEach((pathSegment) => {
-    if (!pathSegment) return;
+    if (!pathSegment || !result) return;
     result = result[pathSegment];
   });
   return result;
@@ -418,7 +448,10 @@ export function setFieldValue(
 ) {
   const partialFieldName = fieldName.split(".").slice(0, -1).join(".");
   const leafNode = traverse(partialFieldName, character);
-  leafNode[fieldName.split(".").slice(-1)[0]] = value;
+  let index: string | number = fieldName.split(".").slice(-1)[0];
+  const parsed = parseInt(index);
+  if (!isNaN(parsed)) index = parsed;
+  leafNode[index] = value;
 }
 
 export function validateCharacterData(characterData: string) {
@@ -428,3 +461,268 @@ export function validateCharacterData(characterData: string) {
 
   return [valid, validate.errors];
 }
+
+function getHitDie(className: ClassName): StandardDie {
+  return isOfficialClass(className)
+    ? HIT_DICE[className]
+    : // TODO: Allow for homebrew classes to define hit dice
+      StandardDie.d8;
+}
+
+export function getHitDice(character: Character): HitDice {
+  const hitDice: HitDice = {};
+  character.class.forEach(
+    (klass) =>
+      (hitDice[getHitDie(klass.name)] =
+        (hitDice[getHitDie(klass.name)] || 0) + klass.level)
+  );
+  return hitDice;
+}
+
+export function getHpFormula(character: Character): CustomFormula {
+  const firstClass = character.class[0];
+  const rest = character.class.slice(1);
+  const firstClassHp = {
+    operation: Operation.addition,
+    operands: (
+      [
+        [1, getHitDie(firstClass.name), DieOperation.max],
+        StatKey.con,
+      ] as CustomFormula[]
+    ).concat(
+      firstClass.level > 1
+        ? [
+            {
+              operation: Operation.multiplication,
+              operands: [
+                {
+                  operation: Operation.addition,
+                  operands: [
+                    [
+                      1,
+                      getHitDie(firstClass.name),
+                      DieOperation["average-roundedup"],
+                    ],
+                    StatKey.con,
+                  ],
+                },
+                {
+                  operation: Operation.subtraction,
+                  operand1: firstClass.name,
+                  operand2: 1,
+                },
+              ],
+            },
+          ]
+        : []
+    ),
+  } as CustomFormula;
+  if (rest.length === 0) return firstClassHp;
+  return {
+    operation: Operation.addition,
+    operands: [firstClassHp].concat(
+      rest.map((classDef) => {
+        return {
+          operation: Operation.multiplication,
+          operands: [
+            classDef.name,
+            {
+              operation: Operation.addition,
+              operands: [
+                [
+                  1,
+                  getHitDie(classDef.name),
+                  DieOperation["average-roundedup"],
+                ],
+                StatKey.con,
+              ],
+            },
+          ],
+        };
+      })
+    ),
+  };
+}
+
+export function getSpellcastingAbility(className: ClassName) {
+  return isOfficialClass(className)
+    ? SPELLCASTING_ABILITIES[className] || StatKey.int
+    : StatKey.int;
+}
+
+export function getNumericSpellSlotLevel(level: SpellLevel) {
+  return {
+    [SpellLevel.First]: 1,
+    [SpellLevel.Second]: 2,
+    [SpellLevel.Third]: 3,
+    [SpellLevel.Fourth]: 4,
+    [SpellLevel.Fifth]: 5,
+    [SpellLevel.Sixth]: 6,
+    [SpellLevel.Seventh]: 7,
+    [SpellLevel.Eighth]: 8,
+    [SpellLevel.Ninth]: 9,
+  }[level];
+}
+
+export function getPactSlotInfo(character: Character) {
+  const warlockLevel =
+    character.class.find((klass) => klass.name === OfficialClass.Warlock)
+      ?.level || 0;
+  const total =
+    warlockLevel < 2
+      ? warlockLevel
+      : warlockLevel < 11
+      ? 2
+      : warlockLevel < 17
+      ? 3
+      : 4;
+  const level = Math.min(5, Math.floor((warlockLevel + 1) / 2));
+  return {
+    level: level,
+    total: total,
+  };
+}
+
+export function getSpellSlotsByLevelAndSpellcasterLevel(
+  slotLevel: SpellLevel,
+  spellcastingLevel: number
+) {
+  switch (slotLevel) {
+    case SpellLevel.First:
+      return spellcastingLevel < 1
+        ? 0
+        : spellcastingLevel === 1
+        ? 2
+        : spellcastingLevel === 2
+        ? 3
+        : 4;
+    case SpellLevel.Second:
+      return spellcastingLevel < 3 ? 0 : spellcastingLevel === 3 ? 2 : 3;
+    case SpellLevel.Third:
+      return spellcastingLevel < 5 ? 0 : spellcastingLevel === 5 ? 2 : 3;
+    case SpellLevel.Fourth:
+      return spellcastingLevel < 7
+        ? 0
+        : spellcastingLevel === 7
+        ? 1
+        : spellcastingLevel === 8
+        ? 2
+        : 3;
+    case SpellLevel.Fifth:
+      return spellcastingLevel < 9
+        ? 0
+        : spellcastingLevel === 9
+        ? 1
+        : spellcastingLevel < 18
+        ? 2
+        : 3;
+    case SpellLevel.Sixth:
+      return spellcastingLevel < 11 ? 0 : spellcastingLevel < 19 ? 1 : 2;
+    case SpellLevel.Seventh:
+      return spellcastingLevel < 13 ? 0 : spellcastingLevel < 20 ? 1 : 2;
+    case SpellLevel.Eighth:
+      return spellcastingLevel < 15 ? 0 : 1;
+    case SpellLevel.Ninth:
+      return spellcastingLevel < 17 ? 0 : 1;
+  }
+}
+
+export function calculateSpellcasterLevel(character: Character) {
+  return character.class
+    .map((klass) => {
+      if (!isOfficialClass(klass.name)) return 0;
+      if (
+        [
+          OfficialClass.Bard,
+          OfficialClass.Cleric,
+          OfficialClass.Druid,
+          OfficialClass.Sorcerer,
+          OfficialClass.Wizard,
+        ].includes(klass.name)
+      )
+        return klass.level;
+      if ([OfficialClass.Paladin, OfficialClass.Ranger].includes(klass.name))
+        return Math.floor(klass.level / 2);
+      if (klass.name === OfficialClass.Artificer)
+        return Math.ceil(klass.level / 2);
+      if (
+        (klass.name === OfficialClass.Fighter &&
+          klass.subclass === "Eldritch Knight") ||
+        (klass.name === OfficialClass.Rogue &&
+          klass.subclass === "Arcane Trickster")
+      )
+        return Math.floor(klass.level / 3);
+      return 0;
+    })
+    .reduce((a, b) => a + b);
+}
+
+export function getDefaultSpellSlots(
+  character: Character,
+  slotLevel: SpellLevel
+): number {
+  return getSpellSlotsByLevelAndSpellcasterLevel(
+    slotLevel,
+    calculateSpellcasterLevel(character)
+  );
+}
+
+export const OPTIONAL_FIELD_INITIALIZERS: {
+  [key in FIELD]?: (
+    character: Character,
+    subField?: string
+  ) => CustomFormula | undefined;
+} = {
+  pbOverride: getPB,
+  maxHp: getHpFormula,
+  expendedHitDice: () => 0,
+  exp: () => 0,
+  coins: () => 0,
+  spellcastingClasses: (character, subField) => {
+    if (!subField)
+      throw new Error(
+        "cannot get optional info for spellcastingClasses without a subField"
+      );
+    const [index, subSubField] = subField.split(".");
+    if (subSubField === "abilityOverride") {
+      return getSpellcastingAbility(
+        character.spellcastingClasses[parseInt(index)].class
+      );
+    }
+    if (subSubField === "saveDcOverride") {
+      return {
+        operation: Operation.addition,
+        operands: [
+          8,
+          "proficiencyBonus",
+          character.spellcastingClasses[parseInt(index)].abilityOverride ||
+            getSpellcastingAbility(
+              character.spellcastingClasses[parseInt(index)].class
+            ),
+        ],
+      };
+    } else if (subSubField === "attackBonusOverride") {
+      return {
+        operation: Operation.addition,
+        operands: [
+          "proficiencyBonus",
+          character.spellcastingClasses[parseInt(index)].abilityOverride ||
+            getSpellcastingAbility(
+              character.spellcastingClasses[parseInt(index)].class
+            ),
+        ],
+      };
+    }
+    return undefined;
+  },
+  spellSlots: (character, subField) =>
+    subField?.split(".")[1] === "totalOverride"
+      ? getDefaultSpellSlots(character, subField?.split(".")[0] as SpellLevel)
+      : undefined,
+  pactSlots: (character, subField) =>
+    subField === "totalOverride"
+      ? getPactSlotInfo(character).total
+      : subField === "levelOverride"
+      ? getPactSlotInfo(character).level
+      : undefined,
+};

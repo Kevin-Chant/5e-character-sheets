@@ -242,9 +242,16 @@ export type FieldTypeNode =
   | "string"
   | "number"
   | "formula"
-  | "class"
+  | "formulaWithDamage"
+  | "singleClass"
+  | "multiClass"
+  | "textLine"
+  | "attack"
+  | "hitDice"
+  | "spellcastingClass"
+  | "spell"
   | typeof Alignment
-  | FieldTypeInfo;
+  | typeof StatKey;
 export interface FieldTypeInfo extends Record<string, FieldTypeNode> {}
 
 export const EDITABLE_FIELD_OPTIONAL_DATA: Record<
@@ -283,68 +290,35 @@ export const EDITABLE_FIELD_OPTIONAL_DATA: Record<
 
 export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   name: "string",
-  class: "class",
+  class: "multiClass",
   background: "string",
   playerName: "string",
   race: "string",
   alignment: Alignment,
   exp: "number",
-  stats: {
-    str: "number",
-    dex: "number",
-    con: "number",
-    int: "number",
-    wis: "number",
-    cha: "number",
-  },
+  stats: "number",
   inspiration: "number",
   pbOverride: "number",
-  proficiencies: {
-    savingThrows: {
-      str: "boolean",
-      dex: "boolean",
-      con: "boolean",
-      int: "boolean",
-      wis: "boolean",
-      cha: "boolean",
-    },
-    skills: {
-      Acrobatics: "boolean",
-      "Animal Handling": "boolean",
-      Arcana: "boolean",
-      Athletics: "boolean",
-      Deception: "boolean",
-      History: "boolean",
-      Insight: "boolean",
-      Intimidation: "boolean",
-      Investigation: "boolean",
-      Medicine: "boolean",
-      Nature: "boolean",
-      Perception: "boolean",
-      Performance: "boolean",
-      Persuasion: "boolean",
-      Religion: "boolean",
-      "Sleight of Hand": "boolean",
-      Stealth: "boolean",
-      Survival: "boolean",
-      "Thieves Tools": "boolean",
-    },
-  },
+  proficiencies: "boolean",
+  otherProficiencies: "textLine",
   acFormula: "formula",
   speed: "number",
   maxHp: "formula",
   currHp: "number",
   tempHp: "number",
-  hitDice: {
-    d4: { total: "number", expended: "number" },
-    d6: { total: "number", expended: "number" },
-    d8: { total: "number", expended: "number" },
-    d10: { total: "number", expended: "number" },
-    d12: { total: "number", expended: "number" },
-    d20: { total: "number", expended: "number" },
-  },
+  totalHitDice: "hitDice",
+  expendedHitDice: "number",
   exhaustion: "number",
-  deathSaves: { successes: "number", failures: "number" },
+  deathSaves: "number",
+  coins: "number",
+  equipment: "textLine",
+  personality: "textLine",
+  features: "textLine",
+  attacks: "attack",
+  spellcastingClasses: "spellcastingClass",
+  spells: "spell",
+  spellSlots: "number",
+  pactSlots: "number",
 };
 
 export enum Operation {
@@ -364,4 +338,79 @@ export enum DieOperation {
   "average-roundeddown" = "average-roundeddown",
   "roll" = "roll",
   "max" = "max",
+}
+
+export enum FIELD {
+  name = "name",
+  class = "class",
+  background = "background",
+  playerName = "playerName",
+  race = "race",
+  alignment = "alignment",
+  exp = "exp",
+  stats = "stats",
+  inspiration = "inspiration",
+  pbOverride = "pbOverride",
+  proficiencies = "proficiencies",
+  otherProficiencies = "otherProficiencies",
+  acFormula = "acFormula",
+  speed = "speed",
+  maxHp = "maxHp",
+  currHp = "currHp",
+  tempHp = "tempHp",
+  totalHitDice = "totalHitDice",
+  expendedHitDice = "expendedHitDice",
+  exhaustion = "exhaustion",
+  deathSaves = "deathSaves",
+  attacks = "attacks",
+  coins = "coins",
+  equipment = "equipment",
+  personality = "personality",
+  features = "features",
+  spellcastingClasses = "spellcastingClasses",
+  spells = "spells",
+  spellSlots = "spellSlots",
+  pactSlots = "pactSlots",
+}
+
+export const HIT_DICE: Record<OfficialClass, StandardDie> = {
+  Artificer: StandardDie.d8,
+  Barbarian: StandardDie.d12,
+  Bard: StandardDie.d8,
+  Cleric: StandardDie.d8,
+  Druid: StandardDie.d8,
+  Fighter: StandardDie.d10,
+  Monk: StandardDie.d8,
+  Paladin: StandardDie.d10,
+  Ranger: StandardDie.d10,
+  Rogue: StandardDie.d8,
+  Sorcerer: StandardDie.d6,
+  Warlock: StandardDie.d8,
+  Wizard: StandardDie.d6,
+};
+
+export const SPELLCASTING_ABILITIES: { [key in OfficialClass]?: StatKey } = {
+  Artificer: StatKey.int,
+  Bard: StatKey.cha,
+  Cleric: StatKey.wis,
+  Druid: StatKey.wis,
+  Fighter: StatKey.int,
+  Paladin: StatKey.cha,
+  Ranger: StatKey.wis,
+  Rogue: StatKey.int,
+  Sorcerer: StatKey.cha,
+  Warlock: StatKey.cha,
+  Wizard: StatKey.int,
+};
+
+export enum SpellLevel {
+  First = "First",
+  Second = "Second",
+  Third = "Third",
+  Fourth = "Fourth",
+  Fifth = "Fifth",
+  Sixth = "Sixth",
+  Seventh = "Seventh",
+  Eighth = "Eighth",
+  Ninth = "Ninth",
 }

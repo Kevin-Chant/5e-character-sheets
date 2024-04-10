@@ -1,11 +1,11 @@
 import classNames from "classnames";
-import { StatKey } from "src/lib/data/data-definitions";
-import { FIELD } from "src/lib/hooks/reducers/actions";
+import { FIELD, StatKey } from "src/lib/data/data-definitions";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { modifier } from "src/lib/utils";
 
 export default function StatDisplay(props: {
   field: FIELD;
+  subField: string;
   statKey: StatKey;
   name: string;
   value: number;
@@ -13,7 +13,7 @@ export default function StatDisplay(props: {
 }) {
   const { pushTargetedField } = useTargetedField();
   const onClick = props.editable
-    ? () => pushTargetedField(props.field)
+    ? () => pushTargetedField(props.field, props.subField)
     : () => {
         return;
       };
@@ -23,7 +23,7 @@ export default function StatDisplay(props: {
       <div className="column">
         <p className="display-title">{props.name}</p>
         <p
-          className={classNames("display-value large", {
+          className={classNames("display-value margin-small large", {
             editable: props.editable,
             readOnly: !props.editable,
           })}

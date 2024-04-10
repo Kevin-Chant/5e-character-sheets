@@ -1,6 +1,6 @@
-import { FIELD } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
+import { FIELD } from "src/lib/data/data-definitions";
 
 export default function CharacterInfoPanel() {
   const { character } = useCharacter();
@@ -9,14 +9,24 @@ export default function CharacterInfoPanel() {
     <div className="column">
       <MultiLineTextDisplay
         title="Personality Traits"
-        field={FIELD["personality.traits"]}
+        field={FIELD.personality}
+        subField="traits"
       />
       <MultiLineTextDisplay
         title="Ideals"
-        field={FIELD["personality.ideals"]}
+        field={FIELD.personality}
+        subField="ideals"
       />
-      <MultiLineTextDisplay title="Bonds" field={FIELD["personality.bonds"]} />
-      <MultiLineTextDisplay title="Flaws" field={FIELD["personality.flaws"]} />
+      <MultiLineTextDisplay
+        title="Bonds"
+        field={FIELD.personality}
+        subField="bonds"
+      />
+      <MultiLineTextDisplay
+        title="Flaws"
+        field={FIELD.personality}
+        subField="flaws"
+      />
       <MultiLineTextDisplay title="Features & Traits" field={FIELD.features} />
     </div>
   );

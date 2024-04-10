@@ -1,46 +1,71 @@
 import React, { useEffect, useState } from "react";
 import {
   Alignment,
+  EDITABLE_FIELD_OPTIONAL_DATA,
+  OfficialClass,
   STANDARD_EDITABLE_FIELD_TYPES,
+  StatKey,
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import { getFieldValue, traverse } from "src/lib/utils";
+import {
+  getFieldValue,
+  traverse,
+  OPTIONAL_FIELD_INITIALIZERS,
+} from "src/lib/utils";
+import { useSave } from "./modals/modal-container";
+import { updateData } from "src/lib/hooks/reducers/actions";
+import OptionOrCustomValue from "./display/option-or-custom-value";
 
 export interface UpdateFieldProps {
-  onSubmit: (data: any) => void;
+  allowUndefined?: boolean;
+  modalType:
+    | "string"
+    | "number"
+    | "boolean"
+    | "singleClass"
+    | "spellcastingClass"
+    | typeof Alignment
+    | typeof StatKey;
 }
 
-export default function UpdateField(props: UpdateFieldProps) {
-  const { targetedField } = useTargetedField();
-  const { character } = useCharacter();
-
-  const [value, setValue] = useState<string>("");
-  useEffect(() => {
-    if (character && targetedField) {
-      setValue(getFieldValue(targetedField, character));
-    }
-  }, [character, targetedField]);
+export default function UpdateField({
+  allowUndefined,
+  modalType,
+}: UpdateFieldProps) {
+  const { targetedField, subField } = useTargetedField();
+  const { character, dispatch } = useCharacter();
+  const { saveData } = useSave();
 
   if (!character || !targetedField) return <></>;
 
-  const fieldType = traverse(targetedField, STANDARD_EDITABLE_FIELD_TYPES);
+  let currentValue = getFieldValue(targetedField, character);
+  if (subField) currentValue = traverse(subField, currentValue);
+  if (!currentValue && OPTIONAL_FIELD_INITIALIZERS[targetedField]) {
+    currentValue = OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
+      undefined,
+      character,
+      subField
+    );
+  }
 
-  const onSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    // TODO: allow optional fields to have falsy value
-    if (!value) return;
+  const setValue = (value: string) => {
+    if (!value && !allowUndefined) return;
     // TODO: validate new data matches expected type
     let sanitizedValue: any;
-    if (fieldType === "number") {
+    if (modalType === "number") {
       sanitizedValue = parseInt(value);
       if (isNaN(sanitizedValue)) {
-        sanitizedValue = undefined;
+        if (allowUndefined) {
+          sanitizedValue = undefined;
+        } else {
+          return;
+        }
       }
     } else {
       sanitizedValue = value;
     }
-    props.onSubmit({ value: sanitizedValue });
+    dispatch(updateData(targetedField, { value }, subField));
   };
 
   const onChangeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,23 +76,42 @@ export default function UpdateField(props: UpdateFieldProps) {
     setValue(e.target.value);
   };
 
+  const optionalData = EDITABLE_FIELD_OPTIONAL_DATA[targetedField];
   return (
     <form>
       <div className="column">
-        {(fieldType === "string" ||
-          fieldType === "number" ||
-          fieldType === "boolean") && (
+        {optionalData && (
+          <>
+            <p className="font-large bold">{optionalData.title}</p>
+            <i>{optionalData.hint}</i>
+          </>
+        )}
+        {(modalType === "string" ||
+          modalType === "number" ||
+          modalType === "boolean") && (
           <input
-            type={fieldType}
+            type={modalType}
             onChange={onChangeInput}
-            value={value}
+            value={currentValue}
             autoFocus={true}
+            onFocus={(e) => e.target.select()}
           ></input>
         )}
-        {fieldType === Alignment && (
+        {modalType === "singleClass" && (
+          <OptionOrCustomValue
+            value={currentValue}
+            setValue={setValue}
+            options={Object.keys(OfficialClass)}
+            customDefaultValue={"Homebrew Class"}
+            customInputType="text"
+            customValueHelpText="Custom class:"
+          />
+        )}
+        {/* TODO: make this into general enum? */}
+        {modalType === Alignment && (
           <select
             className="font-large"
-            value={value}
+            value={currentValue}
             onChange={onChangeSelect}
             autoFocus={true}
           >
@@ -80,7 +124,23 @@ export default function UpdateField(props: UpdateFieldProps) {
             })}
           </select>
         )}
-        <button className="margin-small" onClick={onSubmit}>
+        {modalType === StatKey && (
+          <select
+            className="font-large"
+            value={currentValue}
+            onChange={onChangeSelect}
+            autoFocus={true}
+          >
+            {Object.keys(StatKey).map((option) => {
+              return (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              );
+            })}
+          </select>
+        )}
+        <button className="margin-small" onClick={saveData}>
           Save
         </button>
       </div>

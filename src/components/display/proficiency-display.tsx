@@ -1,12 +1,16 @@
 import classNames from "classnames";
+import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { Character } from "src/lib/types";
-import { getFieldValue } from "src/lib/utils";
+import { getFieldValue, traverse } from "src/lib/utils";
 
 interface ProficiencyDisplayProps {
   id: string;
-  field: string;
+  field: FIELD;
+  subField: string;
   proficient: boolean;
+  expert: boolean;
+  jack: boolean;
   text: string;
   subtext?: string;
   transform?: (value: any, character: Character) => string | number;
@@ -17,7 +21,10 @@ interface ProficiencyDisplayProps {
 export default function ProficiencyDisplay({
   id,
   field,
+  subField,
   proficient,
+  expert,
+  jack,
   text,
   subtext,
   transform,
@@ -36,9 +43,10 @@ export default function ProficiencyDisplay({
         updateProficiency(!proficient);
       };
 
-  const value =
-    transform?.(getFieldValue(field, character), character) ??
-    getFieldValue(field, character);
+  let value = getFieldValue(field, character);
+  if (subField) value = traverse(subField, value);
+  if (transform) value = transform(value, character);
+  const TextComponent = expert ? "b" : jack ? "i" : "p";
 
   return (
     <div className="proficiency-display">
@@ -51,10 +59,12 @@ export default function ProficiencyDisplay({
           readOnly={true}
           onClick={onClick}
         />
-        <p className="display-value tiny">{value}</p>
-        <p className="display-text">
+        <TextComponent className="display-value margin-small tiny">
+          {value}
+        </TextComponent>
+        <TextComponent className="display-text">
           {text} {subtext}
-        </p>
+        </TextComponent>
       </div>
     </div>
   );

@@ -1,26 +1,26 @@
-import { FIELD } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { CustomFormula, isAtomicVariable, isExpression } from "src/lib/types";
 import { EditableAtomicVariable } from "./editable-atomic-variable";
 import { EditableExpression } from "./editable-expression";
+import { FaPencil } from "react-icons/fa6";
 
 interface EditableCustomFormulaProps {
   formula: CustomFormula;
   setFormula: (newVal: CustomFormula) => void;
   removeOperand?: () => void;
-  fieldPath: FIELD;
+  subField?: string;
 }
 
 export function EditableCustomFormula({
   formula,
   setFormula,
   removeOperand,
-  fieldPath,
+  subField,
 }: EditableCustomFormulaProps) {
-  const { pushTargetedField } = useTargetedField();
+  const { targetedField, pushTargetedField } = useTargetedField();
   const { character } = useCharacter();
-  if (!character) return <></>;
+  if (!character || !targetedField) return <></>;
   if (isAtomicVariable(formula)) {
     return (
       <EditableAtomicVariable
@@ -33,15 +33,31 @@ export function EditableCustomFormula({
   if (isExpression(formula)) {
     return (
       <div className="column">
-        <button onClick={removeOperand}>x</button>
+        <div className="row">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              pushTargetedField(targetedField, subField);
+            }}
+          >
+            <FaPencil />
+          </button>
+          {removeOperand && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                removeOperand();
+              }}
+            >
+              x
+            </button>
+          )}
+        </div>
         <EditableExpression
           expr={formula}
           setExpr={setFormula}
           edit={false}
-          setEdit={() => {
-            pushTargetedField(fieldPath);
-          }}
-          fieldPath={fieldPath}
+          subField={subField}
         />
       </div>
     );

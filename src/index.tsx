@@ -1,25 +1,33 @@
-import React from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
-import ReactDOM from 'react-dom/client';
-import reportWebVitals from './reportWebVitals';
-import './index.css';
-import Root from './routes/root';
-import ErrorPage from './error-page';
-import Home from './routes/home';
-import LocalSheet from './routes/localsheet';
-import { ConfirmProvider } from 'src/lib/hooks/confirm/confirm.provider';
-import { CharacterContextProvider } from 'src/lib/hooks/use-character';
-import { TargetedFieldContextProvider } from './lib/hooks/use-targeted-field';
+import React from "react";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import ReactDOM from "react-dom/client";
+import reportWebVitals from "./reportWebVitals";
+import "./index.css";
+import Root from "./routes/root";
+import ErrorPage from "./error-page";
+import Home from "./routes/home";
+import SheetContainer from "./components/sheet-container";
+import { ConfirmProvider } from "src/lib/hooks/confirm/confirm.provider";
+import { CharacterContextProvider } from "src/lib/hooks/use-character";
+import { TargetedFieldContextProvider } from "./lib/hooks/use-targeted-field";
+import { DatastoreSelectorContextProvider } from "./lib/hooks/use-datastore-selector";
+import { DatastoreContextProvider } from "./lib/hooks/use-datastore";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <ConfirmProvider>
-        <TargetedFieldContextProvider>
-          <Root/>
-        </TargetedFieldContextProvider>
-      </ConfirmProvider>
+      <DatastoreSelectorContextProvider>
+        <DatastoreContextProvider>
+          <CharacterContextProvider debounceWait={500}>
+            <ConfirmProvider>
+              <TargetedFieldContextProvider>
+                <Root />
+              </TargetedFieldContextProvider>
+            </ConfirmProvider>
+          </CharacterContextProvider>
+        </DatastoreContextProvider>
+      </DatastoreSelectorContextProvider>
     ),
     errorElement: <ErrorPage />,
     children: [
@@ -28,21 +36,19 @@ const router = createBrowserRouter([
         element: <Home />,
       },
       {
-        path: "/local",
-        element: (
-          <CharacterContextProvider>
-            <LocalSheet/>
-          </CharacterContextProvider>
-        ),
-      }
-    ]
+        path: "/sheet",
+        element: <SheetContainer />,
+      },
+    ],
   },
 ]);
 
-const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+const root = ReactDOM.createRoot(
+  document.getElementById("root") as HTMLElement
+);
 root.render(
   <React.StrictMode>
-    <RouterProvider router={router}/>
+    <RouterProvider router={router} />
   </React.StrictMode>
 );
 

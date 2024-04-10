@@ -1,19 +1,26 @@
 import ProficiencyDisplay from "src/components/display/proficiency-display";
 import SingleValueDisplay from "src/components/display/single-value-display";
 import StatDisplay from "src/components/display/stat-display";
-import { SkillName, StatKey } from "src/lib/data/data-definitions";
-import { FIELD, updateData } from "src/lib/hooks/reducers/actions";
+import { FIELD, SkillName, StatKey } from "src/lib/data/data-definitions";
+import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import { SKILL_SOURCE_STATS, STAT_NAMES, getPB, modifier } from "src/lib/utils";
+import {
+  SKILL_SOURCE_STATS,
+  STAT_NAMES,
+  calculateAtomicVariable,
+  calculateCustomFormula,
+  getPB,
+  modifier,
+} from "src/lib/utils";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 
 function SkillsColumn({ pb }: { pb: number }) {
   const { character, dispatch } = useCharacter();
   if (!character) return <></>;
 
-  const createProficiencyUpdater = (field: FIELD) => {
+  const createProficiencyUpdater = (field: FIELD, subField: string) => {
     return (value: boolean) => {
-      dispatch(updateData(field, { value: value }));
+      dispatch(updateData(field, { value: value }, subField));
     };
   };
 
@@ -27,7 +34,7 @@ function SkillsColumn({ pb }: { pb: number }) {
       <SingleValueDisplay
         name="Proficiency Bonus"
         field={FIELD.pbOverride}
-        transform={(pbOverride) => pbOverride || getPB(character)}
+        transform={calculateCustomFormula}
         editable
       />
       <div className="column rounded-border-box margin-medium">
@@ -37,15 +44,19 @@ function SkillsColumn({ pb }: { pb: number }) {
             return (
               <ProficiencyDisplay
                 key={statKey}
-                field={`proficiencies.savingThrows.${statKey}`}
+                field={FIELD.proficiencies}
+                subField={`savingThrows.${statKey}`}
                 id={`${statKey}_save_proficiency`}
                 proficient={proficient}
+                expert={false}
+                jack={false}
                 transform={(proficient) =>
                   modifier(character.stats[statKey]) + (proficient ? pb : 0)
                 }
                 text={statName}
                 updateProficiency={createProficiencyUpdater(
-                  FIELD[`proficiencies.savingThrows.${statKey}`]
+                  FIELD.proficiencies,
+                  `savingThrows.${statKey}`
                 )}
               />
             );
@@ -57,21 +68,35 @@ function SkillsColumn({ pb }: { pb: number }) {
       <div className="column rounded-border-box margin-medium">
         {(Object.entries(SKILL_SOURCE_STATS) as [SkillName, StatKey][]).map(
           ([skillName, statKey]) => {
-            // TODO: handle expertise and jack of all trades
             const proficient = !!character.proficiencies.skills[skillName];
+            const expert = !!character.proficiencies.expertise[skillName];
+            const jack =
+              (character.class.find((klass) => klass.name === "Bard")?.level ||
+                0) > 1 || character.proficiencies.isJackOfAllTradesOverride;
             return (
               <ProficiencyDisplay
                 key={skillName}
-                field={`proficiencies.skills.${skillName}`}
+                field={FIELD.proficiencies}
+                subField={`skills.${skillName}`}
                 id={`${skillName}_proficiency`}
                 proficient={proficient}
+                expert={expert}
+                jack={jack}
                 transform={(proficient) =>
-                  modifier(character.stats[statKey]) + (proficient ? pb : 0)
+                  modifier(character.stats[statKey]) +
+                  (expert
+                    ? 2 * pb
+                    : proficient
+                    ? pb
+                    : jack
+                    ? Math.floor(pb / 2)
+                    : 0)
                 }
                 text={skillName}
                 subtext={`(${statKey})`}
                 updateProficiency={createProficiencyUpdater(
-                  FIELD[`proficiencies.skills.${skillName}`]
+                  FIELD.proficiencies,
+                  `skills.${skillName}`
                 )}
               />
             );
@@ -94,7 +119,8 @@ function StatsAndSkills({ pb }: { pb: number }) {
             const statName = STAT_NAMES[statKey];
             return (
               <StatDisplay
-                field={FIELD[`stats.${statKey}`]}
+                field={FIELD.stats}
+                subField={statKey}
                 name={statName}
                 value={statVal}
                 key={statKey}
@@ -121,7 +147,8 @@ export default function StatAndSkillPanel() {
       <StatsAndSkills pb={pb} />
       <SingleValueDisplay
         name="Passive Wisdom (Perception)"
-        field={FIELD["stats.wis"]}
+        field={FIELD.stats}
+        subField="wis"
         transform={(wis) => calculatePassivePerception(wis)}
       />
       <MultiLineTextDisplay

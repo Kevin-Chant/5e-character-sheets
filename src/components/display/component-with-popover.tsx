@@ -27,6 +27,7 @@ export default function ComponentWithPopover({
   };
   const Component = (Components as any)[ComponentType] || "div";
 
+  // TODO fix nesting by splitting container logic and component logic
   return (
     <Component
       className={componentClass}
@@ -35,7 +36,7 @@ export default function ComponentWithPopover({
       onMouseLeave={() => setHovering(false)}
     >
       {componentChildren}
-      {(showPopover || hovering) && (
+      {(showPopover || hovering) && popoverChildren && (
         <div className={popoverClass}>{popoverChildren}</div>
       )}
     </Component>

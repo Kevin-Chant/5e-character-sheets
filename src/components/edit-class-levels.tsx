@@ -1,21 +1,20 @@
 import { without } from "lodash";
 import React, { useEffect, useState } from "react";
 import {
+  FIELD,
   OfficialClass,
   OfficialSubclasses,
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { IClass, isOfficialClass } from "src/lib/types";
 import OptionOrCustomValue from "./display/option-or-custom-value";
+import { useSave } from "./modals/modal-container";
+import { updateData } from "src/lib/hooks/reducers/actions";
 
 export interface EditSingleClassProps {
   klass: IClass;
   setKlass: (newVal: IClass) => void;
   options: string[];
-}
-
-interface EditClassLevelsProps {
-  onSubmit: (value: any) => void;
 }
 
 function EditSingleClass({ klass, setKlass, options }: EditSingleClassProps) {
@@ -59,22 +58,13 @@ function EditSingleClass({ klass, setKlass, options }: EditSingleClassProps) {
   );
 }
 
-export default function EditClassLevels(props: EditClassLevelsProps) {
-  const { character } = useCharacter();
-  const [klassArr, setKlassArr] = useState<IClass[]>([]);
-
-  useEffect(() => {
-    if (character) {
-      setKlassArr(character.class);
-    }
-  }, [character]);
+export default function EditClassLevels() {
+  const { character, dispatch } = useCharacter();
+  const { saveData } = useSave();
 
   if (!character) return <></>;
 
-  const onSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    props.onSubmit({ value: klassArr });
-  };
+  const klassArr = character.class;
 
   const unusedClassnames = Object.keys(OfficialClass).filter(
     (className) => !klassArr.map((klass) => klass.name).includes(className)
@@ -82,10 +72,12 @@ export default function EditClassLevels(props: EditClassLevelsProps) {
 
   const addClass = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    setKlassArr(
-      klassArr.concat([
-        { name: unusedClassnames[0] || "Homebrew Class", level: 1 },
-      ])
+    dispatch(
+      updateData(FIELD.class, {
+        value: klassArr.concat([
+          { name: unusedClassnames[0] || "Homebrew Class", level: 1 },
+        ]),
+      })
     );
   };
 
@@ -96,20 +88,34 @@ export default function EditClassLevels(props: EditClassLevelsProps) {
     e.preventDefault();
     const newKlassArr = klassArr.slice();
     newKlassArr.splice(index, 1);
-    setKlassArr(newKlassArr);
+    dispatch(
+      updateData(FIELD.class, {
+        value: newKlassArr,
+      })
+    );
   };
 
   const updateKlass = (index: number, newKlass: IClass) => {
-    const newKlassArr = klassArr.slice();
-    newKlassArr.splice(index, 1, newKlass);
-    setKlassArr(newKlassArr);
+    dispatch(
+      updateData(
+        FIELD.class,
+        {
+          value: newKlass,
+        },
+        index.toString()
+      )
+    );
   };
 
   return (
     <form>
       <div className="column">
-        <div className="row">
-          <b className="title font-large margin-medium">Class and Levels</b>
+        <div className="column">
+          <b className="title font-large">Class and Levels</b>
+          <i className="">
+            Make sure your starting class is the first entry for the automatic
+            HP formula to work correctly
+          </i>
         </div>
         <div className="column">
           {klassArr.map((klass, i) => (
@@ -129,7 +135,7 @@ export default function EditClassLevels(props: EditClassLevelsProps) {
           ))}
           <button onClick={addClass}>Add multiclass</button>
         </div>
-        <button className="margin-small" onClick={onSubmit}>
+        <button className="margin-small" onClick={saveData}>
           Save
         </button>
       </div>

@@ -17,8 +17,10 @@ import {
   SkillName,
   StandardDie,
   StatKey,
+  FIELD,
+  SpellLevel,
 } from "./data/data-definitions";
-import { FIELD } from "./hooks/reducers/actions";
+import { UUID } from "crypto";
 
 //////////////////////
 // Begin Typeguards //
@@ -44,10 +46,30 @@ export function isMap<K extends string | number | symbol, V>(
 }
 
 export function isTextComponent(data: any): data is TextComponent {
+  return isTextComponentWithDetail(data) || isTextComponentWithoutDetail(data);
+}
+
+export function isTextComponentWithoutDetail(
+  data: any
+): data is TextComponentWithoutDetails {
   return (
     typeof data === "object" &&
     typeof data.title === "string" &&
-    ["undefined", "string"].includes(typeof data.detail)
+    isArray(data.titleFormulas) &&
+    typeof data.detail === "undefined" &&
+    typeof data.detail === "undefined"
+  );
+}
+
+export function isTextComponentWithDetail(
+  data: any
+): data is TextComponentWithDetails {
+  return (
+    typeof data === "object" &&
+    typeof data.title === "string" &&
+    isArray(data.titleFormulas) &&
+    typeof data.detail === "string" &&
+    isArray(data.detailFormulas)
   );
 }
 
@@ -245,7 +267,7 @@ export type DieExpression = [number, DieDefinition, DieOperation];
 export type ClassName = OfficialClass | string;
 
 export type HitDice = {
-  [key in StandardDie]?: { total: number; expended: number };
+  [key in StandardDie]?: number;
 };
 
 export interface Attack {
@@ -258,14 +280,54 @@ export type CoinAmounts = { [key in CoinType]?: number };
 
 export type Proficiencies<T extends string | number> = { [key in T]?: boolean };
 
-export interface TextComponent {
+interface TextComponentWithDetails {
   title: string;
-  detail?: string;
+  titleFormulas: CustomFormula[];
+  detail: string;
+  detailFormulas: CustomFormula[];
+}
+
+interface TextComponentWithoutDetails {
+  title: string;
+  titleFormulas: CustomFormula[];
+}
+
+export type TextComponent =
+  | TextComponentWithDetails
+  | TextComponentWithoutDetails;
+
+export interface SpellCastingClass {
+  class: ClassName;
+  abilityOverride?: StatKey;
+  saveDcOverride?: CustomFormula;
+  attackBonusOverride?: CustomFormula;
+}
+
+export interface Spell {
+  spellcastingClass: ClassName;
+  info: TextComponent;
+}
+
+export type Spells = {
+  cantrips?: Spell[];
+} & {
+  [key in SpellLevel]?: Spell[];
+};
+
+export type SpellSlots = {
+  [key in SpellLevel]: { totalOverride?: number; expended: number };
+};
+
+export interface PactSlots {
+  totalOverride?: number;
+  levelOverride?: number;
+  expended: number;
 }
 
 type BaseCharacter = { [key in FIELD]?: any };
 
 export interface Character extends BaseCharacter {
+  uuid: UUID;
   name: string;
   class: IClass[];
   background: string;
@@ -279,14 +341,17 @@ export interface Character extends BaseCharacter {
   proficiencies: {
     savingThrows: Proficiencies<StatKey>;
     skills: Proficiencies<SkillName>;
+    expertise: Proficiencies<SkillName>;
+    isJackOfAllTradesOverride: boolean;
   };
   otherProficiencies: TextComponent[];
   acFormula: CustomFormula;
   speed: number;
-  maxHp: CustomFormula;
+  maxHp?: CustomFormula;
   currHp: number;
   tempHp: number;
-  hitDice: HitDice;
+  totalHitDice?: HitDice;
+  expendedHitDice: HitDice;
   exhaustion: number;
   deathSaves: { successes: number; failures: number };
   attacks: Attack[];
@@ -299,6 +364,10 @@ export interface Character extends BaseCharacter {
     flaws: TextComponent[];
   };
   features: TextComponent[];
+  spellcastingClasses: SpellCastingClass[];
+  spells: Spells;
+  spellSlots: SpellSlots;
+  pactSlots?: PactSlots;
 }
 
 export type CharacterField = keyof Character;
@@ -310,3 +379,11 @@ export interface IClass {
 }
 
 export type CharacterStats = Record<StatKey, number>;
+
+export interface Datastore {
+  name: string;
+  saveToDatastore: (character: Character) => void;
+  loadFromDatastore: (uuid: UUID) => Character | undefined;
+  listEntriesInDatastore: () => Character[];
+  deleteFromDatastore: (uuid: UUID) => void;
+}
