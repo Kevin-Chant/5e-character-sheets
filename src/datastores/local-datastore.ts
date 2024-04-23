@@ -1,5 +1,4 @@
 import { UUID } from "crypto";
-import { defaultCharacter } from "src/lib/data/default-data";
 import { Character, Datastore } from "src/lib/types";
 
 const getOrInitializeCharacterFolder = (): Record<UUID, Character> => {
@@ -13,17 +12,24 @@ const saveCharacterFolder = (charFolder: Record<UUID, Character>) => {
 
 const LocalDatastore: Datastore = {
   name: "Local sheet",
+  debounceWait: 1000,
+  initializeDatastore: () => {},
   saveToDatastore: (character: Character) => {
-    const charFolder = getOrInitializeCharacterFolder();
-    charFolder[character.uuid] = character;
-    saveCharacterFolder(charFolder);
+    return new Promise((resolve, _reject) => {
+      const charFolder = getOrInitializeCharacterFolder();
+      charFolder[character.uuid] = character;
+      saveCharacterFolder(charFolder);
+      resolve();
+    });
   },
-  loadFromDatastore: (uuid: UUID): Character | undefined => {
-    const charFolder = getOrInitializeCharacterFolder();
-    if (charFolder[uuid]) {
-      return charFolder[uuid];
-    }
-    return undefined;
+  loadFromDatastore: (uuid: UUID): Promise<Character | undefined> => {
+    return new Promise((resolve, _reject) => {
+      const charFolder = getOrInitializeCharacterFolder();
+      if (charFolder[uuid]) {
+        resolve(charFolder[uuid]);
+      }
+      resolve(undefined);
+    });
   },
   listEntriesInDatastore: (): Character[] => {
     const charFolder = getOrInitializeCharacterFolder();

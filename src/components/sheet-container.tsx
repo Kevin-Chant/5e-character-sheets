@@ -1,4 +1,5 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import CharSheet from "src/components/charsheet";
 import ModalContainer from "src/components/modals/modal-container";
 import LocalDatastore from "src/datastores/local-datastore";
@@ -14,6 +15,11 @@ export default function SheetContainer() {
   const { character, dispatch, setUnsavedChanges } = useCharacter();
   const [modalOpen, setModalOpen] = useState(false);
   const [importErrorMessage, setImportErrorMessage] = useState("");
+  const { datastore } = useDatastoreSelector();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!datastore) navigate("/");
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -68,9 +74,9 @@ export default function SheetContainer() {
     dispatch(loadFullCharacter(defaultCharacter), false);
   }, [dispatch]);
 
-  const { datastore } = useDatastoreSelector();
-  if (!datastore) return <></>;
-
+  if (!datastore) {
+    return <></>;
+  }
   return (
     <>
       {modalOpen && (

@@ -15,31 +15,38 @@ import { usePrompt } from "src/lib/hooks/use-prompt";
 import { Character, Datastore } from "src/lib/types";
 import { defaultCharacter } from "../data/default-data";
 import { CharacterContextProvider, useCharacter } from "./use-character";
-import { debounce } from "lodash";
 import { UUID } from "crypto";
 import { useDatastoreSelector } from "./use-datastore-selector";
 
 interface DatastoreContextData {
   saving: boolean;
   characters: Character[];
-  save: (character: Character) => void;
-  load: (uuid: UUID) => Character | undefined;
+  save: (character: Character) => Promise<void>;
+  load: (uuid: UUID) => Promise<Character | undefined>;
   deleteCharacter: (uuid: UUID) => void;
+  debounceWait: number;
 }
 
 export const DatastoreContext = React.createContext<DatastoreContextData>({
   saving: false,
   characters: [],
   save: (character: Character) => {
-    console.log("Calling default save");
+    return new Promise((resolve) => {
+      console.log("Calling default save");
+      resolve();
+    });
   },
   load: (uuid: UUID) => {
-    console.log("Calling default load");
-    return undefined;
+    return new Promise((resolve) => {
+      console.log("Calling default load");
+
+      resolve(undefined);
+    });
   },
   deleteCharacter: (uuid: UUID) => {
     console.log("Calling default deleteCharacter");
   },
+  debounceWait: 1000,
 });
 
 export function DatastoreContextProvider(props: React.PropsWithChildren) {
@@ -48,21 +55,17 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   const [localCharacters, setLocalCharacters] = useState<
     Record<UUID, Character>
   >({});
-  const setSaved = useCallback(
-    debounce(() => {
-      setSaving(false);
-    }, 300),
-    [setSaving]
-  );
 
-  const save = (character: Character) => {
+  const save = async (character: Character) => {
     if (datastore) {
       setSaving(true);
-      datastore.saveToDatastore(character);
+      await datastore.saveToDatastore(character);
       const newLocalCharacters = JSON.parse(JSON.stringify(localCharacters));
       newLocalCharacters[character.uuid] = character;
       setLocalCharacters(newLocalCharacters);
-      setTimeout(setSaved, 500);
+      setSaving(false);
+    } else {
+      return new Promise<void>((resolve) => resolve());
     }
   };
 
@@ -70,7 +73,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     if (datastore) {
       return datastore.loadFromDatastore(uuid);
     }
-    return undefined;
+    return new Promise<Character | undefined>((resolve) => resolve(undefined));
   };
 
   const deleteCharacter = (uuid: UUID) => {
@@ -85,6 +88,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   // TODO: remove debug statement or turn into dev-only
   useEffect(() => {
     console.log("Datastore changed", datastore);
+    datastore?.initializeDatastore();
     const charList = datastore?.listEntriesInDatastore() || [];
     setLocalCharacters(
       Object.fromEntries(
@@ -101,6 +105,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     save,
     load,
     deleteCharacter,
+    debounceWait: datastore?.debounceWait || 1000,
   };
 
   return (

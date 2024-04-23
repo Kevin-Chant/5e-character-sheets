@@ -12,22 +12,26 @@ import { CharacterContextProvider } from "src/lib/hooks/use-character";
 import { TargetedFieldContextProvider } from "./lib/hooks/use-targeted-field";
 import { DatastoreSelectorContextProvider } from "./lib/hooks/use-datastore-selector";
 import { DatastoreContextProvider } from "./lib/hooks/use-datastore";
+import GoogleAuthInitializer from "./components/google-auth-initializer";
+import { GoogleOauthContextProvider } from "./lib/hooks/use-google-oauth";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <DatastoreSelectorContextProvider>
-        <DatastoreContextProvider>
-          <CharacterContextProvider debounceWait={500}>
-            <ConfirmProvider>
-              <TargetedFieldContextProvider>
-                <Root />
-              </TargetedFieldContextProvider>
-            </ConfirmProvider>
-          </CharacterContextProvider>
-        </DatastoreContextProvider>
-      </DatastoreSelectorContextProvider>
+      <GoogleOauthContextProvider>
+        <DatastoreSelectorContextProvider>
+          <DatastoreContextProvider>
+            <CharacterContextProvider>
+              <ConfirmProvider>
+                <TargetedFieldContextProvider>
+                  <Root />
+                </TargetedFieldContextProvider>
+              </ConfirmProvider>
+            </CharacterContextProvider>
+          </DatastoreContextProvider>
+        </DatastoreSelectorContextProvider>
+      </GoogleOauthContextProvider>
     ),
     errorElement: <ErrorPage />,
     children: [
@@ -38,6 +42,10 @@ const router = createBrowserRouter([
       {
         path: "/sheet",
         element: <SheetContainer />,
+      },
+      {
+        path: "/auth",
+        element: <GoogleAuthInitializer />,
       },
     ],
   },

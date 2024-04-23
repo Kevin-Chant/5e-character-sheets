@@ -1,7 +1,8 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Character, Datastore } from "src/lib/types";
 import { UUID } from "crypto";
 import LocalDatastore from "src/datastores/local-datastore";
+import useScript from "./use-script";
 
 interface DatastoreSelectorContextData {
   datastore?: Datastore;

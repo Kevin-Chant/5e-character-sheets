@@ -28,16 +28,10 @@ export const CharacterContext = React.createContext<CharacterContextData>({
   },
 });
 
-interface CharacterContextProviderProps {
-  debounceWait: number;
-}
-
-export function CharacterContextProvider(
-  props: React.PropsWithChildren<CharacterContextProviderProps>
-) {
+export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [character, dispatch] = useReducer(reducer, null);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
-  const { save } = useDatastore();
+  const { save, debounceWait } = useDatastore();
 
   useLazyEffect(
     () => {
@@ -47,7 +41,7 @@ export function CharacterContextProvider(
       }
     },
     [character],
-    props.debounceWait
+    debounceWait
   );
 
   const dispatchWithUnsavedChanges: React.Dispatch<Action> = (

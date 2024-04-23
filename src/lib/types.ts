@@ -382,8 +382,10 @@ export type CharacterStats = Record<StatKey, number>;
 
 export interface Datastore {
   name: string;
-  saveToDatastore: (character: Character) => void;
-  loadFromDatastore: (uuid: UUID) => Character | undefined;
+  debounceWait: number;
+  initializeDatastore: () => void;
+  saveToDatastore: (character: Character) => Promise<void>;
+  loadFromDatastore: (uuid: UUID) => Promise<Character | undefined>;
   listEntriesInDatastore: () => Character[];
   deleteFromDatastore: (uuid: UUID) => void;
 }
