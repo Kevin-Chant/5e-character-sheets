@@ -48,7 +48,7 @@ export default function Root() {
                   return (
                     <li key={characterEntry.uuid} className="flex">
                       <Link
-                        to="/sheet"
+                        to={`/sheets/${characterEntry.uuid}`}
                         onClick={() => {
                           if (!isSameCharacter) {
                             dispatch(loadFullCharacter(characterEntry));

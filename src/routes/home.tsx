@@ -18,7 +18,7 @@ export default function Home() {
           setDatastore(LocalDatastore);
           reset();
         }}
-        to="/sheet"
+        to="/sheets"
       >
         Edit characters locally & store sheets in your browser
       </Link>

@@ -8,6 +8,7 @@ import { loadFullCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { DatastoreContextProvider } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
+import { leaveSharingSession, startSharingSession } from "src/lib/sharing";
 import { validateCharacterData } from "src/lib/utils";
 
 export default function SheetContainer() {
@@ -17,9 +18,21 @@ export default function SheetContainer() {
   const [importErrorMessage, setImportErrorMessage] = useState("");
   const { datastore } = useDatastoreSelector();
   const navigate = useNavigate();
+
   useEffect(() => {
     if (!datastore) navigate("/");
   }, []);
+
+  useEffect(() => {
+    if (character?.uuid) {
+      console.log("Joining session for", character.uuid);
+      startSharingSession(character.uuid, dispatch);
+      return () => {
+        console.log("Leaving session for", character.uuid);
+        leaveSharingSession(character.uuid);
+      };
+    }
+  }, [character?.uuid]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;

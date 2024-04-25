@@ -5,6 +5,7 @@ import { Character } from "src/lib/types";
 import { defaultCharacter } from "../data/default-data";
 import { useLazyEffect } from "./use-lazy-effect";
 import { useDatastore } from "./use-datastore";
+import { broadcast } from "../sharing";
 
 interface CharacterContextData {
   character: Character | undefined;
@@ -44,12 +45,16 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     debounceWait
   );
 
-  const dispatchWithUnsavedChanges: React.Dispatch<Action> = (
+  const dispatchAndBroadcast: React.Dispatch<Action> = (
     action: Action,
-    dirtyAction: boolean = true
+    dirtyAction: boolean = true,
+    suppressBroadcast: boolean = false
   ) => {
     dispatch(action);
     setUnsavedChanges(dirtyAction);
+    if (character && !suppressBroadcast) {
+      broadcast(character.uuid, action, dirtyAction);
+    }
   };
 
   // TODO: remove debug statement or turn into dev-only
@@ -62,7 +67,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const providerData = {
     character,
     reset,
-    dispatch: dispatchWithUnsavedChanges,
+    dispatch: dispatchAndBroadcast,
     unsavedChanges,
     setUnsavedChanges,
   };

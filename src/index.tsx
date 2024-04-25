@@ -40,7 +40,7 @@ const router = createBrowserRouter([
         element: <Home />,
       },
       {
-        path: "/sheet",
+        path: "/sheets*",
         element: <SheetContainer />,
       },
       {
