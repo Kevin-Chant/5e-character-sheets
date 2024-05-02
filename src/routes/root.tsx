@@ -3,6 +3,7 @@ import { UUID } from "crypto";
 import React from "react";
 import { FaTrash } from "react-icons/fa6";
 import { Outlet, Link } from "react-router-dom";
+import RemoteDatastore from "src/datastores/remote-datastore";
 import { defaultCharacter } from "src/lib/data/default-data";
 import {
   loadFullCharacter,
@@ -11,6 +12,7 @@ import {
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
+import { leaveSharingSession } from "src/lib/sharing";
 
 export default function Root() {
   const { datastore } = useDatastoreSelector();
@@ -18,16 +20,20 @@ export default function Root() {
 
   const { character, dispatch } = useCharacter();
 
-  const createNewCharacter = () => {
-    const newDefaultCharacter = defaultCharacter;
-    newDefaultCharacter.uuid = crypto.randomUUID() as UUID;
-    dispatch(loadFullCharacter(newDefaultCharacter), false);
-  };
-
   const deleteCharacterAndRefocus = (uuid: UUID) => {
     deleteCharacter(uuid);
+    // TODO: close session if hosting
+    leaveSharingSession(uuid);
     dispatch(resetCharacter());
   };
+
+  const loadNewCharacter = () => {
+    if (!datastore?.createCharacter) return;
+    dispatch(loadFullCharacter(datastore.createCharacter()));
+  };
+
+  const charactersNavText =
+    datastore === RemoteDatastore ? "Active sharing sessions" : "Saved sheets";
 
   return (
     <>
@@ -38,7 +44,7 @@ export default function Root() {
           <hr></hr>
           {datastore && (
             <>
-              <p>Saved characters:</p>
+              <p>{charactersNavText}:</p>
               <hr></hr>
               <ul>
                 {characters.map((characterEntry) => {
@@ -48,7 +54,7 @@ export default function Root() {
                   return (
                     <li key={characterEntry.uuid} className="flex">
                       <Link
-                        to={`/sheets/${characterEntry.uuid}`}
+                        to="/sheet"
                         onClick={() => {
                           if (!isSameCharacter) {
                             dispatch(loadFullCharacter(characterEntry));
@@ -64,14 +70,17 @@ export default function Root() {
                           deleteCharacterAndRefocus(characterEntry.uuid)
                         }
                       >
+                        {/* TODO: switch icon if remote-only connection */}
                         <FaTrash />
                       </button>
                     </li>
                   );
                 })}
-                <button onClick={createNewCharacter}>
-                  Create new character
-                </button>
+                {datastore.createCharacter && (
+                  <button onClick={loadNewCharacter}>
+                    Create new character
+                  </button>
+                )}
               </ul>
             </>
           )}

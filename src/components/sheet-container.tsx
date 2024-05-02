@@ -8,12 +8,19 @@ import { loadFullCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { DatastoreContextProvider } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
-import { leaveSharingSession, startSharingSession } from "src/lib/sharing";
 import { validateCharacterData } from "src/lib/utils";
+import SharingToggle from "./sharing-toggle";
 
 export default function SheetContainer() {
   const [fileSelected, setFileSelected] = useState<File | undefined>();
-  const { character, dispatch, setUnsavedChanges } = useCharacter();
+  const {
+    character,
+    dispatch,
+    setUnsavedChanges,
+    openSharingSession,
+    closeSharingSession,
+    sharingSessionOpen,
+  } = useCharacter();
   const [modalOpen, setModalOpen] = useState(false);
   const [importErrorMessage, setImportErrorMessage] = useState("");
   const { datastore } = useDatastoreSelector();
@@ -22,17 +29,6 @@ export default function SheetContainer() {
   useEffect(() => {
     if (!datastore) navigate("/");
   }, []);
-
-  useEffect(() => {
-    if (character?.uuid) {
-      console.log("Joining session for", character.uuid);
-      startSharingSession(character.uuid, dispatch);
-      return () => {
-        console.log("Leaving session for", character.uuid);
-        leaveSharingSession(character.uuid);
-      };
-    }
-  }, [character?.uuid]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -142,6 +138,7 @@ export default function SheetContainer() {
             Load from file
           </button>
         </div>
+        <SharingToggle />
       </div>
       {!character && (
         <button onClick={loadDefaultCharacter}>Create new character</button>

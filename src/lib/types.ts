@@ -25,6 +25,9 @@ import { UUID } from "crypto";
 //////////////////////
 // Begin Typeguards //
 //////////////////////
+export function isUuid(data: any): data is UUID {
+  return typeof data === "string" && !!data.match(/^\w+-\w+-\w+-\w+-\w+$/);
+}
 export function isArr<T>(
   data: any,
   validator: (data: any) => data is T
@@ -388,4 +391,5 @@ export interface Datastore {
   loadFromDatastore: (uuid: UUID) => Promise<Character | undefined>;
   listEntriesInDatastore: () => Character[];
   deleteFromDatastore: (uuid: UUID) => void;
+  createCharacter?: () => Character;
 }

@@ -14,6 +14,7 @@ import { DatastoreSelectorContextProvider } from "./lib/hooks/use-datastore-sele
 import { DatastoreContextProvider } from "./lib/hooks/use-datastore";
 import GoogleAuthInitializer from "./components/google-auth-initializer";
 import { GoogleOauthContextProvider } from "./lib/hooks/use-google-oauth";
+import RemoteConnectionInitializer from "./components/remote-connection-initializer";
 
 const router = createBrowserRouter([
   {
@@ -40,13 +41,14 @@ const router = createBrowserRouter([
         element: <Home />,
       },
       {
-        path: "/sheets*",
+        path: "/sheet",
         element: <SheetContainer />,
       },
       {
         path: "/auth",
         element: <GoogleAuthInitializer />,
       },
+      { path: "/join", element: <RemoteConnectionInitializer /> },
     ],
   },
 ]);

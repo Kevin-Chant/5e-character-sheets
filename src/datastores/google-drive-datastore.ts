@@ -1,4 +1,5 @@
 import { UUID } from "crypto";
+import { defaultCharacter } from "src/lib/data/default-data";
 import {
   createFile,
   deleteFile,
@@ -8,6 +9,7 @@ import {
 } from "src/lib/google-drive";
 import { Character, Datastore } from "src/lib/types";
 
+// TODO: maybe move local cache to separate file & share across datastores
 let knownFilenames: Record<UUID, string> = {};
 let localCache: Record<UUID, Character> = {};
 
@@ -66,6 +68,12 @@ const GoogleDriveDatastore: Datastore = {
       delete localCache[uuid];
       delete knownFilenames[uuid];
     });
+  },
+  createCharacter: () => {
+    const newDefaultCharacter = defaultCharacter;
+    newDefaultCharacter.uuid = crypto.randomUUID() as UUID;
+    writeThroughCache(newDefaultCharacter);
+    return newDefaultCharacter;
   },
 };
 

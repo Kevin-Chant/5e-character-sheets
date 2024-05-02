@@ -73,6 +73,9 @@ export default function ModalContainer({
     dispatch,
     unsavedChanges: false,
     setUnsavedChanges: () => {},
+    openSharingSession: () => {},
+    closeSharingSession: () => {},
+    sharingSessionOpen: false,
   };
   return (
     <SaveContext.Provider value={{ saveData }}>

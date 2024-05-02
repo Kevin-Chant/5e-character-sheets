@@ -1,4 +1,5 @@
 import { UUID } from "crypto";
+import { defaultCharacter } from "src/lib/data/default-data";
 import { Character, Datastore } from "src/lib/types";
 
 const getOrInitializeCharacterFolder = (): Record<UUID, Character> => {
@@ -39,6 +40,14 @@ const LocalDatastore: Datastore = {
     const charFolder = getOrInitializeCharacterFolder();
     delete charFolder[uuid];
     saveCharacterFolder(charFolder);
+  },
+  createCharacter: () => {
+    const newDefaultCharacter = defaultCharacter;
+    newDefaultCharacter.uuid = crypto.randomUUID() as UUID;
+    const charFolder = getOrInitializeCharacterFolder();
+    charFolder[newDefaultCharacter.uuid] = newDefaultCharacter;
+    saveCharacterFolder(charFolder);
+    return newDefaultCharacter;
   },
 };
 
