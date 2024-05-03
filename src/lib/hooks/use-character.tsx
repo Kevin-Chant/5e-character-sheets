@@ -15,6 +15,7 @@ import {
   broadcast,
   leaveSharingSession,
   startSharingSession,
+  endSharingSession,
 } from "../sharing";
 
 interface CharacterContextData {
@@ -97,8 +98,8 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   };
 
   const closeSharingSession = () => {
-    // TODO: close session don't just leave it
     leaveSharingSession(character.uuid);
+    endSharingSession(character.uuid);
     setSharingSessionOpen(false);
   };
 

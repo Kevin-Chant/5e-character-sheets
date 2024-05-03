@@ -4,6 +4,9 @@ import autobahn from "autobahn-browser";
 import { Action } from "./hooks/reducers/actions";
 import { Character } from "./types";
 
+// TODO: make this configurable and add default value
+const serverUrl = "http://localhost:9000";
+
 // TODO: app name
 export enum SessionEvent {
   DISPATCH = "com.charsheets.dispatch",
@@ -13,7 +16,7 @@ export enum SessionEvent {
 
 const openConnections: Record<UUID, autobahn.Connection> = {};
 
-export function startSharingSession(
+export async function startSharingSession(
   uuid: UUID,
   dispatch: (
     action: Action,
@@ -22,10 +25,16 @@ export function startSharingSession(
   ) => void,
   getCharacter: () => Character
 ) {
-  // TODO: make standard fetch request to open realm with given UUID
+  const realmName = uuid.replaceAll("-", "");
+  const res = await fetch(`${serverUrl}/openRealm/${realmName}`);
+  if (res.status !== 200) {
+    // TODO: better error handling
+    alert("Failed to start sharing session, please try again later");
+    return;
+  }
   const newConnection = new autobahn.Connection({
-    url: "http://localhost:9000",
-    realm: uuid.replaceAll("-", ""),
+    url: serverUrl,
+    realm: realmName,
   });
   newConnection.onopen = (session: any) => {
     // TODO: app name
@@ -38,7 +47,7 @@ export function startSharingSession(
     // TODO: move this somewhere with access to the character reference
     session.register(SessionEvent.FULL_SYNC, getCharacter);
   };
-  newConnection.open();
+  await newConnection.open();
   openConnections[uuid] = newConnection;
 }
 
@@ -82,6 +91,16 @@ export function leaveSharingSession(uuid: UUID) {
   if (openConnections[uuid]) {
     openConnections[uuid].close();
     delete openConnections[uuid];
+  }
+}
+
+export async function endSharingSession(uuid: UUID) {
+  const realmName = uuid.replaceAll("-", "");
+  const res = await fetch(`${serverUrl}/closeRealm/${realmName}`);
+  if (res.status !== 204) {
+    // TODO: better error handling
+    alert("Failed to close sharing session, please try again later");
+    return;
   }
 }
 
