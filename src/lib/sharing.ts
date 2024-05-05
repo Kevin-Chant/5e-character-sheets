@@ -16,6 +16,10 @@ export enum SessionEvent {
 
 const openConnections: Record<UUID, autobahn.Connection> = {};
 
+export function getOpenConnections(): UUID[] {
+  return Object.keys(openConnections) as UUID[];
+}
+
 export async function startSharingSession(
   uuid: UUID,
   dispatch: (
@@ -100,8 +104,9 @@ export async function endSharingSession(uuid: UUID) {
   if (res.status !== 204) {
     // TODO: better error handling
     alert("Failed to close sharing session, please try again later");
-    return;
+    return true;
   }
+  return false;
 }
 
 export function broadcast(uuid: UUID, action: Action, dirtyAction?: boolean) {

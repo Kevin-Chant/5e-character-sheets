@@ -5,7 +5,7 @@ import { Character, Datastore } from "src/lib/types";
 const RemoteDatastore: Datastore = {
   name: "Friend's sheet",
   debounceWait: 3000,
-  initializeDatastore: () => {},
+  initializeDatastore: () => new Promise((resolve) => resolve()),
   saveToDatastore: (character: Character) => {
     // TODO: do remote datastores need a save function
     return new Promise((resolve, _reject) => {
@@ -13,6 +13,7 @@ const RemoteDatastore: Datastore = {
     });
   },
   loadFromDatastore: syncRemoteCharacter,
+  // TODO: list currently active connections by adding local cache and calling getOpenConnections()
   listEntriesInDatastore: (): Character[] => {
     return Object.values({});
   },

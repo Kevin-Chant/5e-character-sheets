@@ -57,6 +57,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   >({});
 
   const save = async (character: Character) => {
+    console.log("Running save function within useDatastore");
     if (datastore) {
       setSaving(true);
       await datastore.saveToDatastore(character);
@@ -87,17 +88,17 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
 
   // TODO: remove debug statement or turn into dev-only
   useEffect(() => {
-    console.log("Datastore changed", datastore);
-    datastore?.initializeDatastore();
-    const charList = datastore?.listEntriesInDatastore() || [];
-    setLocalCharacters(
-      Object.fromEntries(
-        charList.map((character) => [character.uuid, character])
-      )
-    );
+    if (!datastore) return;
+    datastore.initializeDatastore().then(() => {
+      const charList = datastore.listEntriesInDatastore();
+      console.log("Listing entries resulted in", charList.length, "characters");
+      setLocalCharacters(
+        Object.fromEntries(
+          charList.map((character) => [character.uuid, character])
+        )
+      );
+    });
   }, [datastore]);
-
-  // usePrompt({ isDirty: unsavedChanges });
 
   const providerData = {
     saving,

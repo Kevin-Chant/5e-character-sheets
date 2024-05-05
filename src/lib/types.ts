@@ -386,10 +386,10 @@ export type CharacterStats = Record<StatKey, number>;
 export interface Datastore {
   name: string;
   debounceWait: number;
-  initializeDatastore: () => void;
+  initializeDatastore: () => Promise<void>;
   saveToDatastore: (character: Character) => Promise<void>;
   loadFromDatastore: (uuid: UUID) => Promise<Character | undefined>;
   listEntriesInDatastore: () => Character[];
   deleteFromDatastore: (uuid: UUID) => void;
-  createCharacter?: () => Character;
+  createCharacter?: () => Promise<Character>;
 }

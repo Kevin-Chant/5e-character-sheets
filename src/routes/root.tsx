@@ -27,9 +27,11 @@ export default function Root() {
     dispatch(resetCharacter());
   };
 
-  const loadNewCharacter = () => {
+  const loadNewCharacter = async () => {
+    // TODO: add loading state
     if (!datastore?.createCharacter) return;
-    dispatch(loadFullCharacter(datastore.createCharacter()));
+    const newChar = await datastore.createCharacter();
+    dispatch(loadFullCharacter(newChar));
   };
 
   const charactersNavText =

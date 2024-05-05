@@ -16,7 +16,6 @@ export default function SharingToggle() {
   if (!character || !datastore || datastore === RemoteDatastore) return <></>;
 
   const toggleSharing = (checked: boolean) => {
-    // TODO
     if (checked) {
       openSharingSession();
     } else {

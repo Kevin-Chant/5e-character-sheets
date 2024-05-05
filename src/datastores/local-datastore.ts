@@ -14,7 +14,7 @@ const saveCharacterFolder = (charFolder: Record<UUID, Character>) => {
 const LocalDatastore: Datastore = {
   name: "Local sheet",
   debounceWait: 1000,
-  initializeDatastore: () => {},
+  initializeDatastore: () => new Promise((resolve) => resolve()),
   saveToDatastore: (character: Character) => {
     return new Promise((resolve, _reject) => {
       const charFolder = getOrInitializeCharacterFolder();
@@ -47,7 +47,7 @@ const LocalDatastore: Datastore = {
     const charFolder = getOrInitializeCharacterFolder();
     charFolder[newDefaultCharacter.uuid] = newDefaultCharacter;
     saveCharacterFolder(charFolder);
-    return newDefaultCharacter;
+    return new Promise((resolve) => resolve(newDefaultCharacter));
   },
 };
 

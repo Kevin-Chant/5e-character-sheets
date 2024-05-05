@@ -58,9 +58,11 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
 
   useLazyEffect(
     () => {
+      console.log("Running lazy effect to save character to datastore");
       if (character) {
-        save(character);
-        setUnsavedChanges(false);
+        save(character).then(() => {
+          setUnsavedChanges(false);
+        });
       }
     },
     [character],
@@ -93,14 +95,16 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   }, [character]);
 
   const openSharingSession = () => {
-    startSharingSession(character.uuid, dispatch, getCharacter);
-    setSharingSessionOpen(true);
+    startSharingSession(character.uuid, dispatch, getCharacter).then(() => {
+      setSharingSessionOpen(true);
+    });
   };
 
   const closeSharingSession = () => {
     leaveSharingSession(character.uuid);
-    endSharingSession(character.uuid);
-    setSharingSessionOpen(false);
+    endSharingSession(character.uuid).then((res) => {
+      setSharingSessionOpen(res);
+    });
   };
 
   const providerData = {
