@@ -13,6 +13,7 @@ const saveCharacterFolder = (charFolder: Record<UUID, Character>) => {
 
 const LocalDatastore: Datastore = {
   name: "Local sheet",
+  savedSheetsCopy: "Characters saved in your browser:",
   debounceWait: 1000,
   initializeDatastore: () => new Promise((resolve) => resolve()),
   saveToDatastore: (character: Character) => {

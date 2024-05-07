@@ -385,6 +385,7 @@ export type CharacterStats = Record<StatKey, number>;
 
 export interface Datastore {
   name: string;
+  savedSheetsCopy: string;
   debounceWait: number;
   initializeDatastore: () => Promise<void>;
   saveToDatastore: (character: Character) => Promise<void>;

@@ -4,6 +4,7 @@ import { Character, Datastore } from "src/lib/types";
 
 const RemoteDatastore: Datastore = {
   name: "Friend's sheet",
+  savedSheetsCopy: "Friends' shared characters:",
   debounceWait: 3000,
   initializeDatastore: () => new Promise((resolve) => resolve()),
   saveToDatastore: (character: Character) => {

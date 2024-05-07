@@ -36,7 +36,6 @@ import { useDatastore } from "src/lib/hooks/use-datastore";
 import { FaCheck, FaSpinner, FaTriangleExclamation } from "react-icons/fa6";
 
 export default function CharSheet() {
-  const { saving, save } = useDatastore();
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const {
     targetedField,
@@ -46,21 +45,6 @@ export default function CharSheet() {
     targetedFieldStackLength,
   } = useTargetedField();
   const [modalType, setModalType] = useState<FieldTypeNode>();
-  const { unsavedChanges } = useCharacter();
-
-  const saveIndicator = saving ? (
-    <p>
-      <FaSpinner /> Saving changes
-    </p>
-  ) : unsavedChanges ? (
-    <p>
-      <FaTriangleExclamation /> Unsaved changes
-    </p>
-  ) : (
-    <p>
-      <FaCheck /> Changes saved
-    </p>
-  );
 
   useEffect(() => {
     if (targetedField) {
@@ -118,8 +102,6 @@ export default function CharSheet() {
   const { character } = useCharacter();
   if (!character) return <></>;
 
-  const saveCurrentCharacter = () => save(character);
-
   let modalContents = <></>;
   switch (modalType) {
     case undefined:
@@ -166,11 +148,7 @@ export default function CharSheet() {
         </ModalContainer>
       )}
       <div className="page-container">
-        <div id="save-container">
-          {saveIndicator}
-          <button onClick={saveCurrentCharacter}>Force save</button>
-        </div>
-        <div className="header">
+        <div className="character-info-header">
           <div className="row">
             <div className="rounded-border-box">
               <SingleValueDisplay

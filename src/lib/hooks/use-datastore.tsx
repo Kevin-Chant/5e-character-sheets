@@ -23,8 +23,11 @@ interface DatastoreContextData {
   characters: Character[];
   save: (character: Character) => Promise<void>;
   load: (uuid: UUID) => Promise<Character | undefined>;
+  createCharacter: () => Promise<Character | undefined>;
   deleteCharacter: (uuid: UUID) => void;
   debounceWait: number;
+  characterLoading: boolean;
+  setCharacterLoading: (newValue: boolean) => void;
 }
 
 export const DatastoreContext = React.createContext<DatastoreContextData>({
@@ -43,15 +46,24 @@ export const DatastoreContext = React.createContext<DatastoreContextData>({
       resolve(undefined);
     });
   },
+  createCharacter: () => {
+    console.log("Calling default createCharacter");
+    return new Promise((resolve) => resolve(undefined));
+  },
   deleteCharacter: (uuid: UUID) => {
     console.log("Calling default deleteCharacter");
   },
   debounceWait: 1000,
+  characterLoading: false,
+  setCharacterLoading: () => {
+    console.log("Calling default setCharacterLoading");
+  },
 });
 
 export function DatastoreContextProvider(props: React.PropsWithChildren) {
   const { datastore } = useDatastoreSelector();
   const [saving, setSaving] = useState(false);
+  const [characterLoading, setCharacterLoading] = useState(false);
   const [localCharacters, setLocalCharacters] = useState<
     Record<UUID, Character>
   >({});
@@ -66,15 +78,30 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
       setLocalCharacters(newLocalCharacters);
       setSaving(false);
     } else {
-      return new Promise<void>((resolve) => resolve());
+      return new Promise<void>((resolve) => resolve(undefined));
     }
   };
 
-  const load = (uuid: UUID) => {
+  const load = async (uuid: UUID) => {
     if (datastore) {
-      return datastore.loadFromDatastore(uuid);
+      const char = await datastore.loadFromDatastore(uuid);
+      setCharacterLoading(false);
+      return char;
     }
-    return new Promise<Character | undefined>((resolve) => resolve(undefined));
+    return new Promise<Character | undefined>((resolve) => {
+      setCharacterLoading(false);
+      resolve(undefined);
+    });
+  };
+
+  const createCharacter = async (): Promise<Character | undefined> => {
+    if (datastore && datastore.createCharacter) {
+      setCharacterLoading(true);
+      const character = await datastore.createCharacter();
+      setCharacterLoading(false);
+      return character;
+    }
+    return new Promise((resolve) => resolve(undefined));
   };
 
   const deleteCharacter = (uuid: UUID) => {
@@ -102,9 +129,12 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
 
   const providerData = {
     saving,
+    characterLoading,
+    setCharacterLoading,
     characters: Object.values(localCharacters),
     save,
     load,
+    createCharacter,
     deleteCharacter,
     debounceWait: datastore?.debounceWait || 1000,
   };

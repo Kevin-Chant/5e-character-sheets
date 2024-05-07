@@ -64,6 +64,7 @@ const writeThroughCache = async (character: Character) => {
 
 const GoogleDriveDatastore: Datastore = {
   name: "Google Drive (cloud-synced) sheet",
+  savedSheetsCopy: "Characters saved in Google Drive:",
   debounceWait: 5000,
   initializeDatastore: async () => {
     await populateKnownFilenames();
