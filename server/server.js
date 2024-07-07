@@ -11,7 +11,15 @@ const transport = createServer(
   //     cert: fs.readFileSync(__dirname + "/config/server.crt"),
   //   },
   (req, res) => {
-    const pathSegments = (req.url || "/").split("/").splice(1);
+    const path = req.url || "/";
+    if (path === "/health") {
+      res.writeHead(200, {
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end();
+      return;
+    }
+    const pathSegments = path.split("/").splice(1);
     let status = 200;
     let statusMessage = "";
     if (pathSegments.length !== 2) {
