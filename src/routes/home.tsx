@@ -1,6 +1,4 @@
-import React from "react";
 import { Link } from "react-router-dom";
-import GoogleDriveDatastore from "src/datastores/google-drive-datastore";
 import LocalDatastore from "src/datastores/local-datastore";
 import RemoteDatastore from "src/datastores/remote-datastore";
 import { useCharacter } from "src/lib/hooks/use-character";

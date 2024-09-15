@@ -7,14 +7,13 @@ import {
   FaFileExport,
   FaFileImport,
   FaFloppyDisk,
+  FaGear,
   FaHouse,
   FaSpinner,
   FaTrash,
   FaTriangleExclamation,
 } from "react-icons/fa6";
-import { Outlet, Link, useRoutes } from "react-router-dom";
-import RemoteDatastore from "src/datastores/remote-datastore";
-import { defaultCharacter } from "src/lib/data/default-data";
+import { Outlet, Link } from "react-router-dom";
 import {
   loadFullCharacter,
   resetCharacter,
@@ -22,7 +21,6 @@ import {
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
-import { leaveSharingSession } from "src/lib/sharing";
 import SharingToggle from "src/components/sharing-toggle";
 import { validateCharacterData } from "src/lib/utils";
 
@@ -34,8 +32,7 @@ function Sidebar() {
 
   const deleteCharacterAndRefocus = (uuid: UUID) => {
     deleteCharacter(uuid);
-    // TODO: close session if hosting
-    leaveSharingSession(uuid);
+    // TODO: deal with remote sessions whether hosting or joining
     dispatch(resetCharacter());
   };
 
@@ -147,9 +144,7 @@ export default function Root() {
           setImportErrorMessage("");
           setModalOpen(false);
         } else {
-          {
-            setImportErrorMessage("Failed to import, invalid file chosen");
-          }
+          setImportErrorMessage("Failed to import, invalid file chosen");
         }
       } catch (e) {
         setImportErrorMessage(
@@ -204,14 +199,38 @@ export default function Root() {
           </button>
           <SharingToggle />
         </nav>
-        {character && (
-          <div id="save-container">
-            <p className="margin-small">{saveIndicator}</p>
-            <button onClick={() => save(character)}>
-              <FaFloppyDisk />
-            </button>
+        <div id="right-nav-components">
+          <div>
+            <Link to="/settings">
+              <button>
+                <FaGear />
+              </button>
+            </Link>
           </div>
-        )}
+          <div>
+            <a
+              href="https://github.com/Kevin-Chant/5e-character-sheets"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <button>
+                <img
+                  id="github-icon"
+                  src="github-mark.png"
+                  alt="github logo, link to github"
+                />
+              </button>
+            </a>
+          </div>
+          {character && (
+            <div id="save-container">
+              <p className="margin-small">{saveIndicator}</p>
+              <button onClick={() => save(character)}>
+                <FaFloppyDisk />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       {modalOpen && (
         <div className="modal-container">

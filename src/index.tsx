@@ -1,7 +1,6 @@
 import React from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import ReactDOM from "react-dom/client";
-import reportWebVitals from "./reportWebVitals";
 import "./index.css";
 import Root from "./routes/root";
 import ErrorPage from "./error-page";
@@ -15,30 +14,38 @@ import { DatastoreContextProvider } from "./lib/hooks/use-datastore";
 import GoogleAuthInitializer from "./components/google-auth-initializer";
 import { GoogleOauthContextProvider } from "./lib/hooks/use-google-oauth";
 import RemoteConnectionInitializer from "./components/remote-connection-initializer";
+import SettingsPage from "./routes/settings-page";
+import { SettingsContextProvider } from "./lib/hooks/use-settings";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <GoogleOauthContextProvider>
-        <DatastoreSelectorContextProvider>
-          <DatastoreContextProvider>
-            <CharacterContextProvider>
-              <ConfirmProvider>
-                <TargetedFieldContextProvider>
-                  <Root />
-                </TargetedFieldContextProvider>
-              </ConfirmProvider>
-            </CharacterContextProvider>
-          </DatastoreContextProvider>
-        </DatastoreSelectorContextProvider>
-      </GoogleOauthContextProvider>
+      <SettingsContextProvider>
+        <GoogleOauthContextProvider>
+          <DatastoreSelectorContextProvider>
+            <DatastoreContextProvider>
+              <CharacterContextProvider>
+                <ConfirmProvider>
+                  <TargetedFieldContextProvider>
+                    <Root />
+                  </TargetedFieldContextProvider>
+                </ConfirmProvider>
+              </CharacterContextProvider>
+            </DatastoreContextProvider>
+          </DatastoreSelectorContextProvider>
+        </GoogleOauthContextProvider>
+      </SettingsContextProvider>
     ),
     errorElement: <ErrorPage />,
     children: [
       {
         path: "/",
         element: <Home />,
+      },
+      {
+        path: "/settings",
+        element: <SettingsPage />,
       },
       {
         path: "/sheet",
@@ -61,8 +68,3 @@ root.render(
     <RouterProvider router={router} />
   </React.StrictMode>
 );
-
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals(undefined);

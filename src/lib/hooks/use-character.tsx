@@ -8,15 +8,9 @@ import React, {
 import { Action, resetCharacter } from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
-import { defaultCharacter } from "../data/default-data";
 import { useLazyEffect } from "./use-lazy-effect";
 import { useDatastore } from "./use-datastore";
-import {
-  broadcast,
-  leaveSharingSession,
-  startSharingSession,
-  endSharingSession,
-} from "../sharing";
+import { useHostSharingSession } from "./use-sharing-session";
 
 interface CharacterContextData {
   character: Character | undefined;
@@ -51,10 +45,20 @@ export const CharacterContext = React.createContext<CharacterContextData>({
 });
 
 export function CharacterContextProvider(props: React.PropsWithChildren) {
-  const [character, dispatch] = useReducer(reducer, null);
+  const [character, dispatch] = useReducer(reducer, undefined);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const { save, debounceWait } = useDatastore();
   const [sharingSessionOpen, setSharingSessionOpen] = useState(false);
+  // TODO: this is likely not stateful. Need to make sure the newest value of character is available
+  // inside the body of useHostSharingSession
+  const getCharacter = useCallback<() => Character | undefined>(() => {
+    return character;
+  }, [character]);
+
+  const { broadcast, startSession, endSession } = useHostSharingSession(
+    dispatch,
+    getCharacter
+  );
 
   useLazyEffect(
     () => {
@@ -77,7 +81,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     dispatch(action);
     setUnsavedChanges(dirtyAction);
     if (character && !suppressBroadcast) {
-      broadcast(character.uuid, action, dirtyAction);
+      broadcast(action, dirtyAction);
     }
   };
 
@@ -88,21 +92,14 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
 
   const reset = () => dispatch(resetCharacter());
 
-  // TODO: this is likely not stateful. Need to make sure the newest value of character is available
-  // inside the body of startSharingSession
-  const getCharacter = useCallback(() => {
-    return character;
-  }, [character]);
-
   const openSharingSession = () => {
-    startSharingSession(character.uuid, dispatch, getCharacter).then(() => {
+    startSession().then(() => {
       setSharingSessionOpen(true);
     });
   };
 
   const closeSharingSession = () => {
-    leaveSharingSession(character.uuid);
-    endSharingSession(character.uuid).then((res) => {
+    endSession().then((res) => {
       setSharingSessionOpen(res);
     });
   };

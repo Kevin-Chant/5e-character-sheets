@@ -4,7 +4,6 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { Character } from "src/lib/types";
 import {
-  calculateCustomFormula,
   getFieldValue,
   traverse,
   OPTIONAL_FIELD_INITIALIZERS,

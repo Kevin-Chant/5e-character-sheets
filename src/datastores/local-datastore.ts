@@ -1,14 +1,14 @@
 import { UUID } from "crypto";
 import { defaultCharacter } from "src/lib/data/default-data";
+import { readLocalStorage, writeLocalStorage } from "src/lib/local-storage";
 import { Character, Datastore } from "src/lib/types";
 
 const getOrInitializeCharacterFolder = (): Record<UUID, Character> => {
-  const charFolder = window.localStorage.getItem("characters");
-  return JSON.parse(charFolder || "{}");
+  return readLocalStorage("characters", {});
 };
 
 const saveCharacterFolder = (charFolder: Record<UUID, Character>) => {
-  window.localStorage.setItem("characters", JSON.stringify(charFolder));
+  writeLocalStorage("characters", charFolder);
 };
 
 const LocalDatastore: Datastore = {

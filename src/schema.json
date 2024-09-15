@@ -1,869 +1,887 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "definitions": {
-    "Addition": {
-      "properties": {
-        "operands": {
-          "items": {
-            "$ref": "#/definitions/CustomFormula"
-          },
-          "type": "array"
-        },
-        "operation": {
-          "const": "addition",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Alignment": {
-      "enum": [
-        "Lawful Good",
-        "Neutral Good",
-        "Chaotic Good",
-        "Lawful Neutral",
-        "True Neutral",
-        "Chaotic Neutral",
-        "Lawful Evil",
-        "Neutral Evil",
-        "Chaotic Evil"
-      ],
-      "type": "string"
-    },
-    "Attack": {
-      "properties": {
-        "bonus": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "formula": {
-          "$ref": "#/definitions/CustomFormulaWithDamage"
-        },
-        "name": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Ceil": {
-      "properties": {
-        "operand1": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "operation": {
-          "const": "ceil",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "CharacterStats": {
-      "properties": {
-        "cha": {
-          "type": "number"
-        },
-        "con": {
-          "type": "number"
-        },
-        "dex": {
-          "type": "number"
-        },
-        "int": {
-          "type": "number"
-        },
-        "str": {
-          "type": "number"
-        },
-        "wis": {
-          "type": "number"
-        }
-      },
-      "type": "object"
-    },
-    "CoinAmounts": {
-      "properties": {
-        "CP": {
-          "type": "number"
-        },
-        "EP": {
-          "type": "number"
-        },
-        "GP": {
-          "type": "number"
-        },
-        "PP": {
-          "type": "number"
-        },
-        "SP": {
-          "type": "number"
-        }
-      },
-      "type": "object"
-    },
-    "CustomFormula": {
-      "anyOf": [
-        {
-          "items": [
-            {
-              "type": "number"
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "Addition": {
+            "properties": {
+                "operands": {
+                    "items": {
+                        "$ref": "#/definitions/CustomFormula"
+                    },
+                    "type": "array"
+                },
+                "operation": {
+                    "const": "addition",
+                    "type": "string"
+                }
             },
-            {
-              "$ref": "#/definitions/DieDefinition"
+            "type": "object"
+        },
+        "Alignment": {
+            "enum": [
+                "Lawful Good",
+                "Neutral Good",
+                "Chaotic Good",
+                "Lawful Neutral",
+                "True Neutral",
+                "Chaotic Neutral",
+                "Lawful Evil",
+                "Neutral Evil",
+                "Chaotic Evil"
+            ],
+            "type": "string"
+        },
+        "Attack": {
+            "properties": {
+                "bonus": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "formula": {
+                    "$ref": "#/definitions/CustomFormulaWithDamage"
+                },
+                "name": {
+                    "type": "string"
+                }
             },
-            {
-              "$ref": "#/definitions/DieOperation"
-            }
-          ],
-          "maxItems": 3,
-          "minItems": 3,
-          "type": "array"
+            "type": "object"
         },
-        {
-          "$ref": "#/definitions/Ceil"
+        "Ceil": {
+            "properties": {
+                "operand1": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "operation": {
+                    "const": "ceil",
+                    "type": "string"
+                }
+            },
+            "type": "object"
         },
-        {
-          "$ref": "#/definitions/Floor"
+        "CharacterStats": {
+            "properties": {
+                "cha": {
+                    "type": "number"
+                },
+                "con": {
+                    "type": "number"
+                },
+                "dex": {
+                    "type": "number"
+                },
+                "int": {
+                    "type": "number"
+                },
+                "str": {
+                    "type": "number"
+                },
+                "wis": {
+                    "type": "number"
+                }
+            },
+            "type": "object"
         },
-        {
-          "$ref": "#/definitions/Subtraction"
+        "CoinAmounts": {
+            "properties": {
+                "CP": {
+                    "type": "number"
+                },
+                "EP": {
+                    "type": "number"
+                },
+                "GP": {
+                    "type": "number"
+                },
+                "PP": {
+                    "type": "number"
+                },
+                "SP": {
+                    "type": "number"
+                }
+            },
+            "type": "object"
         },
-        {
-          "$ref": "#/definitions/Division"
+        "CustomFormula": {
+            "anyOf": [
+                {
+                    "items": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "$ref": "#/definitions/DieDefinition"
+                        },
+                        {
+                            "$ref": "#/definitions/DieOperation"
+                        }
+                    ],
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "type": "array"
+                },
+                {
+                    "$ref": "#/definitions/Ceil"
+                },
+                {
+                    "$ref": "#/definitions/Floor"
+                },
+                {
+                    "$ref": "#/definitions/Subtraction"
+                },
+                {
+                    "$ref": "#/definitions/Division"
+                },
+                {
+                    "$ref": "#/definitions/Addition"
+                },
+                {
+                    "$ref": "#/definitions/Multiplication"
+                },
+                {
+                    "$ref": "#/definitions/Maximum"
+                },
+                {
+                    "$ref": "#/definitions/Minimum"
+                },
+                {
+                    "type": [
+                        "string",
+                        "number"
+                    ]
+                }
+            ]
         },
-        {
-          "$ref": "#/definitions/Addition"
+        "CustomFormulaWithDamage": {
+            "properties": {
+                "Acid": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Bludgeoning": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Cold": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Fire": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Force": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Lightning": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Necrotic": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Piercing": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Poison": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Psychic": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Radiant": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Slashing": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Thunder": {
+                    "$ref": "#/definitions/CustomFormula"
+                }
+            },
+            "type": "object"
         },
-        {
-          "$ref": "#/definitions/Multiplication"
+        "DieDefinition": {
+            "anyOf": [
+                {
+                    "$ref": "#/definitions/NonStandardDie"
+                },
+                {
+                    "enum": [
+                        "d10",
+                        "d12",
+                        "d20",
+                        "d4",
+                        "d6",
+                        "d8"
+                    ],
+                    "type": "string"
+                }
+            ]
         },
-        {
-          "$ref": "#/definitions/Maximum"
+        "DieOperation": {
+            "enum": [
+                "average",
+                "average-roundedup",
+                "average-roundeddown",
+                "roll",
+                "max"
+            ],
+            "type": "string"
         },
-        {
-          "$ref": "#/definitions/Minimum"
+        "Division": {
+            "properties": {
+                "operand1": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "operand2": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "operation": {
+                    "const": "division",
+                    "type": "string"
+                }
+            },
+            "type": "object"
         },
-        {
-          "type": ["string", "number"]
+        "Floor": {
+            "properties": {
+                "operand1": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "operation": {
+                    "const": "floor",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "HitDice": {
+            "properties": {
+                "d10": {
+                    "type": "number"
+                },
+                "d12": {
+                    "type": "number"
+                },
+                "d20": {
+                    "type": "number"
+                },
+                "d4": {
+                    "type": "number"
+                },
+                "d6": {
+                    "type": "number"
+                },
+                "d8": {
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        },
+        "IClass": {
+            "properties": {
+                "level": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "subclass": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "Maximum": {
+            "properties": {
+                "operands": {
+                    "items": {
+                        "$ref": "#/definitions/CustomFormula"
+                    },
+                    "type": "array"
+                },
+                "operation": {
+                    "const": "maximum",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "Minimum": {
+            "properties": {
+                "operands": {
+                    "items": {
+                        "$ref": "#/definitions/CustomFormula"
+                    },
+                    "type": "array"
+                },
+                "operation": {
+                    "const": "minimum",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "Multiplication": {
+            "properties": {
+                "operands": {
+                    "items": {
+                        "$ref": "#/definitions/CustomFormula"
+                    },
+                    "type": "array"
+                },
+                "operation": {
+                    "const": "multiplication",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "NonStandardDie": {
+            "properties": {
+                "numFaces": {
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        },
+        "PactSlots": {
+            "properties": {
+                "expended": {
+                    "type": "number"
+                },
+                "levelOverride": {
+                    "type": "number"
+                },
+                "totalOverride": {
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        },
+        "Proficiencies<SkillName>": {
+            "properties": {
+                "Acrobatics": {
+                    "type": "boolean"
+                },
+                "Animal Handling": {
+                    "type": "boolean"
+                },
+                "Arcana": {
+                    "type": "boolean"
+                },
+                "Athletics": {
+                    "type": "boolean"
+                },
+                "Deception": {
+                    "type": "boolean"
+                },
+                "History": {
+                    "type": "boolean"
+                },
+                "Insight": {
+                    "type": "boolean"
+                },
+                "Intimidation": {
+                    "type": "boolean"
+                },
+                "Investigation": {
+                    "type": "boolean"
+                },
+                "Medicine": {
+                    "type": "boolean"
+                },
+                "Nature": {
+                    "type": "boolean"
+                },
+                "Perception": {
+                    "type": "boolean"
+                },
+                "Performance": {
+                    "type": "boolean"
+                },
+                "Persuasion": {
+                    "type": "boolean"
+                },
+                "Religion": {
+                    "type": "boolean"
+                },
+                "Sleight of Hand": {
+                    "type": "boolean"
+                },
+                "Stealth": {
+                    "type": "boolean"
+                },
+                "Survival": {
+                    "type": "boolean"
+                },
+                "Thieves Tools": {
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "Proficiencies<StatKey>": {
+            "properties": {
+                "cha": {
+                    "type": "boolean"
+                },
+                "con": {
+                    "type": "boolean"
+                },
+                "dex": {
+                    "type": "boolean"
+                },
+                "int": {
+                    "type": "boolean"
+                },
+                "str": {
+                    "type": "boolean"
+                },
+                "wis": {
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "Spell": {
+            "properties": {
+                "info": {
+                    "$ref": "#/definitions/TextComponent"
+                },
+                "spellcastingClass": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "SpellCastingClass": {
+            "properties": {
+                "abilityOverride": {
+                    "$ref": "#/definitions/StatKey"
+                },
+                "attackBonusOverride": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "class": {
+                    "type": "string"
+                },
+                "saveDcOverride": {
+                    "$ref": "#/definitions/CustomFormula"
+                }
+            },
+            "type": "object"
+        },
+        "SpellSlots": {
+            "properties": {
+                "Eighth": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "Fifth": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "First": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "Fourth": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "Ninth": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "Second": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "Seventh": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "Sixth": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "Third": {
+                    "properties": {
+                        "expended": {
+                            "type": "number"
+                        },
+                        "totalOverride": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                }
+            },
+            "type": "object"
+        },
+        "Spells": {
+            "allOf": [
+                {
+                    "properties": {
+                        "cantrips": {
+                            "items": {
+                                "$ref": "#/definitions/Spell"
+                            },
+                            "type": "array"
+                        }
+                    },
+                    "type": "object"
+                },
+                {
+                    "$ref": "#/definitions/{First?:Spell[];Second?:Spell[];Third?:Spell[];Fourth?:Spell[];Fifth?:Spell[];Sixth?:Spell[];Seventh?:Spell[];Eighth?:Spell[];Ninth?:Spell[];}"
+                }
+            ]
+        },
+        "StatKey": {
+            "enum": [
+                "str",
+                "dex",
+                "con",
+                "int",
+                "wis",
+                "cha"
+            ],
+            "type": "string"
+        },
+        "Subtraction": {
+            "properties": {
+                "operand1": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "operand2": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "operation": {
+                    "const": "subtraction",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "TextComponent": {
+            "anyOf": [
+                {
+                    "$ref": "#/definitions/TextComponentWithDetails"
+                },
+                {
+                    "$ref": "#/definitions/TextComponentWithoutDetails"
+                }
+            ]
+        },
+        "TextComponentWithDetails": {
+            "properties": {
+                "detail": {
+                    "type": "string"
+                },
+                "detailFormulas": {
+                    "items": {
+                        "$ref": "#/definitions/CustomFormula"
+                    },
+                    "type": "array"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "titleFormulas": {
+                    "items": {
+                        "$ref": "#/definitions/CustomFormula"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "TextComponentWithoutDetails": {
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "titleFormulas": {
+                    "items": {
+                        "$ref": "#/definitions/CustomFormula"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "{First?:Spell[];Second?:Spell[];Third?:Spell[];Fourth?:Spell[];Fifth?:Spell[];Sixth?:Spell[];Seventh?:Spell[];Eighth?:Spell[];Ninth?:Spell[];}": {
+            "properties": {
+                "Eighth": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "Fifth": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "First": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "Fourth": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "Ninth": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "Second": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "Seventh": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "Sixth": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "Third": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
         }
-      ]
     },
-    "CustomFormulaWithDamage": {
-      "properties": {
-        "Acid": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Bludgeoning": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Cold": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Fire": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Force": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Lightning": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Necrotic": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Piercing": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Poison": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Psychic": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Radiant": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Slashing": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "Thunder": {
-          "$ref": "#/definitions/CustomFormula"
-        }
-      },
-      "type": "object"
-    },
-    "DieDefinition": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/NonStandardDie"
-        },
-        {
-          "enum": ["d10", "d12", "d20", "d4", "d6", "d8"],
-          "type": "string"
-        }
-      ]
-    },
-    "DieOperation": {
-      "enum": [
-        "average",
-        "average-roundedup",
-        "average-roundeddown",
-        "roll",
-        "max"
-      ],
-      "type": "string"
-    },
-    "Division": {
-      "properties": {
-        "operand1": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "operand2": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "operation": {
-          "const": "division",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Floor": {
-      "properties": {
-        "operand1": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "operation": {
-          "const": "floor",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "HitDice": {
-      "properties": {
-        "d10": {
-          "type": "number"
-        },
-        "d12": {
-          "type": "number"
-        },
-        "d20": {
-          "type": "number"
-        },
-        "d4": {
-          "type": "number"
-        },
-        "d6": {
-          "type": "number"
-        },
-        "d8": {
-          "type": "number"
-        }
-      },
-      "type": "object"
-    },
-    "IClass": {
-      "properties": {
-        "level": {
-          "type": "number"
-        },
-        "name": {
-          "type": "string"
-        },
-        "subclass": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Maximum": {
-      "properties": {
-        "operands": {
-          "items": {
+    "properties": {
+        "acFormula": {
             "$ref": "#/definitions/CustomFormula"
-          },
-          "type": "array"
         },
-        "operation": {
-          "const": "maximum",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Minimum": {
-      "properties": {
-        "operands": {
-          "items": {
-            "$ref": "#/definitions/CustomFormula"
-          },
-          "type": "array"
+        "alignment": {
+            "$ref": "#/definitions/Alignment"
         },
-        "operation": {
-          "const": "minimum",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Multiplication": {
-      "properties": {
-        "operands": {
-          "items": {
-            "$ref": "#/definitions/CustomFormula"
-          },
-          "type": "array"
+        "attacks": {
+            "items": {
+                "$ref": "#/definitions/Attack"
+            },
+            "type": "array"
         },
-        "operation": {
-          "const": "multiplication",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "NonStandardDie": {
-      "properties": {
-        "numFaces": {
-          "type": "number"
-        }
-      },
-      "type": "object"
-    },
-    "PactSlots": {
-      "properties": {
-        "expended": {
-          "type": "number"
-        },
-        "levelOverride": {
-          "type": "number"
-        },
-        "totalOverride": {
-          "type": "number"
-        }
-      },
-      "type": "object"
-    },
-    "Proficiencies<SkillName>": {
-      "properties": {
-        "Acrobatics": {
-          "type": "boolean"
-        },
-        "Animal Handling": {
-          "type": "boolean"
-        },
-        "Arcana": {
-          "type": "boolean"
-        },
-        "Athletics": {
-          "type": "boolean"
-        },
-        "Deception": {
-          "type": "boolean"
-        },
-        "History": {
-          "type": "boolean"
-        },
-        "Insight": {
-          "type": "boolean"
-        },
-        "Intimidation": {
-          "type": "boolean"
-        },
-        "Investigation": {
-          "type": "boolean"
-        },
-        "Medicine": {
-          "type": "boolean"
-        },
-        "Nature": {
-          "type": "boolean"
-        },
-        "Perception": {
-          "type": "boolean"
-        },
-        "Performance": {
-          "type": "boolean"
-        },
-        "Persuasion": {
-          "type": "boolean"
-        },
-        "Religion": {
-          "type": "boolean"
-        },
-        "Sleight of Hand": {
-          "type": "boolean"
-        },
-        "Stealth": {
-          "type": "boolean"
-        },
-        "Survival": {
-          "type": "boolean"
-        },
-        "Thieves Tools": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
-    "Proficiencies<StatKey>": {
-      "properties": {
-        "cha": {
-          "type": "boolean"
-        },
-        "con": {
-          "type": "boolean"
-        },
-        "dex": {
-          "type": "boolean"
-        },
-        "int": {
-          "type": "boolean"
-        },
-        "str": {
-          "type": "boolean"
-        },
-        "wis": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
-    "Spell": {
-      "properties": {
-        "info": {
-          "$ref": "#/definitions/TextComponent"
-        },
-        "spellcastingClass": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "SpellCastingClass": {
-      "properties": {
-        "abilityOverride": {
-          "$ref": "#/definitions/StatKey"
-        },
-        "attackBonusOverride": {
-          "$ref": "#/definitions/CustomFormula"
+        "background": {
+            "type": "string"
         },
         "class": {
-          "type": "string"
-        },
-        "saveDcOverride": {
-          "$ref": "#/definitions/CustomFormula"
-        }
-      },
-      "type": "object"
-    },
-    "SpellSlots": {
-      "properties": {
-        "Eighth": {
-          "properties": {
-            "expended": {
-              "type": "number"
+            "items": {
+                "$ref": "#/definitions/IClass"
             },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
+            "type": "array"
         },
-        "Fifth": {
-          "properties": {
-            "expended": {
-              "type": "number"
+        "coins": {
+            "$ref": "#/definitions/CoinAmounts"
+        },
+        "currHp": {
+            "type": "number"
+        },
+        "deathSaves": {
+            "properties": {
+                "failures": {
+                    "type": "number"
+                },
+                "successes": {
+                    "type": "number"
+                }
             },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
+            "type": "object"
         },
-        "First": {
-          "properties": {
-            "expended": {
-              "type": "number"
+        "equipment": {
+            "items": {
+                "$ref": "#/definitions/TextComponent"
             },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
+            "type": "array"
         },
-        "Fourth": {
-          "properties": {
-            "expended": {
-              "type": "number"
+        "exhaustion": {
+            "type": "number"
+        },
+        "exp": {
+            "type": "number"
+        },
+        "expendedHitDice": {
+            "$ref": "#/definitions/HitDice"
+        },
+        "features": {
+            "items": {
+                "$ref": "#/definitions/TextComponent"
             },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
+            "type": "array"
         },
-        "Ninth": {
-          "properties": {
-            "expended": {
-              "type": "number"
-            },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
+        "inspiration": {
+            "type": "number"
         },
-        "Second": {
-          "properties": {
-            "expended": {
-              "type": "number"
-            },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
-        },
-        "Seventh": {
-          "properties": {
-            "expended": {
-              "type": "number"
-            },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
-        },
-        "Sixth": {
-          "properties": {
-            "expended": {
-              "type": "number"
-            },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
-        },
-        "Third": {
-          "properties": {
-            "expended": {
-              "type": "number"
-            },
-            "totalOverride": {
-              "type": "number"
-            }
-          },
-          "type": "object"
-        }
-      },
-      "type": "object"
-    },
-    "Spells": {
-      "allOf": [
-        {
-          "properties": {
-            "cantrips": {
-              "items": {
-                "$ref": "#/definitions/Spell"
-              },
-              "type": "array"
-            }
-          },
-          "type": "object"
-        },
-        {
-          "$ref": "#/definitions/{First?:Spell[];Second?:Spell[];Third?:Spell[];Fourth?:Spell[];Fifth?:Spell[];Sixth?:Spell[];Seventh?:Spell[];Eighth?:Spell[];Ninth?:Spell[];}"
-        }
-      ]
-    },
-    "StatKey": {
-      "enum": ["str", "dex", "con", "int", "wis", "cha"],
-      "type": "string"
-    },
-    "Subtraction": {
-      "properties": {
-        "operand1": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "operand2": {
-          "$ref": "#/definitions/CustomFormula"
-        },
-        "operation": {
-          "const": "subtraction",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "TextComponent": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/TextComponentWithDetails"
-        },
-        {
-          "$ref": "#/definitions/TextComponentWithoutDetails"
-        }
-      ]
-    },
-    "TextComponentWithDetails": {
-      "properties": {
-        "detail": {
-          "type": "string"
-        },
-        "detailFormulas": {
-          "items": {
+        "maxHp": {
             "$ref": "#/definitions/CustomFormula"
-          },
-          "type": "array"
         },
-        "title": {
-          "type": "string"
+        "name": {
+            "type": "string"
         },
-        "titleFormulas": {
-          "items": {
-            "$ref": "#/definitions/CustomFormula"
-          },
-          "type": "array"
+        "otherProficiencies": {
+            "items": {
+                "$ref": "#/definitions/TextComponent"
+            },
+            "type": "array"
+        },
+        "pactSlots": {
+            "$ref": "#/definitions/PactSlots"
+        },
+        "pbOverride": {
+            "type": "number"
+        },
+        "personality": {
+            "properties": {
+                "bonds": {
+                    "items": {
+                        "$ref": "#/definitions/TextComponent"
+                    },
+                    "type": "array"
+                },
+                "flaws": {
+                    "items": {
+                        "$ref": "#/definitions/TextComponent"
+                    },
+                    "type": "array"
+                },
+                "ideals": {
+                    "items": {
+                        "$ref": "#/definitions/TextComponent"
+                    },
+                    "type": "array"
+                },
+                "traits": {
+                    "items": {
+                        "$ref": "#/definitions/TextComponent"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "playerName": {
+            "type": "string"
+        },
+        "proficiencies": {
+            "properties": {
+                "expertise": {
+                    "$ref": "#/definitions/Proficiencies<SkillName>"
+                },
+                "isJackOfAllTradesOverride": {
+                    "type": "boolean"
+                },
+                "savingThrows": {
+                    "$ref": "#/definitions/Proficiencies<StatKey>"
+                },
+                "skills": {
+                    "$ref": "#/definitions/Proficiencies<SkillName>"
+                }
+            },
+            "type": "object"
+        },
+        "race": {
+            "type": "string"
+        },
+        "speed": {
+            "type": "number"
+        },
+        "spellSlots": {
+            "$ref": "#/definitions/SpellSlots"
+        },
+        "spellcastingClasses": {
+            "items": {
+                "$ref": "#/definitions/SpellCastingClass"
+            },
+            "type": "array"
+        },
+        "spells": {
+            "$ref": "#/definitions/Spells"
+        },
+        "stats": {
+            "$ref": "#/definitions/CharacterStats"
+        },
+        "tempHp": {
+            "type": "number"
+        },
+        "totalHitDice": {
+            "$ref": "#/definitions/HitDice"
+        },
+        "uuid": {
+            "pattern": "^.*-.*-.*-.*-.*$",
+            "type": "string"
         }
-      },
-      "type": "object"
     },
-    "TextComponentWithoutDetails": {
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "titleFormulas": {
-          "items": {
-            "$ref": "#/definitions/CustomFormula"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object"
-    },
-    "{First?:Spell[];Second?:Spell[];Third?:Spell[];Fourth?:Spell[];Fifth?:Spell[];Sixth?:Spell[];Seventh?:Spell[];Eighth?:Spell[];Ninth?:Spell[];}": {
-      "properties": {
-        "Eighth": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        },
-        "Fifth": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        },
-        "First": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        },
-        "Fourth": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        },
-        "Ninth": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        },
-        "Second": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        },
-        "Seventh": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        },
-        "Sixth": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        },
-        "Third": {
-          "items": {
-            "$ref": "#/definitions/Spell"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object"
-    }
-  },
-  "properties": {
-    "acFormula": {
-      "$ref": "#/definitions/CustomFormula"
-    },
-    "alignment": {
-      "$ref": "#/definitions/Alignment"
-    },
-    "attacks": {
-      "items": {
-        "$ref": "#/definitions/Attack"
-      },
-      "type": "array"
-    },
-    "background": {
-      "type": "string"
-    },
-    "class": {
-      "items": {
-        "$ref": "#/definitions/IClass"
-      },
-      "type": "array"
-    },
-    "coins": {
-      "$ref": "#/definitions/CoinAmounts"
-    },
-    "currHp": {
-      "type": "number"
-    },
-    "deathSaves": {
-      "properties": {
-        "failures": {
-          "type": "number"
-        },
-        "successes": {
-          "type": "number"
-        }
-      },
-      "type": "object"
-    },
-    "equipment": {
-      "items": {
-        "$ref": "#/definitions/TextComponent"
-      },
-      "type": "array"
-    },
-    "exhaustion": {
-      "type": "number"
-    },
-    "exp": {
-      "type": "number"
-    },
-    "expendedHitDice": {
-      "$ref": "#/definitions/HitDice"
-    },
-    "features": {
-      "items": {
-        "$ref": "#/definitions/TextComponent"
-      },
-      "type": "array"
-    },
-    "inspiration": {
-      "type": "number"
-    },
-    "maxHp": {
-      "$ref": "#/definitions/CustomFormula"
-    },
-    "name": {
-      "type": "string"
-    },
-    "otherProficiencies": {
-      "items": {
-        "$ref": "#/definitions/TextComponent"
-      },
-      "type": "array"
-    },
-    "pactSlots": {
-      "$ref": "#/definitions/PactSlots"
-    },
-    "pbOverride": {
-      "type": "number"
-    },
-    "personality": {
-      "properties": {
-        "bonds": {
-          "items": {
-            "$ref": "#/definitions/TextComponent"
-          },
-          "type": "array"
-        },
-        "flaws": {
-          "items": {
-            "$ref": "#/definitions/TextComponent"
-          },
-          "type": "array"
-        },
-        "ideals": {
-          "items": {
-            "$ref": "#/definitions/TextComponent"
-          },
-          "type": "array"
-        },
-        "traits": {
-          "items": {
-            "$ref": "#/definitions/TextComponent"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object"
-    },
-    "playerName": {
-      "type": "string"
-    },
-    "proficiencies": {
-      "properties": {
-        "expertise": {
-          "$ref": "#/definitions/Proficiencies<SkillName>"
-        },
-        "isJackOfAllTradesOverride": {
-          "type": "boolean"
-        },
-        "savingThrows": {
-          "$ref": "#/definitions/Proficiencies<StatKey>"
-        },
-        "skills": {
-          "$ref": "#/definitions/Proficiencies<SkillName>"
-        }
-      },
-      "type": "object"
-    },
-    "race": {
-      "type": "string"
-    },
-    "speed": {
-      "type": "number"
-    },
-    "spellSlots": {
-      "$ref": "#/definitions/SpellSlots"
-    },
-    "spellcastingClasses": {
-      "items": {
-        "$ref": "#/definitions/SpellCastingClass"
-      },
-      "type": "array"
-    },
-    "spells": {
-      "$ref": "#/definitions/Spells"
-    },
-    "stats": {
-      "$ref": "#/definitions/CharacterStats"
-    },
-    "tempHp": {
-      "type": "number"
-    },
-    "totalHitDice": {
-      "$ref": "#/definitions/HitDice"
-    },
-    "uuid": {
-      "pattern": "^.*-.*-.*-.*-.*$",
-      "type": "string"
-    }
-  },
-  "type": "object"
+    "type": "object"
 }
+

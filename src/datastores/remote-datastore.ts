@@ -1,5 +1,4 @@
 import { UUID } from "crypto";
-import { syncRemoteCharacter } from "src/lib/sharing";
 import { Character, Datastore } from "src/lib/types";
 
 const RemoteDatastore: Datastore = {
@@ -13,7 +12,7 @@ const RemoteDatastore: Datastore = {
       resolve();
     });
   },
-  loadFromDatastore: syncRemoteCharacter,
+  loadFromDatastore: () => new Promise((resolve) => resolve(undefined)),
   // TODO: list currently active connections by adding local cache and calling getOpenConnections()
   listEntriesInDatastore: (): Character[] => {
     return Object.values({});
