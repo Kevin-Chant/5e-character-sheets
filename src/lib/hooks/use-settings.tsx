@@ -7,6 +7,19 @@ interface Settings {
   liveEditHost: string;
 }
 
+function sanitizeSettingValue(
+  settingsValue: Settings[typeof settingsKey],
+  settingsKey: keyof Settings
+) {
+  switch (settingsKey) {
+    case "liveEditHost":
+      return settingsValue.includes("http://") ||
+        settingsValue.includes("https://")
+        ? settingsValue
+        : `http://${settingsValue}`;
+  }
+}
+
 interface SettingsContextData {
   settings: Settings;
   updateSetting: (k: keyof Settings, val: Settings[typeof k]) => void;
@@ -20,6 +33,7 @@ export const SettingsContext = React.createContext<SettingsContextData>({
 });
 
 export function SettingsContextProvider(props: React.PropsWithChildren) {
+  const [initialized, setInitialized] = useState(false);
   const [settings, setSettings] = useState<Settings>({
     liveEditHost: DEFAULT_LIVE_EDIT_HOST,
   });
@@ -32,7 +46,7 @@ export function SettingsContextProvider(props: React.PropsWithChildren) {
       ) => {
         setSettings((currentSettings) => ({
           ...currentSettings,
-          [settingsKey]: settingsValue,
+          [settingsKey]: sanitizeSettingValue(settingsValue, settingsKey),
         }));
       },
     };
@@ -43,11 +57,13 @@ export function SettingsContextProvider(props: React.PropsWithChildren) {
       ...originalSettings,
       ...readLocalStorage("settings", {}),
     }));
+    setInitialized(true);
   }, []);
 
-  // TODO: stop writing default settings to localstorage and clobbering user-defined settings
   useEffect(() => {
-    writeLocalStorage("settings", settings);
+    if (initialized) {
+      writeLocalStorage("settings", settings);
+    }
   }, [settings]);
 
   return (

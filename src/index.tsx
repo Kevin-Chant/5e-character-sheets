@@ -16,25 +16,28 @@ import { GoogleOauthContextProvider } from "./lib/hooks/use-google-oauth";
 import RemoteConnectionInitializer from "./components/remote-connection-initializer";
 import SettingsPage from "./routes/settings-page";
 import { SettingsContextProvider } from "./lib/hooks/use-settings";
+import { SharingSessionsContextProvider } from "./lib/hooks/use-sharing-session";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: (
       <SettingsContextProvider>
-        <GoogleOauthContextProvider>
-          <DatastoreSelectorContextProvider>
-            <DatastoreContextProvider>
-              <CharacterContextProvider>
-                <ConfirmProvider>
-                  <TargetedFieldContextProvider>
-                    <Root />
-                  </TargetedFieldContextProvider>
-                </ConfirmProvider>
-              </CharacterContextProvider>
-            </DatastoreContextProvider>
-          </DatastoreSelectorContextProvider>
-        </GoogleOauthContextProvider>
+        <SharingSessionsContextProvider>
+          <GoogleOauthContextProvider>
+            <DatastoreSelectorContextProvider>
+              <DatastoreContextProvider>
+                <CharacterContextProvider>
+                  <ConfirmProvider>
+                    <TargetedFieldContextProvider>
+                      <Root />
+                    </TargetedFieldContextProvider>
+                  </ConfirmProvider>
+                </CharacterContextProvider>
+              </DatastoreContextProvider>
+            </DatastoreSelectorContextProvider>
+          </GoogleOauthContextProvider>
+        </SharingSessionsContextProvider>
       </SettingsContextProvider>
     ),
     errorElement: <ErrorPage />,

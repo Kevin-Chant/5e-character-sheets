@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadFullCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { useRemoteSharingSession } from "src/lib/hooks/use-sharing-session";
 import { isUuid } from "src/lib/types";
 
 export default function RemoteConnectionInitializer() {
   const [uuidInputValue, setUuidInputValue] = useState("");
   const { dispatch } = useCharacter();
   const navigate = useNavigate();
+  const { joinSession, getCharacter } = useRemoteSharingSession(dispatch);
 
   const updateUuidInputValue = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUuidInputValue(e.target.value);
@@ -22,12 +24,14 @@ export default function RemoteConnectionInitializer() {
 
     // TODO: how to load the character data correctly using hooks
 
-    // const character = await joinSharingSession(uuidInputValue, dispatch);
-    // if (!character) {
-    //   window.alert("Failed to join session!");
-    //   return;
-    // }
-    // dispatch(loadFullCharacter(character));
+    await joinSession(uuidInputValue);
+    const character = await getCharacter();
+    console.log("Joining session. Got character", character);
+    if (!character) {
+      window.alert("Failed to join session!");
+      return;
+    }
+    dispatch(loadFullCharacter(character));
     navigate("/sheet");
   };
 

@@ -5,10 +5,8 @@ import {
 import InputField from "../InputField";
 
 export default function GeneralSettings() {
-  const {
-    settings: { liveEditHost },
-    updateSetting,
-  } = useSettings();
+  const { settings, updateSetting } = useSettings();
+  console.log("General Settings is seeing", settings);
   return (
     <div className="column align-flex-start">
       <div className="row">
@@ -26,7 +24,7 @@ export default function GeneralSettings() {
           </p>
           <InputField
             type="string"
-            value={liveEditHost}
+            value={settings.liveEditHost}
             setValue={(value) => updateSetting("liveEditHost", value)}
           />
         </div>

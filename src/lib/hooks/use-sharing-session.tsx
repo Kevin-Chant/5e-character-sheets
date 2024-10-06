@@ -56,6 +56,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       }));
     },
     disconnect: (uuid: UUID) => {
+      console.log("Calling context provider's disconnect");
       openConnections[uuid].close();
       setOpenConnections((currentOpenConnections) => ({
         ...currentOpenConnections,
@@ -112,6 +113,7 @@ export function useHostSharingSession(
   }, [endSession, uuid]);
 
   const startSession = async () => {
+    console.log("Starting sharing session");
     const uuid = getCharacter()?.uuid;
     if (!uuid) {
       alert(
@@ -120,19 +122,20 @@ export function useHostSharingSession(
       return;
     }
     const realmName = generateRealm(uuid);
+    console.log("Trying to generate live session at", liveEditHost, realmName);
     const res = await fetch(`${liveEditHost}/openRealm/${realmName}`);
+    console.log("Res status is", res.status);
     if (res.status !== 200) {
       // TODO: better error handling
       alert("Failed to start sharing session, please try again later");
       return undefined;
     }
-    setConnection(
-      new autobahn.Connection({
-        url: liveEditHost,
-        realm: realmName,
-      })
-    );
-    connection.onopen = (session: any) => {
+    const innerConnection = new autobahn.Connection({
+      url: liveEditHost,
+      realm: realmName,
+    });
+    setConnection(innerConnection);
+    innerConnection.onopen = (session: any) => {
       session.subscribe(
         SessionEvent.DISPATCH,
         (args: [a: Action, da?: boolean]) => {
@@ -142,8 +145,8 @@ export function useHostSharingSession(
       // TODO: move this somewhere with access to the character reference
       session.register(SessionEvent.FULL_SYNC, getCharacter);
     };
-    await connection.open();
-    saveConnection(uuid, connection);
+    await innerConnection.open();
+    saveConnection(uuid, innerConnection);
   };
 
   return {
@@ -154,53 +157,63 @@ export function useHostSharingSession(
   };
 }
 
-export function useJoinSharingSession(uuid: UUID, dispatch: Dispatch) {
-  const { getConnection, saveConnection, disconnect } = useSharingSessions();
+export function useRemoteSharingSession(dispatch: Dispatch) {
+  const {
+    getConnection,
+    saveConnection,
+    disconnect: disconnectUuid,
+  } = useSharingSessions();
   const {
     settings: { liveEditHost },
   } = useSettings();
-  const [character, setCharacter] = useState<Character | undefined>(undefined);
   const [connection, setConnection] = useState<autobahn.Connection | undefined>(
-    getConnection(uuid)
+    undefined
   );
+  const [disconnect, setDisconnect] = useState<() => void>(() => {});
 
-  if (!connection) {
-    (async () => {
-      setConnection(
-        new autobahn.Connection({
-          url: liveEditHost,
-          realm: generateRealm(uuid),
-        })
-      );
-      connection.onopen = (session: autobahn.Connection.session) => {
-        console.log("Started opening new connection");
-        session.subscribe(
-          SessionEvent.DISPATCH,
-          (args: [a: Action, da?: boolean]) => {
-            dispatch(args[0], args[1], true);
-          }
-        );
-        session.subscribe(SessionEvent.CLOSE_SESSION, () => {
-          disconnect(uuid);
-          // TODO: statefully remove character from list on sidebar
-        });
-        saveConnection(uuid, connection);
-        console.log("Finished opening new connection");
-      };
-      await connection.open();
-      setCharacter(await syncRemoteCharacter(connection));
-    })();
-  } else {
-    syncRemoteCharacter(connection).then((char) => {
-      setCharacter(char);
+  const joinSession = async (uuid: UUID) => {
+    const innerDisconnect = () => {
+      console.log("Calling curried disconnect");
+      disconnectUuid(uuid);
+    };
+    if (connection) {
+      return new Promise((res) => res(connection));
+    }
+    const openConnection = getConnection(uuid);
+    if (openConnection) {
+      setConnection(openConnection);
+      return new Promise((res) => res(openConnection));
+    }
+    const innerConnection = new autobahn.Connection({
+      url: liveEditHost,
+      realm: generateRealm(uuid),
     });
-  }
+    setConnection(innerConnection);
+    innerConnection.onopen = (session: autobahn.Connection.session) => {
+      console.log("Started opening new connection");
+      session.subscribe(
+        SessionEvent.DISPATCH,
+        (args: [a: Action, da?: boolean]) => {
+          dispatch(args[0], args[1], true);
+        }
+      );
+      session.subscribe(SessionEvent.CLOSE_SESSION, () => {
+        console.log("Session called CLOSE_SESSION event. Disconnecting");
+        innerDisconnect();
+        // TODO: statefully remove character from list on sidebar
+      });
+      saveConnection(uuid, connection);
+      console.log("Finished opening new connection");
+    };
+    await innerConnection.open();
+  };
 
   return {
-    character,
+    getCharacter: () => connection && syncRemoteCharacter(connection),
+    joinSession,
     broadcast: (action: Action, dirtyAction?: boolean) =>
       broadcast(connection, action, dirtyAction),
-    disconnect: () => disconnect(uuid),
+    disconnect,
   };
 }
 

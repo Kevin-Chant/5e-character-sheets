@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface InputFieldProps {
   type: "number" | "string";
@@ -8,6 +8,10 @@ interface InputFieldProps {
 
 export default function InputField({ type, value, setValue }: InputFieldProps) {
   const [localValue, setLocalValue] = useState(value);
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
   return (
     <div>
       <input
