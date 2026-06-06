@@ -393,4 +393,10 @@ export interface Datastore {
   listEntriesInDatastore: () => Character[];
   deleteFromDatastore: (uuid: UUID) => void;
   createCharacter?: () => Promise<Character>;
+  // Optional sharing support (currently Google Drive only): promote a private
+  // character to a first-class document, share it with a person by email, and
+  // report whether it has been promoted yet.
+  isShared?: (uuid: UUID) => boolean;
+  promoteCharacter?: (uuid: UUID) => Promise<void>;
+  shareCharacter?: (uuid: UUID, email: string) => Promise<void>;
 }
