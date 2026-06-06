@@ -1,23 +1,27 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { readLocalStorage, writeLocalStorage } from "../local-storage";
 
+export const CLOUD_DEFAULT_HOST = "http://35.87.176.174:9000";
 export const DEFAULT_LIVE_EDIT_HOST =
-  import.meta.env.VITE_LIVE_EDIT_HOST ?? "http://35.87.176.174:9000";
+  import.meta.env.VITE_LIVE_EDIT_HOST ?? CLOUD_DEFAULT_HOST;
 
 interface Settings {
   liveEditHost: string;
 }
 
-function sanitizeSettingValue(
-  settingsValue: Settings[typeof settingsKey],
-  settingsKey: keyof Settings,
-) {
+function sanitizeSettingValue<K extends keyof Settings>(
+  settingsValue: Settings[K],
+  settingsKey: K,
+): Settings[K] {
   switch (settingsKey) {
     case "liveEditHost":
-      return settingsValue.includes("http://") ||
-        settingsValue.includes("https://")
-        ? settingsValue
-        : `http://${settingsValue}`;
+      return (
+        settingsValue.includes("http://") || settingsValue.includes("https://")
+          ? settingsValue
+          : `http://${settingsValue}`
+      ) as Settings[K];
+    default:
+      return settingsValue;
   }
 }
 

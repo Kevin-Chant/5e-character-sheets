@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useReducer,
-  useState,
-} from "react";
+import React, { useCallback, useContext, useReducer, useState } from "react";
 import { Action, resetCharacter } from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
@@ -49,8 +43,6 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const { save, debounceWait } = useDatastore();
   const [sharingSessionOpen, setSharingSessionOpen] = useState(false);
-  // TODO: this is likely not stateful. Need to make sure the newest value of character is available
-  // inside the body of useHostSharingSession
   const getCharacter = useCallback<() => Character | undefined>(() => {
     return character;
   }, [character]);
@@ -62,7 +54,6 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
 
   useLazyEffect(
     () => {
-      console.log("Running lazy effect to save character to datastore");
       if (character) {
         save(character).then(() => {
           setUnsavedChanges(false);
@@ -85,17 +76,14 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     }
   };
 
-  // TODO: remove debug statement or turn into dev-only
-  useEffect(() => {
-    console.log(character);
-  }, [character]);
-
   const reset = () => dispatch(resetCharacter());
 
   const openSharingSession = () => {
-    startSession().then(() => {
-      setSharingSessionOpen(true);
-    });
+    startSession()
+      .then(() => {
+        setSharingSessionOpen(true);
+      })
+      .catch((error) => alert(error));
   };
 
   const closeSharingSession = () => {
