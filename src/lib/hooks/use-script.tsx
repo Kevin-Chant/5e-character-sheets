@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 const useScript = (
   url: string,
-  onload: ((this: GlobalEventHandlers, ev: Event) => any) | null = null
+  onload: ((this: GlobalEventHandlers, ev: Event) => any) | null = null,
 ) => {
   useEffect(() => {
     const script = document.createElement("script");

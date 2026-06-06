@@ -26,7 +26,7 @@ export function resetCharacter(): Action {
 export function updateData(
   targetedField: FIELD,
   data: any,
-  subField?: string
+  subField?: string,
 ): Action {
   return {
     type: `update_${targetedField}`,

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useReducer, useState } from "react";
+import React, { useContext, useState } from "react";
 
 interface GoogleOauthContextData {
   tokenClient?: google.accounts.oauth2.TokenClient;
@@ -13,19 +13,19 @@ interface GoogleOauthContextData {
 
 export const GoogleOauthContext = React.createContext<GoogleOauthContextData>({
   tokenClient: undefined,
-  setTokenClient: (client: google.accounts.oauth2.TokenClient) => {
+  setTokenClient: () => {
     console.log("Calling default setTokenClient");
   },
   gapiInitialized: false,
-  setGapiInitialized: (newVal: boolean) => {
+  setGapiInitialized: () => {
     console.log("Calling default setGapiInitialized");
   },
   gisInitialized: false,
-  setGisInitialized: (newVal: boolean) => {
+  setGisInitialized: () => {
     console.log("Calling default setGisInitialized");
   },
   googleOauthReady: false,
-  setGoogleOauthReady: (newVal: boolean) => {
+  setGoogleOauthReady: () => {
     console.log("Calling default setGoogleOauthReady");
   },
 });

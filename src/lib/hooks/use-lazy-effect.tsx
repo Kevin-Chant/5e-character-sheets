@@ -1,4 +1,4 @@
-import React, {
+import {
   DependencyList,
   EffectCallback,
   useCallback,
@@ -10,7 +10,7 @@ import { debounce } from "lodash";
 export function useLazyEffect(
   effect: EffectCallback,
   deps: DependencyList = [],
-  wait = 300
+  wait = 300,
 ) {
   const cleanUp = useRef<void | (() => void)>();
   const effectRef = useRef<EffectCallback>();
@@ -20,13 +20,12 @@ export function useLazyEffect(
     debounce(() => {
       cleanUp.current = effectRef.current?.();
     }, wait),
-    []
+    [],
   );
   useEffect(lazyEffect, deps);
   useEffect(() => {
     return () => {
-      // @ts-ignore
-      if (cleanUp.current instanceof Function) {
+      if (typeof cleanUp.current === "function") {
         cleanUp.current();
       }
     };

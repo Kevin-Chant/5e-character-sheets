@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { FaPencil } from "react-icons/fa6";
 import {
   DamageType,
@@ -7,11 +6,7 @@ import {
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import {
-  CustomFormula,
-  CustomFormulaWithDamage,
-  isCustomFormulaWithDamage,
-} from "src/lib/types";
+import { CustomFormula, isCustomFormulaWithDamage } from "src/lib/types";
 import { formatCustomFormula, getFieldValue, traverse } from "src/lib/utils";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
@@ -31,7 +26,7 @@ export default function BuildCustomFormulaWithDamage() {
   const formulaEntries = Object.entries(formulaWithDamage);
   const usedDamageTypes = formulaEntries.map((entry) => entry[0]);
   const unusedDamageTypes = Object.keys(DamageType).filter(
-    (dType) => !usedDamageTypes.includes(dType)
+    (dType) => !usedDamageTypes.includes(dType),
   );
 
   const addEntry = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -47,14 +42,14 @@ export default function BuildCustomFormulaWithDamage() {
         {
           value: Object.fromEntries(formulaEntries),
         },
-        subField
-      )
+        subField,
+      ),
     );
   };
 
   const updateFormula = (
     e: React.MouseEvent<HTMLButtonElement>,
-    damageType: DamageType
+    damageType: DamageType,
   ) => {
     e.preventDefault();
     const subFieldPrefix = subField ? subField + "." : "";
@@ -63,7 +58,7 @@ export default function BuildCustomFormulaWithDamage() {
 
   const updateDamageType = (
     e: React.ChangeEvent<HTMLSelectElement>,
-    index: number
+    index: number,
   ) => {
     e.preventDefault();
     const formulaEntries = Object.entries(formulaWithDamage);
@@ -74,14 +69,14 @@ export default function BuildCustomFormulaWithDamage() {
         {
           value: Object.fromEntries(formulaEntries),
         },
-        subField
-      )
+        subField,
+      ),
     );
   };
 
   const removeEntry = (
     e: React.MouseEvent<HTMLButtonElement>,
-    index: number
+    index: number,
   ) => {
     e.preventDefault();
     const formulaEntries = Object.entries(formulaWithDamage);
@@ -92,8 +87,8 @@ export default function BuildCustomFormulaWithDamage() {
         {
           value: Object.fromEntries(formulaEntries),
         },
-        subField
-      )
+        subField,
+      ),
     );
   };
 

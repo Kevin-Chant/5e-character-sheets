@@ -1,20 +1,5 @@
-import React, {
-  DependencyList,
-  EffectCallback,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
-import { Action } from "src/lib/hooks/reducers/actions";
-import reducer from "src/lib/hooks/reducers/reducer";
-import { usePrompt } from "src/lib/hooks/use-prompt";
-import { Character, Datastore } from "src/lib/types";
-import { defaultCharacter } from "../data/default-data";
-import { CharacterContextProvider, useCharacter } from "./use-character";
+import React, { useContext, useEffect, useState } from "react";
+import { Character } from "src/lib/types";
 import { UUID } from "crypto";
 import { useDatastoreSelector } from "./use-datastore-selector";
 
@@ -33,13 +18,13 @@ interface DatastoreContextData {
 export const DatastoreContext = React.createContext<DatastoreContextData>({
   saving: false,
   characters: [],
-  save: (character: Character) => {
+  save: () => {
     return new Promise((resolve) => {
       console.log("Calling default save");
       resolve();
     });
   },
-  load: (uuid: UUID) => {
+  load: () => {
     return new Promise((resolve) => {
       console.log("Calling default load");
 
@@ -50,7 +35,7 @@ export const DatastoreContext = React.createContext<DatastoreContextData>({
     console.log("Calling default createCharacter");
     return new Promise((resolve) => resolve(undefined));
   },
-  deleteCharacter: (uuid: UUID) => {
+  deleteCharacter: () => {
     console.log("Calling default deleteCharacter");
   },
   debounceWait: 1000,
@@ -121,8 +106,8 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
       console.log("Listing entries resulted in", charList.length, "characters");
       setLocalCharacters(
         Object.fromEntries(
-          charList.map((character) => [character.uuid, character])
-        )
+          charList.map((character) => [character.uuid, character]),
+        ),
       );
     });
   }, [datastore]);

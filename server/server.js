@@ -56,12 +56,16 @@ const transport = createServer(
       "Access-Control-Allow-Origin": "*",
     });
     res.end();
-  }
+  },
 );
+
+const PORT = process.env.PORT ? Number(process.env.PORT) : 9000;
 
 router = createRouter({
   httpServer: transport,
-  port: 9000,
+  port: PORT,
   path: "/",
   autoCreateRealms: false,
 });
+
+console.log(`Live-edit sidecar listening on port ${PORT}`);

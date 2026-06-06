@@ -26,7 +26,6 @@ export default function RemoteConnectionInitializer() {
 
     await joinSession(uuidInputValue);
     const character = await getCharacter();
-    console.log("Joining session. Got character", character);
     if (!character) {
       window.alert("Failed to join session!");
       return;
@@ -38,7 +37,7 @@ export default function RemoteConnectionInitializer() {
   return (
     <div className="column flex-start">
       <label className="margin-small" htmlFor="uuidInputField">
-        Enter your friend's sharing code
+        Enter your friend&apos;s sharing code
       </label>
       <input
         id="uuidInputField"

@@ -1,7 +1,6 @@
 import Ajv from "ajv";
 import { isNumber, sum } from "lodash";
 import {
-  Addition,
   AtomicVariable,
   Character,
   ClassName,
@@ -13,7 +12,6 @@ import {
   ExpressionCalculator,
   HitDice,
   IClass,
-  SpellSlots,
   isArbitraryOperandOperation,
   isAtomicVariable,
   isClassName,
@@ -43,7 +41,6 @@ import {
   StandardDie,
   StatKey,
 } from "./data/data-definitions";
-import { isNumericLiteral } from "typescript";
 
 const ORDINAL_SUFFIXES = ["th", "st", "nd", "rd"];
 
@@ -131,12 +128,12 @@ export function rollDie(die: DieDefinition) {
   if (isStandardDie(die)) return 1;
   if (isNonStandardDie(die)) return 2;
   throw new Error(
-    "Tried to roll something that wasn't a die!" + JSON.stringify(die)
+    "Tried to roll something that wasn't a die!" + JSON.stringify(die),
   );
 }
 
 export function getDieOperation(
-  operation: DieOperation
+  operation: DieOperation,
 ): (die: DieDefinition) => number {
   switch (operation) {
     case "average":
@@ -152,7 +149,7 @@ export function getDieOperation(
         isStandardDie(die) ? parseInt(die.replace("d", "")) : die.numFaces;
     default:
       throw new Error(
-        "Reached unreachable code in getDieOperation due to" + operation
+        "Reached unreachable code in getDieOperation due to" + operation,
       );
   }
 }
@@ -161,7 +158,7 @@ function formatOperator(
   args: string[],
   startStr: string,
   endStr: string,
-  connector?: string
+  connector?: string,
 ) {
   return startStr + args.join(connector) + endStr;
 }
@@ -225,7 +222,7 @@ export const OPERATORS: Record<
 
 export function calculateAtomicVariable(
   atomicVariable: AtomicVariable,
-  character: Character
+  character: Character,
 ): number {
   // Numbers are already calculated
   if (isNumber(atomicVariable)) return atomicVariable;
@@ -245,7 +242,7 @@ export function calculateAtomicVariable(
     return levelInClass(atomicVariable, character);
   throw new Error(
     "Reached unreachable code in calculateAtomicVariable due to" +
-      JSON.stringify(atomicVariable)
+      JSON.stringify(atomicVariable),
   );
 }
 
@@ -256,7 +253,7 @@ export function withoutZero(num: number) {
 export function formatAtomicVariable(
   atomicVariable: AtomicVariable,
   character: Character,
-  evaluateReferences: boolean = true
+  evaluateReferences: boolean = true,
 ): string {
   // Numbers format as themselves
   if (isNumber(atomicVariable)) return withoutZero(atomicVariable);
@@ -281,14 +278,14 @@ export function formatAtomicVariable(
       : `${atomicVariable} level`;
   throw new Error(
     "Reached unreachable code in formatAtomicVariable due to" +
-      JSON.stringify(atomicVariable)
+      JSON.stringify(atomicVariable),
   );
 }
 
 export function formatCustomFormula(
   formula: CustomFormula,
   character: Character,
-  evaluateReferences: boolean = true
+  evaluateReferences: boolean = true,
 ): string {
   if (isAtomicVariable(formula))
     return formatAtomicVariable(formula, character, evaluateReferences);
@@ -296,14 +293,14 @@ export function formatCustomFormula(
     return formatExpression(formula, character, evaluateReferences);
   throw new Error(
     "Reached unreachable code in formatCustomFormula due to" +
-      JSON.stringify(formula)
+      JSON.stringify(formula),
   );
 }
 
 export function formatExpression(
   expr: Expression,
   character: Character,
-  evaluateReferences: boolean = true
+  evaluateReferences: boolean = true,
 ): string {
   if (isDoubleOperandOperation(expr))
     return formatOperator(
@@ -313,23 +310,23 @@ export function formatExpression(
       ],
       OPERATORS[expr.operation].startStr,
       OPERATORS[expr.operation].endStr,
-      OPERATORS[expr.operation].connector
+      OPERATORS[expr.operation].connector,
     );
   if (isArbitraryOperandOperation(expr))
     return formatOperator(
       expr.operands.map((operand) =>
-        formatCustomFormula(operand, character, evaluateReferences)
+        formatCustomFormula(operand, character, evaluateReferences),
       ),
       OPERATORS[expr.operation].startStr,
       OPERATORS[expr.operation].endStr,
-      OPERATORS[expr.operation].connector
+      OPERATORS[expr.operation].connector,
     );
   if (isSingleOperandOperation(expr))
     return formatOperator(
       [formatCustomFormula(expr.operand1, character, evaluateReferences)],
       OPERATORS[expr.operation].startStr,
       OPERATORS[expr.operation].endStr,
-      OPERATORS[expr.operation].connector
+      OPERATORS[expr.operation].connector,
     );
   return "";
 }
@@ -337,14 +334,14 @@ export function formatExpression(
 export function formatCustomFormulaWithDamage(
   formula: CustomFormulaWithDamage,
   character: Character,
-  evaluateReferences: boolean = true
+  evaluateReferences: boolean = true,
 ) {
   return (Object.entries(formula) as Array<[DamageType, CustomFormula]>)
     .map(([damageType, customFormula]) => {
       return `${formatCustomFormula(
         customFormula,
         character,
-        evaluateReferences
+        evaluateReferences,
       )} ${damageType}`;
     })
     .join(", ");
@@ -352,20 +349,20 @@ export function formatCustomFormulaWithDamage(
 
 export function calculateCustomFormula(
   formula: CustomFormula,
-  character: Character
+  character: Character,
 ): number {
   if (isAtomicVariable(formula))
     return calculateAtomicVariable(formula, character);
   if (isExpression(formula)) return calculateExpression(formula, character);
   throw new Error(
     "Reached unreachable code in calculateCustomFormula due to" +
-      JSON.stringify(formula)
+      JSON.stringify(formula),
   );
 }
 
 export function calculateExpression(
   expr: Expression,
-  character: Character
+  character: Character,
 ): number {
   if (isDoubleOperandOperation(expr))
     return OPERATORS[expr.operation].calculator([
@@ -374,7 +371,9 @@ export function calculateExpression(
     ]);
   if (isArbitraryOperandOperation(expr))
     return OPERATORS[expr.operation].calculator(
-      expr.operands.map((operand) => calculateCustomFormula(operand, character))
+      expr.operands.map((operand) =>
+        calculateCustomFormula(operand, character),
+      ),
     );
   if (isSingleOperandOperation(expr))
     return OPERATORS[expr.operation].calculator([
@@ -385,22 +384,22 @@ export function calculateExpression(
 
 export function calculateCustomFormulaWithDamage(
   formula: CustomFormulaWithDamage,
-  character: Character
+  character: Character,
 ) {
   return Object.fromEntries(
     (Object.entries(formula) as Array<[DamageType, CustomFormula]>).map(
       ([damageType, customFormula]) => {
         return [damageType, calculateCustomFormula(customFormula, character)];
-      }
-    )
+      },
+    ),
   );
 }
 
 export function totalGP(coins: CoinAmounts) {
   return sum(
     (Object.entries(coins) as Array<[CoinType, number]>).map(
-      ([coin, numCoins]) => CoinValues[coin] * numCoins
-    )
+      ([coin, numCoins]) => CoinValues[coin] * numCoins,
+    ),
   );
 }
 
@@ -419,7 +418,7 @@ export function formatClass(klasses: IClass[]) {
     .map(
       (klass) =>
         `${ordinal(klass.level)} ${klass.name}` +
-        (klass.subclass ? ` (${klass.subclass})` : "")
+        (klass.subclass ? ` (${klass.subclass})` : ""),
     )
     .join(", ");
 }
@@ -444,7 +443,7 @@ export function getFieldValue(fieldName: string, character: Character) {
 export function setFieldValue(
   fieldName: string,
   character: Character,
-  value: any
+  value: any,
 ) {
   const partialFieldName = fieldName.split(".").slice(0, -1).join(".");
   const leafNode = traverse(partialFieldName, character);
@@ -474,7 +473,7 @@ export function getHitDice(character: Character): HitDice {
   character.class.forEach(
     (klass) =>
       (hitDice[getHitDie(klass.name)] =
-        (hitDice[getHitDie(klass.name)] || 0) + klass.level)
+        (hitDice[getHitDie(klass.name)] || 0) + klass.level),
   );
   return hitDice;
 }
@@ -514,7 +513,7 @@ export function getHpFormula(character: Character): CustomFormula {
               ],
             },
           ]
-        : []
+        : [],
     ),
   } as CustomFormula;
   if (rest.length === 0) return firstClassHp;
@@ -539,7 +538,7 @@ export function getHpFormula(character: Character): CustomFormula {
             },
           ],
         };
-      })
+      }),
     ),
   };
 }
@@ -572,10 +571,10 @@ export function getPactSlotInfo(character: Character) {
     warlockLevel < 2
       ? warlockLevel
       : warlockLevel < 11
-      ? 2
-      : warlockLevel < 17
-      ? 3
-      : 4;
+        ? 2
+        : warlockLevel < 17
+          ? 3
+          : 4;
   const level = Math.min(5, Math.floor((warlockLevel + 1) / 2));
   return {
     level: level,
@@ -585,17 +584,17 @@ export function getPactSlotInfo(character: Character) {
 
 export function getSpellSlotsByLevelAndSpellcasterLevel(
   slotLevel: SpellLevel,
-  spellcastingLevel: number
+  spellcastingLevel: number,
 ) {
   switch (slotLevel) {
     case SpellLevel.First:
       return spellcastingLevel < 1
         ? 0
         : spellcastingLevel === 1
-        ? 2
-        : spellcastingLevel === 2
-        ? 3
-        : 4;
+          ? 2
+          : spellcastingLevel === 2
+            ? 3
+            : 4;
     case SpellLevel.Second:
       return spellcastingLevel < 3 ? 0 : spellcastingLevel === 3 ? 2 : 3;
     case SpellLevel.Third:
@@ -604,18 +603,18 @@ export function getSpellSlotsByLevelAndSpellcasterLevel(
       return spellcastingLevel < 7
         ? 0
         : spellcastingLevel === 7
-        ? 1
-        : spellcastingLevel === 8
-        ? 2
-        : 3;
+          ? 1
+          : spellcastingLevel === 8
+            ? 2
+            : 3;
     case SpellLevel.Fifth:
       return spellcastingLevel < 9
         ? 0
         : spellcastingLevel === 9
-        ? 1
-        : spellcastingLevel < 18
-        ? 2
-        : 3;
+          ? 1
+          : spellcastingLevel < 18
+            ? 2
+            : 3;
     case SpellLevel.Sixth:
       return spellcastingLevel < 11 ? 0 : spellcastingLevel < 19 ? 1 : 2;
     case SpellLevel.Seventh:
@@ -659,18 +658,18 @@ export function calculateSpellcasterLevel(character: Character) {
 
 export function getDefaultSpellSlots(
   character: Character,
-  slotLevel: SpellLevel
+  slotLevel: SpellLevel,
 ): number {
   return getSpellSlotsByLevelAndSpellcasterLevel(
     slotLevel,
-    calculateSpellcasterLevel(character)
+    calculateSpellcasterLevel(character),
   );
 }
 
 export const OPTIONAL_FIELD_INITIALIZERS: {
   [key in FIELD]?: (
     character: Character,
-    subField?: string
+    subField?: string,
   ) => CustomFormula | undefined;
 } = {
   pbOverride: getPB,
@@ -681,12 +680,12 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
   spellcastingClasses: (character, subField) => {
     if (!subField)
       throw new Error(
-        "cannot get optional info for spellcastingClasses without a subField"
+        "cannot get optional info for spellcastingClasses without a subField",
       );
     const [index, subSubField] = subField.split(".");
     if (subSubField === "abilityOverride") {
       return getSpellcastingAbility(
-        character.spellcastingClasses[parseInt(index)].class
+        character.spellcastingClasses[parseInt(index)].class,
       );
     }
     if (subSubField === "saveDcOverride") {
@@ -697,7 +696,7 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
           "proficiencyBonus",
           character.spellcastingClasses[parseInt(index)].abilityOverride ||
             getSpellcastingAbility(
-              character.spellcastingClasses[parseInt(index)].class
+              character.spellcastingClasses[parseInt(index)].class,
             ),
         ],
       };
@@ -708,7 +707,7 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
           "proficiencyBonus",
           character.spellcastingClasses[parseInt(index)].abilityOverride ||
             getSpellcastingAbility(
-              character.spellcastingClasses[parseInt(index)].class
+              character.spellcastingClasses[parseInt(index)].class,
             ),
         ],
       };
@@ -723,6 +722,6 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
     subField === "totalOverride"
       ? getPactSlotInfo(character).total
       : subField === "levelOverride"
-      ? getPactSlotInfo(character).level
-      : undefined,
+        ? getPactSlotInfo(character).level
+        : undefined,
 };

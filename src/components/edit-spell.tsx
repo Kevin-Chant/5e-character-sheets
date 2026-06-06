@@ -1,31 +1,9 @@
-import { without } from "lodash";
-import React, { useEffect, useState } from "react";
-import {
-  FIELD,
-  OfficialClass,
-  OfficialSubclasses,
-  StandardDie,
-} from "src/lib/data/data-definitions";
+import React from "react";
+import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import {
-  Attack,
-  ClassName,
-  DieDefinition,
-  HitDice,
-  IClass,
-  isOfficialClass,
-  isTextComponent,
-} from "src/lib/types";
-import OptionOrCustomValue from "./display/option-or-custom-value";
+import { isTextComponent } from "src/lib/types";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import {
-  formatCustomFormula,
-  formatCustomFormulaWithDamage,
-  getFieldValue,
-  getHitDice,
-  traverse,
-} from "src/lib/utils";
-import { FaPencil } from "react-icons/fa6";
+import { getFieldValue, traverse } from "src/lib/utils";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import { ControlledEditTextLine } from "./edit-text-line";
@@ -48,14 +26,14 @@ export default function EditSpell() {
       updateData(
         targetedField,
         { value: e.target.value },
-        `${subField}.castingClass`
-      )
+        `${subField}.castingClass`,
+      ),
     );
   };
 
   const updateTitle = (newValue: string) => {
     dispatch(
-      updateData(targetedField, { value: newValue }, `${subField}.info.title`)
+      updateData(targetedField, { value: newValue }, `${subField}.info.title`),
     );
   };
 
@@ -64,8 +42,8 @@ export default function EditSpell() {
       updateData(
         targetedField,
         { value: [...textComponent.titleFormulas, "proficiencyBonus"] },
-        `${subField}.info.titleFormulas`
-      )
+        `${subField}.info.titleFormulas`,
+      ),
     );
   };
 
@@ -84,8 +62,8 @@ export default function EditSpell() {
             detailFormulas: [],
           },
         },
-        `${subField}.info`
-      )
+        `${subField}.info`,
+      ),
     );
   };
 
@@ -96,8 +74,8 @@ export default function EditSpell() {
         {
           value: newValue,
         },
-        `${subField}.info.detail`
-      )
+        `${subField}.info.detail`,
+      ),
     );
   };
   const addDetailFormula = () => {
@@ -105,15 +83,15 @@ export default function EditSpell() {
       updateData(
         targetedField,
         { value: [...textComponent.titleFormulas, "proficiencyBonus"] },
-        `${subField}.info.detailFormulas`
-      )
+        `${subField}.info.detailFormulas`,
+      ),
     );
   };
 
   const editDetailFormula = (index: number) => {
     pushTargetedField(
       targetedField,
-      `${subField}.info.detailFormulas.${index}`
+      `${subField}.info.detailFormulas.${index}`,
     );
   };
 
@@ -128,8 +106,8 @@ export default function EditSpell() {
             detailFormulas: undefined,
           },
         },
-        `${subField}.info`
-      )
+        `${subField}.info`,
+      ),
     );
   };
 
@@ -139,7 +117,7 @@ export default function EditSpell() {
   };
 
   const spellcastingClasses = character.spellcastingClasses.map(
-    (klass) => klass.class
+    (klass) => klass.class,
   );
 
   return (

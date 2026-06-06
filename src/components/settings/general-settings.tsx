@@ -6,7 +6,6 @@ import InputField from "../InputField";
 
 export default function GeneralSettings() {
   const { settings, updateSetting } = useSettings();
-  console.log("General Settings is seeing", settings);
   return (
     <div className="column align-flex-start">
       <div className="row">
@@ -16,7 +15,7 @@ export default function GeneralSettings() {
             To open a live sharing session, you must connect to a WAMP server
             which handles syncing your changes with other users. A free one
             should be available for use at {DEFAULT_LIVE_EDIT_HOST}, but if
-            you're interested you can run host it yourself using the{" "}
+            you&apos;re interested you can run host it yourself using the{" "}
             <a href="https://github.com/Kevin-Chant/5e-character-sheets">
               GitHub repository
             </a>

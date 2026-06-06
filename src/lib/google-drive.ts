@@ -1,6 +1,12 @@
+// These are shipped to the browser by design (the app talks to Google Drive
+// client-side), so they are not secrets. They are configurable per-deployment
+// via env vars; the defaults point at the project's own Google Cloud app.
 export const CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ??
   "998156536896-mcrk9ao2kc7qfbv5umhe8c97p4sutm7a.apps.googleusercontent.com";
-export const API_KEY = "AIzaSyDp__PTlFtW7FNY2SDN84ZfH1Fwx0DjprE";
+export const API_KEY =
+  import.meta.env.VITE_GOOGLE_API_KEY ??
+  "AIzaSyDp__PTlFtW7FNY2SDN84ZfH1Fwx0DjprE";
 
 // Discovery doc URL for APIs used by the quickstart
 export const DISCOVERY_DOC =
@@ -73,14 +79,3 @@ export async function createFile(fileName: string) {
 export async function deleteFile(fileId: string) {
   return window.gapi.client.drive.files.delete({ fileId });
 }
-
-// @ts-ignore
-window.listFiles = listFiles;
-// @ts-ignore
-window.getFileContents = getFileContents;
-// @ts-ignore
-window.updateFile = updateFile;
-// @ts-ignore
-window.createFile = createFile;
-// @ts-ignore
-window.deleteFile = deleteFile;

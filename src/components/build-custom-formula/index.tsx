@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import {
@@ -29,7 +29,7 @@ export default function BuildCustomFormula() {
   if (!formula && OPTIONAL_FIELD_INITIALIZERS[targetedField]) {
     formula = OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
       undefined,
-      character
+      character,
     );
   }
   if (subField) {
@@ -38,7 +38,7 @@ export default function BuildCustomFormula() {
       OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
         undefined,
         character,
-        subField
+        subField,
       );
   }
 

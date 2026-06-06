@@ -1,46 +1,73 @@
-# Getting Started with Create React App
+# 5e Character Sheets
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Online D&D 5e character sheets that run in your browser. Sheets are stored
+**client-side** — either in your browser for offline/local use, or in your own
+Google Drive for cross-device sync — and an optional lightweight "live-edit"
+server lets a player share a sheet so others can watch and edit it in real time
+(handy for a DM following along during a session).
 
-## Available Scripts
+There is no central database and no account system: your character data only
+ever lives in your browser, your Google Drive, or a peer's live session. That
+keeps the project cheap to host and easy to self-host for the privacy-conscious.
 
-In the project directory, you can run:
+## Architecture
 
-### `npm start`
+| Piece                                                     | What it is                                                                                                                                                                                          |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Web app** (`src/`)                                      | React 18 + TypeScript single-page app (Vite), React Router, state via React Context + reducers.                                                                                                     |
+| **Storage backends** (`src/datastores/`)                  | Pluggable `Datastore` implementations: `local-datastore` (browser `localStorage`), `google-drive-datastore` (Drive `appDataFolder`), and `remote-datastore` (a peer's live session).                |
+| **Live-edit sidecar** (`server/`)                         | A small Node WAMP router ([nightlife-rabbit](https://github.com/christian-raedel/nightlife-rabbit)) that brokers real-time sessions over WebSockets. It is stateless — it stores no character data. |
+| **Character model** (`src/lib/types.ts`, `src/lib/data/`) | The `Character` type, 5e data definitions, and a small formula engine for computed fields (AC, HP, attacks, etc.). A JSON schema is generated from the types for import validation.                 |
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Getting started
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+Requirements: Node 22+ and [pnpm](https://pnpm.io) (the repo pins a version via
+`packageManager`).
 
-### `npm test`
+```bash
+pnpm install
+cp .env.example .env.local   # optional; sensible defaults are built in
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Run the web app and the live-edit server (two processes):
 
-### `npm run build`
+```bash
+pnpm dev       # Vite dev server on http://localhost:3000
+pnpm server    # live-edit sidecar on http://localhost:9000
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+The live-edit server is only needed for real-time sharing; local and Google
+Drive storage work without it.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Configuration
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+All configuration is optional — the app ships with working defaults. To point a
+self-hosted deployment at your own Google Cloud app or live-edit server, set the
+variables in `.env.local` (see [.env.example](.env.example)):
 
-### `npm run eject`
+| Variable                                        | Purpose                                                                                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_GOOGLE_CLIENT_ID` / `VITE_GOOGLE_API_KEY` | Your Google OAuth client + API key (Drive `appdata` scope). These are shipped to the browser by design and are not secrets. |
+| `VITE_LIVE_EDIT_HOST`                           | Default live-edit server URL the app connects to (also overridable per-device in the in-app settings).                      |
+| `PORT`                                          | Port the live-edit sidecar (`pnpm server`) listens on. Defaults to `9000`.                                                  |
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## Scripts
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+| Command                      | Description                                                             |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `pnpm dev`                   | Start the Vite dev server.                                              |
+| `pnpm server`                | Start the live-edit sidecar server.                                     |
+| `pnpm build`                 | Generate the schema, type-check, and build for production into `dist/`. |
+| `pnpm preview`               | Preview the production build locally.                                   |
+| `pnpm test`                  | Run the Vitest unit tests.                                              |
+| `pnpm type-check`            | Type-check with `tsc`.                                                  |
+| `pnpm lint` / `pnpm lint:ci` | Lint (auto-fix locally / check-only in CI).                             |
+| `pnpm pretty`                | Format with Prettier.                                                   |
+| `pnpm run ci`                | Lint, type-check, and test — what CI runs.                              |
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+A husky pre-commit hook runs `lint-staged` (ESLint + Prettier on staged files),
+and GitHub Actions runs `pnpm run ci` on pushes and pull requests.
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## License
 
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+[MIT](LICENSE)

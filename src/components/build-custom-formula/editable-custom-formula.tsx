@@ -64,6 +64,6 @@ export function EditableCustomFormula({
   }
   throw new Error(
     "Reached unreachable code in EditableCustomFormula due to" +
-      JSON.stringify(formula)
+      JSON.stringify(formula),
   );
 }

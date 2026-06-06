@@ -5,7 +5,7 @@ export interface ConfirmOptions {
   cancelText?: string;
   onConfirm?: () => void;
   onCancel?: () => void;
-  type?: 'success' | 'error' | 'warning' | 'info';
+  type?: "success" | "error" | "warning" | "info";
 }
 
 export type Nullable<T> = T | null;

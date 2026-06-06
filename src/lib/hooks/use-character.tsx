@@ -28,7 +28,7 @@ export const CharacterContext = React.createContext<CharacterContextData>({
   reset: () => {
     console.log("Calling default reset");
   },
-  dispatch: (action: Action, dirtyAction: boolean = true) => {
+  dispatch: () => {
     console.log("Calling default dispatch");
   },
   unsavedChanges: false,
@@ -57,7 +57,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
 
   const { broadcast, startSession, endSession } = useHostSharingSession(
     dispatch,
-    getCharacter
+    getCharacter,
   );
 
   useLazyEffect(
@@ -70,13 +70,13 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       }
     },
     [character],
-    debounceWait
+    debounceWait,
   );
 
   const dispatchAndBroadcast: React.Dispatch<Action> = (
     action: Action,
     dirtyAction: boolean = true,
-    suppressBroadcast: boolean = false
+    suppressBroadcast: boolean = false,
   ) => {
     dispatch(action);
     setUnsavedChanges(dirtyAction);

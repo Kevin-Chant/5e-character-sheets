@@ -1,20 +1,13 @@
-import { without } from "lodash";
-import React, { useEffect, useState } from "react";
-import {
-  OfficialClass,
-  OfficialSubclasses,
-} from "src/lib/data/data-definitions";
+import React from "react";
+
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   Character,
   CustomFormula,
-  IClass,
   TextComponent,
-  isOfficialClass,
   isTextComponent,
   isTextComponentWithDetail,
 } from "src/lib/types";
-import OptionOrCustomValue from "./display/option-or-custom-value";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { formatCustomFormula, getFieldValue, traverse } from "src/lib/utils";
 import { useSave } from "./modals/modal-container";
@@ -78,7 +71,7 @@ export function ControlledEditTextLine({
                     <FaPencil />
                   </button>
                 </div>
-              )
+              ),
             )}
             <button
               onClick={(e) => {
@@ -121,7 +114,7 @@ export function ControlledEditTextLine({
                         <FaPencil />
                       </button>
                     </div>
-                  )
+                  ),
                 )}
                 <button
                   onClick={(e) => {
@@ -163,14 +156,14 @@ export default function EditTextLine() {
 
   const textComponent = traverse(
     subField,
-    getFieldValue(targetedField, character)
+    getFieldValue(targetedField, character),
   );
 
   if (!isTextComponent(textComponent)) return <></>;
 
   const updateTitle = (newValue: string) => {
     dispatch(
-      updateData(targetedField, { value: newValue }, `${subField}.title`)
+      updateData(targetedField, { value: newValue }, `${subField}.title`),
     );
   };
 
@@ -179,8 +172,8 @@ export default function EditTextLine() {
       updateData(
         targetedField,
         { value: [...textComponent.titleFormulas, "proficiencyBonus"] },
-        `${subField}.titleFormulas`
-      )
+        `${subField}.titleFormulas`,
+      ),
     );
   };
 
@@ -199,8 +192,8 @@ export default function EditTextLine() {
             detailFormulas: [],
           },
         },
-        subField
-      )
+        subField,
+      ),
     );
   };
 
@@ -211,8 +204,8 @@ export default function EditTextLine() {
         {
           value: newValue,
         },
-        `${subField}.detail`
-      )
+        `${subField}.detail`,
+      ),
     );
   };
   const addDetailFormula = () => {
@@ -220,8 +213,8 @@ export default function EditTextLine() {
       updateData(
         targetedField,
         { value: [...textComponent.titleFormulas, "proficiencyBonus"] },
-        `${subField}.detailFormulas`
-      )
+        `${subField}.detailFormulas`,
+      ),
     );
   };
 
@@ -240,8 +233,8 @@ export default function EditTextLine() {
             detailFormulas: undefined,
           },
         },
-        subField
-      )
+        subField,
+      ),
     );
   };
 

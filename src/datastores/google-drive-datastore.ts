@@ -11,11 +11,10 @@ import { Character, Datastore } from "src/lib/types";
 
 // TODO: maybe move local cache to separate file & share across datastores
 let knownFilenames: Record<UUID, string> = {};
-let localCache: Record<UUID, Character> = {};
+const localCache: Record<UUID, Character> = {};
 
 const populateKnownFilenames = async () => {
   const fileList = (await listFiles()).map((file) => [file.name, file.id]);
-  console.log("Populating known file names with list", fileList);
   knownFilenames = Object.fromEntries(fileList);
 };
 
@@ -30,7 +29,7 @@ const readThroughCache = async (uuid: UUID): Promise<Character | undefined> => {
     console.log(
       "Failed to read remote file with id",
       knownFilenames[uuid],
-      "as it had no contents"
+      "as it had no contents",
     );
     return;
   }
@@ -47,7 +46,7 @@ const writeThroughCache = async (character: Character) => {
     console.log(
       "Creating new file for ",
       character.uuid,
-      "because one didn't exist"
+      "because one didn't exist",
     );
     fileId = await createFile(character.uuid);
     knownFilenames[character.uuid] = fileId;
@@ -56,7 +55,7 @@ const writeThroughCache = async (character: Character) => {
     console.log(
       "Just updating file for",
       character.uuid,
-      "because there was already a known file"
+      "because there was already a known file",
     );
     await updateFile(fileId, JSON.stringify(character));
   }
@@ -71,13 +70,13 @@ const GoogleDriveDatastore: Datastore = {
     console.log(
       "Grabbing characters for",
       Object.keys(knownFilenames).length,
-      "characters"
+      "characters",
     );
     const promises = Object.entries(knownFilenames).map(
       async ([uuid, fileId]) => {
         if (!uuid || !fileId) return;
         await readThroughCache(uuid as UUID);
-      }
+      },
     );
     await Promise.all(promises);
   },

@@ -3,20 +3,12 @@ import StatAndSkillPanel from "src/components/stat-and-skill-panel";
 import {
   FIELD,
   STANDARD_EDITABLE_FIELD_TYPES,
-  FieldTypeInfo,
   FieldTypeNode,
-  OfficialClass,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import {
-  calculateCustomFormula,
-  formatClass,
-  traverse,
-  OPTIONAL_FIELD_INITIALIZERS,
-} from "src/lib/utils";
+import { formatClass, OPTIONAL_FIELD_INITIALIZERS } from "src/lib/utils";
 import BuildCustomFormula from "./build-custom-formula";
 import CharacterInfoPanel from "./character-info-panel";
 import DefenceAndEquipmentPanel from "./defence-and-equipment-panel";
@@ -28,12 +20,8 @@ import EditHitDice from "./edit-hit-dice";
 import EditAttack from "./edit-attack";
 import BuildCustomFormulaWithDamage from "./build-custom-formula-with-damage";
 import EditClassLevels from "./edit-class-levels";
-import { SpellCastingClass } from "src/lib/types";
-import { upperFirst } from "lodash";
 import Spellcasting from "./spellcasting";
 import EditSpell from "./edit-spell";
-import { useDatastore } from "src/lib/hooks/use-datastore";
-import { FaCheck, FaSpinner, FaTriangleExclamation } from "react-icons/fa6";
 
 export default function CharSheet() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -77,7 +65,7 @@ export default function CharSheet() {
             return;
           default:
             throw new Error(
-              "Unexpected subfield for spellcasting class" + subField
+              "Unexpected subfield for spellcasting class" + subField,
             );
         }
       } else if (
@@ -88,7 +76,7 @@ export default function CharSheet() {
           "Working with textLine, subField info is",
           subField,
           "includes formulas?",
-          (subField || "").includes("Formulas")
+          (subField || "").includes("Formulas"),
         );
         setModalType("formula");
       } else {

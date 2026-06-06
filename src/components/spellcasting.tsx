@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useCharacter } from "src/lib/hooks/use-character";
 import SingleValueDisplay from "./display/single-value-display";
 import {
@@ -6,7 +5,7 @@ import {
   OfficialClass,
   SpellLevel,
 } from "src/lib/data/data-definitions";
-import { groupBy, max, orderBy, upperFirst } from "lodash";
+import { max, upperFirst } from "lodash";
 import {
   calculateCustomFormula,
   getNumericSpellSlotLevel,
@@ -14,7 +13,6 @@ import {
 } from "src/lib/utils";
 import { Character, Spell, SpellCastingClass } from "src/lib/types";
 import { updateData } from "src/lib/hooks/reducers/actions";
-import TextWithFormulasDisplay from "./display/text-with-formulas-display";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 
 interface SpellsTableProps {
@@ -28,15 +26,15 @@ function SpellsTable({ character }: SpellsTableProps) {
     max([
       max(
         (Object.keys(character.spellSlots) as SpellLevel[]).map((spellSlot) =>
-          getNumericSpellSlotLevel(spellSlot)
-        )
+          getNumericSpellSlotLevel(spellSlot),
+        ),
       ) || 0,
       // TODO: allow overriding pact info
       pactSlotInfo.level,
     ]) || -1;
 
   const spellcastingClasses = character.spellcastingClasses.map(
-    (klass) => klass.class
+    (klass) => klass.class,
   );
   const pactSlots =
     pactSlotInfo.total > 0 ? (
@@ -147,14 +145,14 @@ export default function Spellcasting() {
   const { character, dispatch } = useCharacter();
   if (!character) return <></>;
 
-  const addSpellcastingClass = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const addSpellcastingClass = () => {
     const newSpellcastingClass: SpellCastingClass = {
       class: OfficialClass.Wizard,
     };
     dispatch(
       updateData(FIELD.spellcastingClasses, {
         value: [...character.spellcastingClasses, newSpellcastingClass],
-      })
+      }),
     );
   };
 

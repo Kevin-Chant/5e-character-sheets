@@ -1,27 +1,12 @@
-import { without } from "lodash";
-import React, { useEffect, useState } from "react";
-import {
-  FIELD,
-  OfficialClass,
-  OfficialSubclasses,
-  StandardDie,
-} from "src/lib/data/data-definitions";
+import React from "react";
+import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import {
-  Attack,
-  DieDefinition,
-  HitDice,
-  IClass,
-  isOfficialClass,
-} from "src/lib/types";
-import OptionOrCustomValue from "./display/option-or-custom-value";
+
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import {
   formatCustomFormula,
   formatCustomFormulaWithDamage,
   getFieldValue,
-  getHitDice,
-  traverse,
 } from "src/lib/utils";
 import { FaPencil } from "react-icons/fa6";
 import { useSave } from "./modals/modal-container";
@@ -45,7 +30,7 @@ export default function EditAttack() {
   const updateName = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     dispatch(
-      updateData(targetedField, { value: e.target.value }, subField + ".name")
+      updateData(targetedField, { value: e.target.value }, subField + ".name"),
     );
   };
 
@@ -97,7 +82,7 @@ export default function EditAttack() {
                   {formatCustomFormulaWithDamage(
                     attack.formula,
                     character,
-                    false
+                    false,
                   )}
                 </p>
               </div>

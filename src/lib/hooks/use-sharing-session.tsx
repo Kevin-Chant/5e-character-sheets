@@ -1,12 +1,6 @@
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useContext, useState } from "react";
 import { UUID } from "crypto";
-// @ts-ignore
+// @ts-expect-error - autobahn-browser ships no type declarations
 import autobahn from "autobahn-browser";
 import { Action } from "../hooks/reducers/actions";
 import { Character } from "../types";
@@ -90,12 +84,12 @@ export function useSharingSessions() {
 type Dispatch = (
   action: Action,
   dirtyAction?: boolean,
-  suppressBroadcast?: boolean
+  suppressBroadcast?: boolean,
 ) => void;
 
 export function useHostSharingSession(
   dispatch: Dispatch,
-  getCharacter: () => Character | undefined
+  getCharacter: () => Character | undefined,
 ) {
   const { getConnection, saveConnection, endSession } = useSharingSessions();
   const {
@@ -103,7 +97,7 @@ export function useHostSharingSession(
   } = useSettings();
   const uuid = getCharacter()?.uuid;
   const [connection, setConnection] = useState<autobahn.Connection | undefined>(
-    uuid ? getConnection(uuid) : undefined
+    uuid ? getConnection(uuid) : undefined,
   );
   const endCurrentSessionIfExists = useCallback<() => Promise<boolean>>(() => {
     if (uuid) {
@@ -117,7 +111,7 @@ export function useHostSharingSession(
     const uuid = getCharacter()?.uuid;
     if (!uuid) {
       alert(
-        "Failed to start sharing session. No character was found to share!"
+        "Failed to start sharing session. No character was found to share!",
       );
       return;
     }
@@ -140,7 +134,7 @@ export function useHostSharingSession(
         SessionEvent.DISPATCH,
         (args: [a: Action, da?: boolean]) => {
           dispatch(args[0], args[1], true);
-        }
+        },
       );
       // TODO: move this somewhere with access to the character reference
       session.register(SessionEvent.FULL_SYNC, getCharacter);
@@ -167,9 +161,9 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
     settings: { liveEditHost },
   } = useSettings();
   const [connection, setConnection] = useState<autobahn.Connection | undefined>(
-    undefined
+    undefined,
   );
-  const [disconnect, setDisconnect] = useState<() => void>(() => {});
+  const [disconnect] = useState<() => void>(() => {});
 
   const joinSession = async (uuid: UUID) => {
     const innerDisconnect = () => {
@@ -195,7 +189,7 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
         SessionEvent.DISPATCH,
         (args: [a: Action, da?: boolean]) => {
           dispatch(args[0], args[1], true);
-        }
+        },
       );
       session.subscribe(SessionEvent.CLOSE_SESSION, () => {
         console.log("Session called CLOSE_SESSION event. Disconnecting");
@@ -220,7 +214,7 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
 function broadcast(
   connection: autobahn.Connection,
   action: Action,
-  dirtyAction?: boolean
+  dirtyAction?: boolean,
 ) {
   connection.session.publish(SessionEvent.DISPATCH, [action, dirtyAction]);
 }
@@ -228,13 +222,13 @@ function broadcast(
 function callRemoteFn(
   connection: autobahn.Connection,
   event: string,
-  args: any[]
+  args: any[],
 ): Promise<any> {
   return connection.session.call(event, args);
 }
 
 function syncRemoteCharacter(
-  connection: autobahn.Connection
+  connection: autobahn.Connection,
 ): Promise<Character> {
   console.log("Trying to load remote character");
   return callRemoteFn(connection, SessionEvent.FULL_SYNC, []);

@@ -1,17 +1,17 @@
-import { useCallback, useEffect } from 'react';
-import { useBlocker } from 'react-router-dom';
-import { useConfirm } from 'src/lib/hooks/confirm/confirm.hooks';
-import { ConfirmOptions } from 'src/lib/hooks/confirm/confirm.types';
+import { useCallback, useEffect } from "react";
+import { useBlocker } from "react-router-dom";
+import { useConfirm } from "src/lib/hooks/confirm/confirm.hooks";
+import { ConfirmOptions } from "src/lib/hooks/confirm/confirm.types";
 
 export const usePrompt = ({
   isDirty = false,
-  title = 'You have unsaved changes!',
-  subtitle = 'Are you sure you want to leave?',
-  confirmText = 'Leave',
-  cancelText = 'Stay',
+  title = "You have unsaved changes!",
+  subtitle = "Are you sure you want to leave?",
+  confirmText = "Leave",
+  cancelText = "Stay",
   onConfirm,
   onCancel,
-  type = 'warning',
+  type = "warning",
 }: ConfirmOptions & { isDirty?: boolean }) => {
   const blocker = useBlocker(isDirty);
   const { show } = useConfirm();
@@ -46,7 +46,7 @@ export const usePrompt = ({
     type,
   ]);
   useEffect(() => {
-    if (blocker.state === 'blocked') {
+    if (blocker.state === "blocked") {
       confirm().then((result) => {
         if (result) blocker.proceed();
         else blocker.reset();

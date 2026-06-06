@@ -38,7 +38,7 @@ export function EditableAtomicVariable({
   const [emptyState, setEmptyState] = useState(false);
   const chooseValue = (
     e: React.MouseEvent<HTMLButtonElement>,
-    value: CustomFormula
+    value: CustomFormula,
   ) => {
     e.preventDefault();
     setVar(value);
@@ -145,8 +145,8 @@ export function EditableAtomicVariable({
             const die = isStandardDie(newValue)
               ? newValue
               : isStandardDie(dieName)
-              ? dieName
-              : { numFaces: newValue || 0 };
+                ? dieName
+                : { numFaces: newValue || 0 };
             setVar([atomicVar[0], die, atomicVar[2]]);
           }}
           options={Object.keys(StandardDie)}

@@ -1,5 +1,5 @@
 import { without } from "lodash";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   FIELD,
   OfficialClass,
@@ -67,7 +67,7 @@ export default function EditClassLevels() {
   const klassArr = character.class;
 
   const unusedClassnames = Object.keys(OfficialClass).filter(
-    (className) => !klassArr.map((klass) => klass.name).includes(className)
+    (className) => !klassArr.map((klass) => klass.name).includes(className),
   );
 
   const addClass = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -77,13 +77,13 @@ export default function EditClassLevels() {
         value: klassArr.concat([
           { name: unusedClassnames[0] || "Homebrew Class", level: 1 },
         ]),
-      })
+      }),
     );
   };
 
   const removeClass = (
     e: React.MouseEvent<HTMLButtonElement>,
-    index: number
+    index: number,
   ) => {
     e.preventDefault();
     const newKlassArr = klassArr.slice();
@@ -91,7 +91,7 @@ export default function EditClassLevels() {
     dispatch(
       updateData(FIELD.class, {
         value: newKlassArr,
-      })
+      }),
     );
   };
 
@@ -102,8 +102,8 @@ export default function EditClassLevels() {
         {
           value: newKlass,
         },
-        index.toString()
-      )
+        index.toString(),
+      ),
     );
   };
 
@@ -126,8 +126,8 @@ export default function EditClassLevels() {
                 options={Object.keys(OfficialClass).filter(
                   (className) =>
                     !without(klassArr, klass).find(
-                      (klass) => klass.name === className
-                    )
+                      (klass) => klass.name === className,
+                    ),
                 )}
               />
               <button onClick={(e) => removeClass(e, i)}>Remove class</button>

@@ -1,4 +1,3 @@
-import { UUID } from "crypto";
 import { Character, Datastore } from "src/lib/types";
 
 const RemoteDatastore: Datastore = {
@@ -6,9 +5,9 @@ const RemoteDatastore: Datastore = {
   savedSheetsCopy: "Friends' shared characters:",
   debounceWait: 3000,
   initializeDatastore: () => new Promise((resolve) => resolve()),
-  saveToDatastore: (character: Character) => {
+  saveToDatastore: () => {
     // TODO: do remote datastores need a save function
-    return new Promise((resolve, _reject) => {
+    return new Promise((resolve) => {
       resolve();
     });
   },
@@ -17,7 +16,7 @@ const RemoteDatastore: Datastore = {
   listEntriesInDatastore: (): Character[] => {
     return Object.values({});
   },
-  deleteFromDatastore: (uuid: UUID) => {},
+  deleteFromDatastore: () => {},
 };
 
 export default RemoteDatastore;

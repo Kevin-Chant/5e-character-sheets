@@ -9,13 +9,13 @@ interface DatastoreSelectorContextData {
 export const DatastoreSelectorContext =
   React.createContext<DatastoreSelectorContextData>({
     datastore: undefined,
-    setDatastore: (datastore: Datastore) => {
+    setDatastore: () => {
       console.log("Calling default setDatastore");
     },
   });
 
 export function DatastoreSelectorContextProvider(
-  props: React.PropsWithChildren
+  props: React.PropsWithChildren,
 ) {
   const [datastore, setDatastore] = useState<Datastore>();
   const providerData = {

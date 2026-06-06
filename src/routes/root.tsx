@@ -128,11 +128,11 @@ export default function Root() {
 
   const loadCharacterData = useCallback(() => {
     if (!fileSelected) return;
-    var reader = new FileReader();
+    const reader = new FileReader();
     reader.readAsText(fileSelected, "UTF-8");
     reader.onload = (readerEvent) => {
       try {
-        var content = readerEvent.target?.result;
+        const content = readerEvent.target?.result;
         if (typeof content === "string") {
           const characterData = JSON.parse(content);
           const [valid, errors] = validateCharacterData(characterData);
@@ -148,7 +148,7 @@ export default function Root() {
         }
       } catch (e) {
         setImportErrorMessage(
-          "Failed to import, unexpected error. Check the console for more details"
+          "Failed to import, unexpected error. Check the console for more details",
         );
         console.error(e);
       }

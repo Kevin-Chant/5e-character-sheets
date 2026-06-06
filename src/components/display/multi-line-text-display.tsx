@@ -39,7 +39,7 @@ export default function MultiLineTextDisplay({
   let renderedTextComponents = textComponents;
   if (transform && textComponents) {
     renderedTextComponents = textComponents.map((element: any) =>
-      transform(element, character)
+      transform(element, character),
     );
   }
   if (!isArr<TextComponent>(renderedTextComponents, isTextComponent))
@@ -66,8 +66,8 @@ export default function MultiLineTextDisplay({
         {
           value: textComponents.concat(defaultValue),
         },
-        subField
-      )
+        subField,
+      ),
     );
     if (subField) {
       pushTargetedField(field, `${subField}.${textComponents.length}`);

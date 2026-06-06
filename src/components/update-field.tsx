@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   Alignment,
   EDITABLE_FIELD_OPTIONAL_DATA,
   OfficialClass,
-  STANDARD_EDITABLE_FIELD_TYPES,
   StatKey,
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
@@ -45,7 +44,7 @@ export default function UpdateField({
     currentValue = OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
       undefined,
       character,
-      subField
+      subField,
     );
   }
 

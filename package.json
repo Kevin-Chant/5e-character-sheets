@@ -3,63 +3,76 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.28.1",
+  "scripts": {
+    "dev": "vite",
+    "server": "node server/server.js",
+    "build": "pnpm generate-schema && pnpm type-check && vite build",
+    "preview": "vite preview",
+    "generate-schema": "typescript-json-schema src/lib/types.ts Character > src/schema.json",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0 --cache || eslint . --fix --max-warnings 0 --cache",
+    "lint:ci": "eslint . --max-warnings 0",
+    "pretty": "prettier --write \"**/*.{json,css,md,js,jsx,ts,tsx}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ci": "pnpm lint:ci && pnpm type-check && pnpm test",
+    "prepare": "husky || true"
+  },
   "dependencies": {
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
+    "ajv": "^8.17.1",
+    "autobahn-browser": "^22.11.1",
+    "classnames": "^2.5.1",
+    "lodash": "^4.17.21",
+    "nightlife-rabbit": "github:christian-raedel/nightlife-rabbit",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.4.0",
+    "react-router-dom": "^6.30.0",
+    "react-switch": "^7.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/gapi": "^0.0.47",
     "@types/gapi.client.drive": "^3.0.15",
     "@types/google.accounts": "^0.0.14",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.83",
-    "@types/react": "^18.2.59",
-    "@types/react-dom": "^18.2.19",
-    "ajv": "^8.12.0",
-    "autobahn-browser": "^22.11.1",
-    "classnames": "^2.5.1",
-    "fs": "^0.0.1-security",
-    "lodash": "^4.17.21",
-    "nightlife-rabbit": "github:christian-raedel/nightlife-rabbit",
-    "path": "^0.12.7",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-icons": "^5.0.1",
-    "react-router-dom": "^6.22.1",
-    "react-scripts": "5.0.1",
-    "react-switch": "^7.0.0",
-    "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4",
-    "ws": "^2.3.1"
+    "@types/lodash": "^4.17.14",
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-react": "^7.37.3",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^15.14.0",
+    "husky": "^9.1.7",
+    "jsdom": "^25.0.1",
+    "lint-staged": "^15.3.0",
+    "prettier": "^3.4.2",
+    "typescript": "~5.7.3",
+    "typescript-eslint": "^8.19.0",
+    "typescript-json-schema": "^0.65.1",
+    "vite": "^6.0.7",
+    "vitest": "^3.2.6"
   },
-  "scripts": {
-    "start": "react-scripts start",
-    "server": "node server/server.js",
-    "build": "npm run generate-schema && react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "generate-schema": "typescript-json-schema src/lib/types.ts Character > src/schema.json"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix --max-warnings 0",
+      "prettier --write"
     ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
+    "*.{json,css,md}": [
+      "prettier --write"
     ]
   },
-  "devDependencies": {
-    "@types/lodash": "^4.14.202",
-    "tsc-alias": "^1.8.8",
-    "typescript-json-schema": "^0.63.0"
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

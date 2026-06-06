@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { readLocalStorage, writeLocalStorage } from "../local-storage";
 
-export const DEFAULT_LIVE_EDIT_HOST = "http://35.87.176.174:9000";
+export const DEFAULT_LIVE_EDIT_HOST =
+  import.meta.env.VITE_LIVE_EDIT_HOST ?? "http://35.87.176.174:9000";
 
 interface Settings {
   liveEditHost: string;
@@ -9,7 +10,7 @@ interface Settings {
 
 function sanitizeSettingValue(
   settingsValue: Settings[typeof settingsKey],
-  settingsKey: keyof Settings
+  settingsKey: keyof Settings,
 ) {
   switch (settingsKey) {
     case "liveEditHost":
@@ -42,7 +43,7 @@ export function SettingsContextProvider(props: React.PropsWithChildren) {
       settings,
       updateSetting: (
         settingsKey: keyof Settings,
-        settingsValue: Settings[typeof settingsKey]
+        settingsValue: Settings[typeof settingsKey],
       ) => {
         setSettings((currentSettings) => ({
           ...currentSettings,

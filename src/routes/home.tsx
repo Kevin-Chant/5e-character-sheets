@@ -35,7 +35,7 @@ export default function Home() {
           to="/join"
         >
           <button className="margin-medium">
-            Join a friend's sharing session
+            Join a friend&apos;s sharing session
           </button>
         </Link>
       </div>

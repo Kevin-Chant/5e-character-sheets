@@ -128,14 +128,14 @@ export function EditableExpression({
                   formula={operand}
                   setFormula={(newValue) => {
                     const newOperands = JSON.parse(
-                      JSON.stringify(expr.operands)
+                      JSON.stringify(expr.operands),
                     );
                     newOperands.splice(i, 1, newValue);
                     setExpr({ ...expr, operands: newOperands });
                   }}
                   removeOperand={() => {
                     const newOperands = JSON.parse(
-                      JSON.stringify(expr.operands)
+                      JSON.stringify(expr.operands),
                     );
                     newOperands.splice(i, 1);
                     setExpr({

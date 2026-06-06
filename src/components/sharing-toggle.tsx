@@ -2,7 +2,6 @@ import RemoteDatastore from "src/datastores/remote-datastore";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import Switch from "react-switch";
-import ReactSwitch from "react-switch";
 import { FaCopy } from "react-icons/fa6";
 
 export default function SharingToggle() {
@@ -29,7 +28,7 @@ export default function SharingToggle() {
     navigator.clipboard.writeText(character.uuid);
     alert(
       "Your sharing code has been copied to the clipboard.\nShare this code with your friend:\n" +
-        character.uuid
+        character.uuid,
     );
   };
 

@@ -12,7 +12,6 @@ import {
   calculateCustomFormula,
   formatCustomFormulaWithDamage,
   getHitDice,
-  getHpFormula,
   modifier,
   totalGP,
 } from "src/lib/utils";
@@ -190,7 +189,7 @@ export default function DefenceAndEquipmentPanel() {
             {character.attacks.map((attack, index) => {
               const attackBonus = calculateCustomFormula(
                 attack.bonus,
-                character
+                character,
               );
               return (
                 <tr key={index}>

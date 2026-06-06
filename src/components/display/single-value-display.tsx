@@ -46,7 +46,7 @@ export default function SingleValueDisplay({
   const optionalOverride = OPTIONAL_FIELD_INITIALIZERS[field]?.call(
     undefined,
     character,
-    subField
+    subField,
   );
   let value = getFieldValue(field, character);
   if (subField) value = traverse(subField, value);

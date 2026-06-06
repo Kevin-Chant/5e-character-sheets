@@ -1,21 +1,7 @@
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useReducer,
-  useState,
-} from "react";
-import {
-  Action,
-  loadFullCharacter,
-  updateData,
-} from "src/lib/hooks/reducers/actions";
+import React, { useCallback, useContext, useEffect, useReducer } from "react";
+import { Action, updateData } from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
-import {
-  CharacterContext,
-  CharacterContextProvider,
-  useCharacter,
-} from "src/lib/hooks/use-character";
+import { CharacterContext, useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue } from "src/lib/utils";
 
@@ -25,7 +11,7 @@ interface ModalProps {
 }
 
 const SaveContext = React.createContext({
-  saveData: (e?: React.MouseEvent<HTMLButtonElement>, a?: Action) => {},
+  saveData: (_e?: React.MouseEvent<HTMLButtonElement>, _a?: Action) => {},
 });
 export function useSave() {
   return useContext(SaveContext);
@@ -42,7 +28,7 @@ export default function ModalContainer({
         close();
       }
     },
-    [close]
+    [close],
   );
 
   useEffect(() => {
@@ -62,7 +48,7 @@ export default function ModalContainer({
       a ||
         updateData(targetedField, {
           value: getFieldValue(targetedField, character),
-        })
+        }),
     );
     popTargetedField();
   };

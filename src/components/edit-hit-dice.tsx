@@ -1,13 +1,6 @@
-import { without } from "lodash";
-import React, { useEffect, useState } from "react";
-import {
-  FIELD,
-  OfficialClass,
-  OfficialSubclasses,
-  StandardDie,
-} from "src/lib/data/data-definitions";
+import React from "react";
+import { FIELD, StandardDie } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import { HitDice } from "src/lib/types";
 import { getFieldValue, getHitDice } from "src/lib/utils";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
@@ -26,7 +19,7 @@ export default function EditHitDice() {
 
   const updateHitDice = (
     e: React.ChangeEvent<HTMLInputElement>,
-    die: StandardDie
+    die: StandardDie,
   ) => {
     dispatch(
       updateData(
@@ -34,8 +27,8 @@ export default function EditHitDice() {
         {
           value: parseInt(e.target.value),
         },
-        die
-      )
+        die,
+      ),
     );
   };
 

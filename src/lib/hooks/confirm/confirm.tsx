@@ -1,7 +1,5 @@
-/* eslint-disable jsx-a11y/label-has-associated-control */
-/* eslint-disable max-len */
-import React from 'react';
-import type { ConfirmOptions } from './confirm.types';
+import React from "react";
+import type { ConfirmOptions } from "./confirm.types";
 type Props = ConfirmOptions & { open: boolean };
 function CloseIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -101,29 +99,29 @@ type ColorValues = {
   iconColor: string;
 };
 type NotOptional<T> = T extends undefined ? never : T;
-const colorMap: Record<NotOptional<Props['type']>, ColorValues> = {
+const colorMap: Record<NotOptional<Props["type"]>, ColorValues> = {
   error: {
-    bgColor: '#FDEDED',
-    iconColor: '#D92D20',
-    textColor: '#5F2120',
+    bgColor: "#FDEDED",
+    iconColor: "#D92D20",
+    textColor: "#5F2120",
   },
   info: {
-    bgColor: '#EDF7ED',
-    iconColor: '#026AA2',
-    textColor: '#026AA2',
+    bgColor: "#EDF7ED",
+    iconColor: "#026AA2",
+    textColor: "#026AA2",
   },
   success: {
-    bgColor: '#EDF7ED',
-    iconColor: '#2E7D32',
-    textColor: '#1E4620',
+    bgColor: "#EDF7ED",
+    iconColor: "#2E7D32",
+    textColor: "#1E4620",
   },
   warning: {
-    bgColor: '#FFF4E5',
-    iconColor: '#ED6C02',
-    textColor: '#663C00',
+    bgColor: "#FFF4E5",
+    iconColor: "#ED6C02",
+    textColor: "#663C00",
   },
 };
-const iconMap: Record<NotOptional<Props['type']>, React.ReactNode> = {
+const iconMap: Record<NotOptional<Props["type"]>, React.ReactNode> = {
   error: <ErrorIcon />,
   info: <InfoIcon />,
   success: <SuccessIcon />,
@@ -137,12 +135,12 @@ export function Confirm({
   confirmText,
   onCancel,
   onConfirm,
-  type = 'warning',
+  type = "warning",
 }: Props) {
   return (
     <dialog
       className={`absolute top-0 left-0 z-50 flex-col items-center justify-center w-full h-full overflow-auto bg-black bg-opacity-50 ${
-        open ? 'flex' : 'hidden'
+        open ? "flex" : "hidden"
       }`}
     >
       <div
@@ -178,7 +176,7 @@ export function Confirm({
           <button
             onClick={onCancel}
             style={{
-              background: 'gray',
+              background: "gray",
             }}
             type="button"
           >

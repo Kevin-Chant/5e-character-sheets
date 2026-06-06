@@ -252,7 +252,7 @@ export type FieldTypeNode =
   | "spell"
   | typeof Alignment
   | typeof StatKey;
-export interface FieldTypeInfo extends Record<string, FieldTypeNode> {}
+export type FieldTypeInfo = Record<string, FieldTypeNode>;
 
 export const EDITABLE_FIELD_OPTIONAL_DATA: Record<
   string,

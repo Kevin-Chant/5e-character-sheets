@@ -7,7 +7,6 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import {
   SKILL_SOURCE_STATS,
   STAT_NAMES,
-  calculateAtomicVariable,
   calculateCustomFormula,
   getPB,
   modifier,
@@ -56,11 +55,11 @@ function SkillsColumn({ pb }: { pb: number }) {
                 text={statName}
                 updateProficiency={createProficiencyUpdater(
                   FIELD.proficiencies,
-                  `savingThrows.${statKey}`
+                  `savingThrows.${statKey}`,
                 )}
               />
             );
-          }
+          },
         )}
         <b>Saving Throws</b>
       </div>
@@ -87,20 +86,20 @@ function SkillsColumn({ pb }: { pb: number }) {
                   (expert
                     ? 2 * pb
                     : proficient
-                    ? pb
-                    : jack
-                    ? Math.floor(pb / 2)
-                    : 0)
+                      ? pb
+                      : jack
+                        ? Math.floor(pb / 2)
+                        : 0)
                 }
                 text={skillName}
                 subtext={`(${statKey})`}
                 updateProficiency={createProficiencyUpdater(
                   FIELD.proficiencies,
-                  `skills.${skillName}`
+                  `skills.${skillName}`,
                 )}
               />
             );
-          }
+          },
         )}
         <b>Skills</b>
       </div>
@@ -128,7 +127,7 @@ function StatsAndSkills({ pb }: { pb: number }) {
                 editable
               />
             );
-          }
+          },
         )}
       </div>
       <SkillsColumn pb={pb} />

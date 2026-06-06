@@ -30,7 +30,7 @@ export function isUuid(data: any): data is UUID {
 }
 export function isArr<T>(
   data: any,
-  validator: (data: any) => data is T
+  validator: (data: any) => data is T,
 ): data is Array<T> {
   if (!Array.isArray(data)) return false;
   return every(data, validator);
@@ -39,7 +39,7 @@ export function isArr<T>(
 export function isMap<K extends string | number | symbol, V>(
   data: any,
   kValidator: (data: any) => data is K,
-  vValidator: (data: any) => data is V
+  vValidator: (data: any) => data is V,
 ): data is Record<K, V> {
   return (
     isObject(data) &&
@@ -53,7 +53,7 @@ export function isTextComponent(data: any): data is TextComponent {
 }
 
 export function isTextComponentWithoutDetail(
-  data: any
+  data: any,
 ): data is TextComponentWithoutDetails {
   return (
     typeof data === "object" &&
@@ -65,7 +65,7 @@ export function isTextComponentWithoutDetail(
 }
 
 export function isTextComponentWithDetail(
-  data: any
+  data: any,
 ): data is TextComponentWithDetails {
   return (
     typeof data === "object" &&
@@ -126,7 +126,7 @@ export function isDamageType(data: any): data is DamageType {
 }
 
 export function isCustomFormulaWithDamage(
-  data: any
+  data: any,
 ): data is CustomFormulaWithDamage {
   return isMap<DamageType, CustomFormula>(data, isDamageType, isCustomFormula);
 }
@@ -142,35 +142,35 @@ export function isAtomicVariable(data: any): data is AtomicVariable {
 }
 
 export function isSingleOperandOperation(
-  data: any
+  data: any,
 ): data is SingleOperandOperation {
   return (
-    typeof data === "object" &&
-    Object.keys(Operation).includes(data.operation) &&
-    isCustomFormula(data.operand1) &&
-    isUndefined(data.operand2)
+    isObject(data) &&
+    Object.keys(Operation).includes((data as any).operation) &&
+    isCustomFormula((data as any).operand1) &&
+    isUndefined((data as any).operand2)
   );
 }
 
 export function isDoubleOperandOperation(
-  data: any
+  data: any,
 ): data is DoubleOperandOperation {
   return (
-    typeof data === "object" &&
-    Object.keys(Operation).includes(data.operation) &&
-    isCustomFormula(data.operand1) &&
-    isCustomFormula(data.operand2)
+    isObject(data) &&
+    Object.keys(Operation).includes((data as any).operation) &&
+    isCustomFormula((data as any).operand1) &&
+    isCustomFormula((data as any).operand2)
   );
 }
 
 export function isArbitraryOperandOperation(
-  data: any
+  data: any,
 ): data is ArbitraryOperandOperation {
   return (
-    typeof data === "object" &&
-    Object.keys(Operation).includes(data.operation) &&
-    isArray(data.operands) &&
-    every(data.operands, (operand) => isCustomFormula(operand))
+    isObject(data) &&
+    Object.keys(Operation).includes((data as any).operation) &&
+    isArray((data as any).operands) &&
+    every((data as any).operands, (operand) => isCustomFormula(operand))
   );
 }
 

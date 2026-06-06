@@ -4,11 +4,10 @@ import {
   useCallback,
   useMemo,
   useState,
-  useEffect,
-} from 'react';
+} from "react";
 
-import { Confirm } from './confirm';
-import { ConfirmContext, ConfirmOptions, Nullable } from './confirm.types';
+import { Confirm } from "./confirm";
+import { ConfirmContext, ConfirmOptions, Nullable } from "./confirm.types";
 export const ConfirmCtx = createContext<Nullable<ConfirmContext>>(null);
 interface Props {
   children: ReactNode;
@@ -21,7 +20,7 @@ export function ConfirmProvider({ children }: Props) {
       setConfirm(confirmOptions);
       toggle(true);
     },
-    [toggle]
+    [toggle],
   );
   const onConfirm = () => {
     confirm?.onConfirm?.();

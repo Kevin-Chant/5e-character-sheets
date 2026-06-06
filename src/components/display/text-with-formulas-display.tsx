@@ -1,11 +1,6 @@
 import { useCharacter } from "src/lib/hooks/use-character";
-import { CustomFormula, isCustomFormulaWithDamage } from "src/lib/types";
-import {
-  calculateCustomFormula,
-  calculateCustomFormulaWithDamage,
-  formatCustomFormula,
-  formatCustomFormulaWithDamage,
-} from "src/lib/utils";
+import { CustomFormula } from "src/lib/types";
+import { calculateCustomFormula, formatCustomFormula } from "src/lib/utils";
 import ComponentWithPopover from "./component-with-popover";
 
 interface FormulaTextWithTooltipProps {
@@ -40,10 +35,10 @@ export default function TextWithFormulasDisplay({
   const { character } = useCharacter();
   if (!character) return <></>;
   const calculatedFormulas = formulas.map((formula) =>
-    calculateCustomFormula(formula, character).toString()
+    calculateCustomFormula(formula, character).toString(),
   );
   const formattedFormulas = formulas.map((formula) =>
-    formatCustomFormula(formula, character, false)
+    formatCustomFormula(formula, character, false),
   );
   let i = 0;
   const stringSegments = templateString.split(/({{}})/).map((segment) => {
