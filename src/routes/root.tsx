@@ -23,6 +23,7 @@ import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import SharingToggle from "src/components/sharing-toggle";
 import DriveShareControls from "src/components/drive-share-controls";
+import DriveImportButton from "src/components/drive-import-button";
 import { validateCharacterData } from "src/lib/utils";
 
 function Sidebar() {
@@ -191,6 +192,7 @@ export default function Root() {
           >
             <FaFileImport />
           </button>
+          <DriveImportButton />
           <button
             className="margin-medium"
             onClick={saveCharacter}

@@ -399,4 +399,7 @@ export interface Datastore {
   isShared?: (uuid: UUID) => boolean;
   promoteCharacter?: (uuid: UUID) => Promise<void>;
   shareCharacter?: (uuid: UUID, email: string) => Promise<void>;
+  // Pick a character document shared with the user and add it to this store,
+  // returning it for the caller to open (undefined if nothing was picked).
+  importSharedCharacter?: () => Promise<Character | undefined>;
 }

@@ -21,7 +21,8 @@
       "node",
       "gapi",
       "gapi.client.drive",
-      "google.accounts"
+      "google.accounts",
+      "google.picker"
     ],
     "paths": {
       "src/*": ["./src/*"]

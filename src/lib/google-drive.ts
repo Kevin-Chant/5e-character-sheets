@@ -3,7 +3,7 @@
 // via env vars; the defaults point at the project's own Google Cloud app.
 export const CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ??
-  "998156536896-mcrk9ao2kc7qfbv5umhe8c97p4sutm7a.apps.googleusercontent.com";
+  "998156536896-4j4rbhlb39epi0t6vlia682lbjlk9tia.apps.googleusercontent.com";
 export const API_KEY =
   import.meta.env.VITE_GOOGLE_API_KEY ??
   "AIzaSyDp__PTlFtW7FNY2SDN84ZfH1Fwx0DjprE";
@@ -23,6 +23,77 @@ export const SCOPES =
 // documents so the app can recognize and re-list them.
 export const SHARED_MARKER_KEY = "fiveECharacter";
 export const SHARED_UUID_KEY = "fiveECharacterUuid";
+
+// GIS access tokens are short-lived (~1h) and held only in memory, so a fresh
+// page load would otherwise re-prompt for consent. We cache the granted token
+// (with its expiry + scopes) so returning users can resume silently until it
+// expires, then refresh without UI. Access tokens are not refresh tokens and
+// can't be used to mint new ones — they only let us skip the consent dialog.
+const TOKEN_STORAGE_KEY = "googleDriveToken";
+
+interface StoredToken {
+  accessToken: string;
+  expiresAt: number; // epoch ms
+  scope: string;
+}
+
+function readStoredToken(): StoredToken | undefined {
+  const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as StoredToken;
+  } catch {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    return undefined;
+  }
+}
+
+// Every scope we require must be present in the granted set (order/extras OK).
+function coversRequiredScopes(granted: string): boolean {
+  const grantedSet = new Set(granted.split(" "));
+  return SCOPES.split(" ").every((scope) => grantedSet.has(scope));
+}
+
+export function persistToken(resp: google.accounts.oauth2.TokenResponse) {
+  const stored: StoredToken = {
+    accessToken: resp.access_token,
+    expiresAt: Date.now() + Number(resp.expires_in) * 1000,
+    scope: resp.scope,
+  };
+  localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(stored));
+}
+
+export function clearStoredToken() {
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+// True when the user has granted access before with the scopes we need — even
+// if the cached token has since expired. Used to decide whether a silent
+// (no-UI) token refresh is worth attempting.
+export function hasStoredGrant(): boolean {
+  const stored = readStoredToken();
+  if (!stored) return false;
+  if (!coversRequiredScopes(stored.scope)) {
+    clearStoredToken();
+    return false;
+  }
+  return true;
+}
+
+// If a still-valid cached token covering the required scopes exists, prime gapi
+// with it and return true so the consent flow can be skipped. A 60s buffer
+// avoids restoring a token that would expire mid-request.
+export function restoreToken(): boolean {
+  const stored = readStoredToken();
+  if (!stored) return false;
+  if (!coversRequiredScopes(stored.scope)) {
+    clearStoredToken();
+    return false;
+  }
+  if (stored.expiresAt - 60_000 <= Date.now()) return false; // expired-ish
+  window.gapi.client.setToken({ access_token: stored.accessToken });
+  return true;
+}
 
 type FilesListParams = Parameters<
   typeof window.gapi.client.drive.files.list
@@ -126,6 +197,11 @@ export async function createFile(
   }
 }
 
+// Renames a Drive file (metadata-only update, no content change).
+export async function renameFile(fileId: string, name: string) {
+  return window.gapi.client.drive.files.update({ fileId, resource: { name } });
+}
+
 // Grants a user write access to a file and emails them a notification.
 export async function shareFileByEmail(fileId: string, email: string) {
   const res = await fetch(
@@ -150,4 +226,64 @@ export async function shareFileByEmail(fileId: string, email: string) {
 
 export async function deleteFile(fileId: string) {
   return window.gapi.client.drive.files.delete({ fileId });
+}
+
+export interface PickedFile {
+  id: string;
+  name: string;
+}
+
+// The Picker library ships with the gapi script but must be loaded separately.
+let pickerLoaded = false;
+function loadPicker(): Promise<void> {
+  return new Promise((resolve) => {
+    if (pickerLoaded) return resolve();
+    window.gapi.load("picker", () => {
+      pickerLoaded = true;
+      resolve();
+    });
+  });
+}
+
+// Opens the Google Picker showing documents shared with the signed-in user.
+// Picking a file is what grants this app drive.file (per-file) access to it —
+// shared-with-me files are otherwise invisible to our scopes. Resolves with the
+// selected files, or an empty array if the user cancels.
+export async function pickSharedCharacters(): Promise<PickedFile[]> {
+  await loadPicker();
+  const token = window.gapi.client.getToken();
+  if (!token) throw new Error("Not signed in to Google Drive.");
+
+  return new Promise((resolve) => {
+    const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+      // TODO: restore .setOwnedByMe(false) to scope to shared-with-me only;
+      // left off during testing so you can pick your own files too.
+      .setIncludeFolders(false)
+      .setSelectFolderEnabled(false);
+
+    const picker = new google.picker.PickerBuilder()
+      .setOAuthToken(token.access_token)
+      .setDeveloperKey(API_KEY)
+      // The Cloud project number (leading segment of the OAuth client id) is
+      // required for the Picker to grant drive.file access to picked files.
+      .setAppId(CLIENT_ID.split("-")[0])
+      .addView(view)
+      .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+      .setCallback((data: google.picker.ResponseObject) => {
+        const action = data[google.picker.Response.ACTION];
+        if (action === google.picker.Action.PICKED) {
+          const docs = data[google.picker.Response.DOCUMENTS] ?? [];
+          resolve(
+            docs.map((doc) => ({
+              id: doc[google.picker.Document.ID],
+              name: doc[google.picker.Document.NAME] ?? "Imported character",
+            })),
+          );
+        } else if (action === google.picker.Action.CANCEL) {
+          resolve([]);
+        }
+      })
+      .build();
+    picker.setVisible(true);
+  });
 }

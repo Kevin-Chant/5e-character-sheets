@@ -60,6 +60,9 @@ importers:
       '@types/google.accounts':
         specifier: ^0.0.14
         version: 0.0.14
+      '@types/google.picker':
+        specifier: ^0.0.52
+        version: 0.0.52
       '@types/lodash':
         specifier: ^4.17.14
         version: 4.17.24
@@ -706,6 +709,9 @@ packages:
 
   '@types/google.accounts@0.0.14':
     resolution: {integrity: sha512-HqIVkVzpiLWhlajhQQd4rIV7czanFvXblJI2J1fSrL+VKQuQwwZ63m35D/mI0flsqKE6p/hNrAG0Yn4FD6JvNA==}
+
+  '@types/google.picker@0.0.52':
+    resolution: {integrity: sha512-k0HyW8HxJePomM2r0JWq9nE9XG6qY93lVpoVnaV4WjQggDHrGwDKq3G8CGpcBWhQlJBTxX9jDIrI7RQnqjM63w==}
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
@@ -1829,10 +1835,6 @@ packages:
   nightlife-rabbit@https://codeload.github.com/christian-raedel/nightlife-rabbit/tar.gz/6beebe61110075b6590413f7bf78248a9510fa5b:
     resolution: {tarball: https://codeload.github.com/christian-raedel/nightlife-rabbit/tar.gz/6beebe61110075b6590413f7bf78248a9510fa5b}
     version: 0.2.0
-
-  node-cconf@git+https://git@github.com:christian-raedel/node-cconf.git#f2417893b715f1bfe89bcf57f4c502aaceed4d85:
-    resolution: {commit: f2417893b715f1bfe89bcf57f4c502aaceed4d85, repo: git@github.com:christian-raedel/node-cconf.git, type: git}
-    version: 0.3.3
 
   node-cconf@https://codeload.github.com/christian-raedel/node-cconf/tar.gz/f2417893b715f1bfe89bcf57f4c502aaceed4d85:
     resolution: {tarball: https://codeload.github.com/christian-raedel/node-cconf/tar.gz/f2417893b715f1bfe89bcf57f4c502aaceed4d85}
@@ -3090,6 +3092,8 @@ snapshots:
 
   '@types/google.accounts@0.0.14': {}
 
+  '@types/google.picker@0.0.52': {}
+
   '@types/json-schema@7.0.15': {}
 
   '@types/lodash@4.17.24': {}
@@ -3569,7 +3573,7 @@ snapshots:
       debug: 2.6.9
       lodash: 2.4.2
       moment: 2.30.1
-      node-cconf: git+https://git@github.com:christian-raedel/node-cconf.git#f2417893b715f1bfe89bcf57f4c502aaceed4d85
+      node-cconf: https://codeload.github.com/christian-raedel/node-cconf/tar.gz/f2417893b715f1bfe89bcf57f4c502aaceed4d85
       q: 1.5.1
     transitivePeerDependencies:
       - supports-color
@@ -4385,11 +4389,6 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
-
-  node-cconf@git+https://git@github.com:christian-raedel/node-cconf.git#f2417893b715f1bfe89bcf57f4c502aaceed4d85:
-    dependencies:
-      js-yaml: 3.14.2
-      lodash: 2.4.2
 
   node-cconf@https://codeload.github.com/christian-raedel/node-cconf/tar.gz/f2417893b715f1bfe89bcf57f4c502aaceed4d85:
     dependencies:

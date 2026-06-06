@@ -9,6 +9,7 @@ interface DatastoreContextData {
   save: (character: Character) => Promise<void>;
   load: (uuid: UUID) => Promise<Character | undefined>;
   createCharacter: () => Promise<Character | undefined>;
+  importCharacter: () => Promise<Character | undefined>;
   deleteCharacter: (uuid: UUID) => void;
   debounceWait: number;
   characterLoading: boolean;
@@ -33,6 +34,10 @@ export const DatastoreContext = React.createContext<DatastoreContextData>({
   },
   createCharacter: () => {
     console.log("Calling default createCharacter");
+    return new Promise((resolve) => resolve(undefined));
+  },
+  importCharacter: () => {
+    console.log("Calling default importCharacter");
     return new Promise((resolve) => resolve(undefined));
   },
   deleteCharacter: () => {
@@ -88,6 +93,20 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     return new Promise((resolve) => resolve(undefined));
   };
 
+  const importCharacter = async (): Promise<Character | undefined> => {
+    if (datastore?.importSharedCharacter) {
+      const character = await datastore.importSharedCharacter();
+      if (character) {
+        setLocalCharacters((prev) => ({
+          ...prev,
+          [character.uuid]: character,
+        }));
+      }
+      return character;
+    }
+    return undefined;
+  };
+
   const deleteCharacter = (uuid: UUID) => {
     if (datastore) {
       datastore.deleteFromDatastore(uuid);
@@ -121,6 +140,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     save,
     load,
     createCharacter,
+    importCharacter,
     deleteCharacter,
     debounceWait: datastore?.debounceWait || 1000,
   };

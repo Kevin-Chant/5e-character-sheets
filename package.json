@@ -39,6 +39,7 @@
     "@types/gapi": "^0.0.47",
     "@types/gapi.client.drive": "^3.0.15",
     "@types/google.accounts": "^0.0.14",
+    "@types/google.picker": "^0.0.52",
     "@types/lodash": "^4.17.14",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
