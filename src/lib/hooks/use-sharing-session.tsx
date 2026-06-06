@@ -17,40 +17,87 @@ export const SessionEvent = {
 // autobahn is untyped, so a Connection is effectively `any`.
 type Connection = any;
 
+// Whether this client opened the realm (host, owns persistence) or joined a
+// friend's realm (remote, the host owns persistence).
+type SessionRole = "host" | "remote";
+
+// What a DISPATCH message carries: the action, whether it dirties the sheet,
+// and the id of the client that sent it (so we can ignore our own echoes —
+// the WAMP broker does not honor exclude_me).
+type DispatchPayload = [
+  action: Action,
+  dirtyAction?: boolean,
+  senderId?: string,
+];
+
+interface OpenSession {
+  connection: Connection;
+  role: SessionRole;
+}
+
 interface SharingSessionsContextData {
+  clientId: string;
   getConnection: (uuid: UUID) => Connection | undefined;
-  saveConnection: (uuid: UUID, connection: Connection) => void;
+  getRole: (uuid: UUID) => SessionRole | undefined;
+  saveConnection: (
+    uuid: UUID,
+    connection: Connection,
+    role: SessionRole,
+  ) => void;
   forgetConnection: (uuid: UUID) => void;
+  broadcast: (uuid: UUID, action: Action, dirtyAction?: boolean) => void;
   endSession: (uuid: UUID) => Promise<boolean>;
 }
 
 export const SharingSessionsContext =
   React.createContext<SharingSessionsContextData>({
+    clientId: "",
     getConnection: () => undefined,
+    getRole: () => undefined,
     saveConnection: () => {},
     forgetConnection: () => {},
+    broadcast: () => {},
     endSession: async () => false,
   });
 
 export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
-  const [openConnections, setOpenConnections] = useState<
-    Record<UUID, Connection>
-  >({});
+  const [openSessions, setOpenSessions] = useState<Record<UUID, OpenSession>>(
+    {},
+  );
+  // Stable id identifying this browser tab, used to drop our own echoed edits.
+  const clientIdRef = useRef<string>(crypto.randomUUID());
   const {
     settings: { liveEditHost },
   } = useSettings();
 
   const providerData: SharingSessionsContextData = {
-    getConnection: (uuid) => openConnections[uuid],
-    saveConnection: (uuid, connection) => {
-      setOpenConnections((current) => ({ ...current, [uuid]: connection }));
+    clientId: clientIdRef.current,
+    getConnection: (uuid) => openSessions[uuid]?.connection,
+    getRole: (uuid) => openSessions[uuid]?.role,
+    saveConnection: (uuid, connection, role) => {
+      setOpenSessions((current) => ({
+        ...current,
+        [uuid]: { connection, role },
+      }));
     },
     forgetConnection: (uuid) => {
-      setOpenConnections((current) => {
+      setOpenSessions((current) => {
         const next = { ...current };
         delete next[uuid];
         return next;
       });
+    },
+    // Publish a local edit to everyone else in the realm. No-op when there is
+    // no open session for this character.
+    broadcast: (uuid, action, dirtyAction) => {
+      const connection = openSessions[uuid]?.connection;
+      if (!connection?.session) return;
+      const payload: DispatchPayload = [
+        action,
+        dirtyAction,
+        clientIdRef.current,
+      ];
+      connection.session.publish(SessionEvent.DISPATCH, payload);
     },
     // Asks the live-edit server to tear down the realm. Returns `true` if the
     // request failed (callers treat that as "the session is still open").
@@ -84,23 +131,39 @@ type Dispatch = (
   suppressBroadcast?: boolean,
 ) => void;
 
+// Applies an incoming edit unless it is an echo of one we sent ourselves.
+// Incoming edits are dispatched with suppressBroadcast so they are not
+// re-published, which prevents echo loops.
+function makeDispatchHandler(dispatch: Dispatch, clientId: string) {
+  return (payload: DispatchPayload) => {
+    const [action, dirtyAction, senderId] = payload;
+    if (senderId === clientId) return;
+    dispatch(action, dirtyAction, true);
+  };
+}
+
 /**
- * Host side: opens a realm for the current character and broadcasts local
- * edits to anyone who has joined.
+ * Host side: opens a realm for the current character and serves its initial
+ * state. Edits flow over the shared connection (see `useSharingSessions`).
  */
 export function useHostSharingSession(
   dispatch: Dispatch,
   getCharacter: () => Character | undefined,
 ) {
-  const { getConnection, saveConnection, forgetConnection, endSession } =
-    useSharingSessions();
+  const {
+    clientId,
+    getConnection,
+    saveConnection,
+    forgetConnection,
+    endSession,
+  } = useSharingSessions();
   const {
     settings: { liveEditHost },
   } = useSettings();
   const uuid = getCharacter()?.uuid;
 
-  // The live connection is kept in a ref so it can be read synchronously right
-  // after it is created (React state would lag a render behind).
+  // The live connection is kept in a ref so the teardown flow can reach it
+  // synchronously.
   const connectionRef = useRef<Connection | undefined>(
     uuid ? getConnection(uuid) : undefined,
   );
@@ -133,19 +196,17 @@ export function useHostSharingSession(
 
     await new Promise<void>((resolve, reject) => {
       connection.onopen = (session: any) => {
-        // Apply edits coming back from joiners (without re-broadcasting them).
+        // Apply edits coming from joiners.
         session.subscribe(
           SessionEvent.DISPATCH,
-          (args: [action: Action, dirtyAction?: boolean]) => {
-            dispatch(args[0], args[1], true);
-          },
+          makeDispatchHandler(dispatch, clientId),
         );
         // Serve the current character to anyone who joins.
         session.register(SessionEvent.FULL_SYNC, () =>
           getCharacterRef.current(),
         );
         connectionRef.current = connection;
-        saveConnection(characterUuid, connection);
+        saveConnection(characterUuid, connection, "host");
         resolve();
       };
       connection.onclose = () => {
@@ -170,17 +231,16 @@ export function useHostSharingSession(
   return {
     startSession,
     endSession: endCurrentSession,
-    broadcast: (action: Action, dirtyAction?: boolean) =>
-      broadcast(connectionRef.current, action, dirtyAction),
   };
 }
 
 /**
  * Joiner side: connects to a friend's realm, pulls the current character, and
- * keeps it in sync until either side disconnects.
+ * keeps it in sync until either side disconnects. Edits flow over the shared
+ * connection (see `useSharingSessions`).
  */
 export function useRemoteSharingSession(dispatch: Dispatch) {
-  const { getConnection, saveConnection, forgetConnection } =
+  const { clientId, getConnection, saveConnection, forgetConnection } =
     useSharingSessions();
   const {
     settings: { liveEditHost },
@@ -222,12 +282,10 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
 
       return new Promise<Connection>((resolve, reject) => {
         connection.onopen = (session: any) => {
-          // Apply edits streamed from the host (without re-broadcasting them).
+          // Apply edits streamed from the host (and other joiners).
           session.subscribe(
             SessionEvent.DISPATCH,
-            (args: [action: Action, dirtyAction?: boolean]) => {
-              dispatch(args[0], args[1], true);
-            },
+            makeDispatchHandler(dispatch, clientId),
           );
           // When the host announces a close, drop our connection; the actual
           // cleanup happens in onclose below.
@@ -236,7 +294,7 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
           });
           connectionRef.current = connection;
           joinedUuidRef.current = uuid;
-          saveConnection(uuid, connection);
+          saveConnection(uuid, connection, "remote");
           resolve(connection);
         };
         connection.onclose = () => {
@@ -250,7 +308,14 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
         connection.open();
       });
     },
-    [cleanUpAfterClose, dispatch, getConnection, liveEditHost, saveConnection],
+    [
+      cleanUpAfterClose,
+      clientId,
+      dispatch,
+      getConnection,
+      liveEditHost,
+      saveConnection,
+    ],
   );
 
   const disconnect = useCallback(() => {
@@ -264,20 +329,8 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
       connectionRef.current
         ? syncRemoteCharacter(connectionRef.current)
         : Promise.resolve(undefined),
-    broadcast: (action: Action, dirtyAction?: boolean) =>
-      broadcast(connectionRef.current, action, dirtyAction),
     disconnect,
   };
-}
-
-function broadcast(
-  connection: Connection | undefined,
-  action: Action,
-  dirtyAction?: boolean,
-) {
-  // No-op when there is no open session (e.g. editing while not sharing).
-  if (!connection?.session) return;
-  connection.session.publish(SessionEvent.DISPATCH, [action, dirtyAction]);
 }
 
 function callRemoteFn(

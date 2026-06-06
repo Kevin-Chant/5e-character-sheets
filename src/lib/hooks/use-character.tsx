@@ -4,7 +4,10 @@ import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
 import { useLazyEffect } from "./use-lazy-effect";
 import { useDatastore } from "./use-datastore";
-import { useHostSharingSession } from "./use-sharing-session";
+import {
+  useHostSharingSession,
+  useSharingSessions,
+} from "./use-sharing-session";
 
 interface CharacterContextData {
   character: Character | undefined;
@@ -47,14 +50,17 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     return character;
   }, [character]);
 
-  const { broadcast, startSession, endSession } = useHostSharingSession(
+  const { broadcast, getRole } = useSharingSessions();
+  const { startSession, endSession } = useHostSharingSession(
     dispatch,
     getCharacter,
   );
 
   useLazyEffect(
     () => {
-      if (character) {
+      // A character we joined remotely is owned (and persisted) by the host, so
+      // we must not write a divergent copy into our own datastore.
+      if (character && getRole(character.uuid) !== "remote") {
         save(character).then(() => {
           setUnsavedChanges(false);
         });
@@ -72,7 +78,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     dispatch(action);
     setUnsavedChanges(dirtyAction);
     if (character && !suppressBroadcast) {
-      broadcast(action, dirtyAction);
+      broadcast(character.uuid, action, dirtyAction);
     }
   };
 
