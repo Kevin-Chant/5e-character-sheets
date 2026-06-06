@@ -3,7 +3,9 @@ import { Datastore } from "src/lib/types";
 
 interface DatastoreSelectorContextData {
   datastore?: Datastore;
-  setDatastore: (ds: Datastore) => void;
+  // Accepts undefined to clear the selection (e.g. when joining a friend's
+  // session, where the character is owned remotely and not stored locally).
+  setDatastore: (ds?: Datastore) => void;
 }
 
 export const DatastoreSelectorContext =

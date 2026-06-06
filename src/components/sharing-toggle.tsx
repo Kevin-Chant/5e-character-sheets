@@ -1,11 +1,12 @@
-import RemoteDatastore from "src/datastores/remote-datastore";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
+import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import Switch from "react-switch";
 import { FaCopy } from "react-icons/fa6";
 
 export default function SharingToggle() {
   const { datastore } = useDatastoreSelector();
+  const { getRole } = useSharingSessions();
   const {
     character,
     sharingSessionOpen,
@@ -13,7 +14,10 @@ export default function SharingToggle() {
     closeSharingSession,
   } = useCharacter();
 
-  if (!character || !datastore || datastore === RemoteDatastore) return <></>;
+  // Hide for sheets we don't own locally, including ones we've joined remotely
+  // (a joiner can't re-host the realm they're connected to).
+  if (!character || !datastore || getRole(character.uuid) === "remote")
+    return <></>;
 
   const toggleSharing = (checked: boolean) => {
     if (checked) {

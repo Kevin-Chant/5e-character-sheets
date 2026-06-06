@@ -15,19 +15,24 @@ export const DISCOVERY_DOC =
 export const SCOPES = "https://www.googleapis.com/auth/drive.appdata";
 
 export async function listFiles() {
-  let response;
+  const files: gapi.client.drive.File[] = [];
+  let pageToken: string | undefined;
   try {
-    response = await window.gapi.client.drive.files.list({
-      spaces: "appDataFolder",
-      pageSize: 100,
-      fields: "nextPageToken, files(id, name)",
-    });
+    do {
+      const response = await window.gapi.client.drive.files.list({
+        spaces: "appDataFolder",
+        pageSize: 100,
+        fields: "nextPageToken, files(id, name)",
+        pageToken,
+      });
+      files.push(...(response.result.files || []));
+      pageToken = response.result.nextPageToken;
+    } while (pageToken);
   } catch (err: any) {
     console.error(err);
     return [];
   }
-  // TODO: paginate
-  return response.result.files || [];
+  return files;
 }
 
 export async function getFileContents(fileId: string) {

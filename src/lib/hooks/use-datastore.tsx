@@ -54,7 +54,6 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   >({});
 
   const save = async (character: Character) => {
-    console.log("Running save function within useDatastore");
     if (datastore) {
       setSaving(true);
       await datastore.saveToDatastore(character);
@@ -98,12 +97,14 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     }
   };
 
-  // TODO: remove debug statement or turn into dev-only
   useEffect(() => {
-    if (!datastore) return;
+    if (!datastore) {
+      // Cleared selection (e.g. joining a remote session): drop the old list.
+      setLocalCharacters({});
+      return;
+    }
     datastore.initializeDatastore().then(() => {
       const charList = datastore.listEntriesInDatastore();
-      console.log("Listing entries resulted in", charList.length, "characters");
       setLocalCharacters(
         Object.fromEntries(
           charList.map((character) => [character.uuid, character]),

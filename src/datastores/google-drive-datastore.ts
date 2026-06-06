@@ -26,10 +26,10 @@ const readThroughCache = async (uuid: UUID): Promise<Character | undefined> => {
   }
   const contents = await getFileContents(knownFilenames[uuid]);
   if (!contents) {
-    console.log(
-      "Failed to read remote file with id",
+    console.warn(
+      "Drive file",
       knownFilenames[uuid],
-      "as it had no contents",
+      "had no contents; skipping",
     );
     return;
   }
@@ -39,26 +39,13 @@ const readThroughCache = async (uuid: UUID): Promise<Character | undefined> => {
 };
 
 const writeThroughCache = async (character: Character) => {
-  console.log("Calling writeThroughCache for google drive");
   localCache[character.uuid] = character;
   let fileId = knownFilenames[character.uuid];
   if (!fileId) {
-    console.log(
-      "Creating new file for ",
-      character.uuid,
-      "because one didn't exist",
-    );
     fileId = await createFile(character.uuid);
     knownFilenames[character.uuid] = fileId;
-    await updateFile(fileId, JSON.stringify(character));
-  } else {
-    console.log(
-      "Just updating file for",
-      character.uuid,
-      "because there was already a known file",
-    );
-    await updateFile(fileId, JSON.stringify(character));
   }
+  await updateFile(fileId, JSON.stringify(character));
 };
 
 const GoogleDriveDatastore: Datastore = {
@@ -67,11 +54,6 @@ const GoogleDriveDatastore: Datastore = {
   debounceWait: 5000,
   initializeDatastore: async () => {
     await populateKnownFilenames();
-    console.log(
-      "Grabbing characters for",
-      Object.keys(knownFilenames).length,
-      "characters",
-    );
     const promises = Object.entries(knownFilenames).map(
       async ([uuid, fileId]) => {
         if (!uuid || !fileId) return;
