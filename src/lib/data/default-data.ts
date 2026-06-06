@@ -146,7 +146,12 @@ export const defaultCharacter: Character = {
       title: "Example ability",
       titleFormulas: [],
       detail: "An example ability that you can use {{}} times per long rest",
-      detailFormulas: [{ operation: "minimum", operands: [5, StatKey.str] }],
+      detailFormulas: [
+        {
+          operation: "maximum",
+          operands: [1, { operation: "minimum", operands: [5, StatKey.str] }],
+        },
+      ],
     },
   ],
   spellcastingClasses: [{ class: OfficialClass.Warlock }],

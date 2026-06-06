@@ -25,7 +25,18 @@ export default function SheetContainer() {
   return (
     <>
       {!character && (
-        <button onClick={loadDefaultCharacter}>Create new character</button>
+        <div className="column">
+          {...datastore.listEntriesInDatastore().map((char) => (
+            <button
+              key={char.uuid}
+              id={char.uuid}
+              onClick={() => dispatch(loadFullCharacter(char))}
+            >
+              {char.name}
+            </button>
+          ))}
+          <button onClick={loadDefaultCharacter}>Create new character</button>
+        </div>
       )}
       {character && <CharSheet />}
     </>

@@ -61,8 +61,7 @@ function Sidebar() {
         <hr></hr>
         <ul className="character-list">
           {characters.map((characterEntry) => {
-            const isSameCharacter =
-              JSON.stringify(characterEntry) === JSON.stringify(character);
+            const isSameCharacter = characterEntry.uuid === character?.uuid;
             return (
               <li
                 key={characterEntry.uuid}
@@ -261,7 +260,7 @@ export default function Root() {
                 <button
                   onClick={(e) => {
                     e.preventDefault();
-                    setModalOpen(true);
+                    setModalOpen(false);
                   }}
                 >
                   x
