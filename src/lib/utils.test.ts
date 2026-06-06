@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   averageDie,
   calculateCustomFormula,
+  formatCustomFormula,
   getPB,
   levelInClass,
   modifier,
@@ -10,8 +11,14 @@ import {
   traverse,
   withoutZero,
 } from "./utils";
-import { Character } from "./types";
-import { OfficialClass, StandardDie } from "./data/data-definitions";
+import { Character, DieExpression } from "./types";
+import {
+  DieOperation,
+  OfficialClass,
+  PB,
+  StandardDie,
+  StatKey,
+} from "./data/data-definitions";
 
 // A minimal character stub for the pure helpers that only read a few fields.
 function makeCharacter(overrides: Partial<Character> = {}): Character {
@@ -182,5 +189,155 @@ describe("calculateCustomFormula", () => {
         character,
       ),
     ).toBe(6);
+  });
+});
+
+describe("formatCustomFormula", () => {
+  // str 16 (+3), dex 10 (0), int 8 (-1), wis 12 (+1), cha 20 (+5); Wizard 5, PB 3.
+  const character = makeCharacter();
+  const d = (n: number, die: StandardDie): DieExpression => [
+    n,
+    die,
+    DieOperation.roll,
+  ];
+  const fmt = (
+    formula: Parameters<typeof formatCustomFormula>[0],
+    evalRefs = true,
+  ) => formatCustomFormula(formula, character, evalRefs);
+
+  it("resolves references when evaluating, keeps them symbolic otherwise", () => {
+    expect(fmt(StatKey.str)).toBe("3");
+    expect(fmt(StatKey.str, false)).toBe("str mod");
+    expect(fmt(PB)).toBe("3");
+    expect(fmt(PB, false)).toBe("PB");
+    expect(fmt(StatKey.int)).toBe("-1");
+  });
+
+  it("flips the sign of negative addition terms instead of rendering '+ -'", () => {
+    // 1d8 + 1d12 + int mod + 2 -> int mod (-1) and 2 fold to +1
+    const formula = {
+      operation: "addition" as const,
+      operands: [d(1, StandardDie.d8), d(1, StandardDie.d12), StatKey.int, 2],
+    };
+    expect(fmt(formula)).toBe("1d8 + 1d12 + 1");
+    // Symbolic mode keeps structure (only the literal is foldable on its own).
+    expect(fmt(formula, false)).toBe("1d8 + 1d12 + int mod + 2");
+  });
+
+  it("collapses a negative constant sum to a subtraction", () => {
+    // 1d8 + int mod + int mod -> two -1s fold to -2
+    expect(
+      fmt({
+        operation: "addition",
+        operands: [d(1, StandardDie.d8), StatKey.int, StatKey.int],
+      }),
+    ).toBe("1d8 - 2");
+  });
+
+  it("folds a fully-constant subtree to a single number", () => {
+    // floor((str mod + 4) / 2) -> floor((3 + 4) / 2) = 3
+    expect(
+      fmt({
+        operation: "floor",
+        operand1: {
+          operation: "division",
+          operand1: { operation: "addition", operands: [StatKey.str, 4] },
+          operand2: 2,
+        },
+      }),
+    ).toBe("3");
+  });
+
+  it("parenthesizes by precedence and drops noise parens around atoms", () => {
+    // (1d8 + str mod) * 2, symbolic so nothing folds
+    expect(
+      fmt(
+        {
+          operation: "multiplication",
+          operands: [
+            {
+              operation: "addition",
+              operands: [d(1, StandardDie.d8), StatKey.str],
+            },
+            2,
+          ],
+        },
+        false,
+      ),
+    ).toBe("(1d8 + str mod) * 2");
+  });
+
+  it("keeps rounding visible as a function call", () => {
+    expect(
+      fmt(
+        {
+          operation: "floor",
+          operand1: {
+            operation: "division",
+            operand1: OfficialClass.Wizard,
+            operand2: 2,
+          },
+        },
+        false,
+      ),
+    ).toBe("round down(Wizard level / 2)");
+  });
+
+  it("renders min/max functionally", () => {
+    expect(
+      fmt({ operation: "minimum", operands: [5, StatKey.str] }, false),
+    ).toBe("min(5, str mod)");
+  });
+
+  it("renders the clamp idiom as 'between lo and hi'", () => {
+    // max(1, min(5, str mod))
+    const clamp = {
+      operation: "maximum" as const,
+      operands: [
+        1,
+        { operation: "minimum" as const, operands: [5, StatKey.str] },
+      ],
+    };
+    expect(fmt(clamp, false)).toBe("str mod, between 1 and 5");
+    // min(5, max(1, str mod)) yields the same clamp
+    expect(
+      fmt(
+        {
+          operation: "minimum",
+          operands: [5, { operation: "maximum", operands: [1, StatKey.str] }],
+        },
+        false,
+      ),
+    ).toBe("str mod, between 1 and 5");
+    // Wrapped in parens when nested inside another expression.
+    expect(
+      fmt(
+        { operation: "addition", operands: [d(1, StandardDie.d8), clamp] },
+        false,
+      ),
+    ).toBe("1d8 + (str mod, between 1 and 5)");
+  });
+
+  it("shows a zero clamp bound rather than blanking it", () => {
+    // max(0, min(5, str mod)) — the lower bound of 0 must render
+    expect(
+      fmt(
+        {
+          operation: "maximum",
+          operands: [0, { operation: "minimum", operands: [5, StatKey.str] }],
+        },
+        false,
+      ),
+    ).toBe("str mod, between 0 and 5");
+  });
+
+  it("falls back to functional min/max when the clamp value is constant", () => {
+    // max(1, min(5, str mod)) with str mod = 3 folds to 3
+    expect(
+      fmt({
+        operation: "maximum",
+        operands: [1, { operation: "minimum", operands: [5, StatKey.str] }],
+      }),
+    ).toBe("3");
   });
 });

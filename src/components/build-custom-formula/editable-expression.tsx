@@ -8,7 +8,7 @@ import {
   isDoubleOperandOperation,
   isSingleOperandOperation,
 } from "src/lib/types";
-import { OPERATORS, formatExpression } from "src/lib/utils";
+import { EDITOR_SYNTAX, formatExpression } from "src/lib/utils";
 import { EditableCustomFormula } from "./editable-custom-formula";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 
@@ -88,7 +88,7 @@ export function EditableExpression({
       </div>
       <div className="row">
         <p className="font-large margin-large">
-          {OPERATORS[expr.operation].startStr}
+          {EDITOR_SYNTAX[expr.operation].startStr}
         </p>
         {isSingleOperandOperation(expr) && (
           <EditableCustomFormula
@@ -109,7 +109,7 @@ export function EditableExpression({
               subField={subField ? `${subField}.operand1` : "operand1"}
             />
             <p className="font-large margin-large nowrap">
-              {OPERATORS[expr.operation].connector}
+              {EDITOR_SYNTAX[expr.operation].connector}
             </p>
             <EditableCustomFormula
               formula={expr.operand2}
@@ -149,7 +149,7 @@ export function EditableExpression({
                 />
                 {i < arr.length - 1 && (
                   <p className="font-large margin-large nowrap">
-                    {OPERATORS[expr.operation].connector}
+                    {EDITOR_SYNTAX[expr.operation].connector}
                   </p>
                 )}
               </React.Fragment>
@@ -169,7 +169,7 @@ export function EditableExpression({
           </>
         )}
         <p className="font-large margin-large nowrap">
-          {OPERATORS[expr.operation].endStr}
+          {EDITOR_SYNTAX[expr.operation].endStr}
         </p>
       </div>
     </>
