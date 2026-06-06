@@ -17,7 +17,6 @@ interface CharacterContextData {
   setUnsavedChanges: (isUnsaved: boolean) => void;
   openSharingSession: () => void;
   closeSharingSession: () => void;
-  sharingSessionOpen: boolean;
 }
 
 export const CharacterContext = React.createContext<CharacterContextData>({
@@ -38,14 +37,12 @@ export const CharacterContext = React.createContext<CharacterContextData>({
   closeSharingSession: () => {
     console.log("Calling default closeSharingSession");
   },
-  sharingSessionOpen: false,
 });
 
 export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [character, dispatch] = useReducer(reducer, undefined);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const { save, debounceWait } = useDatastore();
-  const [sharingSessionOpen, setSharingSessionOpen] = useState(false);
   const getCharacter = useCallback<() => Character | undefined>(() => {
     return character;
   }, [character]);
@@ -85,17 +82,11 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const reset = () => dispatch(resetCharacter());
 
   const openSharingSession = () => {
-    startSession()
-      .then(() => {
-        setSharingSessionOpen(true);
-      })
-      .catch((error) => alert(error));
+    startSession().catch((error) => alert(error));
   };
 
   const closeSharingSession = () => {
-    endSession().then((res) => {
-      setSharingSessionOpen(res);
-    });
+    endSession();
   };
 
   const providerData = {
@@ -106,7 +97,6 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     setUnsavedChanges,
     openSharingSession,
     closeSharingSession,
-    sharingSessionOpen,
   };
 
   return (

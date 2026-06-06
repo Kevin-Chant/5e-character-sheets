@@ -7,17 +7,16 @@ import { FaCopy } from "react-icons/fa6";
 export default function SharingToggle() {
   const { datastore } = useDatastoreSelector();
   const { getRole } = useSharingSessions();
-  const {
-    character,
-    sharingSessionOpen,
-    openSharingSession,
-    closeSharingSession,
-  } = useCharacter();
+  const { character, openSharingSession, closeSharingSession } = useCharacter();
 
   // Hide for sheets we don't own locally, including ones we've joined remotely
   // (a joiner can't re-host the realm they're connected to).
   if (!character || !datastore || getRole(character.uuid) === "remote")
     return <></>;
+
+  // Reflect the actual session state for this character, so the switch stays
+  // accurate across character switches and external teardown (e.g. delete).
+  const sharingSessionOpen = getRole(character.uuid) === "host";
 
   const toggleSharing = (checked: boolean) => {
     if (checked) {

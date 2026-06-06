@@ -46,7 +46,10 @@ interface SharingSessionsContextData {
   ) => void;
   forgetConnection: (uuid: UUID) => void;
   broadcast: (uuid: UUID, action: Action, dirtyAction?: boolean) => void;
-  endSession: (uuid: UUID) => Promise<boolean>;
+  // Tears down the live session for a character: closes the realm server-side
+  // (host only), closes the connection, and forgets it. Safe to call when no
+  // session is open. Returns `true` if the server close failed.
+  teardownSession: (uuid: UUID) => Promise<boolean>;
 }
 
 export const SharingSessionsContext =
@@ -57,7 +60,7 @@ export const SharingSessionsContext =
     saveConnection: () => {},
     forgetConnection: () => {},
     broadcast: () => {},
-    endSession: async () => false,
+    teardownSession: async () => false,
   });
 
 export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
@@ -70,6 +73,30 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     settings: { liveEditHost },
   } = useSettings();
 
+  const forgetConnection = useCallback((uuid: UUID) => {
+    setOpenSessions((current) => {
+      const next = { ...current };
+      delete next[uuid];
+      return next;
+    });
+  }, []);
+
+  // Asks the live-edit server to tear down the realm. Returns `true` if the
+  // request failed (callers treat that as "the session is still open").
+  const closeRealm = useCallback(
+    async (uuid: UUID): Promise<boolean> => {
+      const realmName = generateRealm(uuid);
+      const res = await fetch(`${liveEditHost}/closeRealm/${realmName}`);
+      if (res.status !== 204) {
+        // TODO: better error handling
+        alert("Failed to close sharing session, please try again later");
+        return true;
+      }
+      return false;
+    },
+    [liveEditHost],
+  );
+
   const providerData: SharingSessionsContextData = {
     clientId: clientIdRef.current,
     getConnection: (uuid) => openSessions[uuid]?.connection,
@@ -80,13 +107,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
         [uuid]: { connection, role },
       }));
     },
-    forgetConnection: (uuid) => {
-      setOpenSessions((current) => {
-        const next = { ...current };
-        delete next[uuid];
-        return next;
-      });
-    },
+    forgetConnection,
     // Publish a local edit to everyone else in the realm. No-op when there is
     // no open session for this character.
     broadcast: (uuid, action, dirtyAction) => {
@@ -99,17 +120,19 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       ];
       connection.session.publish(SessionEvent.DISPATCH, payload);
     },
-    // Asks the live-edit server to tear down the realm. Returns `true` if the
-    // request failed (callers treat that as "the session is still open").
-    endSession: async (uuid) => {
-      const realmName = generateRealm(uuid);
-      const res = await fetch(`${liveEditHost}/closeRealm/${realmName}`);
-      if (res.status !== 204) {
-        // TODO: better error handling
-        alert("Failed to close sharing session, please try again later");
-        return true;
+    teardownSession: async (uuid) => {
+      const session = openSessions[uuid];
+      if (!session) return false;
+      const { connection, role } = session;
+      let failed = false;
+      if (role === "host") {
+        // Best-effort: tell joiners we're closing before the realm disappears.
+        connection?.session?.publish(SessionEvent.CLOSE_SESSION, []);
+        failed = await closeRealm(uuid);
       }
-      return false;
+      connection?.close?.();
+      forgetConnection(uuid);
+      return failed;
     },
   };
 
@@ -150,13 +173,8 @@ export function useHostSharingSession(
   dispatch: Dispatch,
   getCharacter: () => Character | undefined,
 ) {
-  const {
-    clientId,
-    getConnection,
-    saveConnection,
-    forgetConnection,
-    endSession,
-  } = useSharingSessions();
+  const { clientId, getConnection, saveConnection, teardownSession } =
+    useSharingSessions();
   const {
     settings: { liveEditHost },
   } = useSettings();
@@ -218,15 +236,10 @@ export function useHostSharingSession(
   };
 
   const endCurrentSession = useCallback(async (): Promise<boolean> => {
-    const connection = connectionRef.current;
-    // Best-effort: tell joiners we're closing before the realm disappears.
-    connection?.session?.publish(SessionEvent.CLOSE_SESSION, []);
-    const failed = uuid ? await endSession(uuid) : false;
-    connection?.close?.();
+    const failed = uuid ? await teardownSession(uuid) : false;
     connectionRef.current = undefined;
-    if (uuid) forgetConnection(uuid);
     return failed;
-  }, [endSession, forgetConnection, uuid]);
+  }, [teardownSession, uuid]);
 
   return {
     startSession,

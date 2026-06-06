@@ -10,6 +10,7 @@ import {
   FaGear,
   FaHouse,
   FaSpinner,
+  FaTowerBroadcast,
   FaTrash,
   FaTriangleExclamation,
 } from "react-icons/fa6";
@@ -21,6 +22,7 @@ import {
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
+import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import SharingToggle from "src/components/sharing-toggle";
 import DriveShareControls from "src/components/drive-share-controls";
 import DriveImportButton from "src/components/drive-import-button";
@@ -31,10 +33,13 @@ function Sidebar() {
   const { characters, deleteCharacter, characterLoading, createCharacter } =
     useDatastore();
   const { character, dispatch } = useCharacter();
+  const { getRole, teardownSession } = useSharingSessions();
 
   const deleteCharacterAndRefocus = (uuid: UUID) => {
+    // End any live session for this character before removing it, so we don't
+    // leave a dangling realm open on the server.
+    teardownSession(uuid);
     deleteCharacter(uuid);
-    // TODO: deal with remote sessions whether hosting or joining
     dispatch(resetCharacter());
   };
 
@@ -73,6 +78,12 @@ function Sidebar() {
                   }}
                 >
                   <p className={classNames({ bold: isSameCharacter })}>
+                    {getRole(characterEntry.uuid) === "host" && (
+                      <FaTowerBroadcast
+                        className="margin-small"
+                        title="Live sharing session in progress"
+                      />
+                    )}
                     {characterEntry.name}
                   </p>
                 </Link>
@@ -80,7 +91,6 @@ function Sidebar() {
                   className="padding-small"
                   onClick={() => deleteCharacterAndRefocus(characterEntry.uuid)}
                 >
-                  {/* TODO: switch icon if remote-only connection */}
                   <FaTrash />
                 </button>
               </li>
