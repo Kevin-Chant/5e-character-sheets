@@ -5,8 +5,11 @@ export const CLOUD_DEFAULT_HOST = "http://35.87.176.174:9000";
 export const DEFAULT_LIVE_EDIT_HOST =
   import.meta.env.VITE_LIVE_EDIT_HOST ?? CLOUD_DEFAULT_HOST;
 
+export type Theme = "system" | "light" | "dark";
+
 interface Settings {
   liveEditHost: string;
+  theme: Theme;
 }
 
 function sanitizeSettingValue<K extends keyof Settings>(
@@ -30,18 +33,19 @@ interface SettingsContextData {
   updateSetting: (k: keyof Settings, val: Settings[typeof k]) => void;
 }
 
+const DEFAULT_SETTINGS: Settings = {
+  liveEditHost: DEFAULT_LIVE_EDIT_HOST,
+  theme: "system",
+};
+
 export const SettingsContext = React.createContext<SettingsContextData>({
-  settings: {
-    liveEditHost: DEFAULT_LIVE_EDIT_HOST,
-  },
+  settings: DEFAULT_SETTINGS,
   updateSetting: (_k, _v) => console.log("Calling default updateSetting"),
 });
 
 export function SettingsContextProvider(props: React.PropsWithChildren) {
   const [initialized, setInitialized] = useState(false);
-  const [settings, setSettings] = useState<Settings>({
-    liveEditHost: DEFAULT_LIVE_EDIT_HOST,
-  });
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const providerData = useMemo(() => {
     return {
       settings,
@@ -70,6 +74,17 @@ export function SettingsContextProvider(props: React.PropsWithChildren) {
       writeLocalStorage("settings", settings);
     }
   }, [settings]);
+
+  // Reflect the chosen theme onto <html>. "system" removes the attribute so the
+  // prefers-color-scheme media query in index.css takes over.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (settings.theme === "system") {
+      root.removeAttribute("data-theme");
+    } else {
+      root.setAttribute("data-theme", settings.theme);
+    }
+  }, [settings.theme]);
 
   return (
     <SettingsContext.Provider value={providerData}>

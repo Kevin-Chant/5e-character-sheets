@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alignment,
   EDITABLE_FIELD_OPTIONAL_DATA,
@@ -35,10 +35,18 @@ export default function UpdateField({
   const { targetedField, subField } = useTargetedField();
   const { character, dispatch } = useCharacter();
   const { saveData } = useSave();
+  let currentValue =
+    targetedField && character ? getFieldValue(targetedField, character) : "";
+
+  // Local state so the input can be freely edited (including cleared to empty)
+  // even when `setValue` declines to persist an empty/invalid required value.
+  const [localValue, setLocalValue] = useState<string>(currentValue ?? "");
+  useEffect(() => {
+    setLocalValue(currentValue ?? "");
+  }, [currentValue]);
 
   if (!character || !targetedField) return <></>;
 
-  let currentValue = getFieldValue(targetedField, character);
   if (subField) currentValue = traverse(subField, currentValue);
   if (!currentValue && OPTIONAL_FIELD_INITIALIZERS[targetedField]) {
     currentValue = OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
@@ -64,10 +72,11 @@ export default function UpdateField({
     } else {
       sanitizedValue = value;
     }
-    dispatch(updateData(targetedField, { value }, subField));
+    dispatch(updateData(targetedField, { value: sanitizedValue }, subField));
   };
 
   const onChangeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
     setValue(e.target.value);
   };
 
@@ -91,7 +100,7 @@ export default function UpdateField({
           <input
             type={modalType}
             onChange={onChangeInput}
-            value={currentValue}
+            value={localValue}
             autoFocus={true}
             onFocus={(e) => e.target.select()}
           ></input>

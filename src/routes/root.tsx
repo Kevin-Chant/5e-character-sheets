@@ -63,10 +63,7 @@ function Sidebar() {
           {characters.map((characterEntry) => {
             const isSameCharacter = characterEntry.uuid === character?.uuid;
             return (
-              <li
-                key={characterEntry.uuid}
-                className="row space-between margin-medium"
-              >
+              <li key={characterEntry.uuid} className="row space-between">
                 <Link
                   className="no-underline font-black"
                   to="/sheet"
@@ -87,7 +84,7 @@ function Sidebar() {
                   </p>
                 </Link>
                 <button
-                  className="padding-small"
+                  className="icon-btn btn-danger"
                   onClick={() => deleteCharacterAndRefocus(characterEntry.uuid)}
                 >
                   <FaTrash />
@@ -96,7 +93,9 @@ function Sidebar() {
             );
           })}
           {datastore?.createCharacter && (
-            <button onClick={loadNewCharacter}>Create new character</button>
+            <button className="btn-primary" onClick={loadNewCharacter}>
+              Create new character
+            </button>
           )}
           {characterLoading && <FaSpinner />}
         </ul>
@@ -181,18 +180,18 @@ export default function Root() {
       <div id="nav">
         {/* TODO: mobile-friendly nav */}
         <nav id="main-nav">
-          <button onClick={toggleSidebar}>
+          <button className="icon-btn" onClick={toggleSidebar}>
             <FaBars />
           </button>
           <Link to="/">
-            <button>
+            <button className="icon-btn">
               <FaHouse />
             </button>
           </Link>
 
-          <h1 className="margin-medium">{pageTitle}</h1>
+          <h1>{pageTitle}</h1>
           <button
-            className="margin-medium"
+            className="icon-btn"
             disabled={!datastore}
             onClick={(e) => {
               e.preventDefault();
@@ -203,7 +202,7 @@ export default function Root() {
           </button>
           <DriveImportButton />
           <button
-            className="margin-medium"
+            className="icon-btn"
             onClick={saveCharacter}
             disabled={!character}
           >
@@ -213,32 +212,28 @@ export default function Root() {
           <DriveShareControls />
         </nav>
         <div id="right-nav-components">
-          <div>
-            <Link to="/settings">
-              <button>
-                <FaGear />
-              </button>
-            </Link>
-          </div>
-          <div>
-            <a
-              href="https://github.com/Kevin-Chant/5e-character-sheets"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <button>
-                <img
-                  id="github-icon"
-                  src="github-mark.png"
-                  alt="github logo, link to github"
-                />
-              </button>
-            </a>
-          </div>
+          <Link to="/settings">
+            <button className="icon-btn">
+              <FaGear />
+            </button>
+          </Link>
+          <a
+            href="https://github.com/Kevin-Chant/5e-character-sheets"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <button className="icon-btn">
+              <img
+                id="github-icon"
+                src="github-mark.png"
+                alt="github logo, link to github"
+              />
+            </button>
+          </a>
           {character && (
             <div id="save-container">
-              <p className="margin-small">{saveIndicator}</p>
-              <button onClick={() => save(character)}>
+              <p>{saveIndicator}</p>
+              <button className="icon-btn" onClick={() => save(character)}>
                 <FaFloppyDisk />
               </button>
             </div>
@@ -258,6 +253,7 @@ export default function Root() {
             <div className="row space-between flex-direction-row-reverse">
               <div className="close">
                 <button
+                  className="icon-btn"
                   onClick={(e) => {
                     e.preventDefault();
                     setModalOpen(false);
@@ -274,7 +270,11 @@ export default function Root() {
               accept=".5echarsheet"
             />
             <p style={{ color: "red" }}>{importErrorMessage}</p>
-            <button disabled={!fileSelected} onClick={loadCharacterData}>
+            <button
+              className="btn-primary"
+              disabled={!fileSelected}
+              onClick={loadCharacterData}
+            >
               Load character
             </button>
           </div>

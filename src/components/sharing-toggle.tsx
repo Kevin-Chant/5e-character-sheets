@@ -1,6 +1,7 @@
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
+import { copyToClipboard } from "src/lib/utils";
 import Switch from "react-switch";
 import { FaCopy } from "react-icons/fa6";
 
@@ -28,7 +29,7 @@ export default function SharingToggle() {
 
   const copyCode = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    navigator.clipboard.writeText(character.uuid);
+    copyToClipboard(character.uuid);
     alert(
       "Your sharing code has been copied to the clipboard.\nShare this code with your friend:\n" +
         character.uuid,

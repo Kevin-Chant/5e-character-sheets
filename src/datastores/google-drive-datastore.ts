@@ -14,7 +14,7 @@ import {
   updateFile,
 } from "src/lib/google-drive";
 import { Character, Datastore } from "src/lib/types";
-import { validateCharacterData } from "src/lib/utils";
+import { randomUUID, validateCharacterData } from "src/lib/utils";
 
 interface KnownFile {
   fileId: string;
@@ -244,7 +244,7 @@ const GoogleDriveDatastore: Datastore = {
   },
   createCharacter: async () => {
     const newDefaultCharacter = defaultCharacter;
-    newDefaultCharacter.uuid = crypto.randomUUID() as UUID;
+    newDefaultCharacter.uuid = randomUUID();
     await writeThroughCache(newDefaultCharacter);
     return newDefaultCharacter;
   },

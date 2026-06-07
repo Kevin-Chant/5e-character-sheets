@@ -8,9 +8,9 @@ export default function Home() {
   const { reset } = useCharacter();
   return (
     <>
-      <div className="column">
+      <div className="button-stack">
         <Link to="auth">
-          <button className="margin-medium">
+          <button className="btn-primary">
             Sync character sheets to Google Drive
           </button>
         </Link>
@@ -21,7 +21,7 @@ export default function Home() {
           }}
           to="/sheet"
         >
-          <button className="margin-medium">
+          <button className="btn-primary">
             Edit characters locally & store sheets in your browser
           </button>
         </Link>
@@ -35,7 +35,7 @@ export default function Home() {
           }}
           to="/join"
         >
-          <button className="margin-medium">
+          <button className="btn-primary">
             Join a friend&apos;s sharing session
           </button>
         </Link>

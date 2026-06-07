@@ -70,11 +70,15 @@ export default function ModalContainer({
           <div className="modal-content">
             <div className="row space-between flex-direction-row-reverse">
               <div className="close">
-                <button onClick={close}>x</button>
+                <button className="icon-btn" onClick={close}>
+                  x
+                </button>
               </div>
               {back && (
                 <div className="back">
-                  <button onClick={back}>{"<"}</button>
+                  <button className="icon-btn" onClick={back}>
+                    {"<"}
+                  </button>
                 </div>
               )}
             </div>

@@ -9,7 +9,7 @@ import {
   StandardDie,
   StatKey,
 } from "./data-definitions";
-import { UUID } from "crypto";
+import { randomUUID } from "src/lib/utils";
 
 const defaultStats = {
   str: 8,
@@ -21,7 +21,7 @@ const defaultStats = {
 };
 
 export const defaultCharacter: Character = {
-  uuid: crypto.randomUUID() as UUID,
+  uuid: randomUUID(),
   name: "Character name here",
   class: [
     { name: OfficialClass.Fighter, level: 2 },

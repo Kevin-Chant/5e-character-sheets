@@ -1,3 +1,63 @@
+/* ============================================================
+   Design tokens
+   ============================================================ */
+:root {
+  /* palette */
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --border: #d7dbe0;
+  --text: #1a1c1f;
+  --text-muted: #6b7280;
+  --accent: #3992ff;
+  --accent-hover: #2b7ef0;
+  --accent-contrast: #ffffff;
+  --danger: #e5484d;
+  --danger-contrast: #ffffff;
+  --editable: #ece3fb;
+  --display-value-bg: #e3e3e3;
+  --popover-bg: #fff8c5;
+
+  /* scale */
+  --radius: 8px;
+  --radius-lg: 16px;
+  --shadow-1: 0 1px 2px hsla(0, 0%, 0%, 0.08), 0 1px 3px hsla(0, 0%, 0%, 0.06);
+  --shadow-2: 0 2px 6px hsla(0, 0%, 0%, 0.12), 0 1px 2px hsla(0, 0%, 0%, 0.08);
+}
+
+/* Dark palette: applied via OS preference (unless forced light) or an
+   explicit [data-theme="dark"] on <html>. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181c;
+    --surface: #1f2227;
+    --surface-2: #272b31;
+    --border: #363b42;
+    --text: #e8eaed;
+    --text-muted: #9aa0a8;
+    --accent-contrast: #ffffff;
+    --editable: #3a3350;
+    --display-value-bg: #2c3036;
+    --popover-bg: #4a4322;
+  }
+}
+
+[data-theme="dark"] {
+  --bg: #16181c;
+  --surface: #1f2227;
+  --surface-2: #272b31;
+  --border: #363b42;
+  --text: #e8eaed;
+  --text-muted: #9aa0a8;
+  --accent-contrast: #ffffff;
+  --editable: #3a3350;
+  --display-value-bg: #2c3036;
+  --popover-bg: #4a4322;
+}
+
+/* ============================================================
+   Utility classes
+   ============================================================ */
 .flex {
   display: flex;
 }
@@ -15,7 +75,7 @@
 }
 
 .hidden {
-  display: hidden;
+  display: none;
 }
 
 p {
@@ -39,7 +99,7 @@ p {
 }
 
 .font-black {
-  color: black;
+  color: var(--text);
 }
 
 .nowrap {
@@ -48,8 +108,7 @@ p {
 
 .editable {
   cursor: pointer;
-  background-color: #dfd1f1 !important;
-  /* TODO: don't use important */
+  background-color: var(--editable);
 }
 
 .readOnly {
@@ -101,6 +160,29 @@ p {
   flex-direction: column;
   align-items: center;
   justify-content: space-evenly;
+}
+
+/* Left-aligned, gapped vertical stack of full-width buttons. Use instead of
+   .column when you have a list of action buttons that shouldn't be centered
+   and awkwardly spread apart. */
+.button-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 360px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+/* Children may be raw buttons or <Link>/<a> wrappers; make both full width. */
+.button-stack > a {
+  display: block;
+}
+
+.button-stack button {
+  width: 100%;
 }
 
 .align-flex-start {
@@ -157,9 +239,9 @@ p {
 
 .rounded-border-box {
   border-style: solid;
-  border-color: black;
+  border-color: var(--border);
   border-width: 2px;
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
 }
 
 .display-title {
@@ -179,7 +261,7 @@ p {
   height: 100%;
   border-radius: 15%;
   text-align: center;
-  background-color: #e3e3e3;
+  background-color: var(--display-value-bg);
   &.tiny {
     font-size: 1rem;
   }
@@ -193,6 +275,9 @@ p {
   }
 }
 
+/* ============================================================
+   Base elements
+   ============================================================ */
 html {
   box-sizing: border-box;
 }
@@ -208,50 +293,114 @@ body {
     "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg);
 }
 
 html,
 body {
   height: 100%;
   margin: 0;
-  color: #121212;
+  color: var(--text);
 }
+
+a {
+  color: var(--accent);
+}
+
 textarea,
 input,
+select,
 button {
   font-size: 1rem;
   font-family: inherit;
-  border: none;
-  border-radius: 8px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 0.5rem 0.75rem;
-  box-shadow:
-    0 0px 1px hsla(0, 0%, 0%, 0.2),
-    0 1px 2px hsla(0, 0%, 0%, 0.2);
-  background-color: white;
+  box-shadow: var(--shadow-1);
+  background-color: var(--surface);
   line-height: 1.5;
   margin: 0;
   &:disabled {
-    color: grey;
+    color: var(--text-muted);
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
   }
 }
+
+select {
+  cursor: pointer;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- Buttons ---- */
 button {
-  color: #3992ff;
+  color: var(--accent);
   font-weight: 500;
+  cursor: pointer;
+  transition:
+    box-shadow 0.12s ease,
+    background-color 0.12s ease,
+    transform 0.06s ease;
 }
 
-textarea:hover,
-input:hover,
-button:hover {
-  box-shadow:
-    0 0px 1px hsla(0, 0%, 0%, 0.6),
-    0 1px 2px hsla(0, 0%, 0%, 0.2);
+textarea:hover:not(:disabled),
+input:hover:not(:disabled),
+button:hover:not(:disabled) {
+  box-shadow: var(--shadow-2);
 }
 
-button:active {
-  box-shadow: 0 0px 1px hsla(0, 0%, 0%, 0.4);
+button:active:not(:disabled) {
+  box-shadow: var(--shadow-1);
   transform: translateY(1px);
 }
 
+/* Filled accent button for primary actions. */
+.btn-primary:not(:disabled) {
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+  border-color: transparent;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+/* Neutral button. */
+.btn-secondary:not(:disabled) {
+  background-color: var(--surface-2);
+  color: var(--text);
+}
+
+/* Destructive action. */
+.btn-danger:not(:disabled) {
+  color: var(--danger);
+}
+.btn-danger.btn-filled:not(:disabled) {
+  background-color: var(--danger);
+  color: var(--danger-contrast);
+  border-color: transparent;
+}
+
+/* Square, centered icon-only button. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  line-height: 1;
+}
+
+/* ============================================================
+   Layout
+   ============================================================ */
 #root {
   width: 100vw;
 }
@@ -271,7 +420,11 @@ button:active {
   left: 0;
   transform: translate(0%, -90%);
   width: auto;
-  background: yellow;
+  background: var(--popover-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
 }
 
 .modal-container {
@@ -284,7 +437,7 @@ button:active {
   overflow: auto; /* Enable scroll if needed */
 
   .close {
-    color: #aaa;
+    color: var(--text-muted);
     float: right;
     font-size: 28px;
     font-weight: bold;
@@ -292,7 +445,7 @@ button:active {
 
   .close:hover,
   .close:focus {
-    color: black;
+    color: var(--text);
     text-decoration: none;
     cursor: pointer;
   }
@@ -305,8 +458,7 @@ button:active {
   z-index: 2;
   width: 100%; /* Full width */
   height: 100%; /* Full height */
-  background-color: rgb(0, 0, 0); /* Fallback color */
-  background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+  background-color: rgba(0, 0, 0, 0.5); /* Black w/ opacity */
 }
 
 .modal-content {
@@ -314,50 +466,72 @@ button:active {
   left: 50%;
   transform: translate(-50%, 0);
   z-index: 3;
-  background-color: #fefefe;
-  margin-top: 15%;
-  padding: 20px;
-  border: 1px solid #888;
+  background-color: var(--surface);
+  color: var(--text);
+  margin-top: 10%;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
   min-width: 30%;
   max-width: 70%;
-  overflow: scroll;
+  overflow: auto;
   max-height: 70%;
 }
 
 #nav {
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 8px;
-  border-bottom: 2px solid grey;
-  background-color: white;
+  padding: 8px 16px;
+  border-bottom: 2px solid var(--border);
+  background-color: var(--surface);
   z-index: 2;
   height: 80px;
 }
 
 #sidebar {
-  border-right: 2px solid grey;
+  border-right: 2px solid var(--border);
+  background-color: var(--surface);
   min-height: 100%;
+  min-width: 240px;
 }
 
 #detail {
   width: 100vw;
-  overflow: scroll;
-  scrollbar-width: 10px;
+  overflow: auto;
+  scrollbar-width: thin;
   height: calc(100vh - 80px);
 }
 
 .character-list {
-  margin: 1rem;
+  list-style: none;
+  margin: 1rem 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  gap: 0.5rem;
   padding: 0;
+}
+
+.character-list > li {
+  margin: 0;
 }
 
 #main-nav {
   display: flex;
   align-items: center;
-  max-width: calc(100vw - 88px);
-  max-height: 64px;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+#main-nav h1 {
+  margin: 0 0.5rem;
+  font-size: 1.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sharing-toggle {
@@ -367,14 +541,10 @@ button:active {
 }
 
 #right-nav-components {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  height: 100%;
-  max-height: 64px;
-  width: 72px;
   display: flex;
-  justify-content: space-evenly;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
 }
 
 #github-icon {
@@ -384,8 +554,54 @@ button:active {
 #save-container {
   display: flex;
   align-items: center;
+  gap: 0.25rem;
 }
 
 .character-sheet-container {
   width: fit-content;
+}
+
+/* ============================================================
+   Responsiveness
+   ============================================================ */
+@media (max-width: 640px) {
+  #nav {
+    height: auto;
+    min-height: 64px;
+    padding: 6px 10px;
+  }
+
+  #main-nav {
+    gap: 0.25rem;
+  }
+
+  /* The page title eats horizontal space we don't have on phones. */
+  #main-nav h1 {
+    display: none;
+  }
+
+  #right-nav-components {
+    gap: 0.25rem;
+  }
+
+  #detail {
+    height: auto;
+  }
+
+  /* Overlay the sidebar instead of squashing the detail pane. */
+  #sidebar {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    bottom: 0;
+    z-index: 4;
+    overflow-y: auto;
+    box-shadow: var(--shadow-2);
+  }
+
+  .modal-content {
+    min-width: auto;
+    max-width: 92%;
+    width: 92%;
+  }
 }

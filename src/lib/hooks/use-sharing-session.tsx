@@ -4,6 +4,7 @@ import { UUID } from "crypto";
 import autobahn from "autobahn-browser";
 import { Action, resetCharacter } from "../hooks/reducers/actions";
 import { Character } from "../types";
+import { randomUUID } from "../utils";
 import { useSettings } from "./use-settings";
 
 const BASE_APPNAME = "net.dndcharactersheets";
@@ -68,7 +69,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     {},
   );
   // Stable id identifying this browser tab, used to drop our own echoed edits.
-  const clientIdRef = useRef<string>(crypto.randomUUID());
+  const clientIdRef = useRef<string>(randomUUID());
   const {
     settings: { liveEditHost },
   } = useSettings();

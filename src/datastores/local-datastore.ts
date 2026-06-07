@@ -2,6 +2,7 @@ import { UUID } from "crypto";
 import { defaultCharacter } from "src/lib/data/default-data";
 import { readLocalStorage, writeLocalStorage } from "src/lib/local-storage";
 import { Character, Datastore } from "src/lib/types";
+import { randomUUID } from "src/lib/utils";
 
 const getOrInitializeCharacterFolder = (): Record<UUID, Character> => {
   return readLocalStorage("characters", {});
@@ -44,7 +45,7 @@ const LocalDatastore: Datastore = {
   },
   createCharacter: () => {
     const newDefaultCharacter = defaultCharacter;
-    newDefaultCharacter.uuid = crypto.randomUUID() as UUID;
+    newDefaultCharacter.uuid = randomUUID();
     const charFolder = getOrInitializeCharacterFolder();
     charFolder[newDefaultCharacter.uuid] = newDefaultCharacter;
     saveCharacterFolder(charFolder);

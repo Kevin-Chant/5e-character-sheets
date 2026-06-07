@@ -11,23 +11,26 @@ export default function SheetContainer() {
   const { datastore } = useDatastoreSelector();
   const navigate = useNavigate();
 
+  // A remote joiner has no datastore but does have a character pushed into
+  // context, so only bounce home when there's genuinely nothing to show.
   useEffect(() => {
-    if (!datastore) navigate("/");
+    if (!datastore && !character) navigate("/");
   }, []);
 
   const loadDefaultCharacter = useCallback(() => {
     dispatch(loadFullCharacter(defaultCharacter), false);
   }, [dispatch]);
 
-  if (!datastore) {
+  if (!datastore && !character) {
     return <></>;
   }
   return (
     <>
-      {!character && (
-        <div className="column">
+      {!character && datastore && (
+        <div className="button-stack">
           {...datastore.listEntriesInDatastore().map((char) => (
             <button
+              className="btn-secondary"
               key={char.uuid}
               id={char.uuid}
               onClick={() => dispatch(loadFullCharacter(char))}
@@ -35,7 +38,9 @@ export default function SheetContainer() {
               {char.name}
             </button>
           ))}
-          <button onClick={loadDefaultCharacter}>Create new character</button>
+          <button className="btn-primary" onClick={loadDefaultCharacter}>
+            Create new character
+          </button>
         </div>
       )}
       {character && <CharSheet />}
