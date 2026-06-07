@@ -9,10 +9,10 @@ import {
   isTextComponentWithDetail,
 } from "src/lib/types";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import { formatCustomFormula, getFieldValue, traverse } from "src/lib/utils";
+import { getFieldValue, traverse } from "src/lib/utils";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
-import { FaPencil } from "react-icons/fa6";
+import EditTextWithFormulas from "./display/edit-text-with-formulas";
 
 interface ControlledEditTextLineProps {
   textComponent: TextComponent;
@@ -20,12 +20,11 @@ interface ControlledEditTextLineProps {
   // Optional sub-section heading. When omitted no heading is rendered (e.g. when
   // the surrounding modal already shows the title in its titlebar).
   title?: string;
-  updateTitle: (newValue: string) => void;
-  addTitleFormula: () => void;
+  // Write the title template + its formulas together (positional {{}} mapping).
+  updateTitle: (text: string, formulas: CustomFormula[]) => void;
   editTitleFormula: (index: number) => void;
   addDetail: () => void;
-  updateDetail: (newValue: string) => void;
-  addDetailFormula: () => void;
+  updateDetail: (text: string, formulas: CustomFormula[]) => void;
   editDetailFormula: (index: number) => void;
   clearDetails: () => void;
   saveData?: () => void;
@@ -36,11 +35,9 @@ export function ControlledEditTextLine({
   character,
   title,
   updateTitle,
-  addTitleFormula,
   editTitleFormula,
   addDetail,
   updateDetail,
-  addDetailFormula,
   editDetailFormula,
   clearDetails,
   saveData,
@@ -50,48 +47,21 @@ export function ControlledEditTextLine({
       <div className="column edit-text-line">
         {title && <b className="title font-large">{title}</b>}
         <div className="column edit-text-line-fields">
-          <div className="row">
+          <div className="column">
             <span>Name/title</span>
-            <input
-              type="text"
-              onChange={(e) => updateTitle(e.target.value)}
-              value={textComponent.title}
+            <EditTextWithFormulas
+              text={textComponent.title}
+              formulas={textComponent.titleFormulas}
+              character={character}
+              onChange={updateTitle}
+              onEditFormula={editTitleFormula}
+              placeholder="Name (insert values for stats)"
             />
           </div>
-          <div className="row">
-            <span>Title formulas</span>
-            {textComponent.titleFormulas.map(
-              (titleFormula: CustomFormula, index: number) => (
-                <div key={index}>
-                  {formatCustomFormula(titleFormula, character, false)}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      editTitleFormula(index);
-                    }}
-                  >
-                    <FaPencil />
-                  </button>
-                </div>
-              ),
-            )}
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                addTitleFormula();
-              }}
-            >
-              +
-            </button>
-          </div>
           {isTextComponentWithDetail(textComponent) ? (
-            <>
-              <div className="row">
+            <div className="column">
+              <div className="row space-between">
                 <span>Details</span>
-                <textarea
-                  onChange={(e) => updateDetail(e.target.value)}
-                  value={textComponent.detail}
-                />
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -101,33 +71,16 @@ export function ControlledEditTextLine({
                   Clear
                 </button>
               </div>
-              <div className="row">
-                <span>Detail formulas</span>
-                {textComponent.detailFormulas.map(
-                  (detailFormula: CustomFormula, index: number) => (
-                    <div key={index}>
-                      {formatCustomFormula(detailFormula, character, false)}
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          editDetailFormula(index);
-                        }}
-                      >
-                        <FaPencil />
-                      </button>
-                    </div>
-                  ),
-                )}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    addDetailFormula();
-                  }}
-                >
-                  +
-                </button>
-              </div>
-            </>
+              <EditTextWithFormulas
+                text={textComponent.detail}
+                formulas={textComponent.detailFormulas}
+                character={character}
+                onChange={updateDetail}
+                onEditFormula={editDetailFormula}
+                placeholder="Description (insert values for stats)"
+                multiline
+              />
+            </div>
           ) : (
             <button
               onClick={(e) => {
@@ -163,18 +116,12 @@ export default function EditTextLine() {
 
   if (!isTextComponent(textComponent)) return <></>;
 
-  const updateTitle = (newValue: string) => {
-    dispatch(
-      updateData(targetedField, { value: newValue }, `${subField}.title`),
-    );
-  };
-
-  const addTitleFormula = () => {
+  const updateTitle = (text: string, formulas: CustomFormula[]) => {
     dispatch(
       updateData(
         targetedField,
-        { value: [...textComponent.titleFormulas, "proficiencyBonus"] },
-        `${subField}.titleFormulas`,
+        { value: { ...textComponent, title: text, titleFormulas: formulas } },
+        subField,
       ),
     );
   };
@@ -199,23 +146,12 @@ export default function EditTextLine() {
     );
   };
 
-  const updateDetail = (newValue: string) => {
+  const updateDetail = (text: string, formulas: CustomFormula[]) => {
     dispatch(
       updateData(
         targetedField,
-        {
-          value: newValue,
-        },
-        `${subField}.detail`,
-      ),
-    );
-  };
-  const addDetailFormula = () => {
-    dispatch(
-      updateData(
-        targetedField,
-        { value: [...textComponent.titleFormulas, "proficiencyBonus"] },
-        `${subField}.detailFormulas`,
+        { value: { ...textComponent, detail: text, detailFormulas: formulas } },
+        subField,
       ),
     );
   };
@@ -246,11 +182,9 @@ export default function EditTextLine() {
         textComponent,
         character,
         updateTitle,
-        addTitleFormula,
         editTitleFormula,
         addDetail,
         updateDetail,
-        addDetailFormula,
         editDetailFormula,
         clearDetails,
         saveData,

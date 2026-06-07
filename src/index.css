@@ -606,6 +606,89 @@ button:active:not(:disabled) {
   flex-wrap: wrap;
 }
 
+/* ---- Inline text-with-formulas editor ---- */
+.text-with-formulas-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.text-with-formulas-input {
+  width: 100%;
+  min-height: 2.2rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+}
+
+.text-with-formulas-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.text-with-formulas-input:empty:before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.formula-chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.1rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius);
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+}
+
+.formula-chip:hover {
+  background-color: var(--accent-hover);
+}
+
+.text-with-formulas-toolbar {
+  display: flex;
+}
+
+.insert-value-menu {
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 12rem;
+  padding: 0.25rem;
+  background: var(--popover-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+}
+
+.insert-value-menu button {
+  text-align: left;
+}
+
+.insert-value-menu hr {
+  width: 100%;
+  margin: 0.25rem 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
 /* ---- Spell slot pips ---- */
 .slot-pips {
   flex-wrap: wrap;

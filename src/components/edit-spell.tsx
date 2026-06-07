@@ -2,6 +2,7 @@ import React from "react";
 import { CastingTime, FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
+  CustomFormula,
   isTextComponent,
   MaterialComponent,
   SpellComponents,
@@ -77,13 +78,12 @@ export default function EditSpell() {
     );
 
   // --- info (name/description) handlers, delegated to ControlledEditTextLine ---
-  const setTitle = (newValue: string) =>
-    updateSpellField("info.title", newValue);
-  const addTitleFormula = () =>
-    updateSpellField("info.titleFormulas", [
-      ...textComponent.titleFormulas,
-      "proficiencyBonus",
-    ]);
+  const setTitle = (text: string, formulas: CustomFormula[]) =>
+    updateSpellField("info", {
+      ...textComponent,
+      title: text,
+      titleFormulas: formulas,
+    });
   const editTitleFormula = (index: number) =>
     pushTargetedField(targetedField, `${subField}.info.titleFormulas.${index}`);
   const addDetail = () =>
@@ -92,13 +92,12 @@ export default function EditSpell() {
       detail: "",
       detailFormulas: [],
     });
-  const updateDetail = (newValue: string) =>
-    updateSpellField("info.detail", newValue);
-  const addDetailFormula = () =>
-    updateSpellField("info.detailFormulas", [
-      ...textComponent.titleFormulas,
-      "proficiencyBonus",
-    ]);
+  const updateDetail = (text: string, formulas: CustomFormula[]) =>
+    updateSpellField("info", {
+      ...textComponent,
+      detail: text,
+      detailFormulas: formulas,
+    });
   const editDetailFormula = (index: number) =>
     pushTargetedField(
       targetedField,
@@ -294,11 +293,9 @@ export default function EditSpell() {
           character,
           title: "Name & description",
           updateTitle: setTitle,
-          addTitleFormula,
           editTitleFormula,
           addDetail,
           updateDetail,
-          addDetailFormula,
           editDetailFormula,
           clearDetails,
         }}

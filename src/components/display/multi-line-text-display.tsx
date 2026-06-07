@@ -72,7 +72,7 @@ export default function MultiLineTextDisplay({
     if (subField) {
       pushTargetedField(field, `${subField}.${textComponents.length}`);
     } else {
-      pushTargetedField(field, textComponents.length);
+      pushTargetedField(field, textComponents.length.toString());
     }
   };
 
