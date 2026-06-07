@@ -26,7 +26,7 @@ export default function EditSpell() {
       updateData(
         targetedField,
         { value: e.target.value },
-        `${subField}.castingClass`,
+        `${subField}.spellcastingClass`,
       ),
     );
   };

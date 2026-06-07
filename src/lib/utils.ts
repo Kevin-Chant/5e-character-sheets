@@ -868,6 +868,41 @@ export function calculateSpellcasterLevel(character: Character) {
     .reduce((a, b) => a + b);
 }
 
+/**
+ * Whether a class entry grants spellcasting (and so should appear in the
+ * spellcasting class list). Warlocks cast via pact magic; Eldritch Knights and
+ * Arcane Tricksters only cast with their respective subclass. Mirrors the
+ * per-class logic in `calculateSpellcasterLevel`.
+ */
+export function isSpellcastingClass(klass: IClass): boolean {
+  if (!isOfficialClass(klass.name)) return false;
+  if (
+    [
+      OfficialClass.Bard,
+      OfficialClass.Cleric,
+      OfficialClass.Druid,
+      OfficialClass.Sorcerer,
+      OfficialClass.Wizard,
+      OfficialClass.Paladin,
+      OfficialClass.Ranger,
+      OfficialClass.Artificer,
+      OfficialClass.Warlock,
+    ].includes(klass.name)
+  )
+    return true;
+  if (
+    klass.name === OfficialClass.Fighter &&
+    klass.subclass === "Eldritch Knight"
+  )
+    return true;
+  if (
+    klass.name === OfficialClass.Rogue &&
+    klass.subclass === "Arcane Trickster"
+  )
+    return true;
+  return false;
+}
+
 export function getDefaultSpellSlots(
   character: Character,
   slotLevel: SpellLevel,
