@@ -91,29 +91,37 @@ export default function CharSheet() {
   if (!character) return <></>;
 
   let modalContents = <></>;
+  let modalTitle: string | undefined;
   switch (modalType) {
     case undefined:
       break;
     case "formula":
       modalContents = <BuildCustomFormula />;
+      modalTitle = "Formula Builder";
       break;
     case "formulaWithDamage":
       modalContents = <BuildCustomFormulaWithDamage />;
+      modalTitle = "Formula Builder with Damage Types";
       break;
     case "multiClass":
       modalContents = <EditClassLevels />;
+      modalTitle = "Class and Levels";
       break;
     case "textLine":
       modalContents = <EditTextLine />;
+      modalTitle = "Update Text Section";
       break;
     case "hitDice":
       modalContents = <EditHitDice />;
+      modalTitle = "Override Hit Dice";
       break;
     case "attack":
       modalContents = <EditAttack />;
+      modalTitle = "Edit Attack";
       break;
     case "spell":
       modalContents = <EditSpell />;
+      modalTitle = "Edit Spell";
       break;
     default:
       modalContents = (
@@ -131,6 +139,7 @@ export default function CharSheet() {
         <ModalContainer
           back={targetedFieldStackLength > 1 ? popTargetedField : undefined}
           close={clearTargetedField}
+          title={modalTitle}
         >
           {modalContents}
         </ModalContainer>

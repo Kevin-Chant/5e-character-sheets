@@ -403,6 +403,15 @@ export const SPELLCASTING_ABILITIES: { [key in OfficialClass]?: StatKey } = {
   Wizard: StatKey.int,
 };
 
+// Well-known casting times get first-class treatment so that, in future, we can
+// surface all of a character's actions/bonus actions/reactions at a glance. Any
+// other casting time is stored as a free-form string.
+export enum CastingTime {
+  Action = "1 action",
+  BonusAction = "1 bonus action",
+  Reaction = "1 reaction",
+}
+
 export enum SpellLevel {
   First = "First",
   Second = "Second",

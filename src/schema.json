@@ -285,6 +285,17 @@
             },
             "type": "object"
         },
+        "MaterialComponent": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "$ref": "#/definitions/CoinAmounts"
+                }
+            },
+            "type": "object"
+        },
         "Maximum": {
             "properties": {
                 "operands": {
@@ -439,8 +450,29 @@
         },
         "Spell": {
             "properties": {
+                "castingTime": {
+                    "type": "string"
+                },
+                "components": {
+                    "$ref": "#/definitions/SpellComponents"
+                },
+                "concentration": {
+                    "type": "boolean"
+                },
+                "duration": {
+                    "type": "string"
+                },
                 "info": {
                     "$ref": "#/definitions/TextComponent"
+                },
+                "prepared": {
+                    "type": "boolean"
+                },
+                "range": {
+                    "type": "string"
+                },
+                "ritual": {
+                    "type": "boolean"
                 },
                 "spellcastingClass": {
                     "type": "string"
@@ -461,6 +493,23 @@
                 },
                 "saveDcOverride": {
                     "$ref": "#/definitions/CustomFormula"
+                }
+            },
+            "type": "object"
+        },
+        "SpellComponents": {
+            "properties": {
+                "material": {
+                    "items": {
+                        "$ref": "#/definitions/MaterialComponent"
+                    },
+                    "type": "array"
+                },
+                "somatic": {
+                    "type": "boolean"
+                },
+                "verbal": {
+                    "type": "boolean"
                 }
             },
             "type": "object"

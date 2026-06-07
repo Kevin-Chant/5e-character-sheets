@@ -159,6 +159,10 @@ export const defaultCharacter: Character = {
     cantrips: [
       {
         spellcastingClass: OfficialClass.Warlock,
+        castingTime: "1 action",
+        range: "120 feet",
+        duration: "Instantaneous",
+        components: { verbal: true, somatic: true },
         info: {
           title: "Eldritch Blast",
           titleFormulas: [],

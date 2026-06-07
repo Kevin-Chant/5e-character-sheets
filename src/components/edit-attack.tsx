@@ -52,9 +52,6 @@ export default function EditAttack() {
   return (
     <form>
       <div className="column">
-        <div className="row">
-          <b className="title font-large margin-medium">Edit Attack</b>
-        </div>
         <table>
           <tr>
             <th>Attack Name</th>

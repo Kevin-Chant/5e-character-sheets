@@ -481,6 +481,131 @@ button:active:not(:disabled) {
   align-self: flex-start;
 }
 
+/* ---- Spell rows (list items) ---- */
+.spell-row-main {
+  width: auto;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.prepared-toggle {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.spell-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  border-radius: var(--radius);
+  background-color: var(--display-value-bg);
+  color: var(--text-muted);
+}
+
+.spell-badge.class-badge {
+  text-transform: none;
+}
+
+/* ---- Edit spell modal ---- */
+.edit-spell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  min-width: min(640px, 80vw);
+}
+
+.spell-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.spell-meta-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.spell-meta-grid select,
+.spell-meta-grid input {
+  width: 100%;
+}
+
+.spell-meta-flags {
+  justify-content: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.spell-components {
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.spell-component-toggles {
+  justify-content: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.material-list {
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.material-row {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.material-row > input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.coin-input {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.coin-input input {
+  width: 4.5rem;
+}
+
+/* ---- Text-line editor (name + formulas + details) ---- */
+.edit-text-line {
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.edit-text-line .title {
+  margin: 0;
+}
+
+.edit-text-line-fields {
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.edit-text-line-fields .row {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 /* ---- Spell slot pips ---- */
 .slot-pips {
   flex-wrap: wrap;
@@ -578,19 +703,30 @@ button.slot-pip:hover:not(:disabled) {
   height: 100%; /* Full height */
   overflow: auto; /* Enable scroll if needed */
 
-  .close {
-    color: var(--text-muted);
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-  }
-
   .close:hover,
   .close:focus {
     color: var(--text);
     text-decoration: none;
     cursor: pointer;
   }
+}
+
+.modal-titlebar {
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-titlebar > .title {
+  margin: 0;
+}
+
+.modal-titlebar-buttons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
 }
 
 .modal-background {

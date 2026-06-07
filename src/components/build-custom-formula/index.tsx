@@ -65,9 +65,6 @@ export default function BuildCustomFormula() {
   return (
     <form>
       <div className="column">
-        <div className="row">
-          <b className="title font-large margin-medium">Formula Builder</b>
-        </div>
         <div>
           <span className="margin-small">Edit</span>
           <Switch onChange={setEdit} checked={edit} />

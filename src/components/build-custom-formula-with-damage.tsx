@@ -95,11 +95,6 @@ export default function BuildCustomFormulaWithDamage() {
   return (
     <form>
       <div className="column">
-        <div className="row">
-          <b className="title font-large margin-medium">
-            Formula Builder with Damage Types
-          </b>
-        </div>
         {(
           Object.entries(formulaWithDamage) as Array<
             [DamageType, CustomFormula]

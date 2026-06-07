@@ -8,6 +8,7 @@ import { getFieldValue } from "src/lib/utils";
 interface ModalProps {
   back: (() => void) | undefined;
   close: () => void;
+  title?: string;
 }
 
 const SaveContext = React.createContext({
@@ -20,6 +21,7 @@ export function useSave() {
 export default function ModalContainer({
   back,
   close,
+  title,
   children,
 }: ModalProps & React.PropsWithChildren) {
   const keypressListener = useCallback(
@@ -68,19 +70,18 @@ export default function ModalContainer({
         <div className="modal-container">
           <div className="modal-background" onClick={close} />
           <div className="modal-content">
-            <div className="row space-between flex-direction-row-reverse">
-              <div className="close">
-                <button className="icon-btn" onClick={close}>
+            <div className="row space-between modal-titlebar">
+              <b className="title font-large">{title}</b>
+              <div className="modal-titlebar-buttons">
+                {back && (
+                  <button className="icon-btn back" onClick={back}>
+                    {"<"}
+                  </button>
+                )}
+                <button className="icon-btn close" onClick={close}>
                   x
                 </button>
               </div>
-              {back && (
-                <div className="back">
-                  <button className="icon-btn" onClick={back}>
-                    {"<"}
-                  </button>
-                </div>
-              )}
             </div>
             {children}
           </div>

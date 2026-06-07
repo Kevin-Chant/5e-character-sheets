@@ -40,9 +40,6 @@ export default function EditHitDice() {
   return (
     <form>
       <div className="column">
-        <div className="row">
-          <b className="title font-large margin-medium">Override Hit Dice</b>
-        </div>
         <table>
           <thead>
             <tr>

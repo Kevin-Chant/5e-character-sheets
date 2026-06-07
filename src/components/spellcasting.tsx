@@ -17,7 +17,7 @@ import {
 } from "src/lib/utils";
 import { Character, Spell, SpellCastingClass } from "src/lib/types";
 import { updateData } from "src/lib/hooks/reducers/actions";
-import MultiLineTextDisplay from "./display/multi-line-text-display";
+import SpellList from "./display/spell-list";
 import { FaTrash } from "react-icons/fa6";
 
 interface SpellsTableProps {
@@ -83,17 +83,8 @@ function SpellsTable({ character }: SpellsTableProps) {
   // character's first class (or Wizard) when no spellcasting class exists yet.
   const defaultSpellClass =
     spellcastingClasses[0] ?? character.class[0]?.name ?? OfficialClass.Wizard;
+  // Show each spell's class only when multiclassing, where it's ambiguous.
   const showClassBadge = spellcastingClasses.length > 1;
-
-  // Prefix a spell's title with its class when the character has more than one
-  // spellcasting class, so multiclass spell lists stay legible.
-  const transformSpellInfo = (spell: Spell) =>
-    showClassBadge
-      ? {
-          ...spell.info,
-          title: `[${spell.spellcastingClass}] ${spell.info.title}`,
-        }
-      : spell.info;
 
   // Warlocks (and other pact casters) learn spells up to their pact-slot level
   // even though they have no standard slots, so the pact level extends which
@@ -122,7 +113,7 @@ function SpellsTable({ character }: SpellsTableProps) {
   });
   const hiddenLevels = allLevels.filter((l) => !visibleLevels.includes(l));
 
-  const newSpellDefault = (label: string) => ({
+  const newSpellDefault = (label: string): Spell => ({
     spellcastingClass: defaultSpellClass,
     info: { title: label, titleFormulas: [] },
   });
@@ -135,11 +126,10 @@ function SpellsTable({ character }: SpellsTableProps) {
           <div className="spell-level-header">
             <p className="title">Cantrips</p>
           </div>
-          <MultiLineTextDisplay
-            title={""}
-            field={FIELD.spells}
+          <SpellList
             subField="cantrips"
-            transform={transformSpellInfo}
+            preparable={false}
+            showClassBadge={showClassBadge}
             defaultValue={newSpellDefault("New cantrip")}
           />
         </div>
@@ -178,11 +168,10 @@ function SpellsTable({ character }: SpellsTableProps) {
                   </div>
                 )}
               </div>
-              <MultiLineTextDisplay
-                title={""}
-                field={FIELD.spells}
+              <SpellList
                 subField={level}
-                transform={transformSpellInfo}
+                preparable
+                showClassBadge={showClassBadge}
                 defaultValue={newSpellDefault("New spell")}
               />
             </div>

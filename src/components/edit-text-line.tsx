@@ -17,6 +17,9 @@ import { FaPencil } from "react-icons/fa6";
 interface ControlledEditTextLineProps {
   textComponent: TextComponent;
   character: Character;
+  // Optional sub-section heading. When omitted no heading is rendered (e.g. when
+  // the surrounding modal already shows the title in its titlebar).
+  title?: string;
   updateTitle: (newValue: string) => void;
   addTitleFormula: () => void;
   editTitleFormula: (index: number) => void;
@@ -31,6 +34,7 @@ interface ControlledEditTextLineProps {
 export function ControlledEditTextLine({
   textComponent,
   character,
+  title,
   updateTitle,
   addTitleFormula,
   editTitleFormula,
@@ -43,11 +47,9 @@ export function ControlledEditTextLine({
 }: ControlledEditTextLineProps) {
   return (
     <form>
-      <div className="column">
-        <div className="row">
-          <b className="title font-large margin-medium">Update Text Section</b>
-        </div>
-        <div className="column">
+      <div className="column edit-text-line">
+        {title && <b className="title font-large">{title}</b>}
+        <div className="column edit-text-line-fields">
           <div className="row">
             <span>Name/title</span>
             <input

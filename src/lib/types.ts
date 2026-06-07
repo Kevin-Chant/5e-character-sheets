@@ -306,9 +306,29 @@ export interface SpellCastingClass {
   attackBonusOverride?: CustomFormula;
 }
 
+export interface MaterialComponent {
+  name: string;
+  // Cost of the component. Components with a listed cost are the ones consumed
+  // on cast, so the presence of a price is what marks a material as consumed.
+  price?: CoinAmounts;
+}
+
+export interface SpellComponents {
+  verbal?: boolean;
+  somatic?: boolean;
+  material?: MaterialComponent[];
+}
+
 export interface Spell {
   spellcastingClass: ClassName;
   info: TextComponent;
+  prepared?: boolean;
+  ritual?: boolean;
+  concentration?: boolean;
+  components?: SpellComponents;
+  castingTime?: string;
+  range?: string;
+  duration?: string;
 }
 
 export type Spells = {

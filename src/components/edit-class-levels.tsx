@@ -111,7 +111,6 @@ export default function EditClassLevels() {
     <form>
       <div className="column">
         <div className="column">
-          <b className="title font-large">Class and Levels</b>
           <i className="">
             Make sure your starting class is the first entry for the automatic
             HP formula to work correctly
