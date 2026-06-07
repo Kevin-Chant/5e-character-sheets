@@ -49,7 +49,13 @@ export default function DriveShareControls() {
   };
 
   return (
-    <div className="drive-share-controls margin-medium">
+    <section className="share-section drive-share-controls">
+      <h2>Google Drive</h2>
+      <p className="text-muted">
+        {!shared
+          ? "Promote this character to a shareable Drive document, then grant friends access by email."
+          : "Grant a friend access to this character by their Google account email."}
+      </p>
       {!shared ? (
         <button onClick={handlePromote} disabled={busy}>
           <FaShareNodes /> Make shareable
@@ -63,11 +69,11 @@ export default function DriveShareControls() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <button type="submit" disabled={busy || !email}>
-            Share
+            Share with this email
           </button>
         </form>
       )}
       {status && <p className="margin-small">{status}</p>}
-    </div>
+    </section>
   );
 }

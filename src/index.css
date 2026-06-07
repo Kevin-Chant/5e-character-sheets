@@ -540,6 +540,85 @@ button:active:not(:disabled) {
   align-items: center;
 }
 
+.text-muted {
+  color: var(--text-muted);
+}
+
+.modal-header {
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-header h1 {
+  margin: 0;
+}
+
+/* Overflow ("more actions") dropdown in the top nav */
+.nav-menu {
+  position: relative;
+}
+
+.nav-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+}
+
+.nav-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-menu-item:hover:not(:disabled) {
+  background-color: var(--border);
+}
+
+.nav-menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nav-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background-color: var(--border);
+}
+
+/* Sections inside the Share modal */
+.share-section {
+  margin-top: 1.25rem;
+}
+
+.share-section h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.share-section p {
+  margin: 0 0 0.5rem;
+}
+
 #right-nav-components {
   display: flex;
   align-items: center;
@@ -559,6 +638,149 @@ button:active:not(:disabled) {
 
 .character-sheet-container {
   width: fit-content;
+}
+
+/* ============================================================
+   Home / landing
+   ============================================================ */
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+}
+
+.home-hero {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.home-hero h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2.25rem;
+}
+
+.home-hero p {
+  margin: 0 auto;
+  max-width: 36rem;
+  font-size: 1.1rem;
+}
+
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  width: 100%;
+}
+
+.option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  transition:
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+
+.option-card:hover {
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.option-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.option-card-icon {
+  display: inline-flex;
+  font-size: 1.75rem;
+  color: var(--accent);
+}
+
+.option-card-heading {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.home-footnote {
+  margin-top: 2rem;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ============================================================
+   Character picker
+   ============================================================ */
+.character-picker {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.character-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.character-picker-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.character-picker-empty {
+  margin-bottom: 1rem;
+}
+
+/* Character card: built on .option-card, but it's a <button>, so reset the
+   default button chrome and left-align its contents. */
+.character-card {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+}
+
+.character-card-name {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text);
+}
+
+.character-card-badge {
+  margin-right: 0.4rem;
+  color: var(--accent);
+}
+
+/* Create card: dashed, centered, muted until hover. */
+.create-card {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-style: dashed;
+  color: var(--text-muted);
+  font: inherit;
+}
+
+.create-card:hover {
+  color: var(--accent);
+}
+
+.create-card .option-card-icon {
+  font-size: 1.15rem;
 }
 
 /* ============================================================
@@ -603,5 +825,86 @@ button:active:not(:disabled) {
     min-width: auto;
     max-width: 92%;
     width: 92%;
+  }
+
+  .home,
+  .character-picker {
+    padding: 1.5rem 1rem;
+  }
+
+  .home-hero h1 {
+    font-size: 1.75rem;
+  }
+
+  .option-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Tooltip
+   ============================================================ */
+.tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-bubble {
+  position: absolute;
+  z-index: 10;
+  white-space: nowrap;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  box-shadow: var(--shadow-2);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.12s ease,
+    visibility 0.12s ease;
+  pointer-events: none;
+}
+
+.tooltip:hover .tooltip-bubble,
+.tooltip:focus-visible .tooltip-bubble {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tooltip-bottom .tooltip-bubble {
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltip-top .tooltip-bubble {
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltip-right .tooltip-bubble {
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tooltip-left .tooltip-bubble {
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.spinner {
+  animation: spinner-rotate 0.8s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
   }
 }

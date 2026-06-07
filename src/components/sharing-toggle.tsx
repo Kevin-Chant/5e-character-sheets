@@ -37,18 +37,24 @@ export default function SharingToggle() {
   };
 
   return (
-    <>
-      <div className="sharing-toggle margin-medium">
-        <label htmlFor="toggleSharing">Share</label>
+    <section className="share-section">
+      <h2>Live session</h2>
+      <p className="text-muted">
+        Edit together in real time — anyone with the code can join.
+      </p>
+      <div className="row space-between">
+        <label htmlFor="toggleSharing">Share live session</label>
         <Switch
           id="toggleSharing"
           onChange={toggleSharing}
           checked={sharingSessionOpen}
         />
       </div>
-      <button onClick={copyCode}>
-        <FaCopy />
-      </button>
-    </>
+      {sharingSessionOpen && (
+        <button className="margin-small" onClick={copyCode}>
+          <FaCopy /> Copy sharing code
+        </button>
+      )}
+    </section>
   );
 }

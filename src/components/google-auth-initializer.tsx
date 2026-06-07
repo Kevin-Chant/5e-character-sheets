@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FaSpinner } from "react-icons/fa6";
+import Spinner from "src/components/spinner";
 import { useNavigate } from "react-router-dom";
 import GoogleDriveDatastore from "src/datastores/google-drive-datastore";
 import {
@@ -14,6 +14,7 @@ import {
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useGoogleOauth } from "src/lib/hooks/use-google-oauth";
 import useScript from "src/lib/hooks/use-script";
+import { writeLastDatastore } from "src/lib/last-datastore";
 
 export default function GoogleAuthInitializer() {
   const {
@@ -35,6 +36,7 @@ export default function GoogleAuthInitializer() {
   useEffect(() => {
     if (googleOauthReady) {
       setDatastore(GoogleDriveDatastore);
+      writeLastDatastore("drive");
       navigate("/sheet");
     }
   }, [googleOauthReady]);
@@ -118,7 +120,7 @@ export default function GoogleAuthInitializer() {
   if (!gapiInitialized || !gisInitialized)
     return (
       <p>
-        <FaSpinner /> Connecting to the Google Drive API...
+        <Spinner /> Connecting to the Google Drive API...
       </p>
     );
   // While a previous session is being resumed silently, show progress rather
@@ -126,7 +128,7 @@ export default function GoogleAuthInitializer() {
   if (hasStoredGrant() && !authPromptNeeded)
     return (
       <p>
-        <FaSpinner /> Resuming your Google session...
+        <Spinner /> Resuming your Google session...
       </p>
     );
   return (

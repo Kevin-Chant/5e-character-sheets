@@ -4,17 +4,15 @@ import React, { useCallback, useState } from "react";
 import {
   FaBars,
   FaCheck,
-  FaFileExport,
-  FaFileImport,
   FaFloppyDisk,
   FaGear,
   FaHouse,
-  FaSpinner,
+  FaShareNodes,
   FaTowerBroadcast,
   FaTrash,
   FaTriangleExclamation,
 } from "react-icons/fa6";
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import {
   loadFullCharacter,
   resetCharacter,
@@ -23,9 +21,11 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
-import SharingToggle from "src/components/sharing-toggle";
-import DriveShareControls from "src/components/drive-share-controls";
-import DriveImportButton from "src/components/drive-import-button";
+import Modal from "src/components/modal";
+import Spinner from "src/components/spinner";
+import Tooltip from "src/components/tooltip";
+import ShareModal from "src/components/share-modal";
+import NavOverflowMenu from "src/components/nav-overflow-menu";
 import { validateCharacterData } from "src/lib/utils";
 
 function Sidebar() {
@@ -60,6 +60,11 @@ function Sidebar() {
         <b>{charactersNavText}</b>
         <hr></hr>
         <ul className="character-list">
+          {characterLoading && (
+            <div>
+              Loading <Spinner />
+            </div>
+          )}
           {characters.map((characterEntry) => {
             const isSameCharacter = characterEntry.uuid === character?.uuid;
             return (
@@ -97,7 +102,6 @@ function Sidebar() {
               Create new character
             </button>
           )}
-          {characterLoading && <FaSpinner />}
         </ul>
       </div>
     </div>
@@ -110,9 +114,12 @@ export default function Root() {
   const { character, unsavedChanges, setUnsavedChanges, dispatch } =
     useCharacter();
   const { saving, save } = useDatastore();
+  const { getRole } = useSharingSessions();
+  const location = useLocation();
   const [fileSelected, setFileSelected] = useState<File | undefined>();
   const [importErrorMessage, setImportErrorMessage] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const saveCharacter = useCallback(() => {
     if (!character) return;
@@ -166,74 +173,80 @@ export default function Root() {
   }, [fileSelected, dispatch]);
 
   const saveIndicator = saving ? (
-    <FaSpinner />
+    <Tooltip label="Saving...">
+      <Spinner />
+    </Tooltip>
   ) : unsavedChanges ? (
-    <FaTriangleExclamation />
+    <Tooltip label="Unsaved changes, your edits haven't been saved yet">
+      <FaTriangleExclamation />
+    </Tooltip>
   ) : (
-    <FaCheck />
+    <Tooltip label="Changes saved!">
+      <FaCheck />
+    </Tooltip>
   );
 
-  const pageTitle = "Home";
+  // Derive a title that describes the current page, rather than a static label
+  // that reads like it belongs to the adjacent Home button.
+  const pageTitle =
+    location.pathname === "/settings"
+      ? "Settings"
+      : location.pathname === "/sheet"
+        ? (character?.name ?? "Character Select")
+        : "Home";
+
+  const canShare =
+    !!character && !!datastore && getRole(character.uuid) !== "remote";
 
   return (
     <>
       <div id="nav">
         {/* TODO: mobile-friendly nav */}
         <nav id="main-nav">
-          <button className="icon-btn" onClick={toggleSidebar}>
+          <button
+            className="icon-btn"
+            onClick={toggleSidebar}
+            title="Characters"
+          >
             <FaBars />
           </button>
-          <Link to="/">
-            <button className="icon-btn">
+          {/* Carry picker state so Home shows the storage picker instead of
+              auto-redirecting back into the last-used datastore. */}
+          <Link to="/" state={{ picker: true }}>
+            <button className="icon-btn" title="Home">
               <FaHouse />
             </button>
           </Link>
-
           <h1>{pageTitle}</h1>
-          <button
-            className="icon-btn"
-            disabled={!datastore}
-            onClick={(e) => {
-              e.preventDefault();
-              setModalOpen(true);
-            }}
-          >
-            <FaFileImport />
-          </button>
-          <DriveImportButton />
-          <button
-            className="icon-btn"
-            onClick={saveCharacter}
-            disabled={!character}
-          >
-            <FaFileExport />
-          </button>
-          <SharingToggle />
-          <DriveShareControls />
         </nav>
         <div id="right-nav-components">
+          {canShare && (
+            <button
+              className="icon-btn"
+              onClick={() => setShareModalOpen(true)}
+              title="Share character"
+            >
+              <FaShareNodes />
+            </button>
+          )}
+          <NavOverflowMenu
+            onImportFile={() => setModalOpen(true)}
+            onExportFile={saveCharacter}
+            hasCharacter={!!character}
+          />
           <Link to="/settings">
-            <button className="icon-btn">
+            <button className="icon-btn" title="Settings">
               <FaGear />
             </button>
           </Link>
-          <a
-            href="https://github.com/Kevin-Chant/5e-character-sheets"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <button className="icon-btn">
-              <img
-                id="github-icon"
-                src="github-mark.png"
-                alt="github logo, link to github"
-              />
-            </button>
-          </a>
           {character && (
             <div id="save-container">
               <p>{saveIndicator}</p>
-              <button className="icon-btn" onClick={() => save(character)}>
+              <button
+                className="icon-btn"
+                onClick={() => save(character)}
+                title="Save character"
+              >
                 <FaFloppyDisk />
               </button>
             </div>
@@ -241,44 +254,27 @@ export default function Root() {
         </div>
       </div>
       {modalOpen && (
-        <div className="modal-container">
-          <div
-            className="modal-background"
-            onClick={(e) => {
-              e.preventDefault();
-              setModalOpen(true);
-            }}
+        <Modal
+          title="Choose a file to import"
+          onClose={() => setModalOpen(false)}
+        >
+          <input
+            type="file"
+            onChange={handleFileChange}
+            accept=".5echarsheet"
           />
-          <div className="modal-content">
-            <div className="row space-between flex-direction-row-reverse">
-              <div className="close">
-                <button
-                  className="icon-btn"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setModalOpen(false);
-                  }}
-                >
-                  x
-                </button>
-              </div>
-            </div>
-            <h1>Choose a file to import</h1>
-            <input
-              type="file"
-              onChange={handleFileChange}
-              accept=".5echarsheet"
-            />
-            <p style={{ color: "red" }}>{importErrorMessage}</p>
-            <button
-              className="btn-primary"
-              disabled={!fileSelected}
-              onClick={loadCharacterData}
-            >
-              Load character
-            </button>
-          </div>
-        </div>
+          <p style={{ color: "red" }}>{importErrorMessage}</p>
+          <button
+            className="btn-primary"
+            disabled={!fileSelected}
+            onClick={loadCharacterData}
+          >
+            Load character
+          </button>
+        </Modal>
+      )}
+      {shareModalOpen && (
+        <ShareModal onClose={() => setShareModalOpen(false)} />
       )}
       <div className="flex">
         {showSidebar && <Sidebar />}

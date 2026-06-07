@@ -31,6 +31,10 @@ Pluggable backends implementing `Datastore`:
 
 The active backend is held in `DatastoreSelectorContext` and can be `undefined` (e.g. when joining a remote session — joiners have no local store). `google-drive.ts` holds the raw gapi/REST primitives; the datastore orchestrates caching and promotion.
 
+**Consuming datastores in the UI** — go through the `useDatastore()` hook (`src/lib/hooks/use-datastore.tsx`), not the raw `Datastore` object: it exposes a _reactive_ `characters` list, `characterLoading`, and wrappers like `createCharacter()`/`save()`/`deleteCharacter()` that keep that list in sync. Calling `datastore.listEntriesInDatastore()` directly gives a one-shot snapshot that won't update on create/delete. Two distinct "new character" paths exist: `createCharacter()` **persists** immediately (preferred), while `loadFullCharacter(defaultCharacter)` only loads an unsaved in-memory default. `characterLoading` wraps both the create flow and the initial async list fetch, so guard empty states on it to avoid flashing "no characters" while a backend (e.g. Drive) loads.
+
+**Storage selection is two surfaces, both auto-skippable**: the home page (`src/routes/home.tsx`) picks the _backend_, the character picker (`src/components/character-picker.tsx`, rendered by `sheet-container.tsx` when a datastore is selected but no character is open) picks the _character_. The last-used backend is persisted via `src/lib/last-datastore.ts` so `home.tsx` auto-redirects returning users straight to their sheets — pass `location.state.picker` (the nav Home button does) to force the picker instead.
+
 ### Live editing: a sync _overlay_, not a datastore (`src/lib/hooks/use-sharing-session.tsx`)
 
 Real-time co-editing runs over WAMP (autobahn-browser client ↔ nightlife-rabbit broker). It is independent of where the character is persisted. Key design points that are easy to get wrong:

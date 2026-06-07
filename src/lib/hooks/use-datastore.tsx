@@ -122,6 +122,9 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
       setLocalCharacters({});
       return;
     }
+    // Mark loading while the (possibly async, e.g. Drive) list is fetched so
+    // the picker can show a spinner instead of flashing its empty state.
+    setCharacterLoading(true);
     datastore.initializeDatastore().then(() => {
       const charList = datastore.listEntriesInDatastore();
       setLocalCharacters(
@@ -129,6 +132,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
           charList.map((character) => [character.uuid, character]),
         ),
       );
+      setCharacterLoading(false);
     });
   }, [datastore]);
 

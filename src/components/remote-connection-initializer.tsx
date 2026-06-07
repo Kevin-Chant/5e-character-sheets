@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { loadFullCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRemoteSharingSession } from "src/lib/hooks/use-sharing-session";
+import { writeLastDatastore } from "src/lib/last-datastore";
 import { isUuid } from "src/lib/types";
 
 export default function RemoteConnectionInitializer() {
@@ -31,6 +32,7 @@ export default function RemoteConnectionInitializer() {
       return;
     }
     dispatch(loadFullCharacter(character));
+    writeLastDatastore("remote");
     navigate("/sheet");
   };
 
