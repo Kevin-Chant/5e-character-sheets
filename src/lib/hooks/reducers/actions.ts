@@ -9,7 +9,7 @@ export type Action = {
   subField?: string;
 };
 
-export function loadFullCharacter(character: Character): Action {
+export function loadPersistedCharacter(character: Character): Action {
   return {
     type: "load_character",
     payload: character,

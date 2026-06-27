@@ -19,6 +19,7 @@ interface SingleValueDisplayProps {
   removeBorder?: boolean;
   removeMargin?: boolean;
   editable?: boolean;
+  compact?: boolean;
 }
 
 export default function SingleValueDisplay({
@@ -31,6 +32,7 @@ export default function SingleValueDisplay({
   removeBorder,
   removeMargin,
   editable,
+  compact,
 }: SingleValueDisplayProps) {
   const { character } = useCharacter();
   const { pushTargetedField } = useTargetedField();
@@ -65,6 +67,7 @@ export default function SingleValueDisplay({
           <p
             className={classNames("display-value large", {
               "margin-small": !removeMargin,
+              compact: compact,
               editable: editable,
               readOnly: !editable,
             })}
@@ -78,6 +81,7 @@ export default function SingleValueDisplay({
           <p
             className={classNames("display-value large", {
               "margin-small": !removeMargin,
+              compact: compact,
               editable: editable,
               readOnly: !editable,
             })}

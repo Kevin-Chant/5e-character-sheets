@@ -26,13 +26,18 @@ export default function DefenceAndEquipmentPanel() {
   const { pushTargetedField } = useTargetedField();
   if (!character) return <></>;
   const totalHitDice = character.totalHitDice || getHitDice(character);
-  const hitDice = [
-    StandardDie.d4,
-    StandardDie.d6,
-    StandardDie.d8,
-    StandardDie.d10,
-    StandardDie.d12,
-  ] as const;
+  const hitDice = (
+    [
+      StandardDie.d4,
+      StandardDie.d6,
+      StandardDie.d8,
+      StandardDie.d10,
+      StandardDie.d12,
+    ] as const
+  ).filter(
+    (die) =>
+      (totalHitDice[die] || 0) > 0 || (character.expendedHitDice[die] || 0) > 0,
+  );
   const addAttackRow = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const newValue = JSON.parse(JSON.stringify(character.attacks));

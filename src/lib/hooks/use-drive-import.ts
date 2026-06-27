@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadFullCharacter } from "src/lib/hooks/reducers/actions";
+import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
@@ -23,7 +23,7 @@ export function useDriveImport() {
     try {
       const character = await importCharacter();
       if (character) {
-        dispatch(loadFullCharacter(character));
+        dispatch(loadPersistedCharacter(character));
         navigate("/sheet");
       }
     } catch (err) {

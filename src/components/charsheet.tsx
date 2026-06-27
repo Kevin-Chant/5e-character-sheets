@@ -164,6 +164,7 @@ export default function CharSheet() {
                   name={"Class & Level"}
                   vertical
                   editable
+                  compact={formatClass(character.class).length > 25}
                 />
                 <SingleValueDisplay
                   field={FIELD.background}

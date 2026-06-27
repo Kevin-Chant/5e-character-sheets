@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useReducer, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useReducer,
+  useState,
+} from "react";
 import { Action, resetCharacter } from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
@@ -16,6 +22,7 @@ interface CharacterContextData {
   unsavedChanges: boolean;
   setUnsavedChanges: (isUnsaved: boolean) => void;
   saveError: boolean;
+  saveNow: () => void;
   openSharingSession: () => void;
   closeSharingSession: () => void;
 }
@@ -33,6 +40,9 @@ export const CharacterContext = React.createContext<CharacterContextData>({
     console.log("Calling default setUnsavedChanges");
   },
   saveError: false,
+  saveNow: () => {
+    console.log("Calling default saveNow");
+  },
   openSharingSession: () => {
     console.log("Calling default openSharingSession");
   },
@@ -56,37 +66,83 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     getCharacter,
   );
 
+  // Persist the current character now. A character we joined remotely is owned
+  // (and persisted) by the host, so we must not write a divergent copy.
+  const persist = useCallback(() => {
+    if (!character || getRole(character.uuid) === "remote") return;
+    save(character)
+      .then(() => {
+        setUnsavedChanges(false);
+        setSaveError(false);
+      })
+      .catch((error) => {
+        // Keep unsavedChanges true so the edit isn't silently treated as
+        // persisted; surface the failure via the save indicator.
+        console.error("Failed to save character", error);
+        setSaveError(true);
+      });
+  }, [character, getRole, save]);
+
+  // Debounced autosave. Only persist genuine edits — loading an already-
+  // persisted character leaves unsavedChanges false, so opening a sheet doesn't
+  // trigger a redundant write.
   useLazyEffect(
     () => {
-      // A character we joined remotely is owned (and persisted) by the host, so
-      // we must not write a divergent copy into our own datastore.
-      if (character && getRole(character.uuid) !== "remote") {
-        save(character)
-          .then(() => {
-            setUnsavedChanges(false);
-            setSaveError(false);
-          })
-          .catch((error) => {
-            // Keep unsavedChanges true so the edit isn't silently treated as
-            // persisted; surface the failure via the save indicator.
-            console.error("Failed to save character", error);
-            setSaveError(true);
-          });
-      }
+      if (unsavedChanges) persist();
     },
     [character],
     debounceWait,
   );
+
+  // Cmd/Ctrl+S forces an immediate save, completing the editor lifecycle.
+  // Always swallow the browser's save-page dialog; only write if dirty.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "s"
+      ) {
+        e.preventDefault();
+        if (unsavedChanges) persist();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [unsavedChanges, persist]);
+
+  // Warn before leaving with unsaved work (e.g. a failed save), editor-style.
+  // Only armed while dirty so a clean sheet closes without a prompt.
+  useEffect(() => {
+    if (!unsavedChanges) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [unsavedChanges]);
+
+  // Mirror the in-app save indicator in the tab title: a leading dot marks
+  // unsaved changes, editor-style.
+  useEffect(() => {
+    document.title = character
+      ? `${unsavedChanges ? "● " : ""}${character.name}`
+      : "5e Character Sheets";
+  }, [character, unsavedChanges]);
 
   const dispatchAndBroadcast: React.Dispatch<Action> = (
     action: Action,
     dirtyAction: boolean = true,
     suppressBroadcast: boolean = false,
   ) => {
+    // Loading an already-persisted character isn't a user edit, so it must not
+    // flag unsaved changes (see loadPersistedCharacter).
+    const isDirty = dirtyAction && action.type !== "load_character";
     dispatch(action);
-    setUnsavedChanges(dirtyAction);
+    setUnsavedChanges(isDirty);
     if (character && !suppressBroadcast) {
-      broadcast(character.uuid, action, dirtyAction);
+      broadcast(character.uuid, action, isDirty);
     }
   };
 
@@ -107,6 +163,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     unsavedChanges,
     setUnsavedChanges,
     saveError,
+    saveNow: persist,
     openSharingSession,
     closeSharingSession,
   };

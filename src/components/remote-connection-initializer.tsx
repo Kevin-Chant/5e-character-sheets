@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadFullCharacter } from "src/lib/hooks/reducers/actions";
+import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRemoteSharingSession } from "src/lib/hooks/use-sharing-session";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
@@ -40,7 +40,7 @@ export default function RemoteConnectionInitializer() {
       window.alert("The shared character couldn't be loaded.");
       return;
     }
-    dispatch(loadFullCharacter(result.character));
+    dispatch(loadPersistedCharacter(result.character));
     writeLastDatastore("remote");
     navigate("/sheet");
   };

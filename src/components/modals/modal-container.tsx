@@ -62,6 +62,7 @@ export default function ModalContainer({
     unsavedChanges: false,
     setUnsavedChanges: () => {},
     saveError: false,
+    saveNow: () => {},
     openSharingSession: () => {},
     closeSharingSession: () => {},
   };

@@ -162,6 +162,17 @@ p {
   justify-content: space-evenly;
 }
 
+/* Identity header: keep the value boxes in each row at equal heights so a tall
+   field (e.g. a multiclass "Class & Level") doesn't leave its neighbours
+   floating against a ragged gap. The Character Name wrapper is a plain box, so
+   make it flex too and let its inner column fill the stretched height. */
+.character-info-header .row {
+  align-items: stretch;
+}
+.character-info-header .rounded-border-box {
+  display: flex;
+}
+
 /* Left-aligned, gapped vertical stack of full-width buttons. Use instead of
    .column when you have a list of action buttons that shouldn't be centered
    and awkwardly spread apart. */
@@ -272,6 +283,11 @@ p {
   &.large {
     width: 70%;
     font-size: 2rem;
+  }
+  /* Long free-text values (e.g. a multiclass "Class & Level") render smaller so
+     they wrap to a few lines instead of ballooning the box. */
+  &.compact {
+    font-size: 1.25rem;
   }
 }
 
@@ -903,6 +919,17 @@ button.slot-pip:hover:not(:disabled) {
 
 .text-muted {
   color: var(--text-muted);
+}
+
+/* Save-status indicator. Error is the only alarming state (red triangle);
+   "unsaved" is a neutral, smaller dot so a pending save isn't mistaken for a
+   failure. */
+.save-indicator-error {
+  color: var(--danger);
+}
+.save-indicator-unsaved {
+  color: var(--text-muted);
+  font-size: 0.7em;
 }
 
 .modal-header {

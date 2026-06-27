@@ -1,7 +1,7 @@
 import { sum } from "lodash";
 import { FaPlus, FaTowerBroadcast } from "react-icons/fa6";
 import Spinner from "src/components/spinner";
-import { loadFullCharacter } from "src/lib/hooks/reducers/actions";
+import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
@@ -16,7 +16,7 @@ export default function CharacterPicker() {
 
   const createNewCharacter = async () => {
     const newChar = await createCharacter();
-    if (newChar) dispatch(loadFullCharacter(newChar));
+    if (newChar) dispatch(loadPersistedCharacter(newChar));
   };
 
   return (
@@ -40,7 +40,7 @@ export default function CharacterPicker() {
               key={char.uuid}
               id={char.uuid}
               className="option-card character-card"
-              onClick={() => dispatch(loadFullCharacter(char))}
+              onClick={() => dispatch(loadPersistedCharacter(char))}
             >
               <h2 className="character-card-name">
                 {getRole(char.uuid) === "host" && (

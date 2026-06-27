@@ -4,6 +4,7 @@ import React, { useCallback, useState } from "react";
 import {
   FaBars,
   FaCheck,
+  FaCircle,
   FaFloppyDisk,
   FaGear,
   FaHouse,
@@ -14,7 +15,7 @@ import {
 } from "react-icons/fa6";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import {
-  loadFullCharacter,
+  loadPersistedCharacter,
   resetCharacter,
 } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
@@ -46,7 +47,7 @@ function Sidebar() {
   const loadNewCharacter = async () => {
     const newChar = await createCharacter();
     if (newChar) {
-      dispatch(loadFullCharacter(newChar));
+      dispatch(loadPersistedCharacter(newChar));
     }
   };
 
@@ -74,7 +75,7 @@ function Sidebar() {
                   to="/sheet"
                   onClick={() => {
                     if (!isSameCharacter) {
-                      dispatch(loadFullCharacter(characterEntry));
+                      dispatch(loadPersistedCharacter(characterEntry));
                     }
                   }}
                 >
@@ -111,9 +112,15 @@ function Sidebar() {
 export default function Root() {
   const [showSidebar, setShowSidebar] = useState(false);
   const { datastore } = useDatastoreSelector();
-  const { character, unsavedChanges, setUnsavedChanges, saveError, dispatch } =
-    useCharacter();
-  const { saving, save } = useDatastore();
+  const {
+    character,
+    unsavedChanges,
+    setUnsavedChanges,
+    saveError,
+    saveNow,
+    dispatch,
+  } = useCharacter();
+  const { saving } = useDatastore();
   const { getRole } = useSharingSessions();
   const location = useLocation();
   const [fileSelected, setFileSelected] = useState<File | undefined>();
@@ -159,7 +166,7 @@ export default function Root() {
             );
             return;
           }
-          dispatch(loadFullCharacter(result.character), false);
+          dispatch(loadPersistedCharacter(result.character), false);
           setImportErrorMessage("");
           setModalOpen(false);
         } else {
@@ -176,7 +183,7 @@ export default function Root() {
 
   const saveIndicator = saveError ? (
     <Tooltip label="Couldn't save your latest changes. Check your connection; your edits are kept in this tab for now.">
-      <FaTriangleExclamation />
+      <FaTriangleExclamation className="save-indicator-error" />
     </Tooltip>
   ) : saving ? (
     <Tooltip label="Saving...">
@@ -184,7 +191,7 @@ export default function Root() {
     </Tooltip>
   ) : unsavedChanges ? (
     <Tooltip label="Unsaved changes, your edits haven't been saved yet">
-      <FaTriangleExclamation />
+      <FaCircle className="save-indicator-unsaved" />
     </Tooltip>
   ) : (
     <Tooltip label="Changes saved!">
@@ -250,8 +257,8 @@ export default function Root() {
               <p>{saveIndicator}</p>
               <button
                 className="icon-btn"
-                onClick={() => save(character)}
-                title="Save character"
+                onClick={saveNow}
+                title="Save character (⌘S / Ctrl+S)"
               >
                 <FaFloppyDisk />
               </button>
