@@ -173,6 +173,26 @@ p {
   display: flex;
 }
 
+/* Stabilise the metadata grid so box positions/sizes don't jump as fields
+   change length. Each box takes a fixed share of its row (flex-basis, not
+   content width), and long single words wrap instead of escaping their box. An
+   absurdly long value still grows the box's height, which is acceptable. */
+.character-info-header > .row > .rounded-border-box {
+  flex: 0 0 28%;
+  min-width: 0;
+}
+.character-info-header > .row > .column {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.character-info-header .column > .row > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.character-info-header .display-value {
+  overflow-wrap: anywhere;
+}
+
 /* Left-aligned, gapped vertical stack of full-width buttons. Use instead of
    .column when you have a list of action buttons that shouldn't be centered
    and awkwardly spread apart. */
