@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { loadFullCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRemoteSharingSession } from "src/lib/hooks/use-sharing-session";
+import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 import { writeLastDatastore } from "src/lib/last-datastore";
 import { isUuid } from "src/lib/types";
 
@@ -31,7 +32,15 @@ export default function RemoteConnectionInitializer() {
       window.alert("Failed to join session!");
       return;
     }
-    dispatch(loadFullCharacter(character));
+    // The host may run an older client; migrate their payload locally. We never
+    // write the upgrade back — the host owns the persisted copy.
+    const result = hydrateCharacter(character);
+    if (!result.ok) {
+      console.error("Joined character failed validation", result.errors);
+      window.alert("The shared character couldn't be loaded.");
+      return;
+    }
+    dispatch(loadFullCharacter(result.character));
     writeLastDatastore("remote");
     navigate("/sheet");
   };

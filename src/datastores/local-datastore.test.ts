@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { UUID } from "crypto";
 import LocalDatastore from "./local-datastore";
+import { defaultCharacter } from "src/lib/data/default-data";
 import { Character } from "src/lib/types";
 
+// The datastore migrates/validates on read, so tests use full valid characters.
 function makeCharacter(uuid: string, name: string): Character {
-  return { uuid: uuid as UUID, name } as Character;
+  return { ...structuredClone(defaultCharacter), uuid: uuid as UUID, name };
 }
 
 describe("LocalDatastore", () => {

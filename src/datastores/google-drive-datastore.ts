@@ -13,8 +13,9 @@ import {
   shareFileByEmail,
   updateFile,
 } from "src/lib/google-drive";
+import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 import { Character, Datastore } from "src/lib/types";
-import { randomUUID, validateCharacterData } from "src/lib/utils";
+import { randomUUID } from "src/lib/utils";
 
 interface KnownFile {
   fileId: string;
@@ -103,18 +104,35 @@ const readThroughCache = async (uuid: UUID): Promise<Character | undefined> => {
   } else if (!knownFiles[uuid]) {
     return undefined;
   }
-  const contents = await getFileContents(knownFiles[uuid].fileId);
+  const fileId = knownFiles[uuid].fileId;
+  const contents = await getFileContents(fileId);
   if (!contents) {
-    console.warn(
-      "Drive file",
-      knownFiles[uuid].fileId,
-      "had no contents; skipping",
-    );
+    console.warn("Drive file", fileId, "had no contents; skipping");
     return;
   }
-  const character = JSON.parse(contents);
-  localCache[uuid] = character;
-  return character;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(contents);
+  } catch (err) {
+    console.error("Drive file", fileId, "was not valid JSON; skipping", err);
+    return;
+  }
+  const result = hydrateCharacter(raw);
+  if (!result.ok) {
+    console.error("Drive file", fileId, "could not be loaded", result.errors);
+    return;
+  }
+  localCache[uuid] = result.character;
+  // Persist the upgrade back so the bump is durable (best-effort; the importer
+  // may only have read access to a shared document).
+  if (result.migrated) {
+    try {
+      await updateFile(fileId, JSON.stringify(result.character));
+    } catch (err) {
+      console.error("Could not write migrated character back to Drive", err);
+    }
+  }
+  return result.character;
 };
 
 const writeThroughCache = async (character: Character) => {
@@ -190,12 +208,17 @@ const importSharedCharacter = async (): Promise<Character | undefined> => {
       console.error("Picked Drive file", file.id, "was not valid JSON", err);
       continue;
     }
-    const [valid, errors] = validateCharacterData(data as string);
-    if (!valid) {
-      console.error("Picked Drive file", file.id, "is not a character", errors);
+    const result = hydrateCharacter(data);
+    if (!result.ok) {
+      console.error(
+        "Picked Drive file",
+        file.id,
+        "is not a character",
+        result.errors,
+      );
       continue;
     }
-    const character = data as Character;
+    const character = result.character;
     const uuid = character.uuid;
     localCache[uuid] = character;
     knownFiles[uuid] = { fileId: file.id, shared: true, name: file.name };
@@ -243,7 +266,7 @@ const GoogleDriveDatastore: Datastore = {
     delete knownFiles[uuid];
   },
   createCharacter: async () => {
-    const newDefaultCharacter = defaultCharacter;
+    const newDefaultCharacter = structuredClone(defaultCharacter);
     newDefaultCharacter.uuid = randomUUID();
     await writeThroughCache(newDefaultCharacter);
     return newDefaultCharacter;

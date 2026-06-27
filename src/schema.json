@@ -14,6 +14,10 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "operands",
+                "operation"
+            ],
             "type": "object"
         },
         "Alignment": {
@@ -42,6 +46,11 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "bonus",
+                "formula",
+                "name"
+            ],
             "type": "object"
         },
         "Ceil": {
@@ -54,6 +63,10 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "operand1",
+                "operation"
+            ],
             "type": "object"
         },
         "CharacterStats": {
@@ -77,6 +90,14 @@
                     "type": "number"
                 }
             },
+            "required": [
+                "cha",
+                "con",
+                "dex",
+                "int",
+                "str",
+                "wis"
+            ],
             "type": "object"
         },
         "CoinAmounts": {
@@ -234,6 +255,11 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "operand1",
+                "operand2",
+                "operation"
+            ],
             "type": "object"
         },
         "Floor": {
@@ -246,6 +272,10 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "operand1",
+                "operation"
+            ],
             "type": "object"
         },
         "HitDice": {
@@ -283,6 +313,10 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "level",
+                "name"
+            ],
             "type": "object"
         },
         "MaterialComponent": {
@@ -294,6 +328,9 @@
                     "$ref": "#/definitions/CoinAmounts"
                 }
             },
+            "required": [
+                "name"
+            ],
             "type": "object"
         },
         "Maximum": {
@@ -309,6 +346,10 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "operands",
+                "operation"
+            ],
             "type": "object"
         },
         "Minimum": {
@@ -324,6 +365,10 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "operands",
+                "operation"
+            ],
             "type": "object"
         },
         "Multiplication": {
@@ -339,6 +384,10 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "operands",
+                "operation"
+            ],
             "type": "object"
         },
         "NonStandardDie": {
@@ -347,6 +396,9 @@
                     "type": "number"
                 }
             },
+            "required": [
+                "numFaces"
+            ],
             "type": "object"
         },
         "PactSlots": {
@@ -361,6 +413,9 @@
                     "type": "number"
                 }
             },
+            "required": [
+                "expended"
+            ],
             "type": "object"
         },
         "Proficiencies<SkillName>": {
@@ -478,6 +533,10 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "info",
+                "spellcastingClass"
+            ],
             "type": "object"
         },
         "SpellCastingClass": {
@@ -495,6 +554,9 @@
                     "$ref": "#/definitions/CustomFormula"
                 }
             },
+            "required": [
+                "class"
+            ],
             "type": "object"
         },
         "SpellComponents": {
@@ -525,6 +587,9 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 },
                 "Fifth": {
@@ -536,6 +601,9 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 },
                 "First": {
@@ -547,6 +615,9 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 },
                 "Fourth": {
@@ -558,6 +629,9 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 },
                 "Ninth": {
@@ -569,6 +643,9 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 },
                 "Second": {
@@ -580,6 +657,9 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 },
                 "Seventh": {
@@ -591,6 +671,9 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 },
                 "Sixth": {
@@ -602,6 +685,9 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 },
                 "Third": {
@@ -613,9 +699,23 @@
                             "type": "number"
                         }
                     },
+                    "required": [
+                        "expended"
+                    ],
                     "type": "object"
                 }
             },
+            "required": [
+                "Eighth",
+                "Fifth",
+                "First",
+                "Fourth",
+                "Ninth",
+                "Second",
+                "Seventh",
+                "Sixth",
+                "Third"
+            ],
             "type": "object"
         },
         "Spells": {
@@ -660,6 +760,11 @@
                     "type": "string"
                 }
             },
+            "required": [
+                "operand1",
+                "operand2",
+                "operation"
+            ],
             "type": "object"
         },
         "TextComponent": {
@@ -693,6 +798,12 @@
                     "type": "array"
                 }
             },
+            "required": [
+                "detail",
+                "detailFormulas",
+                "title",
+                "titleFormulas"
+            ],
             "type": "object"
         },
         "TextComponentWithoutDetails": {
@@ -707,6 +818,10 @@
                     "type": "array"
                 }
             },
+            "required": [
+                "title",
+                "titleFormulas"
+            ],
             "type": "object"
         },
         "{First?:Spell[];Second?:Spell[];Third?:Spell[];Fourth?:Spell[];Fifth?:Spell[];Sixth?:Spell[];Seventh?:Spell[];Eighth?:Spell[];Ninth?:Spell[];}": {
@@ -806,6 +921,10 @@
                     "type": "number"
                 }
             },
+            "required": [
+                "failures",
+                "successes"
+            ],
             "type": "object"
         },
         "equipment": {
@@ -877,6 +996,12 @@
                     "type": "array"
                 }
             },
+            "required": [
+                "bonds",
+                "flaws",
+                "ideals",
+                "traits"
+            ],
             "type": "object"
         },
         "playerName": {
@@ -897,10 +1022,19 @@
                     "$ref": "#/definitions/Proficiencies<SkillName>"
                 }
             },
+            "required": [
+                "expertise",
+                "isJackOfAllTradesOverride",
+                "savingThrows",
+                "skills"
+            ],
             "type": "object"
         },
         "race": {
             "type": "string"
+        },
+        "schemaVersion": {
+            "type": "number"
         },
         "speed": {
             "type": "number"
@@ -931,6 +1065,35 @@
             "type": "string"
         }
     },
+    "required": [
+        "acFormula",
+        "alignment",
+        "attacks",
+        "background",
+        "class",
+        "coins",
+        "currHp",
+        "deathSaves",
+        "equipment",
+        "exhaustion",
+        "expendedHitDice",
+        "features",
+        "inspiration",
+        "name",
+        "otherProficiencies",
+        "personality",
+        "playerName",
+        "proficiencies",
+        "race",
+        "schemaVersion",
+        "speed",
+        "spellSlots",
+        "spellcastingClasses",
+        "spells",
+        "stats",
+        "tempHp",
+        "uuid"
+    ],
     "type": "object"
 }
 

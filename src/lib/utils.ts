@@ -665,12 +665,13 @@ export function setFieldValue(
   leafNode[index] = value;
 }
 
-export function validateCharacterData(characterData: string) {
-  const ajv = new Ajv();
-  const validate = ajv.compile(schema);
-  const valid = validate(characterData);
+const validateSchema = new Ajv().compile(schema);
 
-  return [valid, validate.errors];
+export function validateCharacterData(
+  characterData: unknown,
+): [boolean, typeof validateSchema.errors] {
+  const valid = validateSchema(characterData);
+  return [valid, validateSchema.errors];
 }
 
 function getHitDie(className: ClassName): StandardDie {

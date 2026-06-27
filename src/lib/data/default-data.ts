@@ -10,6 +10,7 @@ import {
   StatKey,
 } from "./data-definitions";
 import { randomUUID } from "src/lib/utils";
+import { CURRENT_SCHEMA_VERSION } from "src/lib/migrations/version";
 
 const defaultStats = {
   str: 8,
@@ -21,6 +22,7 @@ const defaultStats = {
 };
 
 export const defaultCharacter: Character = {
+  schemaVersion: CURRENT_SCHEMA_VERSION,
   uuid: randomUUID(),
   name: "Character name here",
   class: [

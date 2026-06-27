@@ -26,7 +26,7 @@ import Spinner from "src/components/spinner";
 import Tooltip from "src/components/tooltip";
 import ShareModal from "src/components/share-modal";
 import NavOverflowMenu from "src/components/nav-overflow-menu";
-import { validateCharacterData } from "src/lib/utils";
+import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 
 function Sidebar() {
   const { datastore } = useDatastoreSelector();
@@ -111,7 +111,7 @@ function Sidebar() {
 export default function Root() {
   const [showSidebar, setShowSidebar] = useState(false);
   const { datastore } = useDatastoreSelector();
-  const { character, unsavedChanges, setUnsavedChanges, dispatch } =
+  const { character, unsavedChanges, setUnsavedChanges, saveError, dispatch } =
     useCharacter();
   const { saving, save } = useDatastore();
   const { getRole } = useSharingSessions();
@@ -151,13 +151,15 @@ export default function Root() {
       try {
         const content = readerEvent.target?.result;
         if (typeof content === "string") {
-          const characterData = JSON.parse(content);
-          const [valid, errors] = validateCharacterData(characterData);
-          if (!valid) {
-            console.error("Failed to load character data", errors);
+          const result = hydrateCharacter(JSON.parse(content));
+          if (!result.ok) {
+            console.error("Failed to load character data", result.errors);
+            setImportErrorMessage(
+              "This file isn't a valid character sheet. Check the console for details.",
+            );
             return;
           }
-          dispatch(loadFullCharacter(characterData), false);
+          dispatch(loadFullCharacter(result.character), false);
           setImportErrorMessage("");
           setModalOpen(false);
         } else {
@@ -172,7 +174,11 @@ export default function Root() {
     };
   }, [fileSelected, dispatch]);
 
-  const saveIndicator = saving ? (
+  const saveIndicator = saveError ? (
+    <Tooltip label="Couldn't save your latest changes. Check your connection; your edits are kept in this tab for now.">
+      <FaTriangleExclamation />
+    </Tooltip>
+  ) : saving ? (
     <Tooltip label="Saving...">
       <Spinner />
     </Tooltip>

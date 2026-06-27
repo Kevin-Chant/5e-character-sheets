@@ -15,6 +15,7 @@ interface CharacterContextData {
   dispatch: (action: Action, dirtyAction?: boolean) => void;
   unsavedChanges: boolean;
   setUnsavedChanges: (isUnsaved: boolean) => void;
+  saveError: boolean;
   openSharingSession: () => void;
   closeSharingSession: () => void;
 }
@@ -31,6 +32,7 @@ export const CharacterContext = React.createContext<CharacterContextData>({
   setUnsavedChanges: () => {
     console.log("Calling default setUnsavedChanges");
   },
+  saveError: false,
   openSharingSession: () => {
     console.log("Calling default openSharingSession");
   },
@@ -42,6 +44,7 @@ export const CharacterContext = React.createContext<CharacterContextData>({
 export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [character, dispatch] = useReducer(reducer, undefined);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const { save, debounceWait } = useDatastore();
   const getCharacter = useCallback<() => Character | undefined>(() => {
     return character;
@@ -58,9 +61,17 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       // A character we joined remotely is owned (and persisted) by the host, so
       // we must not write a divergent copy into our own datastore.
       if (character && getRole(character.uuid) !== "remote") {
-        save(character).then(() => {
-          setUnsavedChanges(false);
-        });
+        save(character)
+          .then(() => {
+            setUnsavedChanges(false);
+            setSaveError(false);
+          })
+          .catch((error) => {
+            // Keep unsavedChanges true so the edit isn't silently treated as
+            // persisted; surface the failure via the save indicator.
+            console.error("Failed to save character", error);
+            setSaveError(true);
+          });
       }
     },
     [character],
@@ -95,6 +106,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     dispatch: dispatchAndBroadcast,
     unsavedChanges,
     setUnsavedChanges,
+    saveError,
     openSharingSession,
     closeSharingSession,
   };

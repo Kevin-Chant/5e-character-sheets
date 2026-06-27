@@ -350,6 +350,9 @@ export interface PactSlots {
 type BaseCharacter = { [key in FIELD]?: any };
 
 export interface Character extends BaseCharacter {
+  // Monotonic schema version, bumped whenever a breaking change to this type
+  // needs a migration. See src/lib/migrations/.
+  schemaVersion: number;
   uuid: UUID;
   name: string;
   class: IClass[];
