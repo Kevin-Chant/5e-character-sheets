@@ -7,7 +7,8 @@ import {
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { CustomFormula, isCustomFormulaWithDamage } from "src/lib/types";
-import { formatCustomFormula, getFieldValue, traverse } from "src/lib/utils";
+import { formatCustomFormula } from "src/lib/formula";
+import { getFieldValue, traverse } from "src/lib/fields";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
 

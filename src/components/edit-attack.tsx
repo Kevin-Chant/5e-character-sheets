@@ -6,8 +6,8 @@ import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import {
   formatCustomFormula,
   formatCustomFormulaWithDamage,
-  getFieldValue,
-} from "src/lib/utils";
+} from "src/lib/formula";
+import { getFieldValue } from "src/lib/fields";
 import { FaPencil } from "react-icons/fa6";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";

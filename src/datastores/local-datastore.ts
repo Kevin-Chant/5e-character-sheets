@@ -3,7 +3,7 @@ import { defaultCharacter } from "src/lib/data/default-data";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 import { readLocalStorage, writeLocalStorage } from "src/lib/local-storage";
 import { Character, Datastore } from "src/lib/types";
-import { randomUUID } from "src/lib/utils";
+import { randomUUID } from "src/lib/browser";
 
 const getOrInitializeCharacterFolder = (): Record<UUID, Character> => {
   return readLocalStorage("characters", {});

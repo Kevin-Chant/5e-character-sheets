@@ -5,7 +5,7 @@ import {
   highlightProps,
   useRemoteFieldHighlight,
 } from "src/lib/hooks/use-presence";
-import { modifier } from "src/lib/utils";
+import { modifier } from "src/lib/rules";
 
 export default function StatDisplay(props: {
   field: FIELD;

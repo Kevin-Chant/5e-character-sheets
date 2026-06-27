@@ -1,6 +1,6 @@
 import { useCharacter } from "src/lib/hooks/use-character";
 import { CustomFormula } from "src/lib/types";
-import { calculateCustomFormula, formatCustomFormula } from "src/lib/utils";
+import { calculateCustomFormula, formatCustomFormula } from "src/lib/formula";
 import ComponentWithPopover from "./component-with-popover";
 
 interface FormulaTextWithTooltipProps {

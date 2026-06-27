@@ -7,11 +7,8 @@ import {
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import {
-  getFieldValue,
-  traverse,
-  OPTIONAL_FIELD_INITIALIZERS,
-} from "src/lib/utils";
+import { getFieldValue, traverse } from "src/lib/fields";
+import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import OptionOrCustomValue from "./display/option-or-custom-value";

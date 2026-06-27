@@ -62,7 +62,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     if (datastore) {
       setSaving(true);
       await datastore.saveToDatastore(character);
-      const newLocalCharacters = JSON.parse(JSON.stringify(localCharacters));
+      const newLocalCharacters = structuredClone(localCharacters);
       newLocalCharacters[character.uuid] = character;
       setLocalCharacters(newLocalCharacters);
       setSaving(false);
@@ -110,7 +110,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   const deleteCharacter = (uuid: UUID) => {
     if (datastore) {
       datastore.deleteFromDatastore(uuid);
-      const newLocalCharacters = JSON.parse(JSON.stringify(localCharacters));
+      const newLocalCharacters = structuredClone(localCharacters);
       delete newLocalCharacters[uuid];
       setLocalCharacters(newLocalCharacters);
     }

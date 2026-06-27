@@ -4,13 +4,8 @@ import StatDisplay from "src/components/display/stat-display";
 import { FIELD, SkillName, StatKey } from "src/lib/data/data-definitions";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import {
-  SKILL_SOURCE_STATS,
-  STAT_NAMES,
-  calculateCustomFormula,
-  getPB,
-  modifier,
-} from "src/lib/utils";
+import { calculateCustomFormula } from "src/lib/formula";
+import { SKILL_SOURCE_STATS, STAT_NAMES, getPB, modifier } from "src/lib/rules";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 
 function SkillsColumn({ pb }: { pb: number }) {

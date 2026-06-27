@@ -6,11 +6,8 @@ import {
   isAtomicVariable,
   isCustomFormula,
 } from "src/lib/types";
-import {
-  getFieldValue,
-  traverse,
-  OPTIONAL_FIELD_INITIALIZERS,
-} from "src/lib/utils";
+import { getFieldValue, traverse } from "src/lib/fields";
+import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
 import { EditableAtomicVariable } from "./editable-atomic-variable";
 import { EditableExpression } from "./editable-expression";
 import Switch from "react-switch";

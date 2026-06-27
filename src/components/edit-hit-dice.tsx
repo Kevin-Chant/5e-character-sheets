@@ -1,7 +1,8 @@
 import React from "react";
 import { FIELD, StandardDie } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import { getFieldValue, getHitDice } from "src/lib/utils";
+import { getFieldValue } from "src/lib/fields";
+import { getHitDice } from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
 

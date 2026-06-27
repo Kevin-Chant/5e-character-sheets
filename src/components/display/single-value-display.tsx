@@ -7,11 +7,8 @@ import {
   useRemoteFieldHighlight,
 } from "src/lib/hooks/use-presence";
 import { Character } from "src/lib/types";
-import {
-  getFieldValue,
-  traverse,
-  OPTIONAL_FIELD_INITIALIZERS,
-} from "src/lib/utils";
+import { getFieldValue, traverse } from "src/lib/fields";
+import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
 
 interface SingleValueDisplayProps {
   field: FIELD;
@@ -60,81 +57,41 @@ export default function SingleValueDisplay({
   if (typeof value === "undefined" && typeof optionalOverride !== "undefined")
     value = optionalOverride;
   if (value && transform) value = transform(value, character);
-  if (vertical) {
-    return (
-      <div
-        className={classNames("column", {
-          "rounded-border-box": !removeBorder,
-          "margin-small": !removeMargin,
-        })}
-      >
-        {!flipped && (
-          <p
-            className={classNames("display-value large", {
-              "margin-small": !removeMargin,
-              compact: compact,
-              editable: editable,
-              readOnly: !editable,
-            })}
-            onClick={onClick}
-            {...highlight}
-          >
-            {value}
-          </p>
-        )}
-        <p className="display-text">{name}</p>
-        {flipped && (
-          <p
-            className={classNames("display-value large", {
-              "margin-small": !removeMargin,
-              compact: compact,
-              editable: editable,
-              readOnly: !editable,
-            })}
-            onClick={onClick}
-            {...highlight}
-          >
-            {value}
-          </p>
-        )}
-      </div>
-    );
-  } else {
-    return (
-      <div
-        className={classNames("row", {
-          "rounded-border-box": !removeBorder,
-          "margin-small": !removeMargin,
-        })}
-      >
-        {!flipped && (
-          <p
-            className={classNames("display-value small", {
-              "margin-small": !removeMargin,
-              editable: editable,
-              readOnly: !editable,
-            })}
-            onClick={onClick}
-            {...highlight}
-          >
-            {value}
-          </p>
-        )}
-        <p className="display-text">{name}</p>
-        {flipped && (
-          <p
-            className={classNames("display-value small", {
-              editable: editable,
-              "margin-small": !removeMargin,
-              readOnly: !editable,
-            })}
-            onClick={onClick}
-            {...highlight}
-          >
-            {value}
-          </p>
-        )}
-      </div>
-    );
-  }
+
+  const valueEl = (
+    <p
+      className={classNames("display-value", vertical ? "large" : "small", {
+        "margin-small": !removeMargin,
+        compact: vertical && compact,
+        editable: editable,
+        readOnly: !editable,
+      })}
+      onClick={onClick}
+      {...highlight}
+    >
+      {value}
+    </p>
+  );
+  const nameEl = <p className="display-text">{name}</p>;
+
+  return (
+    <div
+      className={classNames(vertical ? "column" : "row", {
+        "rounded-border-box": !removeBorder,
+        "margin-small": !removeMargin,
+      })}
+    >
+      {flipped ? (
+        <>
+          {nameEl}
+          {valueEl}
+        </>
+      ) : (
+        <>
+          {valueEl}
+          {nameEl}
+        </>
+      )}
+    </div>
+  );
 }

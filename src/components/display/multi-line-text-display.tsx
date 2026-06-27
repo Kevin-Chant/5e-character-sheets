@@ -7,7 +7,7 @@ import {
   isTextComponent,
   isTextComponentWithDetail,
 } from "src/lib/types";
-import { getFieldValue, traverse } from "src/lib/utils";
+import { getFieldValue, traverse } from "src/lib/fields";
 import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 import { FaPencil } from "react-icons/fa6";
@@ -54,7 +54,7 @@ export default function MultiLineTextDisplay({
   };
 
   const removeTextComponent = (index: number) => {
-    const newValue = JSON.parse(JSON.stringify(textComponents));
+    const newValue = structuredClone(textComponents);
     newValue.splice(index, 1);
     dispatch(updateData(field, { value: newValue }, subField));
   };

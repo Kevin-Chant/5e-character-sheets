@@ -15,7 +15,7 @@ import {
 } from "src/lib/google-drive";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 import { Character, Datastore } from "src/lib/types";
-import { randomUUID } from "src/lib/utils";
+import { randomUUID } from "src/lib/browser";
 
 interface KnownFile {
   fileId: string;

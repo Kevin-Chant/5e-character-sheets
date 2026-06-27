@@ -46,7 +46,7 @@ Real-time co-editing runs over WAMP (autobahn-browser client ↔ nightlife-rabbi
 
 ### Character model (`src/lib/types.ts`, `src/lib/data/`)
 
-The `Character` type plus 5e data definitions and a recursive **formula engine** for computed fields (AC, HP, attacks). `calculate*`/`format*` functions and the `is*` type guards live in `src/lib/utils.ts` and `src/lib/types.ts`. These pure functions are the main unit-tested surface; Drive/WAMP code is gapi/network-bound and verified manually in-browser (or with throwaway node scripts against a local nightlife-rabbit server).
+The `Character` type plus 5e data definitions and a recursive **formula engine** for computed fields (AC, HP, attacks). The former grab-bag `src/lib/utils.ts` is split by concern: `src/lib/formula.ts` (the `calculate*`/`format*` engine + `OPERATORS`), `src/lib/rules.ts` (5e domain tables — stat mods, PB, hit dice, spell slots, spellcasting), `src/lib/fields.ts` (dot-path `traverse`/`get`/`setFieldValue` + schema validation), and `src/lib/browser.ts` (secure-context polyfills); `utils.ts` now holds only `ordinal`/`formatClass`. The `is*` type guards live in `src/lib/types.ts`. These pure functions are the main unit-tested surface; Drive/WAMP code is gapi/network-bound and verified manually in-browser (or with throwaway node scripts against a local nightlife-rabbit server).
 
 ### State management
 

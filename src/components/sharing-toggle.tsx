@@ -1,7 +1,7 @@
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
-import { copyToClipboard } from "src/lib/utils";
+import { copyToClipboard } from "src/lib/browser";
 import Switch from "react-switch";
 import { FaCopy } from "react-icons/fa6";
 import IdentityFields from "src/components/identity-fields";

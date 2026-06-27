@@ -19,7 +19,7 @@ import {
   isStandardDie,
   isStatKey,
 } from "src/lib/types";
-import { getPB } from "src/lib/utils";
+import { getPB } from "src/lib/rules";
 import OptionOrCustomValue from "../display/option-or-custom-value";
 
 interface EditableAtomicVariableProps {

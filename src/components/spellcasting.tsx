@@ -8,13 +8,13 @@ import {
   SpellLevel,
 } from "src/lib/data/data-definitions";
 import { upperFirst } from "lodash";
+import { calculateCustomFormula } from "src/lib/formula";
 import {
-  calculateCustomFormula,
   getDefaultSpellSlots,
   getNumericSpellSlotLevel,
   getPactSlotInfo,
   isSpellcastingClass,
-} from "src/lib/utils";
+} from "src/lib/rules";
 import { Character, Spell, SpellCastingClass } from "src/lib/types";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import SpellList from "./display/spell-list";

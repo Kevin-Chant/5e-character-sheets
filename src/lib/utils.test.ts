@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  averageDie,
   calculateCustomFormula,
   formatCustomFormula,
-  getPB,
-  levelInClass,
-  modifier,
-  ordinal,
-  totalGP,
-  traverse,
   withoutZero,
-} from "./utils";
+} from "./formula";
+import { averageDie, getPB, levelInClass, modifier, totalGP } from "./rules";
+import { traverse } from "./fields";
+import { ordinal } from "./utils";
 import { Character, DieExpression } from "./types";
 import {
   DieOperation,

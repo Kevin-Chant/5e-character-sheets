@@ -3,7 +3,7 @@ import { Action, updateData } from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
 import { CharacterContext, useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import { getFieldValue } from "src/lib/utils";
+import { getFieldValue } from "src/lib/fields";
 
 interface ModalProps {
   back: (() => void) | undefined;

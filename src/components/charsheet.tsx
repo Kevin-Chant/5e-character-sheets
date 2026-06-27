@@ -8,7 +8,8 @@ import {
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import { formatClass, OPTIONAL_FIELD_INITIALIZERS } from "src/lib/utils";
+import { formatClass } from "src/lib/utils";
+import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
 import BuildCustomFormula from "./build-custom-formula";
 import CharacterInfoPanel from "./character-info-panel";
 import DefenceAndEquipmentPanel from "./defence-and-equipment-panel";

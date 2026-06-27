@@ -10,7 +10,7 @@ import { UUID } from "crypto";
 import autobahn from "autobahn-browser";
 import { Action, resetCharacter } from "../hooks/reducers/actions";
 import { Character } from "../types";
-import { randomUUID } from "../utils";
+import { randomUUID } from "../browser";
 import { useSettings } from "./use-settings";
 
 const BASE_APPNAME = "net.dndcharactersheets";

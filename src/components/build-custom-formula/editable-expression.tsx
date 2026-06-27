@@ -8,7 +8,7 @@ import {
   isDoubleOperandOperation,
   isSingleOperandOperation,
 } from "src/lib/types";
-import { EDITOR_SYNTAX, formatExpression } from "src/lib/utils";
+import { EDITOR_SYNTAX, formatExpression } from "src/lib/formula";
 import { EditableCustomFormula } from "./editable-custom-formula";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 

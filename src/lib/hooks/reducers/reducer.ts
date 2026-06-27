@@ -1,5 +1,5 @@
 import { Character } from "src/lib/types";
-import { setFieldValue } from "src/lib/utils";
+import { setFieldValue } from "src/lib/fields";
 import { Action, actionFieldPath } from "./actions";
 
 export default function reducer(state: Character, action: Action) {
@@ -9,8 +9,7 @@ export default function reducer(state: Character, action: Action) {
   if (action.type === "reset_character") {
     return undefined;
   }
-  // deep copy state
-  const newState = JSON.parse(JSON.stringify(state));
+  const newState = structuredClone(state);
   setFieldValue(actionFieldPath(action), newState, action.payload.value);
   return newState;
 }

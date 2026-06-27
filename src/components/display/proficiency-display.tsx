@@ -2,7 +2,7 @@ import classNames from "classnames";
 import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { Character } from "src/lib/types";
-import { getFieldValue, traverse } from "src/lib/utils";
+import { getFieldValue, traverse } from "src/lib/fields";
 
 interface ProficiencyDisplayProps {
   id: string;

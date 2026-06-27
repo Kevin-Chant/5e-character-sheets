@@ -1,6 +1,6 @@
 import { FIELD } from "src/lib/data/data-definitions";
 import { Character } from "src/lib/types";
-import { getFieldValue } from "src/lib/utils";
+import { getFieldValue } from "src/lib/fields";
 
 export type ACTION = "load_character" | "reset_character" | `update_${FIELD}`;
 

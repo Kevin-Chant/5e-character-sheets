@@ -4,7 +4,7 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { FIELD } from "src/lib/data/data-definitions";
 import { Spell, isTextComponentWithDetail } from "src/lib/types";
-import { getFieldValue, traverse } from "src/lib/utils";
+import { getFieldValue, traverse } from "src/lib/fields";
 import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 

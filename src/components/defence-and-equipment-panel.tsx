@@ -11,10 +11,8 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import {
   calculateCustomFormula,
   formatCustomFormulaWithDamage,
-  getHitDice,
-  modifier,
-  totalGP,
-} from "src/lib/utils";
+} from "src/lib/formula";
+import { getHitDice, modifier, totalGP } from "src/lib/rules";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 import SingleValueDisplay from "./display/single-value-display";
 import { FaPencil } from "react-icons/fa6";
@@ -40,7 +38,7 @@ export default function DefenceAndEquipmentPanel() {
   );
   const addAttackRow = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const newValue = JSON.parse(JSON.stringify(character.attacks));
+    const newValue = structuredClone(character.attacks);
     newValue.push({
       name: "Shortsword",
       bonus: {
@@ -58,7 +56,7 @@ export default function DefenceAndEquipmentPanel() {
     pushTargetedField(FIELD.attacks, (newValue.length - 1).toString());
   };
   const removeAttackRow = (index: number) => {
-    const newValue = JSON.parse(JSON.stringify(character.attacks));
+    const newValue = structuredClone(character.attacks);
     newValue.splice(index, 1);
     dispatch(updateData(FIELD.attacks, { value: newValue }));
   };

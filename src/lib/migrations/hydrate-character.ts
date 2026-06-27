@@ -1,5 +1,5 @@
 import { Character } from "src/lib/types";
-import { validateCharacterData } from "src/lib/utils";
+import { validateCharacterData } from "src/lib/fields";
 import { migrateCharacter } from "./migrate-character";
 
 export type HydrateResult =

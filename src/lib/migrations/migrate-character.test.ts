@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultCharacter } from "src/lib/data/default-data";
-import { validateCharacterData } from "src/lib/utils";
+import { validateCharacterData } from "src/lib/fields";
 import { CURRENT_SCHEMA_VERSION, migrateCharacter } from "./migrate-character";
 import { hydrateCharacter } from "./hydrate-character";
 

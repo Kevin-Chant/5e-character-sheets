@@ -9,7 +9,7 @@ import {
   StandardDie,
   StatKey,
 } from "./data-definitions";
-import { randomUUID } from "src/lib/utils";
+import { randomUUID } from "src/lib/browser";
 import { CURRENT_SCHEMA_VERSION } from "src/lib/migrations/version";
 
 const defaultStats = {
