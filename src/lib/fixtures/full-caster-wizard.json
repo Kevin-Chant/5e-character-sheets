@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "uuid": "33333333-3333-4333-8333-333333333333",
+  "name": "Maelina Vael",
+  "class": [
+    {
+      "name": "Wizard",
+      "level": 9,
+      "subclass": "Evocation"
+    }
+  ],
+  "background": "Sage",
+  "playerName": "",
+  "race": "High Elf",
+  "alignment": "Chaotic Good",
+  "stats": {
+    "str": 8,
+    "dex": 14,
+    "con": 14,
+    "int": 18,
+    "wis": 12,
+    "cha": 10
+  },
+  "inspiration": 0,
+  "proficiencies": {
+    "savingThrows": {
+      "int": true,
+      "wis": true
+    },
+    "skills": {
+      "Arcana": true,
+      "History": true,
+      "Investigation": true,
+      "Insight": true
+    },
+    "expertise": {},
+    "isJackOfAllTradesOverride": false
+  },
+  "otherProficiencies": [],
+  "acFormula": {
+    "operation": "addition",
+    "operands": [10, "dex"]
+  },
+  "speed": 30,
+  "currHp": 47,
+  "tempHp": 0,
+  "expendedHitDice": {},
+  "exhaustion": 0,
+  "deathSaves": {
+    "successes": 0,
+    "failures": 0
+  },
+  "attacks": [],
+  "coins": {
+    "GP": 240
+  },
+  "equipment": [],
+  "personality": {
+    "traits": [],
+    "ideals": [],
+    "bonds": [],
+    "flaws": []
+  },
+  "features": [
+    {
+      "title": "Arcane Recovery",
+      "titleFormulas": [],
+      "detail": "Recover expended spell slots on a short rest, once per day.",
+      "detailFormulas": []
+    },
+    {
+      "title": "Sculpt Spells",
+      "titleFormulas": [],
+      "detail": "Protect allies from your own evocation spells.",
+      "detailFormulas": []
+    }
+  ],
+  "spellcastingClasses": [
+    {
+      "class": "Wizard"
+    }
+  ],
+  "spells": {
+    "cantrips": [
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 action",
+        "range": "120 feet",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Fire Bolt",
+          "titleFormulas": [],
+          "detail": "Hurl a mote of fire at a creature or object within range. 1d10 fire damage, scaling with level.",
+          "detailFormulas": []
+        }
+      },
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 action",
+        "range": "30 feet",
+        "duration": "1 minute",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Mage Hand",
+          "titleFormulas": [],
+          "detail": "A spectral hand manipulates objects within range.",
+          "detailFormulas": []
+        }
+      },
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 action",
+        "range": "10 feet",
+        "duration": "Up to 1 hour",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Prestidigitation",
+          "titleFormulas": [],
+          "detail": "A minor magical trick.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "First": [
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 action",
+        "range": "120 feet",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Magic Missile",
+          "titleFormulas": [],
+          "detail": "Three glowing darts each deal 1d4+1 force damage and automatically hit.",
+          "detailFormulas": []
+        }
+      },
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 reaction",
+        "range": "Self",
+        "duration": "1 round",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Shield",
+          "titleFormulas": [],
+          "detail": "+5 bonus to AC until the start of your next turn.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "Second": [
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 bonus action",
+        "range": "Self",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Misty Step",
+          "titleFormulas": [],
+          "detail": "Teleport up to 30 feet to an unoccupied space you can see.",
+          "detailFormulas": []
+        }
+      },
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 action",
+        "range": "120 feet",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Scorching Ray",
+          "titleFormulas": [],
+          "detail": "Three rays of fire, each 2d6 fire damage on a hit.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "Third": [
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 action",
+        "range": "150 feet",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Fireball",
+          "titleFormulas": [],
+          "detail": "A bright streak detonates for 8d6 fire damage in a 20-foot radius. Dex save for half.",
+          "detailFormulas": []
+        }
+      },
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 reaction",
+        "range": "60 feet",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Counterspell",
+          "titleFormulas": [],
+          "detail": "Interrupt a creature casting a spell.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "Fourth": [
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 action",
+        "range": "Touch",
+        "duration": "Concentration, up to 1 minute",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Greater Invisibility",
+          "titleFormulas": [],
+          "detail": "A creature you touch becomes invisible for the duration.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "Fifth": [
+      {
+        "spellcastingClass": "Wizard",
+        "castingTime": "1 action",
+        "range": "Self (60-foot cone)",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Cone of Cold",
+          "titleFormulas": [],
+          "detail": "A blast of cold air deals 8d8 cold damage in a 60-foot cone. Con save for half.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "Sixth": [],
+    "Seventh": [],
+    "Eighth": [],
+    "Ninth": []
+  },
+  "spellSlots": {
+    "First": {
+      "expended": 1
+    },
+    "Second": {
+      "expended": 0
+    },
+    "Third": {
+      "expended": 2
+    },
+    "Fourth": {
+      "expended": 1
+    },
+    "Fifth": {
+      "expended": 1
+    },
+    "Sixth": {
+      "expended": 0
+    },
+    "Seventh": {
+      "expended": 0
+    },
+    "Eighth": {
+      "expended": 0
+    },
+    "Ninth": {
+      "expended": 0
+    }
+  },
+  "pactSlots": {
+    "expended": 0
+  }
+}

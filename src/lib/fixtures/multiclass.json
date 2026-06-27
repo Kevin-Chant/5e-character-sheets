@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "uuid": "44444444-4444-4444-8444-444444444444",
+  "name": "Sir Reginald Thunderhammer III, Vanquisher of the Crimson Dawn",
+  "class": [
+    {
+      "name": "Paladin",
+      "level": 6,
+      "subclass": "Oath of Devotion"
+    },
+    {
+      "name": "Sorcerer",
+      "level": 6,
+      "subclass": "Draconic Bloodline"
+    }
+  ],
+  "background": "Noble",
+  "playerName": "",
+  "race": "Half-Elf",
+  "alignment": "Lawful Good",
+  "stats": {
+    "str": 16,
+    "dex": 10,
+    "con": 14,
+    "int": 8,
+    "wis": 11,
+    "cha": 18
+  },
+  "inspiration": 0,
+  "proficiencies": {
+    "savingThrows": {
+      "wis": true,
+      "cha": true
+    },
+    "skills": {
+      "Persuasion": true,
+      "Athletics": true,
+      "Intimidation": true,
+      "Religion": true
+    },
+    "expertise": {},
+    "isJackOfAllTradesOverride": false
+  },
+  "otherProficiencies": [],
+  "acFormula": {
+    "operation": "addition",
+    "operands": [18, 2]
+  },
+  "speed": 30,
+  "currHp": 96,
+  "tempHp": 0,
+  "expendedHitDice": {},
+  "exhaustion": 0,
+  "deathSaves": {
+    "successes": 0,
+    "failures": 0
+  },
+  "attacks": [],
+  "coins": {
+    "GP": 1500,
+    "SP": 40,
+    "CP": 12
+  },
+  "equipment": [],
+  "personality": {
+    "traits": [],
+    "ideals": [],
+    "bonds": [],
+    "flaws": []
+  },
+  "features": [
+    {
+      "title": "Divine Sense",
+      "titleFormulas": [],
+      "detail": "Detect celestials, fiends, and undead nearby.",
+      "detailFormulas": []
+    },
+    {
+      "title": "Lay on Hands",
+      "titleFormulas": [],
+      "detail": "A pool of healing equal to {{}} HP.",
+      "detailFormulas": [
+        {
+          "operation": "addition",
+          "operands": [30]
+        }
+      ]
+    },
+    {
+      "title": "Font of Magic",
+      "titleFormulas": [],
+      "detail": "Sorcery points fuel metamagic and extra slots.",
+      "detailFormulas": []
+    }
+  ],
+  "spellcastingClasses": [
+    {
+      "class": "Paladin"
+    },
+    {
+      "class": "Sorcerer"
+    }
+  ],
+  "spells": {
+    "cantrips": [
+      {
+        "spellcastingClass": "Sorcerer",
+        "castingTime": "1 action",
+        "range": "120 feet",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Fire Bolt",
+          "titleFormulas": [],
+          "detail": "1d10 fire damage at range.",
+          "detailFormulas": []
+        }
+      },
+      {
+        "spellcastingClass": "Sorcerer",
+        "castingTime": "1 action",
+        "range": "10 feet",
+        "duration": "Up to 1 hour",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Prestidigitation",
+          "titleFormulas": [],
+          "detail": "A minor magical trick.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "First": [
+      {
+        "spellcastingClass": "Paladin",
+        "castingTime": "1 action",
+        "range": "30 feet",
+        "duration": "Concentration, up to 1 minute",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Bless",
+          "titleFormulas": [],
+          "detail": "Up to three creatures add 1d4 to attack rolls and saving throws.",
+          "detailFormulas": []
+        }
+      },
+      {
+        "spellcastingClass": "Paladin",
+        "castingTime": "1 action",
+        "range": "Self",
+        "duration": "Instantaneous",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Divine Smite is not a spell",
+          "titleFormulas": [],
+          "detail": "(Placeholder for long wrapping text.) This entry intentionally carries a verbose description to exercise text wrapping and overflow handling within the spell card layout across narrower viewports.",
+          "detailFormulas": []
+        }
+      },
+      {
+        "spellcastingClass": "Sorcerer",
+        "castingTime": "1 reaction",
+        "range": "Self",
+        "duration": "1 round",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Shield",
+          "titleFormulas": [],
+          "detail": "+5 AC until your next turn.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "Second": [
+      {
+        "spellcastingClass": "Paladin",
+        "castingTime": "1 action",
+        "range": "30 feet",
+        "duration": "8 hours",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Aid",
+          "titleFormulas": [],
+          "detail": "Raise allies' hit point maximums by 5.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "Third": [
+      {
+        "spellcastingClass": "Sorcerer",
+        "castingTime": "1 action",
+        "range": "30 feet",
+        "duration": "Concentration, up to 1 minute",
+        "components": {
+          "verbal": true,
+          "somatic": true
+        },
+        "info": {
+          "title": "Haste",
+          "titleFormulas": [],
+          "detail": "Double a creature's speed and grant +2 AC.",
+          "detailFormulas": []
+        }
+      }
+    ],
+    "Fourth": [],
+    "Fifth": [],
+    "Sixth": [],
+    "Seventh": [],
+    "Eighth": [],
+    "Ninth": []
+  },
+  "spellSlots": {
+    "First": {
+      "expended": 2
+    },
+    "Second": {
+      "expended": 1
+    },
+    "Third": {
+      "expended": 1
+    },
+    "Fourth": {
+      "expended": 0
+    },
+    "Fifth": {
+      "expended": 0
+    },
+    "Sixth": {
+      "expended": 0
+    },
+    "Seventh": {
+      "expended": 0
+    },
+    "Eighth": {
+      "expended": 0
+    },
+    "Ninth": {
+      "expended": 0
+    }
+  },
+  "pactSlots": {
+    "expended": 0
+  }
+}

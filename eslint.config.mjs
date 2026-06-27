@@ -62,6 +62,13 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
   },
+  // Dev scripts run in Node but also inject browser-context callbacks (Playwright).
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
   // Test files.
   {
     files: ["**/*.test.{ts,tsx}", "src/test/**"],

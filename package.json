@@ -9,6 +9,7 @@
     "server": "node server/server.js",
     "build": "pnpm generate-schema && pnpm type-check && vite build",
     "preview": "vite preview",
+    "screenshot": "node scripts/screenshot.mjs",
     "generate-schema": "typescript-json-schema src/lib/types.ts Character --required > src/schema.json && prettier --write src/schema.json --log-level silent",
     "schema:check": "pnpm generate-schema && git diff --exit-code -- src/schema.json",
     "type-check": "tsc --noEmit",

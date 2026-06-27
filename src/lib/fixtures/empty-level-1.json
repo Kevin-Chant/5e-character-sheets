@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "uuid": "11111111-1111-4111-8111-111111111111",
+  "name": "Freshly Rolled",
+  "class": [
+    {
+      "name": "Rogue",
+      "level": 1
+    }
+  ],
+  "background": "Urchin",
+  "playerName": "",
+  "race": "Human",
+  "alignment": "True Neutral",
+  "stats": {
+    "str": 10,
+    "dex": 15,
+    "con": 13,
+    "int": 12,
+    "wis": 14,
+    "cha": 8
+  },
+  "inspiration": 0,
+  "proficiencies": {
+    "savingThrows": {
+      "dex": true,
+      "int": true
+    },
+    "skills": {
+      "Stealth": true,
+      "Acrobatics": true
+    },
+    "expertise": {},
+    "isJackOfAllTradesOverride": false
+  },
+  "otherProficiencies": [],
+  "acFormula": {
+    "operation": "addition",
+    "operands": [10, "dex"]
+  },
+  "speed": 30,
+  "currHp": 9,
+  "tempHp": 0,
+  "expendedHitDice": {},
+  "exhaustion": 0,
+  "deathSaves": {
+    "successes": 0,
+    "failures": 0
+  },
+  "attacks": [],
+  "coins": {
+    "GP": 15
+  },
+  "equipment": [],
+  "personality": {
+    "traits": [],
+    "ideals": [],
+    "bonds": [],
+    "flaws": []
+  },
+  "features": [],
+  "spellcastingClasses": [],
+  "spells": {
+    "cantrips": [],
+    "First": [],
+    "Second": [],
+    "Third": [],
+    "Fourth": [],
+    "Fifth": [],
+    "Sixth": [],
+    "Seventh": [],
+    "Eighth": [],
+    "Ninth": []
+  },
+  "spellSlots": {
+    "First": {
+      "expended": 0
+    },
+    "Second": {
+      "expended": 0
+    },
+    "Third": {
+      "expended": 0
+    },
+    "Fourth": {
+      "expended": 0
+    },
+    "Fifth": {
+      "expended": 0
+    },
+    "Sixth": {
+      "expended": 0
+    },
+    "Seventh": {
+      "expended": 0
+    },
+    "Eighth": {
+      "expended": 0
+    },
+    "Ninth": {
+      "expended": 0
+    }
+  },
+  "pactSlots": {
+    "expended": 0
+  }
+}

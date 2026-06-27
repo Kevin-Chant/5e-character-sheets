@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "uuid": "22222222-2222-4222-8222-222222222222",
+  "name": "Brakka Ironhide",
+  "class": [
+    {
+      "name": "Fighter",
+      "level": 5,
+      "subclass": "Champion"
+    }
+  ],
+  "background": "Soldier",
+  "playerName": "",
+  "race": "Mountain Dwarf",
+  "alignment": "Lawful Good",
+  "stats": {
+    "str": 18,
+    "dex": 13,
+    "con": 16,
+    "int": 8,
+    "wis": 12,
+    "cha": 10
+  },
+  "inspiration": 0,
+  "proficiencies": {
+    "savingThrows": {
+      "str": true,
+      "con": true
+    },
+    "skills": {
+      "Athletics": true,
+      "Intimidation": true,
+      "Perception": true,
+      "Survival": true
+    },
+    "expertise": {},
+    "isJackOfAllTradesOverride": false
+  },
+  "otherProficiencies": [],
+  "acFormula": {
+    "operation": "addition",
+    "operands": [18]
+  },
+  "speed": 30,
+  "currHp": 44,
+  "tempHp": 0,
+  "expendedHitDice": {},
+  "exhaustion": 0,
+  "deathSaves": {
+    "successes": 0,
+    "failures": 0
+  },
+  "attacks": [
+    {
+      "name": "Greatsword",
+      "bonus": {
+        "operation": "addition",
+        "operands": ["proficiencyBonus", "str"]
+      },
+      "formula": {
+        "Slashing": {
+          "operation": "addition",
+          "operands": [[2, "d6", "roll"], "str"]
+        }
+      }
+    },
+    {
+      "name": "Handaxe (thrown)",
+      "bonus": {
+        "operation": "addition",
+        "operands": ["proficiencyBonus", "str"]
+      },
+      "formula": {
+        "Slashing": {
+          "operation": "addition",
+          "operands": [[1, "d6", "roll"], "str"]
+        }
+      }
+    },
+    {
+      "name": "Heavy Crossbow",
+      "bonus": {
+        "operation": "addition",
+        "operands": ["proficiencyBonus", "dex"]
+      },
+      "formula": {
+        "Piercing": {
+          "operation": "addition",
+          "operands": [[1, "d10", "roll"], "dex"]
+        }
+      }
+    }
+  ],
+  "coins": {
+    "GP": 120,
+    "SP": 8
+  },
+  "equipment": [
+    {
+      "title": "Plate armor",
+      "titleFormulas": [],
+      "detail": "AC 18",
+      "detailFormulas": []
+    }
+  ],
+  "personality": {
+    "traits": [],
+    "ideals": [],
+    "bonds": [],
+    "flaws": []
+  },
+  "features": [
+    {
+      "title": "Second Wind",
+      "titleFormulas": [],
+      "detail": "Regain 1d10 + fighter level HP as a bonus action, once per rest.",
+      "detailFormulas": []
+    },
+    {
+      "title": "Action Surge",
+      "titleFormulas": [],
+      "detail": "Take one additional action on your turn, once per rest.",
+      "detailFormulas": []
+    },
+    {
+      "title": "Extra Attack",
+      "titleFormulas": [],
+      "detail": "Attack twice when you take the Attack action.",
+      "detailFormulas": []
+    },
+    {
+      "title": "Improved Critical",
+      "titleFormulas": [],
+      "detail": "Your weapon attacks score a critical hit on a roll of 19 or 20.",
+      "detailFormulas": []
+    }
+  ],
+  "spellcastingClasses": [],
+  "spells": {
+    "cantrips": [],
+    "First": [],
+    "Second": [],
+    "Third": [],
+    "Fourth": [],
+    "Fifth": [],
+    "Sixth": [],
+    "Seventh": [],
+    "Eighth": [],
+    "Ninth": []
+  },
+  "spellSlots": {
+    "First": {
+      "expended": 0
+    },
+    "Second": {
+      "expended": 0
+    },
+    "Third": {
+      "expended": 0
+    },
+    "Fourth": {
+      "expended": 0
+    },
+    "Fifth": {
+      "expended": 0
+    },
+    "Sixth": {
+      "expended": 0
+    },
+    "Seventh": {
+      "expended": 0
+    },
+    "Eighth": {
+      "expended": 0
+    },
+    "Ninth": {
+      "expended": 0
+    }
+  },
+  "pactSlots": {
+    "expended": 0
+  }
+}
