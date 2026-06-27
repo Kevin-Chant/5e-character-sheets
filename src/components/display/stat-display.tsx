@@ -1,6 +1,10 @@
 import classNames from "classnames";
 import { FIELD, StatKey } from "src/lib/data/data-definitions";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import {
+  highlightProps,
+  useRemoteFieldHighlight,
+} from "src/lib/hooks/use-presence";
 import { modifier } from "src/lib/utils";
 
 export default function StatDisplay(props: {
@@ -12,6 +16,7 @@ export default function StatDisplay(props: {
   editable?: boolean;
 }) {
   const { pushTargetedField } = useTargetedField();
+  const editor = useRemoteFieldHighlight(props.field, props.subField);
   const onClick = props.editable
     ? () => pushTargetedField(props.field, props.subField)
     : () => {
@@ -28,6 +33,7 @@ export default function StatDisplay(props: {
             readOnly: !props.editable,
           })}
           onClick={onClick}
+          {...highlightProps(editor)}
         >
           {props.value}
         </p>

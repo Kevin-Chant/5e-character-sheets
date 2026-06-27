@@ -2,6 +2,10 @@ import classNames from "classnames";
 import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import {
+  highlightProps,
+  useRemoteFieldHighlight,
+} from "src/lib/hooks/use-presence";
 import { Character } from "src/lib/types";
 import {
   getFieldValue,
@@ -36,6 +40,7 @@ export default function SingleValueDisplay({
 }: SingleValueDisplayProps) {
   const { character } = useCharacter();
   const { pushTargetedField } = useTargetedField();
+  const highlight = highlightProps(useRemoteFieldHighlight(field, subField));
 
   const onClick = editable
     ? () => pushTargetedField(field, subField)
@@ -72,6 +77,7 @@ export default function SingleValueDisplay({
               readOnly: !editable,
             })}
             onClick={onClick}
+            {...highlight}
           >
             {value}
           </p>
@@ -86,6 +92,7 @@ export default function SingleValueDisplay({
               readOnly: !editable,
             })}
             onClick={onClick}
+            {...highlight}
           >
             {value}
           </p>
@@ -108,6 +115,7 @@ export default function SingleValueDisplay({
               readOnly: !editable,
             })}
             onClick={onClick}
+            {...highlight}
           >
             {value}
           </p>
@@ -121,6 +129,7 @@ export default function SingleValueDisplay({
               readOnly: !editable,
             })}
             onClick={onClick}
+            {...highlight}
           >
             {value}
           </p>

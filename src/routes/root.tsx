@@ -8,6 +8,8 @@ import {
   FaFloppyDisk,
   FaGear,
   FaHouse,
+  FaRotateLeft,
+  FaRotateRight,
   FaShareNodes,
   FaTowerBroadcast,
   FaTrash,
@@ -27,6 +29,7 @@ import Spinner from "src/components/spinner";
 import Tooltip from "src/components/tooltip";
 import ShareModal from "src/components/share-modal";
 import NavOverflowMenu from "src/components/nav-overflow-menu";
+import PresenceRoster from "src/components/presence-roster";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 
 function Sidebar() {
@@ -119,6 +122,10 @@ export default function Root() {
     saveError,
     saveNow,
     dispatch,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useCharacter();
   const { saving } = useDatastore();
   const { getRole } = useSharingSessions();
@@ -233,6 +240,7 @@ export default function Root() {
           <h1>{pageTitle}</h1>
         </nav>
         <div id="right-nav-components">
+          <PresenceRoster />
           {canShare && (
             <button
               className="icon-btn"
@@ -254,6 +262,22 @@ export default function Root() {
           </Link>
           {character && (
             <div id="save-container">
+              <button
+                className="icon-btn"
+                onClick={undo}
+                disabled={!canUndo}
+                title="Undo (⌘Z / Ctrl+Z)"
+              >
+                <FaRotateLeft />
+              </button>
+              <button
+                className="icon-btn"
+                onClick={redo}
+                disabled={!canRedo}
+                title="Redo (⇧⌘Z / Ctrl+Y)"
+              >
+                <FaRotateRight />
+              </button>
               <p>{saveIndicator}</p>
               <button
                 className="icon-btn"

@@ -1,5 +1,6 @@
 import { FIELD } from "src/lib/data/data-definitions";
 import { Character } from "src/lib/types";
+import { getFieldValue } from "src/lib/utils";
 
 export type ACTION = "load_character" | "reset_character" | `update_${FIELD}`;
 
@@ -8,6 +9,24 @@ export type Action = {
   payload: any;
   subField?: string;
 };
+
+// The dot-path an `update_*` action targets, e.g. "attacks.0.name".
+export function actionFieldPath(action: Action): string {
+  let field = action.type.replace("update_", "");
+  if (action.subField) field += `.${action.subField}`;
+  return field;
+}
+
+// The action that reverses `action`: same target, carrying the value that
+// currently lives there. Relies on `update_*` actions fully specifying a
+// field's value, so applying the inverse restores the prior state.
+export function invertAction(character: Character, action: Action): Action {
+  return {
+    type: action.type,
+    payload: { value: getFieldValue(actionFieldPath(action), character) },
+    subField: action.subField,
+  };
+}
 
 export function loadPersistedCharacter(character: Character): Action {
   return {

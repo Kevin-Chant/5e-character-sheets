@@ -18,6 +18,7 @@
     "pretty": "prettier --write \"**/*.{json,css,md,js,jsx,ts,tsx}\"",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "ci": "pnpm schema:check && pnpm lint:ci && pnpm type-check && pnpm test",
     "prepare": "husky || true"
   },

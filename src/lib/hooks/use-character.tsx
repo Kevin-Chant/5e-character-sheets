@@ -3,11 +3,19 @@ import React, {
   useContext,
   useEffect,
   useReducer,
+  useRef,
   useState,
 } from "react";
-import { Action, resetCharacter } from "src/lib/hooks/reducers/actions";
+import {
+  Action,
+  invertAction,
+  resetCharacter,
+} from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
+
+// One reversible edit: the action applied and the action that undoes it.
+type HistoryEntry = { action: Action; inverse: Action };
 import { useLazyEffect } from "./use-lazy-effect";
 import { useDatastore } from "./use-datastore";
 import {
@@ -19,6 +27,10 @@ interface CharacterContextData {
   character: Character | undefined;
   reset: () => void;
   dispatch: (action: Action, dirtyAction?: boolean) => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   unsavedChanges: boolean;
   setUnsavedChanges: (isUnsaved: boolean) => void;
   saveError: boolean;
@@ -35,6 +47,10 @@ export const CharacterContext = React.createContext<CharacterContextData>({
   dispatch: () => {
     console.log("Calling default dispatch");
   },
+  undo: () => {},
+  redo: () => {},
+  canUndo: false,
+  canRedo: false,
   unsavedChanges: false,
   setUnsavedChanges: () => {
     console.log("Calling default setUnsavedChanges");
@@ -55,6 +71,12 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [character, dispatch] = useReducer(reducer, undefined);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  // Per-tab undo/redo history of this user's own edits. Read the latest
+  // character through a ref so an edit's "before" value is captured reliably.
+  const [past, setPast] = useState<HistoryEntry[]>([]);
+  const [future, setFuture] = useState<HistoryEntry[]>([]);
+  const characterRef = useRef(character);
+  characterRef.current = character;
   const { save, debounceWait } = useDatastore();
   const getCharacter = useCallback<() => Character | undefined>(() => {
     return character;
@@ -94,23 +116,6 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     debounceWait,
   );
 
-  // Cmd/Ctrl+S forces an immediate save, completing the editor lifecycle.
-  // Always swallow the browser's save-page dialog; only write if dirty.
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        !e.shiftKey &&
-        e.key.toLowerCase() === "s"
-      ) {
-        e.preventDefault();
-        if (unsavedChanges) persist();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [unsavedChanges, persist]);
-
   // Warn before leaving with unsaved work (e.g. a failed save), editor-style.
   // Only armed while dirty so a clean sheet closes without a prompt.
   useEffect(() => {
@@ -131,14 +136,36 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       : "5e Character Sheets";
   }, [character, unsavedChanges]);
 
-  const dispatchAndBroadcast: React.Dispatch<Action> = (
+  const dispatchAndBroadcast = (
     action: Action,
     dirtyAction: boolean = true,
     suppressBroadcast: boolean = false,
+    record: boolean = true,
   ) => {
     // Loading an already-persisted character isn't a user edit, so it must not
     // flag unsaved changes (see loadPersistedCharacter).
     const isDirty = dirtyAction && action.type !== "load_character";
+    // Record only genuine local edits, so undo/redo covers this tab's own
+    // changes; remote echoes (suppressed) and replays (record=false) stay out.
+    if (
+      record &&
+      isDirty &&
+      !suppressBroadcast &&
+      action.type.startsWith("update_") &&
+      characterRef.current
+    ) {
+      const entry = {
+        action,
+        inverse: invertAction(characterRef.current, action),
+      };
+      setPast((p) => [...p, entry]);
+      setFuture([]);
+    }
+    // A new character context has no history to carry over.
+    if (action.type === "load_character" || action.type === "reset_character") {
+      setPast([]);
+      setFuture([]);
+    }
     dispatch(action);
     setUnsavedChanges(isDirty);
     if (character && !suppressBroadcast) {
@@ -146,7 +173,61 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     }
   };
 
-  const reset = () => dispatch(resetCharacter());
+  // Undo/redo replay a recorded action (broadcasting to peers) without
+  // recording a new entry; the moved entry crosses between the two stacks.
+  const undo = () => {
+    if (past.length === 0) return;
+    const entry = past[past.length - 1];
+    setPast((p) => p.slice(0, -1));
+    setFuture((f) => [...f, entry]);
+    dispatchAndBroadcast(entry.inverse, true, false, false);
+  };
+  const redo = () => {
+    if (future.length === 0) return;
+    const entry = future[future.length - 1];
+    setFuture((f) => f.slice(0, -1));
+    setPast((p) => [...p, entry]);
+    dispatchAndBroadcast(entry.action, true, false, false);
+  };
+
+  // Cmd/Ctrl+S saves; Cmd/Ctrl+Z undoes; Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y redoes.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === "s" && !e.shiftKey) {
+        // Always swallow the browser's save-page dialog; only write if dirty.
+        e.preventDefault();
+        if (unsavedChanges) persist();
+        return;
+      }
+      // Leave native text undo alone while editing a field (e.g. modal inputs).
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.isContentEditable)
+      ) {
+        return;
+      }
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((key === "z" && e.shiftKey) || key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [unsavedChanges, persist, undo, redo]);
+
+  const reset = () => {
+    setPast([]);
+    setFuture([]);
+    dispatch(resetCharacter());
+  };
 
   const openSharingSession = () => {
     startSession().catch((error) => alert(error));
@@ -160,6 +241,10 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     character,
     reset,
     dispatch: dispatchAndBroadcast,
+    undo,
+    redo,
+    canUndo: past.length > 0,
+    canRedo: future.length > 0,
     unsavedChanges,
     setUnsavedChanges,
     saveError,

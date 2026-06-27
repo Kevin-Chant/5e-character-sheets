@@ -4,6 +4,7 @@ import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import { copyToClipboard } from "src/lib/utils";
 import Switch from "react-switch";
 import { FaCopy } from "react-icons/fa6";
+import IdentityFields from "src/components/identity-fields";
 
 export default function SharingToggle() {
   const { datastore } = useDatastoreSelector();
@@ -51,9 +52,12 @@ export default function SharingToggle() {
         />
       </div>
       {sharingSessionOpen && (
-        <button className="margin-small" onClick={copyCode}>
-          <FaCopy /> Copy sharing code
-        </button>
+        <>
+          <IdentityFields />
+          <button className="margin-small" onClick={copyCode}>
+            <FaCopy /> Copy sharing code
+          </button>
+        </>
       )}
     </section>
   );

@@ -1,6 +1,6 @@
 import { Character } from "src/lib/types";
 import { setFieldValue } from "src/lib/utils";
-import { Action } from "./actions";
+import { Action, actionFieldPath } from "./actions";
 
 export default function reducer(state: Character, action: Action) {
   if (action.type === "load_character") {
@@ -11,10 +11,6 @@ export default function reducer(state: Character, action: Action) {
   }
   // deep copy state
   const newState = JSON.parse(JSON.stringify(state));
-  let field = action.type.replace("update_", "");
-  if (action.subField) {
-    field += `.${action.subField}`;
-  }
-  setFieldValue(field, newState, action.payload.value);
+  setFieldValue(actionFieldPath(action), newState, action.payload.value);
   return newState;
 }

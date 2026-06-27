@@ -22,6 +22,7 @@ import BuildCustomFormulaWithDamage from "./build-custom-formula-with-damage";
 import EditClassLevels from "./edit-class-levels";
 import Spellcasting from "./spellcasting";
 import EditSpell from "./edit-spell";
+import PresenceBroadcaster from "./presence-broadcaster";
 
 export default function CharSheet() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -135,6 +136,7 @@ export default function CharSheet() {
   }
   return (
     <div className="character-sheet-container">
+      <PresenceBroadcaster />
       {modalIsOpen && (
         <ModalContainer
           back={targetedFieldStackLength > 1 ? popTargetedField : undefined}

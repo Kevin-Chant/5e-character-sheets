@@ -6,6 +6,7 @@ import { useRemoteSharingSession } from "src/lib/hooks/use-sharing-session";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 import { writeLastDatastore } from "src/lib/last-datastore";
 import { isUuid } from "src/lib/types";
+import IdentityFields from "src/components/identity-fields";
 
 export default function RemoteConnectionInitializer() {
   const [uuidInputValue, setUuidInputValue] = useState("");
@@ -57,6 +58,7 @@ export default function RemoteConnectionInitializer() {
         value={uuidInputValue}
         onChange={updateUuidInputValue}
       />
+      <IdentityFields />
       <button
         className="margin-small"
         disabled={!uuidInputValue}

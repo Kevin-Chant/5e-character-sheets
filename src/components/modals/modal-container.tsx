@@ -59,6 +59,11 @@ export default function ModalContainer({
     character,
     reset: () => {},
     dispatch,
+    // Edits here go to a local draft; undo is the browser's native input undo.
+    undo: () => {},
+    redo: () => {},
+    canUndo: false,
+    canRedo: false,
     unsavedChanges: false,
     setUnsavedChanges: () => {},
     saveError: false,
