@@ -20,6 +20,7 @@ import {
   FIELD,
   SpellLevel,
   ArmorType,
+  RestType,
 } from "./data/data-definitions";
 import { UUID } from "crypto";
 
@@ -186,6 +187,20 @@ export function isExpression(data: any): data is Expression {
 
 export function isCustomFormula(data: any): data is CustomFormula {
   return isAtomicVariable(data) || isExpression(data);
+}
+
+export function isRechargeCriteria(data: any): data is RechargeCriteria {
+  return isString(data);
+}
+
+export function isLimitedUseAbility(data: any): data is LimitedUseAbility {
+  return (
+    isObject(data) &&
+    isTextComponent((data as any).info) &&
+    isCustomFormula((data as any).maxUses) &&
+    isRechargeCriteria((data as any).recharge) &&
+    isNumber((data as any).expended)
+  );
 }
 
 ////////////////////
@@ -355,6 +370,23 @@ export interface PactSlots {
   expended: number;
 }
 
+// When a limited-use ability's pool refreshes. The standard rests are the
+// `RestType` presets, but any free-text trigger ("Dawn", "Initiative", …) is
+// allowed so homebrew and unusual features aren't boxed in. Mirrors the
+// `ClassName = OfficialClass | string` convention.
+export type RechargeCriteria = RestType | string;
+
+// A feature with a finite, refreshing pool of uses: Sorcery Points, a racial
+// once-per-rest ability, a Channel Divinity, etc. `maxUses` is a formula so the
+// pool can scale off level/stats; `expended` is the current spend (tracked like
+// spell slots) and resets to 0 when the `recharge` trigger fires.
+export interface LimitedUseAbility {
+  info: TextComponent;
+  maxUses: CustomFormula;
+  recharge: RechargeCriteria;
+  expended: number;
+}
+
 type BaseCharacter = { [key in FIELD]?: any };
 
 export interface Character extends BaseCharacter {
@@ -403,6 +435,7 @@ export interface Character extends BaseCharacter {
   spells: Spells;
   spellSlots: SpellSlots;
   pactSlots?: PactSlots;
+  limitedUseAbilities: LimitedUseAbility[];
 }
 
 export type CharacterField = keyof Character;

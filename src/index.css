@@ -915,6 +915,39 @@ button.slot-pip:hover:not(:disabled) {
   transform: scale(1.1);
 }
 
+/* ---- Limited-use abilities ---- */
+.limited-use-ability {
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0.35rem 0;
+}
+
+.limited-use-ability-header {
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+/* Both the standalone and the (hoverable) detail name read as a solid label,
+   left-aligned and filling the row so the recharge note and actions sit right. */
+.limited-use-ability-name {
+  flex: 1;
+  margin: 0;
+  text-align: left;
+  font-weight: 600;
+}
+
+/* The popover detail is nested inside the (bold) name anchor; keep it normal. */
+.limited-use-ability-name .popover-container {
+  font-weight: normal;
+}
+
+/* Pips and the high-count stepper both sit flush left under the name. */
+.limited-use-ability .slot-pips,
+.limited-use-count {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
 /* Filled accent button for primary actions. */
 .btn-primary:not(:disabled) {
   background-color: var(--accent);

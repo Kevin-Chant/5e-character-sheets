@@ -13,6 +13,8 @@ import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import { ControlledEditTextLine } from "./edit-text-line";
 import { FaTrash } from "react-icons/fa6";
+import OptionOrCustomValue from "./display/option-or-custom-value";
+import { DEFAULT_SPELL_DURATIONS, DEFAULT_SPELL_RANGES } from "src/lib/rules";
 
 const CASTING_TIME_PRESETS = Object.values(CastingTime) as string[];
 
@@ -40,23 +42,6 @@ export default function EditSpell() {
 
   const updateCastingClass = (e: React.ChangeEvent<HTMLSelectElement>) =>
     updateSpellField("spellcastingClass", e.target.value);
-
-  // --- Casting time (preset select + free-form "other") ---
-  const castingTime: string | undefined = spell.castingTime;
-  const castingTimeSelect =
-    castingTime === undefined
-      ? ""
-      : CASTING_TIME_PRESETS.includes(castingTime)
-        ? castingTime
-        : "other";
-  const onCastingTimeSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const v = e.target.value;
-    if (v === "") updateSpellField("castingTime", undefined);
-    else if (v === "other") {
-      // Switch into free-form mode, preserving an existing custom value.
-      if (castingTimeSelect !== "other") updateSpellField("castingTime", "");
-    } else updateSpellField("castingTime", v);
-  };
 
   // --- Components ---
   const components: SpellComponents = spell.components ?? {};
@@ -134,38 +119,39 @@ export default function EditSpell() {
         </label>
         <label>
           Casting time
-          <select value={castingTimeSelect} onChange={onCastingTimeSelect}>
-            <option value="">—</option>
-            {CASTING_TIME_PRESETS.map((preset) => (
-              <option value={preset} key={preset}>
-                {preset}
-              </option>
-            ))}
-            <option value="other">Other…</option>
-          </select>
-          {castingTimeSelect === "other" && (
-            <input
-              type="text"
-              placeholder="e.g. 1 minute"
-              value={castingTime ?? ""}
-              onChange={(e) => updateSpellField("castingTime", e.target.value)}
-            />
-          )}
+          <OptionOrCustomValue
+            value={spell.castingTime ?? ""}
+            setValue={(v: string) =>
+              updateSpellField("castingTime", v || undefined)
+            }
+            options={CASTING_TIME_PRESETS}
+            customDefaultValue=""
+            customInputType="text"
+            customValueHelpText="e.g. 1 minute"
+          />
         </label>
         <label>
           Range
-          <input
-            type="text"
+          <OptionOrCustomValue
             value={spell.range ?? ""}
-            onChange={(e) => updateSpellField("range", e.target.value)}
+            setValue={(v: string) => updateSpellField("range", v || undefined)}
+            options={DEFAULT_SPELL_RANGES}
+            customDefaultValue=""
+            customInputType="text"
+            customValueHelpText="e.g. 30 feet"
           />
         </label>
         <label>
           Duration
-          <input
-            type="text"
+          <OptionOrCustomValue
             value={spell.duration ?? ""}
-            onChange={(e) => updateSpellField("duration", e.target.value)}
+            setValue={(v: string) =>
+              updateSpellField("duration", v || undefined)
+            }
+            options={DEFAULT_SPELL_DURATIONS}
+            customDefaultValue=""
+            customInputType="text"
+            customValueHelpText="e.g. 1 hour"
           />
         </label>
       </div>

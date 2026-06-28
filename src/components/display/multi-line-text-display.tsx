@@ -19,7 +19,6 @@ interface MultiLineTextDisplayProps {
   field: FIELD;
   subField?: string;
   transform?: (data: any, character: Character) => any;
-  defaultValue?: any;
 }
 
 export default function MultiLineTextDisplay({
@@ -27,7 +26,6 @@ export default function MultiLineTextDisplay({
   field,
   subField,
   transform,
-  defaultValue = { title: "new entry", titleFormulas: [] },
 }: MultiLineTextDisplayProps) {
   const { character, dispatch } = useCharacter();
   const { pushTargetedField } = useTargetedField();
@@ -59,22 +57,9 @@ export default function MultiLineTextDisplay({
     dispatch(updateData(field, { value: newValue }, subField));
   };
 
-  const addTextComponent = () => {
-    dispatch(
-      updateData(
-        field,
-        {
-          value: textComponents.concat(defaultValue),
-        },
-        subField,
-      ),
-    );
-    if (subField) {
-      pushTargetedField(field, `${subField}.${textComponents.length}`);
-    } else {
-      pushTargetedField(field, textComponents.length.toString());
-    }
-  };
+  // Open the editor at the next (empty) index; the entry is only persisted when
+  // the user saves, so no placeholder is written up-front.
+  const addTextComponent = () => editTextComponent(textComponents.length);
 
   return (
     <div className="column rounded-border-box">

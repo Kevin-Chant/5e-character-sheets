@@ -1,4 +1,4 @@
-import { Character } from "src/lib/types";
+import { Character, LimitedUseAbility } from "src/lib/types";
 import {
   Alignment,
   DieOperation,
@@ -6,6 +6,7 @@ import {
   OfficialClass,
   Operation,
   PB,
+  RestType,
   SpellLevel,
   StandardDie,
   StatKey,
@@ -207,4 +208,33 @@ export const defaultCharacter: Character = {
     [SpellLevel.Ninth]: { expended: 0 },
   },
   pactSlots: { expended: 0 },
+  limitedUseAbilities: [
+    {
+      // A scaling pool: max uses equals the character's Sorcerer level.
+      info: {
+        title: "Sorcery Points",
+        titleFormulas: [],
+        detail: "Spend to create spell slots or fuel Metamagic.",
+        detailFormulas: [],
+      },
+      maxUses: OfficialClass.Sorcerer,
+      recharge: RestType.longRest,
+      expended: 0,
+    },
+    {
+      info: { title: "Blessing of the Raven Queen", titleFormulas: [] },
+      maxUses: 1,
+      recharge: RestType.shortRest,
+      expended: 0,
+    },
+  ],
 };
+
+// A blank ability used when the user adds a new entry; persisted up-front (like
+// spells) so the formula editor has a target to edit.
+export const newLimitedUseAbility = (): LimitedUseAbility => ({
+  info: { title: "New ability", titleFormulas: [] },
+  maxUses: 1,
+  recharge: RestType.longRest,
+  expended: 0,
+});

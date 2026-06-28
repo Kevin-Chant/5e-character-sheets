@@ -319,6 +319,29 @@
             ],
             "type": "object"
         },
+        "LimitedUseAbility": {
+            "properties": {
+                "expended": {
+                    "type": "number"
+                },
+                "info": {
+                    "$ref": "#/definitions/TextComponent"
+                },
+                "maxUses": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "recharge": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "expended",
+                "info",
+                "maxUses",
+                "recharge"
+            ],
+            "type": "object"
+        },
         "MaterialComponent": {
             "properties": {
                 "name": {
@@ -1009,6 +1032,12 @@
         "inspiration": {
             "type": "number"
         },
+        "limitedUseAbilities": {
+            "items": {
+                "$ref": "#/definitions/LimitedUseAbility"
+            },
+            "type": "array"
+        },
         "maxHp": {
             "$ref": "#/definitions/CustomFormula"
         },
@@ -1134,6 +1163,7 @@
         "expendedHitDice",
         "features",
         "inspiration",
+        "limitedUseAbilities",
         "name",
         "otherProficiencies",
         "personality",

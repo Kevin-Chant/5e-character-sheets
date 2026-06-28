@@ -24,20 +24,6 @@ export default function ModalContainer({
   title,
   children,
 }: ModalProps & React.PropsWithChildren) {
-  const keypressListener = useCallback(
-    (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") {
-        close();
-      }
-    },
-    [close],
-  );
-
-  useEffect(() => {
-    window.addEventListener("keydown", keypressListener);
-    return () => window.removeEventListener("keydown", keypressListener);
-  }, [keypressListener]);
-
   const { character: savedCharacter, dispatch: dispatchOuterCharacter } =
     useCharacter();
   const [character, dispatch] = useReducer(reducer, savedCharacter);
@@ -54,6 +40,34 @@ export default function ModalContainer({
     );
     popTargetedField();
   };
+
+  const keypressListener = useCallback(
+    (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        close();
+        return;
+      }
+      // Enter saves from simple single-line inputs. Skip rich-text editors
+      // (contenteditable), textareas, selects, and buttons so Enter keeps its
+      // native meaning there (newline, open dropdown, activate button).
+      if (ev.key === "Enter") {
+        const target = ev.target as HTMLElement;
+        if (
+          target.isContentEditable ||
+          ["TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName)
+        )
+          return;
+        ev.preventDefault();
+        saveData();
+      }
+    },
+    [close, saveData],
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", keypressListener);
+    return () => window.removeEventListener("keydown", keypressListener);
+  }, [keypressListener]);
 
   const providerData = {
     character,

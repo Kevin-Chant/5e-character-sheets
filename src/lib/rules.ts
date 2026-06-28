@@ -520,3 +520,38 @@ export const DEFAULT_RACES: SingleOptionsList<string> = [
   "Human",
   "Tiefling",
 ];
+
+export const DEFAULT_SPELL_RANGES: SingleOptionsList<string> = [
+  "Self",
+  "Touch",
+  "5 feet",
+  "10 feet",
+  "30 feet",
+  "60 feet",
+  "90 feet",
+  "120 feet",
+  "150 feet",
+  "300 feet",
+  "500 feet",
+  "1 mile",
+  "Sight",
+  "Unlimited",
+  "Special",
+];
+
+export const DEFAULT_SPELL_DURATIONS: SingleOptionsList<string> = [
+  "Instantaneous",
+  "1 round",
+  "1 minute",
+  "10 minutes",
+  "1 hour",
+  "8 hours",
+  "24 hours",
+  "7 days",
+  "Until dispelled",
+  "Concentration, up to 1 minute",
+  "Concentration, up to 10 minutes",
+  "Concentration, up to 1 hour",
+  "Concentration, up to 8 hours",
+  "Special",
+];

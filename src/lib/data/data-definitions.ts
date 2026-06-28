@@ -252,6 +252,7 @@ export type FieldTypeNode =
   | "hitDice"
   | "spellcastingClass"
   | "spell"
+  | "limitedUseAbility"
   | typeof Alignment
   | typeof StatKey;
 export type FieldTypeInfo = Record<string, FieldTypeNode>;
@@ -322,6 +323,7 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   spells: "spell",
   spellSlots: "number",
   pactSlots: "number",
+  limitedUseAbilities: "limitedUseAbility",
 };
 
 export enum Operation {
@@ -341,6 +343,14 @@ export enum DieOperation {
   "average-roundeddown" = "average-roundeddown",
   "roll" = "roll",
   "max" = "max",
+}
+
+// Standard recharge triggers for limited-use abilities. Stored as a plain
+// string so unusual triggers (e.g. "Dawn", "Initiative") are accepted too —
+// these are just the suggested presets. See `RechargeCriteria` in types.ts.
+export enum RestType {
+  shortRest = "Short Rest",
+  longRest = "Long Rest",
 }
 
 export enum FIELD {
@@ -375,6 +385,7 @@ export enum FIELD {
   spells = "spells",
   spellSlots = "spellSlots",
   pactSlots = "pactSlots",
+  limitedUseAbilities = "limitedUseAbilities",
 }
 
 export const HIT_DICE: Record<OfficialClass, StandardDie> = {

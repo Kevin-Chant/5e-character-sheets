@@ -33,6 +33,20 @@ const migrations: Migration[] = [
       return filled;
     },
   },
+  {
+    // Limited-use abilities (Sorcery Points, racial once-per-rest features, …)
+    // are now a first-class list. Characters from before this didn't track them,
+    // so start them with an empty list.
+    to: 2,
+    migrate: (character) => {
+      if (!character || typeof character !== "object") return character;
+      const filled = { ...character };
+      if (filled.limitedUseAbilities === undefined)
+        filled.limitedUseAbilities = [];
+      filled.schemaVersion = 2;
+      return filled;
+    },
+  },
 ];
 
 // Sorted, append-only safety: ensures we apply migrations in ascending order

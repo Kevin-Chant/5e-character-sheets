@@ -109,12 +109,13 @@ export default function EditTextLine() {
 
   if (!character || !targetedField || !subField) return <></>;
 
-  const textComponent = traverse(
-    subField,
-    getFieldValue(targetedField, character),
-  );
+  const existing = traverse(subField, getFieldValue(targetedField, character));
 
-  if (!isTextComponent(textComponent)) return <></>;
+  // A not-yet-created entry (e.g. adding a new list item) edits a blank draft;
+  // it's only persisted to the array when the user actually saves.
+  const textComponent: TextComponent = isTextComponent(existing)
+    ? existing
+    : { title: "", titleFormulas: [] };
 
   const updateTitle = (text: string, formulas: CustomFormula[]) => {
     dispatch(

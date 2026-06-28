@@ -88,16 +88,10 @@ function ToolsCell() {
   if (!character) return <></>;
 
   const items = character.otherProficiencies.toolsAndOther;
-  const add = () => {
-    dispatch(
-      updateData(
-        FIELD_NAME,
-        { value: items.concat({ title: "new entry", titleFormulas: [] }) },
-        "toolsAndOther",
-      ),
-    );
+  // Open the editor at the next (empty) index; the entry is only persisted when
+  // the user saves, so no placeholder is written up-front.
+  const add = () =>
     pushTargetedField(FIELD_NAME, `toolsAndOther.${items.length}`);
-  };
   const remove = (index: number) => {
     const next = structuredClone(items);
     next.splice(index, 1);

@@ -48,6 +48,11 @@ Real-time co-editing runs over WAMP (autobahn-browser client ↔ nightlife-rabbi
 
 The `Character` type plus 5e data definitions and a recursive **formula engine** for computed fields (AC, HP, attacks). The former grab-bag `src/lib/utils.ts` is split by concern: `src/lib/formula.ts` (the `calculate*`/`format*` engine + `OPERATORS`), `src/lib/rules.ts` (5e domain tables — stat mods, PB, hit dice, spell slots, spellcasting), `src/lib/fields.ts` (dot-path `traverse`/`get`/`setFieldValue` + schema validation), and `src/lib/browser.ts` (secure-context polyfills); `utils.ts` now holds only `ordinal`/`formatClass`. The `is*` type guards live in `src/lib/types.ts`. These pure functions are the main unit-tested surface; Drive/WAMP code is gapi/network-bound and verified manually in-browser (or with throwaway node scripts against a local nightlife-rabbit server).
 
+**Adding or editing a field on the `Character` model** touches several coupled systems (type, `FIELD`/editor registries, default data, generated schema, migration). Two deep-dive docs cover the non-obvious wiring — read them before such changes:
+
+- [`.claude/docs/adding-a-character-field.md`](.claude/docs/adding-a-character-field.md) — the end-to-end checklist (type → schema → migration → UI).
+- [`.claude/docs/editable-fields-and-modals.md`](.claude/docs/editable-fields-and-modals.md) — how the targeted-field stack + `ModalContainer` draft buffer turn a field into an editable modal.
+
 ### State management
 
 React Context + reducers (no Redux). Providers are **deeply nested in `src/index.tsx` and the order matters** — `SharingSessions` sits above `Datastore`/`Character` so broadcast/role state is reachable. Main contexts: `Settings`, `SharingSessions`, `GoogleOauth`, `DatastoreSelector`, `Datastore`, `Character`.

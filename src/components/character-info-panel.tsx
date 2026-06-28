@@ -1,5 +1,6 @@
 import { useCharacter } from "src/lib/hooks/use-character";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
+import LimitedUseAbilitiesDisplay from "./display/limited-use-abilities-display";
 import { FIELD } from "src/lib/data/data-definitions";
 
 export default function CharacterInfoPanel() {
@@ -28,6 +29,7 @@ export default function CharacterInfoPanel() {
         subField="flaws"
       />
       <MultiLineTextDisplay title="Features & Traits" field={FIELD.features} />
+      <LimitedUseAbilitiesDisplay />
     </div>
   );
 }

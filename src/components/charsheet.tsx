@@ -24,6 +24,7 @@ import BuildCustomFormulaWithDamage from "./build-custom-formula-with-damage";
 import EditClassLevels from "./edit-class-levels";
 import Spellcasting from "./spellcasting";
 import EditSpell from "./edit-spell";
+import EditLimitedUseAbility from "./edit-limited-use-ability";
 import PresenceBroadcaster from "./presence-broadcaster";
 
 export default function CharSheet() {
@@ -84,6 +85,15 @@ export default function CharSheet() {
           );
         } else {
           setModalType("string");
+        }
+      } else if (standardFieldType === "limitedUseAbility") {
+        // Formula sub-paths (info title/detail formulas, and the maxUses
+        // formula itself) open the formula builder; otherwise the ability editor.
+        const sf = subField || "";
+        if (sf.includes("Formulas") || sf.endsWith("maxUses")) {
+          setModalType("formula");
+        } else {
+          setModalType("limitedUseAbility");
         }
       } else if (
         (standardFieldType === "textLine" || standardFieldType === "spell") &&
@@ -146,6 +156,10 @@ export default function CharSheet() {
     case "spell":
       modalContents = <EditSpell />;
       modalTitle = "Edit Spell";
+      break;
+    case "limitedUseAbility":
+      modalContents = <EditLimitedUseAbility />;
+      modalTitle = "Edit Ability";
       break;
     default:
       modalContents = (

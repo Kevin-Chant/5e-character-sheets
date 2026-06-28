@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "uuid": "33333333-3333-4333-8333-333333333333",
   "name": "Maelina Vael",
   "class": [
@@ -319,5 +319,30 @@
   },
   "pactSlots": {
     "expended": 0
-  }
+  },
+  "limitedUseAbilities": [
+    {
+      "info": {
+        "title": "Arcane Recovery",
+        "titleFormulas": [],
+        "detail": "Recover expended spell slots on a short rest, once per day.",
+        "detailFormulas": []
+      },
+      "maxUses": 1,
+      "recharge": "Long Rest",
+      "expended": 0
+    },
+    {
+      "info": {
+        "title": "Sorcery Points",
+        "titleFormulas": []
+      },
+      "maxUses": {
+        "operation": "addition",
+        "operands": ["cha", 2]
+      },
+      "recharge": "Long Rest",
+      "expended": 2
+    }
+  ]
 }
