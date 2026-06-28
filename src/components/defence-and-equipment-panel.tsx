@@ -7,6 +7,7 @@ import {
 import { getHitDice, totalGP } from "src/lib/rules";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 import SingleValueDisplay from "./display/single-value-display";
+import SlotPips from "./display/slot-pips";
 import { FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
@@ -65,7 +66,7 @@ export default function DefenceAndEquipmentPanel() {
         />
       </div>
       {/* HP */}
-      <div className="column rounded-border-box">
+      <div className="column rounded-border-box hp-box">
         <SingleValueDisplay
           field={FIELD.maxHp}
           name="Hit Point Maximum"
@@ -88,8 +89,15 @@ export default function DefenceAndEquipmentPanel() {
           removeBorder
           editable
         />
+        <SingleValueDisplay
+          field={FIELD.exhaustion}
+          name="Exhaustion"
+          flipped
+          removeBorder
+          editable
+        />
       </div>
-      {/* Hit dice, death saves, exhaustion */}
+      {/* Hit dice, death saves */}
       <div className="row">
         <div className="column rounded-border-box">
           <table>
@@ -131,32 +139,29 @@ export default function DefenceAndEquipmentPanel() {
           </table>
           <b>Hit Dice</b>
         </div>
-        <div className="rounded-border-box">
-          <SingleValueDisplay
-            name="Exhaustion"
-            field={FIELD.exhaustion}
-            flipped
-            removeBorder
-            editable
-          />
-        </div>
         <div className="column rounded-border-box">
-          <SingleValueDisplay
-            name="Successes"
-            field={FIELD.deathSaves}
-            subField="successes"
-            flipped
-            removeBorder
-            editable
-          />
-          <SingleValueDisplay
-            name="Failures"
-            field={FIELD.deathSaves}
-            subField="failures"
-            flipped
-            removeBorder
-            editable
-          />
+          <div className="column death-save-row">
+            <span>Successes</span>
+            <SlotPips
+              total={3}
+              expended={character.deathSaves.successes}
+              fillMode
+              onChange={(value) =>
+                dispatch(updateData(FIELD.deathSaves, { value }, "successes"))
+              }
+            />
+          </div>
+          <div className="column death-save-row">
+            <span>Failures</span>
+            <SlotPips
+              total={3}
+              expended={character.deathSaves.failures}
+              fillMode
+              onChange={(value) =>
+                dispatch(updateData(FIELD.deathSaves, { value }, "failures"))
+              }
+            />
+          </div>
           <b>Death Saves</b>
         </div>
       </div>

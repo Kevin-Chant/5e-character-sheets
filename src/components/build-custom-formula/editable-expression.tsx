@@ -199,12 +199,17 @@ export function EditableExpression({
           </p>
           {isAtomicVariable(openOperand.value) ? (
             <EditableAtomicVariable
+              key={openOperand.key}
               atomicVar={openOperand.value}
               setVar={openOperand.setFormula}
               removeVar={openOperand.removeOperand}
             />
           ) : (
+            // Keyed by operand so switching to a sibling sub-formula remounts a
+            // fresh (fully collapsed) editor instead of inheriting the previous
+            // sibling's expanded state.
             <EditableExpression
+              key={openOperand.key}
               expr={openOperand.value}
               setExpr={openOperand.setFormula}
               edit={true}
