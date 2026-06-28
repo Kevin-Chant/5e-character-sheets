@@ -15,6 +15,7 @@ Package manager is **pnpm** (pinned via `packageManager`). Node 22+.
 - `pnpm test` — Vitest run. Single file: `pnpm test src/lib/utils.test.ts`. By name: `pnpm exec vitest run -t "ordinal"`.
 - `pnpm run ci` — lint + type-check + test (what GitHub Actions runs). **Note:** must be `pnpm run ci`; bare `pnpm ci` hits a reserved pnpm command and fails.
 - `pnpm generate-schema` — regenerates `src/schema.json` from the `Character` type. Run after changing the character model (also runs in `build`).
+- `pnpm screenshot` — render a route/fixture to a PNG for visual iteration. **Invoke via `pnpm screenshot` (not `node scripts/...`) and always pass `--out` to your scratchpad** to avoid permission prompts and stray repo PNGs — see [`.claude/docs/screenshotting.md`](.claude/docs/screenshotting.md) (covers the fixtures, flags, and the `#detail`-scroll gotcha).
 
 Full local dev is two processes: `pnpm dev` + `pnpm server`.
 

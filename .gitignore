@@ -26,6 +26,9 @@
 # misc
 .DS_Store
 
+# stray screenshot.mjs output (always pass --out to your scratchpad instead)
+/screenshot.png
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

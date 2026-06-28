@@ -543,6 +543,41 @@ button:focus-visible {
   outline-offset: 1px;
 }
 
+/* ---- Checkboxes ---- */
+/* Custom box so proficiency/prepared toggles match the app's accent + radius
+   instead of the bare browser default. */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  display: inline-grid;
+  place-content: center;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 0.65rem;
+  height: 0.65rem;
+  transform: scale(0);
+  transition: transform 0.1s ease;
+  background-color: var(--accent);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
 /* ---- Buttons ---- */
 button {
   color: var(--accent);
@@ -1310,7 +1345,15 @@ button.slot-pip:hover:not(:disabled) {
 }
 
 .character-sheet-container {
-  width: fit-content;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Give the three panels room to breathe on wide screens: the row spans the
+   capped container width and space-evenly distributes the slack as gaps. */
+.page-container > .row {
+  gap: 1.5rem;
 }
 
 /* ============================================================
