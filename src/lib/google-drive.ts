@@ -256,8 +256,7 @@ export async function pickSharedCharacters(): Promise<PickedFile[]> {
 
   return new Promise((resolve) => {
     const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
-      // TODO: restore .setOwnedByMe(false) to scope to shared-with-me only;
-      // left off during testing so you can pick your own files too.
+      .setOwnedByMe(false)
       .setIncludeFolders(false)
       .setSelectFolderEnabled(false);
 

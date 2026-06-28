@@ -9,7 +9,7 @@ import { UUID } from "crypto";
 // @ts-expect-error - autobahn-browser ships no type declarations
 import autobahn from "autobahn-browser";
 import { Action, resetCharacter } from "../hooks/reducers/actions";
-import { Character } from "../types";
+import { Character, Dispatch, DispatchPayload } from "../types";
 import { randomUUID } from "../browser";
 import { useSettings } from "./use-settings";
 
@@ -29,15 +29,6 @@ type Connection = any;
 // Whether this client opened the realm (host, owns persistence) or joined a
 // friend's realm (remote, the host owns persistence).
 type SessionRole = "host" | "remote";
-
-// What a DISPATCH message carries: the action, whether it dirties the sheet,
-// and the id of the client that sent it (so we can ignore our own echoes —
-// the WAMP broker does not honor exclude_me).
-type DispatchPayload = [
-  action: Action,
-  dirtyAction?: boolean,
-  senderId?: string,
-];
 
 interface OpenSession {
   connection: Connection;
@@ -344,11 +335,11 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     broadcast: (uuid, action, dirtyAction) => {
       const connection = openSessions[uuid]?.connection;
       if (!connection?.session) return;
-      const payload: DispatchPayload = [
+      const payload: DispatchPayload = {
         action,
         dirtyAction,
-        clientIdRef.current,
-      ];
+        senderId: clientIdRef.current,
+      };
       connection.session.publish(SessionEvent.DISPATCH, payload);
     },
     teardownSession: async (uuid) => {
@@ -381,19 +372,12 @@ export function useSharingSessions() {
   return useContext(SharingSessionsContext);
 }
 
-// TODO: move this somewhere better
-type Dispatch = (
-  action: Action,
-  dirtyAction?: boolean,
-  suppressBroadcast?: boolean,
-) => void;
-
 // Applies an incoming edit unless it is an echo of one we sent ourselves.
 // Incoming edits are dispatched with suppressBroadcast so they are not
 // re-published, which prevents echo loops.
 function makeDispatchHandler(dispatch: Dispatch, clientId: string) {
   return (payload: DispatchPayload) => {
-    const [action, dirtyAction, senderId] = payload;
+    const { action, dirtyAction, senderId } = payload;
     if (senderId === clientId) return;
     dispatch(action, dirtyAction, true);
   };

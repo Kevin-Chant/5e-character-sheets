@@ -31,7 +31,7 @@ const transport = createServer(
           try {
             router.createRealm(pathSegments[1]);
           } catch {
-            // No-op TODO: does this need any extra handling?
+            // No-op: realm already exists.
           }
           break;
         case "closeRealm":

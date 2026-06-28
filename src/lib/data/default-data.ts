@@ -116,7 +116,7 @@ export const defaultCharacter: Character = {
     {
       title: "Starting gear",
       titleFormulas: [],
-      detail: "TODO",
+      detail: "What your character starts with",
       detailFormulas: [],
     },
   ],

@@ -25,8 +25,6 @@ export default function RemoteConnectionInitializer() {
       return;
     }
 
-    // TODO: how to load the character data correctly using hooks
-
     await joinSession(uuidInputValue);
     const character = await getCharacter();
     if (!character) {

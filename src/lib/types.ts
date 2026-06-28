@@ -23,6 +23,7 @@ import {
   RestType,
 } from "./data/data-definitions";
 import { UUID } from "crypto";
+import { Action } from "./hooks/reducers/actions";
 
 //////////////////////
 // Begin Typeguards //
@@ -468,6 +469,21 @@ export interface Datastore {
   // returning it for the caller to open (undefined if nothing was picked).
   importSharedCharacter?: () => Promise<Character | undefined>;
 }
+
+export type Dispatch = (
+  action: Action,
+  dirtyAction?: boolean,
+  suppressBroadcast?: boolean,
+) => void;
+
+// What a DISPATCH message carries: the action, whether it dirties the sheet,
+// and the id of the client that sent it (so we can ignore our own echoes —
+// the WAMP broker does not honor exclude_me).
+export type DispatchPayload = {
+  action: Action;
+  dirtyAction?: boolean;
+  senderId?: string;
+};
 
 export type SingleOptionsList<T = string> = Array<T>;
 

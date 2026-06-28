@@ -30,7 +30,7 @@ export default function GeneralSettings() {
             To open a live sharing session, you must connect to a WAMP server
             which handles syncing your changes with other users. A free one
             should be available for use at {CLOUD_DEFAULT_HOST}, but if
-            you&apos;re interested you can run host it yourself using the{" "}
+            you&apos;re interested you can host one yourself using the{" "}
             <a href="https://github.com/Kevin-Chant/5e-character-sheets">
               GitHub repository
             </a>
