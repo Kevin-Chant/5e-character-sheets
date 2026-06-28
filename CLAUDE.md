@@ -10,7 +10,7 @@ Package manager is **pnpm** (pinned via `packageManager`). Node 22+.
 - `pnpm server` — live-edit WAMP sidecar (default port 9000; override with `PORT`). Only needed for real-time sharing; local/Drive storage work without it.
 - `pnpm build` — runs `generate-schema` + `type-check` + `vite build` (output `dist/`).
 - `pnpm type-check` — `tsc --noEmit`.
-- `pnpm lint` (auto-fix) / `pnpm lint:ci` (check only, `--max-warnings 0`).
+- `pnpm lint` (auto-fix) / `pnpm lint:ci` (check only, `--max-warnings 0`). `pnpm lint` accepts optional path args to lint a subset — e.g. `pnpm lint src/lib/rules.ts src/components/build-custom-formula` — defaulting to the whole repo when given none.
 - `pnpm pretty` — Prettier write.
 - `pnpm test` — Vitest run. Single file: `pnpm test src/lib/utils.test.ts`. By name: `pnpm exec vitest run -t "ordinal"`.
 - `pnpm run ci` — lint + type-check + test (what GitHub Actions runs). **Note:** must be `pnpm run ci`; bare `pnpm ci` hits a reserved pnpm command and fails.

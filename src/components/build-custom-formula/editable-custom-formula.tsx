@@ -1,75 +1,78 @@
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { CustomFormula, isAtomicVariable, isExpression } from "src/lib/types";
-import { EditableAtomicVariable } from "./editable-atomic-variable";
-import { EditableExpression } from "./editable-expression";
-import { FaPencil, FaTrash } from "react-icons/fa6";
+import { formatAtomicVariable, formatCustomFormula } from "src/lib/formula";
+import { FaChevronRight, FaXmark } from "react-icons/fa6";
 
 interface EditableCustomFormulaProps {
   formula: CustomFormula;
   setFormula: (newVal: CustomFormula) => void;
   removeOperand?: () => void;
   subField?: string;
+  /** Whether this operand's inline editor is the one currently open. */
+  open?: boolean;
+  /** Toggle this operand's inline editor (only meaningful for atoms). */
+  onToggle?: () => void;
 }
 
 export function EditableCustomFormula({
   formula,
-  setFormula,
   removeOperand,
   subField,
+  open,
+  onToggle,
 }: EditableCustomFormulaProps) {
   const { targetedField, pushTargetedField } = useTargetedField();
   const { character } = useCharacter();
   if (!character || !targetedField) return <></>;
+
   if (isAtomicVariable(formula)) {
+    // A value pip; clicking opens its editor inline beneath the formula line.
     return (
-      <EditableAtomicVariable
-        atomicVar={formula}
-        setVar={setFormula}
-        removeVar={removeOperand}
-      />
+      <button
+        type="button"
+        className={`formula-pip${open ? " open" : ""}`}
+        onClick={(e) => {
+          e.preventDefault();
+          onToggle?.();
+        }}
+      >
+        {formatAtomicVariable(formula, character, false)}
+      </button>
     );
   }
+
   if (isExpression(formula)) {
+    // A nested sub-formula is a pip you drill into (back button returns here),
+    // so the inline expression stays compact no matter how deep it nests.
     return (
-      <div className="formula-operand">
-        <div className="formula-operand-controls">
+      <span className="formula-pip-wrap">
+        <button
+          type="button"
+          className="formula-pip formula-pip-group"
+          onClick={(e) => {
+            e.preventDefault();
+            pushTargetedField(targetedField, subField);
+          }}
+        >
+          {formatCustomFormula(formula, character, false)}
+          <FaChevronRight className="formula-pip-chevron" />
+        </button>
+        {removeOperand && (
           <button
             type="button"
-            className="icon-btn"
-            title="Edit formula"
-            aria-label="Edit formula"
+            className="formula-pip-remove"
+            title="Remove"
+            aria-label="Remove operand"
             onClick={(e) => {
               e.preventDefault();
-              pushTargetedField(targetedField, subField);
+              removeOperand();
             }}
           >
-            <FaPencil />
+            <FaXmark />
           </button>
-          {removeOperand && (
-            <button
-              type="button"
-              className="icon-btn btn-danger"
-              title="Remove"
-              aria-label="Remove operand"
-              onClick={(e) => {
-                e.preventDefault();
-                removeOperand();
-              }}
-            >
-              <FaTrash />
-            </button>
-          )}
-        </div>
-        <div className="formula-operand-body">
-          <EditableExpression
-            expr={formula}
-            setExpr={setFormula}
-            edit={false}
-            subField={subField}
-          />
-        </div>
-      </div>
+        )}
+      </span>
     );
   }
   throw new Error(

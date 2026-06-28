@@ -13,7 +13,7 @@
     "generate-schema": "typescript-json-schema src/lib/types.ts Character --required > src/schema.json && prettier --write src/schema.json --log-level silent",
     "schema:check": "pnpm generate-schema && git diff --exit-code -- src/schema.json",
     "type-check": "tsc --noEmit",
-    "lint": "eslint . --max-warnings 0 --cache || eslint . --fix --max-warnings 0 --cache",
+    "lint": "sh -c 'eslint \"${@:-.}\" --max-warnings 0 --cache || eslint \"${@:-.}\" --fix --max-warnings 0 --cache' --",
     "lint:ci": "eslint . --max-warnings 0",
     "pretty": "prettier --write \"**/*.{json,css,md,js,jsx,ts,tsx}\"",
     "test": "vitest run",

@@ -1,16 +1,32 @@
-import React from "react";
+import React, { useState } from "react";
 import { FaPlus } from "react-icons/fa6";
 import { Operation, StatKey } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
+  Addition,
+  Ceil,
   CustomFormula,
+  Division,
   Expression,
+  Floor,
   isArbitraryOperandOperation,
+  isAtomicVariable,
   isDoubleOperandOperation,
   isSingleOperandOperation,
+  Maximum,
+  Minimum,
+  Multiplication,
+  Subtraction,
 } from "src/lib/types";
-import { EDITOR_SYNTAX, formatExpression } from "src/lib/formula";
+
+type ArbitraryExpr = Addition | Multiplication | Maximum | Minimum;
+import {
+  EDITOR_SYNTAX,
+  formatAtomicVariable,
+  formatExpression,
+} from "src/lib/formula";
 import { EditableCustomFormula } from "./editable-custom-formula";
+import { EditableAtomicVariable } from "./editable-atomic-variable";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 
 interface EditableExpressionProps {
@@ -20,6 +36,16 @@ interface EditableExpressionProps {
   subField?: string;
 }
 
+/** A single operand normalised across the three operation shapes so the inline
+ *  expression and its editor can be rendered uniformly. */
+interface OperandDesc {
+  key: string;
+  value: CustomFormula;
+  subField: string;
+  setFormula: (v: CustomFormula) => void;
+  removeOperand?: () => void;
+}
+
 export function EditableExpression({
   expr,
   setExpr,
@@ -27,6 +53,7 @@ export function EditableExpression({
 }: EditableExpressionProps) {
   const { character } = useCharacter();
   const { subField } = useTargetedField();
+  const [openKey, setOpenKey] = useState<string | null>(null);
   if (!character) return <></>;
 
   const setOperation = (operation: Expression["operation"]) => {
@@ -67,17 +94,70 @@ export function EditableExpression({
   if (!edit) {
     return <div>{formatExpression(expr, character, false)}</div>;
   }
-  // TODO: clear expression if optional
-  // TODO: revert expression to atomic variable
+
+  const base = subField ? `${subField}.` : "";
+  const clone = (operands: CustomFormula[]) =>
+    JSON.parse(JSON.stringify(operands)) as CustomFormula[];
+
+  let operands: OperandDesc[] = [];
+  if (isSingleOperandOperation(expr)) {
+    const single = expr as Ceil | Floor;
+    operands = [
+      {
+        key: "operand1",
+        value: single.operand1,
+        subField: `${base}operand1`,
+        setFormula: (v) => setExpr({ ...single, operand1: v }),
+      },
+    ];
+  } else if (isDoubleOperandOperation(expr)) {
+    const double = expr as unknown as Subtraction | Division;
+    operands = [
+      {
+        key: "operand1",
+        value: double.operand1,
+        subField: `${base}operand1`,
+        setFormula: (v) => setExpr({ ...double, operand1: v }),
+      },
+      {
+        key: "operand2",
+        value: double.operand2,
+        subField: `${base}operand2`,
+        setFormula: (v) => setExpr({ ...double, operand2: v }),
+      },
+    ];
+  } else if (isArbitraryOperandOperation(expr)) {
+    const arbitrary = expr as ArbitraryExpr;
+    operands = arbitrary.operands.map((operand, i) => ({
+      key: `operands.${i}`,
+      value: operand,
+      subField: `${base}operands.${i}`,
+      setFormula: (v) => {
+        const next = clone(arbitrary.operands);
+        next.splice(i, 1, v);
+        setExpr({ ...arbitrary, operands: next });
+      },
+      removeOperand: () => {
+        const next = clone(arbitrary.operands);
+        next.splice(i, 1);
+        setExpr({ operation: arbitrary.operation, operands: next });
+      },
+    }));
+  }
+
+  const { startStr, connector, endStr } = EDITOR_SYNTAX[expr.operation];
+  const openOperand = operands.find((o) => o.key === openKey);
+
   return (
     <>
       <div className="row formula-type-row">
         <p className="field-label">Formula type</p>
         <select
           value={expr.operation}
-          onChange={(e) =>
-            setOperation(e.target.value as Expression["operation"])
-          }
+          onChange={(e) => {
+            setOpenKey(null);
+            setOperation(e.target.value as Expression["operation"]);
+          }}
         >
           {Object.keys(Operation).map((operation) => (
             <option key={operation} value={operation}>
@@ -86,96 +166,55 @@ export function EditableExpression({
           ))}
         </select>
       </div>
-      <div className="row formula-operand-row">
-        <p className="formula-syntax">
-          {EDITOR_SYNTAX[expr.operation].startStr}
-        </p>
-        {isSingleOperandOperation(expr) && (
-          <EditableCustomFormula
-            formula={expr.operand1}
-            setFormula={(newValue) => {
-              setExpr({ ...expr, operand1: newValue });
-            }}
-            subField={subField ? `${subField}.operand1` : "operand1"}
-          />
-        )}
-        {isDoubleOperandOperation(expr) && (
-          <>
+      <div className="formula-expression">
+        <p className="formula-syntax">{startStr}</p>
+        {operands.map((operand, i) => (
+          <React.Fragment key={operand.key}>
+            {i > 0 && <p className="formula-syntax nowrap">{connector}</p>}
             <EditableCustomFormula
-              formula={expr.operand1}
-              setFormula={(newValue) => {
-                setExpr({ ...expr, operand1: newValue });
-              }}
-              subField={subField ? `${subField}.operand1` : "operand1"}
+              formula={operand.value}
+              setFormula={operand.setFormula}
+              removeOperand={operand.removeOperand}
+              subField={operand.subField}
+              open={openKey === operand.key}
+              onToggle={() =>
+                setOpenKey(openKey === operand.key ? null : operand.key)
+              }
             />
-            <p className="formula-syntax nowrap">
-              {EDITOR_SYNTAX[expr.operation].connector}
-            </p>
-            <EditableCustomFormula
-              formula={expr.operand2}
-              setFormula={(newValue) => {
-                setExpr({ ...expr, operand2: newValue });
-              }}
-              subField={subField ? `${subField}.operand2` : "operand2"}
-            />
-          </>
-        )}
+          </React.Fragment>
+        ))}
         {isArbitraryOperandOperation(expr) && (
-          <>
-            {expr.operands.map((operand, i, arr) => (
-              <React.Fragment key={i}>
-                <EditableCustomFormula
-                  formula={operand}
-                  setFormula={(newValue) => {
-                    const newOperands = JSON.parse(
-                      JSON.stringify(expr.operands),
-                    );
-                    newOperands.splice(i, 1, newValue);
-                    setExpr({ ...expr, operands: newOperands });
-                  }}
-                  removeOperand={() => {
-                    const newOperands = JSON.parse(
-                      JSON.stringify(expr.operands),
-                    );
-                    newOperands.splice(i, 1);
-                    setExpr({
-                      operation: expr.operation,
-                      operands: newOperands,
-                    });
-                  }}
-                  subField={
-                    subField ? `${subField}.operands.${i}` : `operands.${i}`
-                  }
-                />
-                {i < arr.length - 1 && (
-                  <p className="formula-syntax nowrap">
-                    {EDITOR_SYNTAX[expr.operation].connector}
-                  </p>
-                )}
-              </React.Fragment>
-            ))}
-            <button
-              type="button"
-              className="icon-btn"
-              title="Add operand"
-              aria-label="Add operand"
-              onClick={(e) => {
-                e.preventDefault();
-                // TODO: persist new operands immediately so they can be edited (at least if they're formulas)
-                setExpr({
-                  operation: expr.operation,
-                  operands: expr.operands.concat([1]),
-                });
-              }}
-            >
-              <FaPlus />
-            </button>
-          </>
+          <button
+            type="button"
+            className="icon-btn formula-add-pip"
+            title="Add operand"
+            aria-label="Add operand"
+            onClick={(e) => {
+              e.preventDefault();
+              // TODO: persist new operands immediately so they can be edited (at least if they're formulas)
+              setExpr({
+                operation: expr.operation,
+                operands: expr.operands.concat([1]),
+              });
+            }}
+          >
+            <FaPlus />
+          </button>
         )}
-        <p className="formula-syntax nowrap">
-          {EDITOR_SYNTAX[expr.operation].endStr}
-        </p>
+        <p className="formula-syntax nowrap">{endStr}</p>
       </div>
+      {openOperand && isAtomicVariable(openOperand.value) && (
+        <div className="formula-inline-editor">
+          <p className="field-label">
+            Editing {formatAtomicVariable(openOperand.value, character, false)}
+          </p>
+          <EditableAtomicVariable
+            atomicVar={openOperand.value}
+            setVar={openOperand.setFormula}
+            removeVar={openOperand.removeOperand}
+          />
+        </div>
+      )}
     </>
   );
 }

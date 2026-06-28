@@ -416,9 +416,9 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
         : undefined,
 };
 
-// Which ability a weapon's attack/damage uses. "versatile" means the better of
-// STR or DEX (i.e. 5e finesse) and pre-populates as max(STR, DEX).
-export type WeaponAbility = StatKey.str | StatKey.dex | "versatile";
+// Which ability a weapon's attack/damage uses. "finesse" means the better of
+// STR or DEX and pre-populates as max(STR, DEX).
+export type WeaponAbility = StatKey.str | StatKey.dex | "finesse";
 
 export interface WeaponPreset {
   name: string;
@@ -444,7 +444,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       },
       {
         name: "Dagger",
-        ability: "versatile",
+        ability: "finesse",
         damage: D(1, StandardDie.d4, DamageType.Piercing),
       },
       {
@@ -499,7 +499,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       },
       {
         name: "Dart",
-        ability: "versatile",
+        ability: "finesse",
         damage: D(1, StandardDie.d4, DamageType.Piercing),
       },
       {
@@ -574,17 +574,17 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       },
       {
         name: "Rapier",
-        ability: "versatile",
+        ability: "finesse",
         damage: D(1, StandardDie.d8, DamageType.Piercing),
       },
       {
         name: "Scimitar",
-        ability: "versatile",
+        ability: "finesse",
         damage: D(1, StandardDie.d6, DamageType.Slashing),
       },
       {
         name: "Shortsword",
-        ability: "versatile",
+        ability: "finesse",
         damage: D(1, StandardDie.d6, DamageType.Piercing),
       },
       {
@@ -604,7 +604,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       },
       {
         name: "Whip",
-        ability: "versatile",
+        ability: "finesse",
         damage: D(1, StandardDie.d4, DamageType.Slashing),
       },
     ],
@@ -647,7 +647,7 @@ export const DEFAULT_WEAPONS: GroupedOptionsList<string> = [
 ];
 
 const abilityOperand = (ability: WeaponAbility): CustomFormula =>
-  ability === "versatile"
+  ability === "finesse"
     ? { operation: Operation.maximum, operands: [StatKey.str, StatKey.dex] }
     : ability;
 

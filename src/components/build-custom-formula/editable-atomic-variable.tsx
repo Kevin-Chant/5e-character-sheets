@@ -50,9 +50,9 @@ export function EditableAtomicVariable({
 
   if (emptyState)
     return (
-      <div className="formula-operand formula-operand-chooser">
+      <div className="atomic-editor">
         <p className="field-label">Choose a type of variable</p>
-        <div className="flex-grid">
+        <div className="atomic-type-grid">
           <button
             onClick={(e) => {
               chooseValue(e, 1);
@@ -113,11 +113,7 @@ export function EditableAtomicVariable({
     );
   } else if (isStatKey(atomicVar)) {
     inputElement = (
-      <select
-        className="font-large"
-        value={atomicVar}
-        onChange={(e) => setVar(e.target.value)}
-      >
+      <select value={atomicVar} onChange={(e) => setVar(e.target.value)}>
         {Object.keys(StatKey).map((statKey) => (
           <option key={statKey} value={statKey}>
             {statKey}
@@ -127,7 +123,7 @@ export function EditableAtomicVariable({
     );
   } else if (isDieExpression(atomicVar)) {
     inputElement = (
-      <>
+      <div className="atomic-dice-fields">
         <input
           type="number"
           value={atomicVar[0]}
@@ -156,7 +152,6 @@ export function EditableAtomicVariable({
           customInputType="number"
         />
         <select
-          className="font-large"
           value={atomicVar[2]}
           onChange={(e) =>
             setVar([atomicVar[0], atomicVar[1], e.target.value as DieOperation])
@@ -168,7 +163,7 @@ export function EditableAtomicVariable({
             </option>
           ))}
         </select>
-      </>
+      </div>
     );
   } else if (isPb(atomicVar)) {
     inputElement = <p>Proficiency Bonus ({getPB(character)})</p>;
@@ -188,19 +183,17 @@ export function EditableAtomicVariable({
   }
 
   return (
-    <div className="formula-operand">
-      <div className="formula-operand-controls">
+    <div className="atomic-editor">
+      <div className="atomic-editor-header">
         <button
           type="button"
-          className="icon-btn"
-          title="Change variable type"
-          aria-label="Change variable type"
+          className="btn-secondary atomic-change-type"
           onClick={(e) => {
             e.preventDefault();
             setEmptyState(true);
           }}
         >
-          <FaRightLeft />
+          <FaRightLeft /> Change type
         </button>
         {removeVar && (
           <button
@@ -214,7 +207,7 @@ export function EditableAtomicVariable({
           </button>
         )}
       </div>
-      <div className="formula-operand-body">{inputElement}</div>
+      {inputElement}
     </div>
   );
 }
