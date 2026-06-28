@@ -72,7 +72,7 @@ export default function SingleValueDisplay({
       {value}
     </p>
   );
-  const nameEl = <p className="display-text">{name}</p>;
+  const nameEl = <p className="display-label">{name}</p>;
 
   return (
     <div

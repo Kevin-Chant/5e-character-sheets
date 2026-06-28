@@ -5,7 +5,9 @@ import {
   CoinAmounts,
   CustomFormula,
   DieDefinition,
+  GroupedOptionsList,
   HitDice,
+  SingleOptionsList,
   IClass,
   isNonStandardDie,
   isOfficialClass,
@@ -359,6 +361,7 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
 } = {
   pbOverride: getPB,
   maxHp: getHpFormula,
+  initiativeFormula: () => StatKey.dex,
   expendedHitDice: () => 0,
   exp: () => 0,
   coins: () => 0,
@@ -410,3 +413,110 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
         ? getPactSlotInfo(character).level
         : undefined,
 };
+
+export const DEFAULT_WEAPONS: GroupedOptionsList<string> = [
+  { label: "Weapon Types", options: ["Simple Weapons", "Martial Weapons"] },
+  {
+    label: "Simple Melee Weapons",
+    options: [
+      "Club",
+      "Dagger",
+      "Greatclub",
+      "Handaxe",
+      "Javelin",
+      "Light Hammer",
+      "Mace",
+      "Quarterstaff",
+      "Sickle",
+      "Spear",
+    ],
+  },
+  {
+    label: "Simple Ranged Weapons",
+    options: ["Light Crossbow", "Dart", "Shortbow", "Sling"],
+  },
+  {
+    label: "Martial Melee Weapons",
+    options: [
+      "Battleaxe",
+      "Flail",
+      "Glaive",
+      "Greataxe",
+      "Greatsword",
+      "Halberd",
+      "Lance",
+      "Longsword",
+      "Maul",
+      "Morningstar",
+      "Pike",
+      "Rapier",
+      "Scimitar",
+      "Shortsword",
+      "Trident",
+      "War Pick",
+      "Warhammer",
+      "Whip",
+    ],
+  },
+  {
+    label: "Martial Ranged Weapons",
+    options: ["Blowgun", "Hand Crossbow", "Heavy Crossbow", "Longbow", "Net"],
+  },
+];
+
+export const DEFAULT_LANGUAGES: GroupedOptionsList<string> = [
+  {
+    label: "Standard Languages",
+    options: [
+      "Common",
+      "Dwarvish",
+      "Elvish",
+      "Giant",
+      "Gnomish",
+      "Goblin",
+      "Halfling",
+      "Orc",
+    ],
+  },
+  {
+    label: "Exotic Languages",
+    options: [
+      "Abyssal",
+      "Celestial",
+      "Deep Speech",
+      "Draconic",
+      "Infernal",
+      "Primordial",
+      "Sylvan",
+      "Undercommon",
+    ],
+  },
+];
+
+export const DEFAULT_BACKGROUNDS: SingleOptionsList<string> = [
+  "Acolyte",
+  "Charlatan",
+  "Criminal",
+  "Entertainer",
+  "Folk Hero",
+  "Guild Artisan",
+  "Hermit",
+  "Noble",
+  "Outlander",
+  "Sage",
+  "Sailor",
+  "Soldier",
+  "Urchin",
+];
+
+export const DEFAULT_RACES: SingleOptionsList<string> = [
+  "Dragonborn",
+  "Dwarf",
+  "Elf",
+  "Gnome",
+  "Half-Elf",
+  "Half-Orc",
+  "Halfling",
+  "Human",
+  "Tiefling",
+];

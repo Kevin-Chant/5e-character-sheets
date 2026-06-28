@@ -41,10 +41,24 @@
     "expertise": {},
     "isJackOfAllTradesOverride": false
   },
-  "otherProficiencies": [],
+  "otherProficiencies": {
+    "languages": ["Common", "Elvish"],
+    "armor": {
+      "Light Armor": true,
+      "Medium Armor": true,
+      "Heavy Armor": false,
+      "Shields": true
+    },
+    "weapons": ["Simple Weapons", "Martial Weapons"],
+    "toolsAndOther": []
+  },
   "acFormula": {
     "operation": "addition",
     "operands": [18, 2]
+  },
+  "initiativeFormula": {
+    "operation": "addition",
+    "operands": ["dex"]
   },
   "speed": 30,
   "currHp": 96,

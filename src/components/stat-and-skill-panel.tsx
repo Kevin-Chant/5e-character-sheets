@@ -6,7 +6,7 @@ import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { calculateCustomFormula } from "src/lib/formula";
 import { SKILL_SOURCE_STATS, STAT_NAMES, getPB, modifier } from "src/lib/rules";
-import MultiLineTextDisplay from "./display/multi-line-text-display";
+import OtherProficienciesDisplay from "./display/other-proficiencies-display";
 
 function SkillsColumn({ pb }: { pb: number }) {
   const { character, dispatch } = useCharacter();
@@ -145,10 +145,7 @@ export default function StatAndSkillPanel() {
         subField="wis"
         transform={(wis) => calculatePassivePerception(wis)}
       />
-      <MultiLineTextDisplay
-        title="Other Proficiencies & Languages"
-        field={FIELD.otherProficiencies}
-      />
+      <OtherProficienciesDisplay />
     </div>
   );
 }

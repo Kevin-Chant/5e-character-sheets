@@ -2,16 +2,24 @@ import React, { useEffect, useState } from "react";
 import {
   Alignment,
   EDITABLE_FIELD_OPTIONAL_DATA,
+  FIELD,
   OfficialClass,
   StatKey,
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue, traverse } from "src/lib/fields";
-import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
+import {
+  DEFAULT_BACKGROUNDS,
+  DEFAULT_LANGUAGES,
+  DEFAULT_RACES,
+  DEFAULT_WEAPONS,
+  OPTIONAL_FIELD_INITIALIZERS,
+} from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import OptionOrCustomValue from "./display/option-or-custom-value";
+import { OptionsList } from "src/lib/types";
 
 export interface UpdateFieldProps {
   allowUndefined?: boolean;
@@ -25,6 +33,13 @@ export interface UpdateFieldProps {
     | typeof StatKey;
 }
 
+// "expendedHitDice" -> "Expended Hit Dice"; used as a fallback label when a
+// field has no entry in EDITABLE_FIELD_OPTIONAL_DATA.
+const humanize = (field: string) =>
+  field
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (c) => c.toUpperCase());
+
 export default function UpdateField({
   allowUndefined,
   modalType,
@@ -32,26 +47,35 @@ export default function UpdateField({
   const { targetedField, subField } = useTargetedField();
   const { character, dispatch } = useCharacter();
   const { saveData } = useSave();
+
+  // Resolve the value currently persisted for this (field, subField), falling
+  // back to the optional-field initializer when nothing is stored yet.
   let currentValue =
     targetedField && character ? getFieldValue(targetedField, character) : "";
-
-  // Local state so the input can be freely edited (including cleared to empty)
-  // even when `setValue` declines to persist an empty/invalid required value.
-  const [localValue, setLocalValue] = useState<string>(currentValue ?? "");
-  useEffect(() => {
-    setLocalValue(currentValue ?? "");
-  }, [currentValue]);
-
-  if (!character || !targetedField) return <></>;
-
   if (subField) currentValue = traverse(subField, currentValue);
-  if (!currentValue && OPTIONAL_FIELD_INITIALIZERS[targetedField]) {
+  if (
+    !currentValue &&
+    targetedField &&
+    character &&
+    OPTIONAL_FIELD_INITIALIZERS[targetedField]
+  ) {
     currentValue = OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
       undefined,
       character,
       subField,
     );
   }
+
+  // Local state so the input can be freely edited (including cleared to empty)
+  // even when `setValue` declines to persist an empty/invalid required value.
+  const [localValue, setLocalValue] = useState<string>(
+    String(currentValue ?? ""),
+  );
+  useEffect(() => {
+    setLocalValue(String(currentValue ?? ""));
+  }, [currentValue]);
+
+  if (!character || !targetedField) return <></>;
 
   const setValue = (value: string) => {
     if (!value && !allowUndefined) return;
@@ -82,25 +106,57 @@ export default function UpdateField({
   };
 
   const optionalData = EDITABLE_FIELD_OPTIONAL_DATA[targetedField];
+  // Drop a trailing array index (e.g. "languages.3" -> "languages") from the
+  // title; the specific entry being edited isn't meaningful to the user.
+  const labelSubField = subField?.replace(/\.\d+$/, "");
+  const heading =
+    optionalData?.title ??
+    humanize(targetedField) + (labelSubField ? ` (${labelSubField})` : "");
+  const numberInvalid =
+    modalType === "number" &&
+    !allowUndefined &&
+    (localValue.trim() === "" || isNaN(parseInt(localValue, 10)));
+
+  // Suggestions offered as a typeahead for free-text (string) fields; arbitrary
+  // custom input is still accepted.
+  let knownOptions: OptionsList | undefined;
+  if (targetedField === FIELD.otherProficiencies) {
+    const section = subField?.split(".")[0];
+    if (section === "weapons") knownOptions = DEFAULT_WEAPONS;
+    else if (section === "languages") knownOptions = DEFAULT_LANGUAGES;
+  } else if (targetedField === FIELD.background) {
+    knownOptions = DEFAULT_BACKGROUNDS;
+  } else if (targetedField === FIELD.race) {
+    knownOptions = DEFAULT_RACES;
+  }
+
   return (
-    <form>
+    <form onSubmit={(e) => e.preventDefault()}>
       <div className="column">
-        {optionalData && (
-          <>
-            <p className="font-large bold">{optionalData.title}</p>
-            <i>{optionalData.hint}</i>
-          </>
-        )}
-        {(modalType === "string" ||
-          modalType === "number" ||
-          modalType === "boolean") && (
-          <input
-            type={modalType}
-            onChange={onChangeInput}
-            value={localValue}
-            autoFocus={true}
-            onFocus={(e) => e.target.select()}
-          ></input>
+        <p className="font-large bold">{heading}</p>
+        {optionalData?.hint && <i>{optionalData.hint}</i>}
+        {modalType === "string" && knownOptions ? (
+          <OptionOrCustomValue
+            value={currentValue}
+            setValue={setValue}
+            options={knownOptions}
+            customDefaultValue=""
+            customInputType="text"
+            customValueHelpText="Type to filter or enter a custom value"
+            autoFocus
+          />
+        ) : (
+          (modalType === "string" ||
+            modalType === "number" ||
+            modalType === "boolean") && (
+            <input
+              type={modalType}
+              onChange={onChangeInput}
+              value={localValue}
+              autoFocus={true}
+              onFocus={(e) => e.target.select()}
+            ></input>
+          )
         )}
         {modalType === "singleClass" && (
           <OptionOrCustomValue
@@ -145,7 +201,12 @@ export default function UpdateField({
             })}
           </select>
         )}
-        <button className="margin-small" onClick={saveData}>
+        <button
+          className="margin-small"
+          onClick={saveData}
+          disabled={numberInvalid}
+          title={numberInvalid ? "Enter a valid number to save" : undefined}
+        >
           Save
         </button>
       </div>

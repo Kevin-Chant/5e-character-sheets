@@ -19,6 +19,7 @@ import {
   StatKey,
   FIELD,
   SpellLevel,
+  ArmorType,
 } from "./data/data-definitions";
 import { UUID } from "crypto";
 
@@ -299,6 +300,13 @@ export type TextComponent =
   | TextComponentWithDetails
   | TextComponentWithoutDetails;
 
+export interface OtherProficiencies {
+  languages: string[];
+  armor: Record<ArmorType, boolean>;
+  weapons: string[];
+  toolsAndOther: TextComponent[];
+}
+
 export interface SpellCastingClass {
   class: ClassName;
   abilityOverride?: StatKey;
@@ -370,8 +378,9 @@ export interface Character extends BaseCharacter {
     expertise: Proficiencies<SkillName>;
     isJackOfAllTradesOverride: boolean;
   };
-  otherProficiencies: TextComponent[];
+  otherProficiencies: OtherProficiencies;
   acFormula: CustomFormula;
+  initiativeFormula?: CustomFormula;
   speed: number;
   maxHp?: CustomFormula;
   currHp: number;
@@ -426,3 +435,14 @@ export interface Datastore {
   // returning it for the caller to open (undefined if nothing was picked).
   importSharedCharacter?: () => Promise<Character | undefined>;
 }
+
+export type SingleOptionsList<T = string> = Array<T>;
+
+export type GroupedOptionsList<T = string> = Array<{
+  label: string;
+  options: T[];
+}>;
+
+export type OptionsList<T = string> =
+  | SingleOptionsList<T>
+  | GroupedOptionsList<T>;

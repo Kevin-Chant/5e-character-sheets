@@ -246,6 +246,8 @@ export type FieldTypeNode =
   | "singleClass"
   | "multiClass"
   | "textLine"
+  | "otherProficiencies"
+  | "armorProficiencies"
   | "attack"
   | "hitDice"
   | "spellcastingClass"
@@ -300,8 +302,9 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   inspiration: "number",
   pbOverride: "number",
   proficiencies: "boolean",
-  otherProficiencies: "textLine",
+  otherProficiencies: "otherProficiencies",
   acFormula: "formula",
+  initiativeFormula: "formula",
   speed: "number",
   maxHp: "formula",
   currHp: "number",
@@ -354,6 +357,7 @@ export enum FIELD {
   proficiencies = "proficiencies",
   otherProficiencies = "otherProficiencies",
   acFormula = "acFormula",
+  initiativeFormula = "initiativeFormula",
   speed = "speed",
   maxHp = "maxHp",
   currHp = "currHp",
@@ -422,4 +426,11 @@ export enum SpellLevel {
   Seventh = "Seventh",
   Eighth = "Eighth",
   Ninth = "Ninth",
+}
+
+export enum ArmorType {
+  Light = "Light Armor",
+  Medium = "Medium Armor",
+  Heavy = "Heavy Armor",
+  Shields = "Shields",
 }

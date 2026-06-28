@@ -401,6 +401,38 @@
             ],
             "type": "object"
         },
+        "OtherProficiencies": {
+            "properties": {
+                "armor": {
+                    "$ref": "#/definitions/Record<ArmorType,boolean>"
+                },
+                "languages": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "toolsAndOther": {
+                    "items": {
+                        "$ref": "#/definitions/TextComponent"
+                    },
+                    "type": "array"
+                },
+                "weapons": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "armor",
+                "languages",
+                "toolsAndOther",
+                "weapons"
+            ],
+            "type": "object"
+        },
         "PactSlots": {
             "properties": {
                 "expended": {
@@ -501,6 +533,29 @@
                     "type": "boolean"
                 }
             },
+            "type": "object"
+        },
+        "Record<ArmorType,boolean>": {
+            "properties": {
+                "Heavy Armor": {
+                    "type": "boolean"
+                },
+                "Light Armor": {
+                    "type": "boolean"
+                },
+                "Medium Armor": {
+                    "type": "boolean"
+                },
+                "Shields": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "Heavy Armor",
+                "Light Armor",
+                "Medium Armor",
+                "Shields"
+            ],
             "type": "object"
         },
         "Spell": {
@@ -948,6 +1003,9 @@
             },
             "type": "array"
         },
+        "initiativeFormula": {
+            "$ref": "#/definitions/CustomFormula"
+        },
         "inspiration": {
             "type": "number"
         },
@@ -958,10 +1016,7 @@
             "type": "string"
         },
         "otherProficiencies": {
-            "items": {
-                "$ref": "#/definitions/TextComponent"
-            },
-            "type": "array"
+            "$ref": "#/definitions/OtherProficiencies"
         },
         "pactSlots": {
             "$ref": "#/definitions/PactSlots"

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import classNames from "classnames";
 
 interface ComponentWithPopoverProps {
   ComponentType?: string;
@@ -15,11 +16,8 @@ export default function ComponentWithPopover({
   popoverClass = "popover-container padding-medium rounded-border-box",
   popoverChildren,
 }: ComponentWithPopoverProps) {
-  const [showPopover, setShowPopover] = useState(false);
   const [hovering, setHovering] = useState(false);
-  const togglePopoverDisplay = () => {
-    setShowPopover(!showPopover);
-  };
+  const [pinned, setPinned] = useState(false);
 
   const Components = {
     div: "div",
@@ -30,14 +28,20 @@ export default function ComponentWithPopover({
   // TODO fix nesting by splitting container logic and component logic
   return (
     <Component
-      className={componentClass}
-      onClick={togglePopoverDisplay}
+      className={classNames(componentClass, "popover-anchor", { pinned })}
+      onClick={() => setPinned((p) => !p)}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
+      title={pinned ? "Click to unpin" : "Click to keep open"}
     >
       {componentChildren}
-      {(showPopover || hovering) && popoverChildren && (
-        <div className={popoverClass}>{popoverChildren}</div>
+      {(hovering || pinned) && popoverChildren && (
+        <div className={classNames(popoverClass, { pinned })}>
+          {popoverChildren}
+          <span className="popover-pin-hint" aria-hidden="true">
+            📌
+          </span>
+        </div>
       )}
     </Component>
   );

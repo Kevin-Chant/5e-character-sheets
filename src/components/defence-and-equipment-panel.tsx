@@ -12,7 +12,7 @@ import {
   calculateCustomFormula,
   formatCustomFormulaWithDamage,
 } from "src/lib/formula";
-import { getHitDice, modifier, totalGP } from "src/lib/rules";
+import { getHitDice, totalGP } from "src/lib/rules";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 import SingleValueDisplay from "./display/single-value-display";
 import { FaPencil } from "react-icons/fa6";
@@ -72,11 +72,11 @@ export default function DefenceAndEquipmentPanel() {
           editable
         />
         <SingleValueDisplay
-          field={FIELD.stats}
-          subField="dex"
+          field={FIELD.initiativeFormula}
           name="Initiative"
-          transform={(dex) => modifier(dex)}
+          transform={calculateCustomFormula}
           vertical
+          editable
         />
         <SingleValueDisplay
           field={FIELD.speed}

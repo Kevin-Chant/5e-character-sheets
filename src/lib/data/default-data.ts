@@ -2,6 +2,7 @@ import { Character } from "src/lib/types";
 import {
   Alignment,
   DieOperation,
+  ArmorType,
   OfficialClass,
   Operation,
   PB,
@@ -48,14 +49,24 @@ export const defaultCharacter: Character = {
     expertise: {},
     isJackOfAllTradesOverride: false,
   },
-  otherProficiencies: [
-    {
-      title: "Languages",
-      titleFormulas: [],
-      detail: "Just common",
-      detailFormulas: [],
+  otherProficiencies: {
+    languages: ["Common", "Infernal"],
+    armor: {
+      [ArmorType.Light]: true,
+      [ArmorType.Medium]: true,
+      [ArmorType.Heavy]: true,
+      [ArmorType.Shields]: true,
     },
-  ],
+    weapons: ["Simple Weapons", "Martial Weapons"],
+    toolsAndOther: [
+      {
+        title: "Smith's Tools",
+        titleFormulas: [],
+        detail: "",
+        detailFormulas: [],
+      },
+    ],
+  },
   acFormula: { operation: Operation.addition, operands: [14, StatKey.dex] },
   speed: 30,
   maxHp: undefined,

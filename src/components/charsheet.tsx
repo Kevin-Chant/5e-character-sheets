@@ -17,6 +17,7 @@ import SingleValueDisplay from "./display/single-value-display";
 import ModalContainer from "./modals/modal-container";
 import UpdateField from "./update-field";
 import EditTextLine from "./edit-text-line";
+import EditArmorProficiencies from "./edit-armor-proficiencies";
 import EditHitDice from "./edit-hit-dice";
 import EditAttack from "./edit-attack";
 import BuildCustomFormulaWithDamage from "./build-custom-formula-with-damage";
@@ -70,6 +71,20 @@ export default function CharSheet() {
               "Unexpected subfield for spellcasting class" + subField,
             );
         }
+      } else if (standardFieldType === "otherProficiencies") {
+        // languages/weapons are plain strings; armor is a checkbox set;
+        // toolsAndOther are textLines (with formula sub-paths handled like
+        // other textLine fields).
+        const section = subField?.split(".")[0];
+        if (section === "armor") {
+          setModalType("armorProficiencies");
+        } else if (section === "toolsAndOther") {
+          setModalType(
+            (subField || "").includes("Formulas") ? "formula" : "textLine",
+          );
+        } else {
+          setModalType("string");
+        }
       } else if (
         (standardFieldType === "textLine" || standardFieldType === "spell") &&
         (subField || "").includes("Formulas")
@@ -97,6 +112,9 @@ export default function CharSheet() {
   switch (modalType) {
     case undefined:
       break;
+    // The effect always remaps "otherProficiencies" to a concrete modal type.
+    case "otherProficiencies":
+      break;
     case "formula":
       modalContents = <BuildCustomFormula />;
       modalTitle = "Formula Builder";
@@ -112,6 +130,10 @@ export default function CharSheet() {
     case "textLine":
       modalContents = <EditTextLine />;
       modalTitle = "Update Text Section";
+      break;
+    case "armorProficiencies":
+      modalContents = <EditArmorProficiencies />;
+      modalTitle = "Armor Proficiencies";
       break;
     case "hitDice":
       modalContents = <EditHitDice />;

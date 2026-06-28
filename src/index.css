@@ -283,16 +283,159 @@ p {
   margin: 0.5rem;
 }
 
+/* Other proficiencies & languages: printed-sheet look — a label column divided
+   from a values column, one row per category, with a heading underneath. */
+/* Override the `.column` parent's centering so every row spans the full width
+   and the label edges line up regardless of how wide each row's values are. */
+.other-proficiencies {
+  align-items: stretch;
+}
+
+.other-proficiencies .prof-row {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  align-items: stretch;
+  border-bottom: 2px solid var(--border);
+}
+
+.other-proficiencies .prof-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+  font-weight: 700;
+  padding: 0.4rem 0.5rem;
+  border-right: 2px dotted var(--border);
+}
+
+.other-proficiencies .prof-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.1rem 0.35rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.other-proficiencies .prof-chip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.other-proficiencies .prof-chip-label,
+.other-proficiencies .prof-chip-popover {
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.other-proficiencies .prof-chip-label:hover {
+  color: var(--accent);
+}
+
+.other-proficiencies .prof-chip-remove {
+  visibility: hidden;
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  padding: 0 0.1rem;
+  margin-left: 0.1rem;
+}
+
+.other-proficiencies .prof-chip:hover .prof-chip-remove {
+  visibility: visible;
+}
+
+.other-proficiencies .prof-add {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--accent);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.1rem 0.3rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.other-proficiencies .prof-title {
+  text-align: center;
+  font-weight: 700;
+  padding: 0.4rem;
+}
+
+/* Typeahead combobox: free-text input with a filtered, optionally grouped list
+   of suggestions below it. */
+.typeahead {
+  position: relative;
+}
+
+.typeahead > input {
+  width: 100%;
+}
+
+/* Rendered in normal flow (not absolutely positioned) so it grows the modal
+   instead of overflowing it, which avoids awkward double-scrolling. */
+.typeahead-list {
+  margin: 0.15rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--surface);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.typeahead-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.typeahead-group-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 0.3rem 0.4rem 0.1rem;
+}
+
+.typeahead-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius);
+}
+
+.typeahead-option:hover {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
 .display-text {
   white-space: nowrap;
   margin: 0;
 }
 
+/* Classic character-sheet look: the value sits on an underline rather than in a
+   filled box, so empty/short values read as fields to fill in, not placeholders. */
 .display-value {
   height: 100%;
-  border-radius: 15%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
   text-align: center;
-  background-color: var(--display-value-bg);
+  padding: 0.1rem 0.4rem 0.15rem;
+  border-bottom: 2px solid var(--border);
   &.tiny {
     font-size: 1rem;
   }
@@ -303,12 +446,35 @@ p {
   &.large {
     width: 70%;
     font-size: 2rem;
+    min-height: 2.4rem;
   }
   /* Long free-text values (e.g. a multiclass "Class & Level") render smaller so
      they wrap to a few lines instead of ballooning the box. */
   &.compact {
     font-size: 1.25rem;
   }
+}
+
+/* Override the filled `.editable` background so editable values read as
+   underlined fields too, surfacing the fill only on hover. */
+.display-value.editable {
+  cursor: pointer;
+  background-color: transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
+  transition: background-color 0.12s ease;
+}
+.display-value.editable:hover {
+  background-color: var(--editable);
+}
+
+/* Small-caps field caption beneath a value (header fields, etc.). */
+.display-label {
+  white-space: nowrap;
+  margin: 0.15rem 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
 /* ============================================================
@@ -799,18 +965,43 @@ button.slot-pip:hover:not(:disabled) {
   width: 100%;
 }
 
+/* Sits flush against the top of its anchor (no gap) so the pointer can travel
+   onto it without crossing dead space and dismissing it on mouseleave. */
 .popover-container {
   position: absolute;
   z-index: 1;
-  top: 0;
   left: 0;
-  transform: translate(0%, -90%);
+  bottom: 100%;
   width: auto;
+  min-width: 100%;
   background: var(--popover-bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-2);
+}
+.popover-container.pinned {
+  box-shadow:
+    var(--shadow-2),
+    0 0 0 2px var(--accent);
+}
+
+/* Anchors are clickable to pin the popover open; the corner pin glyph hints at
+   it and reads as solid once pinned. */
+.popover-anchor {
+  cursor: pointer;
+}
+.popover-pin-hint {
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: 0.4;
+  pointer-events: none;
+}
+.popover-container.pinned .popover-pin-hint {
+  opacity: 1;
 }
 
 .modal-container {

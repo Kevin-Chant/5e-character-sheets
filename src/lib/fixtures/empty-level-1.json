@@ -33,10 +33,24 @@
     "expertise": {},
     "isJackOfAllTradesOverride": false
   },
-  "otherProficiencies": [],
+  "otherProficiencies": {
+    "languages": ["Common"],
+    "armor": {
+      "Light Armor": false,
+      "Medium Armor": false,
+      "Heavy Armor": false,
+      "Shields": false
+    },
+    "weapons": [],
+    "toolsAndOther": []
+  },
   "acFormula": {
     "operation": "addition",
     "operands": [10, "dex"]
+  },
+  "initiativeFormula": {
+    "operation": "addition",
+    "operands": ["dex"]
   },
   "speed": 30,
   "currHp": 9,
