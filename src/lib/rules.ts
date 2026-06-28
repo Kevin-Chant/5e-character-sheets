@@ -424,14 +424,22 @@ export interface WeaponPreset {
   name: string;
   ability: WeaponAbility;
   // Omitted for weapons that deal no damage (e.g. Net).
-  damage?: { count: number; die?: StandardDie; type: DamageType };
+  damage?: {
+    count: number;
+    die?: StandardDie;
+    type: DamageType;
+    // Larger die when wielded two-handed (5e "versatile"). When set, the picker
+    // offers a separate two-handed attack alongside the one-handed default.
+    versatileDie?: StandardDie;
+  };
 }
 
-const D = (count: number, die: StandardDie | undefined, type: DamageType) => ({
-  count,
-  die,
-  type,
-});
+const D = (
+  count: number,
+  die: StandardDie | undefined,
+  type: DamageType,
+  versatileDie?: StandardDie,
+) => ({ count, die, type, versatileDie });
 
 export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
   {
@@ -475,7 +483,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       {
         name: "Quarterstaff",
         ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Bludgeoning),
+        damage: D(1, StandardDie.d6, DamageType.Bludgeoning, StandardDie.d8),
       },
       {
         name: "Sickle",
@@ -485,7 +493,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       {
         name: "Spear",
         ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Piercing),
+        damage: D(1, StandardDie.d6, DamageType.Piercing, StandardDie.d8),
       },
     ],
   },
@@ -520,7 +528,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       {
         name: "Battleaxe",
         ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Slashing),
+        damage: D(1, StandardDie.d8, DamageType.Slashing, StandardDie.d10),
       },
       {
         name: "Flail",
@@ -555,7 +563,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       {
         name: "Longsword",
         ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Slashing),
+        damage: D(1, StandardDie.d8, DamageType.Slashing, StandardDie.d10),
       },
       {
         name: "Maul",
@@ -590,7 +598,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       {
         name: "Trident",
         ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Piercing),
+        damage: D(1, StandardDie.d6, DamageType.Piercing, StandardDie.d8),
       },
       {
         name: "War Pick",
@@ -600,7 +608,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
       {
         name: "Warhammer",
         ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Bludgeoning),
+        damage: D(1, StandardDie.d8, DamageType.Bludgeoning, StandardDie.d10),
       },
       {
         name: "Whip",
@@ -652,18 +660,24 @@ const abilityOperand = (ability: WeaponAbility): CustomFormula =>
     : ability;
 
 // Build a ready-to-edit Attack from a preset: to-hit = ability + PB, damage =
-// the weapon's die (if any) + ability, keyed by its damage type.
-export function buildAttackFromPreset(weapon: WeaponPreset): Attack {
+// the weapon's die (if any) + ability, keyed by its damage type. Pass
+// `twoHanded` for a versatile weapon to use its larger die and a "(2H)" name.
+export function buildAttackFromPreset(
+  weapon: WeaponPreset,
+  twoHanded = false,
+): Attack {
   const ability = abilityOperand(weapon.ability);
+  const twoHandedDie = twoHanded ? weapon.damage?.versatileDie : undefined;
   const attack: Attack = {
-    name: weapon.name,
+    name: twoHandedDie ? `${weapon.name} (2H)` : weapon.name,
     bonus: { operation: Operation.addition, operands: [ability, PB] },
     formula: {},
   };
   if (weapon.damage) {
+    const die = twoHandedDie ?? weapon.damage.die;
     const dieOperand: CustomFormula =
-      weapon.damage.die !== undefined
-        ? [weapon.damage.count, weapon.damage.die, DieOperation.roll]
+      die !== undefined
+        ? [weapon.damage.count, die, DieOperation.roll]
         : weapon.damage.count;
     attack.formula = {
       [weapon.damage.type]: {

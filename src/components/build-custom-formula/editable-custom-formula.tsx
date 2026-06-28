@@ -1,30 +1,25 @@
 import { useCharacter } from "src/lib/hooks/use-character";
-import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { CustomFormula, isAtomicVariable, isExpression } from "src/lib/types";
 import { formatAtomicVariable, formatCustomFormula } from "src/lib/formula";
 import { FaChevronRight, FaXmark } from "react-icons/fa6";
 
 interface EditableCustomFormulaProps {
   formula: CustomFormula;
-  setFormula: (newVal: CustomFormula) => void;
   removeOperand?: () => void;
-  subField?: string;
   /** Whether this operand's inline editor is the one currently open. */
   open?: boolean;
-  /** Toggle this operand's inline editor (only meaningful for atoms). */
+  /** Toggle this operand's inline editor open/closed. */
   onToggle?: () => void;
 }
 
 export function EditableCustomFormula({
   formula,
   removeOperand,
-  subField,
   open,
   onToggle,
 }: EditableCustomFormulaProps) {
-  const { targetedField, pushTargetedField } = useTargetedField();
   const { character } = useCharacter();
-  if (!character || !targetedField) return <></>;
+  if (!character) return <></>;
 
   if (isAtomicVariable(formula)) {
     // A value pip; clicking opens its editor inline beneath the formula line.
@@ -43,20 +38,22 @@ export function EditableCustomFormula({
   }
 
   if (isExpression(formula)) {
-    // A nested sub-formula is a pip you drill into (back button returns here),
-    // so the inline expression stays compact no matter how deep it nests.
+    // A nested sub-formula; clicking expands its editor inline below the line so
+    // the parent formula stays visible above it (no modal drilling).
     return (
       <span className="formula-pip-wrap">
         <button
           type="button"
-          className="formula-pip formula-pip-group"
+          className={`formula-pip formula-pip-group${open ? " open" : ""}`}
           onClick={(e) => {
             e.preventDefault();
-            pushTargetedField(targetedField, subField);
+            onToggle?.();
           }}
         >
           {formatCustomFormula(formula, character, false)}
-          <FaChevronRight className="formula-pip-chevron" />
+          <FaChevronRight
+            className={`formula-pip-chevron${open ? " open" : ""}`}
+          />
         </button>
         {removeOperand && (
           <button

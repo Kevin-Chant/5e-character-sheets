@@ -17,9 +17,9 @@ export default function AddAttack() {
 
   // Append the built attack and swap the picker for its editor (so closing the
   // editor without saving discards the new attack rather than orphaning it).
-  const create = (preset: WeaponPreset) => {
+  const create = (preset: WeaponPreset, twoHanded = false) => {
     const newValue = structuredClone(character.attacks);
-    newValue.push(buildAttackFromPreset(preset));
+    newValue.push(buildAttackFromPreset(preset, twoHanded));
     dispatch(updateData(FIELD.attacks, { value: newValue }));
     replaceTargetedField(FIELD.attacks, (newValue.length - 1).toString());
   };
@@ -40,15 +40,26 @@ export default function AddAttack() {
           <b>{group.label}</b>
           <div className="weapon-preset-grid">
             {group.options.map((weapon) => (
-              <button
-                key={weapon.name}
-                onClick={(e) => {
-                  e.preventDefault();
-                  create(weapon);
-                }}
-              >
-                {weapon.name}
-              </button>
+              <React.Fragment key={weapon.name}>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    create(weapon);
+                  }}
+                >
+                  {weapon.name}
+                </button>
+                {weapon.damage?.versatileDie && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      create(weapon, true);
+                    }}
+                  >
+                    {weapon.name} (2H)
+                  </button>
+                )}
+              </React.Fragment>
             ))}
           </div>
         </div>

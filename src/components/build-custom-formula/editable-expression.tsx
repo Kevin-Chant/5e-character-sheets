@@ -18,22 +18,20 @@ import {
   Multiplication,
   Subtraction,
 } from "src/lib/types";
-
-type ArbitraryExpr = Addition | Multiplication | Maximum | Minimum;
 import {
   EDITOR_SYNTAX,
-  formatAtomicVariable,
+  formatCustomFormula,
   formatExpression,
 } from "src/lib/formula";
 import { EditableCustomFormula } from "./editable-custom-formula";
 import { EditableAtomicVariable } from "./editable-atomic-variable";
-import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+
+type ArbitraryExpr = Addition | Multiplication | Maximum | Minimum;
 
 interface EditableExpressionProps {
   expr: Expression;
   setExpr: (newVal: CustomFormula) => void;
   edit: boolean;
-  subField?: string;
 }
 
 /** A single operand normalised across the three operation shapes so the inline
@@ -41,7 +39,6 @@ interface EditableExpressionProps {
 interface OperandDesc {
   key: string;
   value: CustomFormula;
-  subField: string;
   setFormula: (v: CustomFormula) => void;
   removeOperand?: () => void;
 }
@@ -52,7 +49,6 @@ export function EditableExpression({
   edit,
 }: EditableExpressionProps) {
   const { character } = useCharacter();
-  const { subField } = useTargetedField();
   const [openKey, setOpenKey] = useState<string | null>(null);
   if (!character) return <></>;
 
@@ -95,7 +91,6 @@ export function EditableExpression({
     return <div>{formatExpression(expr, character, false)}</div>;
   }
 
-  const base = subField ? `${subField}.` : "";
   const clone = (operands: CustomFormula[]) =>
     JSON.parse(JSON.stringify(operands)) as CustomFormula[];
 
@@ -106,7 +101,6 @@ export function EditableExpression({
       {
         key: "operand1",
         value: single.operand1,
-        subField: `${base}operand1`,
         setFormula: (v) => setExpr({ ...single, operand1: v }),
       },
     ];
@@ -116,13 +110,11 @@ export function EditableExpression({
       {
         key: "operand1",
         value: double.operand1,
-        subField: `${base}operand1`,
         setFormula: (v) => setExpr({ ...double, operand1: v }),
       },
       {
         key: "operand2",
         value: double.operand2,
-        subField: `${base}operand2`,
         setFormula: (v) => setExpr({ ...double, operand2: v }),
       },
     ];
@@ -131,7 +123,6 @@ export function EditableExpression({
     operands = arbitrary.operands.map((operand, i) => ({
       key: `operands.${i}`,
       value: operand,
-      subField: `${base}operands.${i}`,
       setFormula: (v) => {
         const next = clone(arbitrary.operands);
         next.splice(i, 1, v);
@@ -173,9 +164,7 @@ export function EditableExpression({
             {i > 0 && <p className="formula-syntax nowrap">{connector}</p>}
             <EditableCustomFormula
               formula={operand.value}
-              setFormula={operand.setFormula}
               removeOperand={operand.removeOperand}
-              subField={operand.subField}
               open={openKey === operand.key}
               onToggle={() =>
                 setOpenKey(openKey === operand.key ? null : operand.key)
@@ -203,16 +192,24 @@ export function EditableExpression({
         )}
         <p className="formula-syntax nowrap">{endStr}</p>
       </div>
-      {openOperand && isAtomicVariable(openOperand.value) && (
+      {openOperand && (
         <div className="formula-inline-editor">
           <p className="field-label">
-            Editing {formatAtomicVariable(openOperand.value, character, false)}
+            Editing {formatCustomFormula(openOperand.value, character, false)}
           </p>
-          <EditableAtomicVariable
-            atomicVar={openOperand.value}
-            setVar={openOperand.setFormula}
-            removeVar={openOperand.removeOperand}
-          />
+          {isAtomicVariable(openOperand.value) ? (
+            <EditableAtomicVariable
+              atomicVar={openOperand.value}
+              setVar={openOperand.setFormula}
+              removeVar={openOperand.removeOperand}
+            />
+          ) : (
+            <EditableExpression
+              expr={openOperand.value}
+              setExpr={openOperand.setFormula}
+              edit={true}
+            />
+          )}
         </div>
       )}
     </>
