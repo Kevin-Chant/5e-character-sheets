@@ -8,6 +8,7 @@ import Home from "./routes/home";
 import SheetContainer from "./components/sheet-container";
 import { ConfirmProvider } from "src/lib/hooks/confirm/confirm.provider";
 import { CharacterContextProvider } from "src/lib/hooks/use-character";
+import { EditModeContextProvider } from "./lib/hooks/use-edit-mode";
 import { TargetedFieldContextProvider } from "./lib/hooks/use-targeted-field";
 import { DatastoreSelectorContextProvider } from "./lib/hooks/use-datastore-selector";
 import { DatastoreContextProvider } from "./lib/hooks/use-datastore";
@@ -28,11 +29,13 @@ const router = createBrowserRouter([
             <DatastoreSelectorContextProvider>
               <DatastoreContextProvider>
                 <CharacterContextProvider>
-                  <ConfirmProvider>
-                    <TargetedFieldContextProvider>
-                      <Root />
-                    </TargetedFieldContextProvider>
-                  </ConfirmProvider>
+                  <EditModeContextProvider>
+                    <ConfirmProvider>
+                      <TargetedFieldContextProvider>
+                        <Root />
+                      </TargetedFieldContextProvider>
+                    </ConfirmProvider>
+                  </EditModeContextProvider>
                 </CharacterContextProvider>
               </DatastoreContextProvider>
             </DatastoreSelectorContextProvider>

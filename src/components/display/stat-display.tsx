@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { FIELD, StatKey } from "src/lib/data/data-definitions";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import {
   highlightProps,
   useRemoteFieldHighlight,
@@ -16,8 +17,10 @@ export default function StatDisplay(props: {
   editable?: boolean;
 }) {
   const { pushTargetedField } = useTargetedField();
+  const { editMode } = useEditMode();
   const editor = useRemoteFieldHighlight(props.field, props.subField);
-  const onClick = props.editable
+  const isEditable = props.editable && editMode;
+  const onClick = isEditable
     ? () => pushTargetedField(props.field, props.subField)
     : () => {
         return;
@@ -29,8 +32,8 @@ export default function StatDisplay(props: {
         <p className="display-title">{props.name}</p>
         <p
           className={classNames("display-value margin-small large", {
-            editable: props.editable,
-            readOnly: !props.editable,
+            editable: isEditable,
+            readOnly: !isEditable,
           })}
           onClick={onClick}
           {...highlightProps(editor)}

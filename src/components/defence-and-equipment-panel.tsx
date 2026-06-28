@@ -17,11 +17,13 @@ import MultiLineTextDisplay from "./display/multi-line-text-display";
 import SingleValueDisplay from "./display/single-value-display";
 import { FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { updateData } from "src/lib/hooks/reducers/actions";
 
 export default function DefenceAndEquipmentPanel() {
   const { character, dispatch } = useCharacter();
   const { pushTargetedField } = useTargetedField();
+  const { editMode } = useEditMode();
   if (!character) return <></>;
   const totalHitDice = character.totalHitDice || getHitDice(character);
   const hitDice = (
@@ -117,9 +119,13 @@ export default function DefenceAndEquipmentPanel() {
             <thead>
               <tr>
                 <th>
-                  <button onClick={() => pushTargetedField(FIELD.totalHitDice)}>
-                    <FaPencil />
-                  </button>
+                  {editMode && (
+                    <button
+                      onClick={() => pushTargetedField(FIELD.totalHitDice)}
+                    >
+                      <FaPencil />
+                    </button>
+                  )}
                 </th>
                 <th>Total</th>
                 <th>Expended</th>
@@ -201,26 +207,30 @@ export default function DefenceAndEquipmentPanel() {
                   <td>
                     {formatCustomFormulaWithDamage(attack.formula, character)}
                   </td>
-                  <td>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        pushTargetedField(FIELD.attacks, index.toString());
-                      }}
-                    >
-                      <FaPencil />
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        removeAttackRow(index);
-                      }}
-                    >
-                      x
-                    </button>
-                  </td>
+                  {editMode && (
+                    <>
+                      <td>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            pushTargetedField(FIELD.attacks, index.toString());
+                          }}
+                        >
+                          <FaPencil />
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            removeAttackRow(index);
+                          }}
+                        >
+                          x
+                        </button>
+                      </td>
+                    </>
+                  )}
                 </tr>
               );
             })}
@@ -228,7 +238,7 @@ export default function DefenceAndEquipmentPanel() {
         </table>
         <div className="row">
           <b>Attacks & Spellcasting</b>
-          <button onClick={addAttackRow}>+</button>
+          {editMode && <button onClick={addAttackRow}>+</button>}
         </div>
       </div>
       {/* Equipment */}

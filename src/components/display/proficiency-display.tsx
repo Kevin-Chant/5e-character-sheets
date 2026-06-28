@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { Character } from "src/lib/types";
 import { getFieldValue, traverse } from "src/lib/fields";
 
@@ -32,10 +33,12 @@ export default function ProficiencyDisplay({
   updateProficiency,
 }: ProficiencyDisplayProps) {
   const { character } = useCharacter();
+  const { editMode } = useEditMode();
 
   if (!character) return <></>;
 
-  const onClick = readOnly
+  const locked = readOnly || !editMode;
+  const onClick = locked
     ? () => {
         return;
       }
@@ -52,7 +55,7 @@ export default function ProficiencyDisplay({
     <div className="proficiency-display">
       <div className="row">
         <input
-          className={classNames({ editable: !readOnly })}
+          className={classNames({ editable: !locked })}
           type="checkbox"
           id={id}
           checked={proficient}

@@ -1,5 +1,6 @@
 import React, { useContext, useState } from "react";
 import { FIELD } from "../data/data-definitions";
+import { TRACKER_FIELDS, useEditMode } from "./use-edit-mode";
 
 type FieldStack = Array<[FIELD, string | undefined]>;
 interface TargetedFieldContextData {
@@ -43,7 +44,9 @@ interface UseTargetedField {
 export function useTargetedField(): UseTargetedField {
   const { targetedFieldStack, setTargetedFieldStack } =
     useContext(TargetedFieldContext);
+  const { editMode } = useEditMode();
   const pushTargetedField = (field: FIELD, subField?: string) => {
+    if (!editMode && !TRACKER_FIELDS.has(field)) return;
     setTargetedFieldStack(targetedFieldStack.concat([[field, subField]]));
   };
   const popTargetedField = () => {

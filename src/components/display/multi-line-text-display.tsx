@@ -12,6 +12,7 @@ import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 import { FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
 
 interface MultiLineTextDisplayProps {
@@ -29,6 +30,7 @@ export default function MultiLineTextDisplay({
 }: MultiLineTextDisplayProps) {
   const { character, dispatch } = useCharacter();
   const { pushTargetedField } = useTargetedField();
+  const { editMode } = useEditMode();
 
   if (!character) return <></>;
 
@@ -88,43 +90,47 @@ export default function MultiLineTextDisplay({
         return (
           <div key={i} className="row space-between">
             {titleComponent}
-            <div className="flex">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  editTextComponent(i);
-                }}
-              >
-                <FaPencil />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  removeTextComponent(i);
-                }}
-              >
-                x
-              </button>
-            </div>
+            {editMode && (
+              <div className="flex">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editTextComponent(i);
+                  }}
+                >
+                  <FaPencil />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    removeTextComponent(i);
+                  }}
+                >
+                  x
+                </button>
+              </div>
+            )}
           </div>
         );
       })}
       <b className="pos-relative margin-large">
         {title}
-        <button
-          style={{
-            position: "absolute",
-            top: "-50%",
-            right: "0px",
-            transform: "translate(150%, 0%)",
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            addTextComponent();
-          }}
-        >
-          +
-        </button>
+        {editMode && (
+          <button
+            style={{
+              position: "absolute",
+              top: "-50%",
+              right: "0px",
+              transform: "translate(150%, 0%)",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              addTextComponent();
+            }}
+          >
+            +
+          </button>
+        )}
       </b>
     </div>
   );

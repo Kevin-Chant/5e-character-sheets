@@ -8,6 +8,8 @@ import {
   FaFloppyDisk,
   FaGear,
   FaHouse,
+  FaLock,
+  FaLockOpen,
   FaRotateLeft,
   FaRotateRight,
   FaShareNodes,
@@ -21,6 +23,7 @@ import {
   resetCharacter,
 } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
@@ -128,6 +131,7 @@ export default function Root() {
     canRedo,
   } = useCharacter();
   const { saving } = useDatastore();
+  const { editMode, toggleMode } = useEditMode();
   const { getRole } = useSharingSessions();
   const location = useLocation();
   const [fileSelected, setFileSelected] = useState<File | undefined>();
@@ -241,6 +245,18 @@ export default function Root() {
         </nav>
         <div id="right-nav-components">
           <PresenceRoster />
+          {character && (
+            <button
+              className="icon-btn"
+              onClick={toggleMode}
+              title={editMode ? "Switch to Play mode" : "Switch to Edit mode"}
+              aria-label={
+                editMode ? "Switch to Play mode" : "Switch to Edit mode"
+              }
+            >
+              {editMode ? <FaLockOpen /> : <FaLock />}
+            </button>
+          )}
           {canShare && (
             <button
               className="icon-btn"

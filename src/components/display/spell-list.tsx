@@ -2,6 +2,7 @@ import { FaPencil } from "react-icons/fa6";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
 import { Spell, isTextComponentWithDetail } from "src/lib/types";
 import { getFieldValue, traverse } from "src/lib/fields";
@@ -26,6 +27,7 @@ export default function SpellList({
 }: SpellListProps) {
   const { character, dispatch } = useCharacter();
   const { pushTargetedField } = useTargetedField();
+  const { editMode } = useEditMode();
   if (!character) return <></>;
 
   const spells: Spell[] =
@@ -114,47 +116,51 @@ export default function SpellList({
                 </span>
               )}
             </div>
-            <div className="flex">
-              <button
-                type="button"
-                aria-label="Edit spell"
-                onClick={(e) => {
-                  e.preventDefault();
-                  editSpell(i);
-                }}
-              >
-                <FaPencil />
-              </button>
-              <button
-                type="button"
-                aria-label="Remove spell"
-                onClick={(e) => {
-                  e.preventDefault();
-                  removeSpell(i);
-                }}
-              >
-                x
-              </button>
-            </div>
+            {editMode && (
+              <div className="flex">
+                <button
+                  type="button"
+                  aria-label="Edit spell"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editSpell(i);
+                  }}
+                >
+                  <FaPencil />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove spell"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    removeSpell(i);
+                  }}
+                >
+                  x
+                </button>
+              </div>
+            )}
           </div>
         );
       })}
-      <b className="pos-relative margin-large">
-        <button
-          style={{
-            position: "absolute",
-            top: "-50%",
-            right: "0px",
-            transform: "translate(150%, 0%)",
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            addSpell();
-          }}
-        >
-          +
-        </button>
-      </b>
+      {editMode && (
+        <b className="pos-relative margin-large">
+          <button
+            style={{
+              position: "absolute",
+              top: "-50%",
+              right: "0px",
+              transform: "translate(150%, 0%)",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              addSpell();
+            }}
+          >
+            +
+          </button>
+        </b>
+      )}
     </div>
   );
 }

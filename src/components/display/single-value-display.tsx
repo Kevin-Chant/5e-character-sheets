@@ -2,6 +2,7 @@ import classNames from "classnames";
 import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import { TRACKER_FIELDS, useEditMode } from "src/lib/hooks/use-edit-mode";
 import {
   highlightProps,
   useRemoteFieldHighlight,
@@ -37,9 +38,11 @@ export default function SingleValueDisplay({
 }: SingleValueDisplayProps) {
   const { character } = useCharacter();
   const { pushTargetedField } = useTargetedField();
+  const { editMode } = useEditMode();
   const highlight = highlightProps(useRemoteFieldHighlight(field, subField));
 
-  const onClick = editable
+  const isEditable = editable && (editMode || TRACKER_FIELDS.has(field));
+  const onClick = isEditable
     ? () => pushTargetedField(field, subField)
     : () => {
         return;
@@ -63,8 +66,8 @@ export default function SingleValueDisplay({
       className={classNames("display-value", vertical ? "large" : "small", {
         "margin-small": !removeMargin,
         compact: vertical && compact,
-        editable: editable,
-        readOnly: !editable,
+        editable: isEditable,
+        readOnly: !isEditable,
       })}
       onClick={onClick}
       {...highlight}

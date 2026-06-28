@@ -2,6 +2,7 @@ import { FaPencil } from "react-icons/fa6";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { ArmorType, FIELD } from "src/lib/data/data-definitions";
 import { isTextComponentWithDetail } from "src/lib/types";
 import ComponentWithPopover from "./component-with-popover";
@@ -44,6 +45,7 @@ function RemoveButton({ onClick }: { onClick: () => void }) {
 function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
   const { character, dispatch } = useCharacter();
   const { pushTargetedField } = useTargetedField();
+  const { editMode } = useEditMode();
   if (!character) return <></>;
 
   const items = character.otherProficiencies[subField];
@@ -72,10 +74,10 @@ function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
             {item}
             {i < items.length - 1 ? "," : ""}
           </button>
-          <RemoveButton onClick={() => remove(i)} />
+          {editMode && <RemoveButton onClick={() => remove(i)} />}
         </span>
       ))}
-      <AddButton onClick={add} />
+      {editMode && <AddButton onClick={add} />}
     </div>
   );
 }
@@ -85,6 +87,7 @@ function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
 function ToolsCell() {
   const { character, dispatch } = useCharacter();
   const { pushTargetedField } = useTargetedField();
+  const { editMode } = useEditMode();
   if (!character) return <></>;
 
   const items = character.otherProficiencies.toolsAndOther;
@@ -133,11 +136,11 @@ function ToolsCell() {
             ) : (
               title
             )}
-            <RemoveButton onClick={() => remove(i)} />
+            {editMode && <RemoveButton onClick={() => remove(i)} />}
           </span>
         );
       })}
-      <AddButton onClick={add} />
+      {editMode && <AddButton onClick={add} />}
     </div>
   );
 }
@@ -147,6 +150,7 @@ function ToolsCell() {
 function ArmorCell() {
   const { character } = useCharacter();
   const { pushTargetedField } = useTargetedField();
+  const { editMode } = useEditMode();
   if (!character) return <></>;
 
   const armor = character.otherProficiencies.armor;
@@ -162,15 +166,17 @@ function ArmorCell() {
       >
         {proficient.length ? proficient.join(", ") : "None"}
       </button>
-      <button
-        className="prof-add"
-        onClick={(e) => {
-          e.preventDefault();
-          pushTargetedField(FIELD_NAME, "armor");
-        }}
-      >
-        <FaPencil />
-      </button>
+      {editMode && (
+        <button
+          className="prof-add"
+          onClick={(e) => {
+            e.preventDefault();
+            pushTargetedField(FIELD_NAME, "armor");
+          }}
+        >
+          <FaPencil />
+        </button>
+      )}
     </div>
   );
 }

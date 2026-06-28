@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import SingleValueDisplay from "./display/single-value-display";
 import SlotPips from "./display/slot-pips";
 import {
@@ -69,6 +70,7 @@ function PactSlots({ character }: SpellsTableProps) {
 
 function SpellsTable({ character }: SpellsTableProps) {
   const { dispatch } = useCharacter();
+  const { editMode } = useEditMode();
   // Levels the user has manually revealed (e.g. to record a spell granted by a
   // feat or background at a level they have no slots for). Session-only — once a
   // spell is added the level stays visible on its own via `hasSpells`.
@@ -178,7 +180,7 @@ function SpellsTable({ character }: SpellsTableProps) {
           );
         })}
       </div>
-      {hiddenLevels.length > 0 && (
+      {editMode && hiddenLevels.length > 0 && (
         <label className="add-spell-level">
           Add spell level:{" "}
           <select
@@ -203,6 +205,7 @@ function SpellsTable({ character }: SpellsTableProps) {
 
 export default function Spellcasting() {
   const { character, dispatch } = useCharacter();
+  const { editMode } = useEditMode();
 
   // Auto-populate the spellcasting class list from the character's classes:
   // add an entry for each spellcasting class that isn't already listed. Manual
@@ -295,20 +298,24 @@ export default function Spellcasting() {
               editable
               removeBorder
             />
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Remove spellcasting class"
-              onClick={(e) => {
-                e.preventDefault();
-                removeSpellcastingClass(index);
-              }}
-            >
-              <FaTrash />
-            </button>
+            {editMode && (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Remove spellcasting class"
+                onClick={(e) => {
+                  e.preventDefault();
+                  removeSpellcastingClass(index);
+                }}
+              >
+                <FaTrash />
+              </button>
+            )}
           </div>
         ))}
-        <button onClick={addSpellcastingClass}>Add spellcasting class</button>
+        {editMode && (
+          <button onClick={addSpellcastingClass}>Add spellcasting class</button>
+        )}
       </div>
       <SpellsTable character={character} />
     </div>
