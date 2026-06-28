@@ -3,7 +3,7 @@ import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { CustomFormula, isAtomicVariable, isExpression } from "src/lib/types";
 import { EditableAtomicVariable } from "./editable-atomic-variable";
 import { EditableExpression } from "./editable-expression";
-import { FaPencil } from "react-icons/fa6";
+import { FaPencil, FaTrash } from "react-icons/fa6";
 
 interface EditableCustomFormulaProps {
   formula: CustomFormula;
@@ -32,9 +32,13 @@ export function EditableCustomFormula({
   }
   if (isExpression(formula)) {
     return (
-      <div className="column">
-        <div className="row">
+      <div className="formula-operand">
+        <div className="formula-operand-controls">
           <button
+            type="button"
+            className="icon-btn"
+            title="Edit formula"
+            aria-label="Edit formula"
             onClick={(e) => {
               e.preventDefault();
               pushTargetedField(targetedField, subField);
@@ -44,21 +48,27 @@ export function EditableCustomFormula({
           </button>
           {removeOperand && (
             <button
+              type="button"
+              className="icon-btn btn-danger"
+              title="Remove"
+              aria-label="Remove operand"
               onClick={(e) => {
                 e.preventDefault();
                 removeOperand();
               }}
             >
-              x
+              <FaTrash />
             </button>
           )}
         </div>
-        <EditableExpression
-          expr={formula}
-          setExpr={setFormula}
-          edit={false}
-          subField={subField}
-        />
+        <div className="formula-operand-body">
+          <EditableExpression
+            expr={formula}
+            setExpr={setFormula}
+            edit={false}
+            subField={subField}
+          />
+        </div>
       </div>
     );
   }

@@ -50,46 +50,39 @@ export default function EditAttack() {
   };
 
   return (
-    <form>
-      <div className="column">
-        <table>
-          <tr>
-            <th>Attack Name</th>
-            <th>To-hit Bonus</th>
-            <th>Damage on hit</th>
-          </tr>
-          <tr>
-            <td>
-              <input type="text" value={attack.name} onChange={updateName} />
-            </td>
-            <td>
-              <div className="column">
-                <button onClick={editBonus}>
-                  <FaPencil></FaPencil>
-                </button>
-                <p>{formatCustomFormula(attack.bonus, character, false)}</p>
-              </div>
-            </td>
-            <td>
-              <div className="column">
-                <button onClick={editFormula}>
-                  <FaPencil></FaPencil>
-                </button>
-                <p>
-                  {formatCustomFormulaWithDamage(
-                    attack.formula,
-                    character,
-                    false,
-                  )}
-                </p>
-              </div>
-            </td>
-          </tr>
-        </table>
-        <button className="margin-small" onClick={onSubmit}>
-          Save
-        </button>
+    <form className="edit-attack">
+      <label className="field">
+        <span className="field-label">Attack name</span>
+        <input
+          type="text"
+          value={attack.name}
+          onChange={updateName}
+          placeholder="e.g. Greatsword"
+        />
+      </label>
+      <div className="formula-field-grid">
+        <div className="field">
+          <span className="field-label">To-hit bonus</span>
+          <button className="formula-edit-button" onClick={editBonus}>
+            <span className="formula-preview">
+              {formatCustomFormula(attack.bonus, character, false)}
+            </span>
+            <FaPencil />
+          </button>
+        </div>
+        <div className="field">
+          <span className="field-label">Damage on hit</span>
+          <button className="formula-edit-button" onClick={editFormula}>
+            <span className="formula-preview">
+              {formatCustomFormulaWithDamage(attack.formula, character, false)}
+            </span>
+            <FaPencil />
+          </button>
+        </div>
       </div>
+      <button className="btn-primary" onClick={onSubmit}>
+        Save
+      </button>
     </form>
   );
 }

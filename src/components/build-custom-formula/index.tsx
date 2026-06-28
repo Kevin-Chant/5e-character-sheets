@@ -53,24 +53,37 @@ export default function BuildCustomFormula() {
 
   if (isAtomicVariable(formula)) {
     return (
-      <>
-        <EditableAtomicVariable atomicVar={formula} setVar={setFormula} />
-      </>
+      <form className="build-custom-formula">
+        <div className="formula-canvas">
+          <EditableAtomicVariable atomicVar={formula} setVar={setFormula} />
+        </div>
+        <button className="btn-primary" onClick={saveData}>
+          Save
+        </button>
+      </form>
     );
   }
 
   return (
-    <form>
-      <div className="column">
-        <div>
-          <span className="margin-small">Edit</span>
-          <Switch onChange={setEdit} checked={edit} />
-        </div>
+    <form className="build-custom-formula">
+      <label className="edit-toggle">
+        <Switch
+          onChange={setEdit}
+          checked={edit}
+          height={20}
+          width={40}
+          onColor="#3992ff"
+          uncheckedIcon={false}
+          checkedIcon={false}
+        />
+        <span>{edit ? "Editing formula" : "Preview"}</span>
+      </label>
+      <div className="formula-canvas">
         <EditableExpression expr={formula} setExpr={setFormula} edit={edit} />
-        <button className="margin-small" onClick={saveData}>
-          Save
-        </button>
       </div>
+      <button className="btn-primary" onClick={saveData}>
+        Save
+      </button>
     </form>
   );
 }

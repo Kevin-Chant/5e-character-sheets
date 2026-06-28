@@ -20,6 +20,7 @@ import EditTextLine from "./edit-text-line";
 import EditArmorProficiencies from "./edit-armor-proficiencies";
 import EditHitDice from "./edit-hit-dice";
 import EditAttack from "./edit-attack";
+import AddAttack from "./add-attack";
 import BuildCustomFormulaWithDamage from "./build-custom-formula-with-damage";
 import EditClassLevels from "./edit-class-levels";
 import Spellcasting from "./spellcasting";
@@ -43,7 +44,9 @@ export default function CharSheet() {
       setModalIsOpen(true);
       const standardFieldType = STANDARD_EDITABLE_FIELD_TYPES[targetedField];
       if (!standardFieldType) throw new Error("Unsupported field type!");
-      if (
+      if (standardFieldType === "attack" && subField === "new") {
+        setModalType("selectWeapon");
+      } else if (
         standardFieldType === "attack" &&
         (subField?.split(".")?.length || 0) > 1
       ) {
@@ -152,6 +155,10 @@ export default function CharSheet() {
     case "attack":
       modalContents = <EditAttack />;
       modalTitle = "Edit Attack";
+      break;
+    case "selectWeapon":
+      modalContents = <AddAttack />;
+      modalTitle = "Add Weapon Attack";
       break;
     case "spell":
       modalContents = <EditSpell />;

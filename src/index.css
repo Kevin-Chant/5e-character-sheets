@@ -926,6 +926,231 @@ button:active:not(:disabled) {
   border-top: 1px solid var(--border);
 }
 
+/* ---- Attack & formula-builder modals ---- */
+/* Short explanatory line under a modal title. */
+.modal-hint {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* A labelled vertical field: muted caption above its control. */
+.field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.field > .field-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.field > input {
+  width: 100%;
+}
+
+/* A formula shown as an editable surface: its rendered value on the left, a
+   pencil on the right. Reads as "click to edit this formula". */
+.formula-edit-button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  background-color: var(--editable);
+}
+
+.formula-edit-button .formula-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.formula-edit-button svg {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+/* Outlined, full-width "add another" affordance. */
+.add-row-button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  border-style: dashed;
+}
+
+.edit-attack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  min-width: min(520px, 80vw);
+}
+
+.add-attack {
+  gap: 1rem;
+  width: 100%;
+  min-width: min(520px, 80vw);
+}
+
+/* Preset weapons laid out as a compact, wrapping grid of pick buttons. */
+.weapon-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.formula-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1rem;
+  width: 100%;
+}
+
+.formula-with-damage {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  min-width: min(460px, 80vw);
+}
+
+.damage-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.damage-entry {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.damage-entry > .formula-edit-button {
+  flex: 1 1 auto;
+}
+
+.damage-entry > select {
+  flex: 0 0 auto;
+}
+
+.build-custom-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  min-width: min(420px, 80vw);
+}
+
+/* Toggle between editing the formula and a read-only preview. */
+.build-custom-formula .edit-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  cursor: pointer;
+}
+
+/* The recursive expression tree, framed so its nesting reads as one surface. */
+.formula-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--surface-2);
+}
+
+/* Keep the primary save aligned to the start, matching field controls. */
+.edit-attack > .btn-primary,
+.formula-with-damage > .btn-primary,
+.build-custom-formula > .btn-primary {
+  align-self: flex-start;
+}
+
+/* "Formula type" selector sits as a labelled control, not centered. */
+.formula-type-row {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+/* The operands and their connectors, laid out left-to-right and top-aligned so
+   uneven-height cards line up cleanly. Wraps on narrow modals. */
+.formula-operand-row {
+  justify-content: flex-start;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Operators/parentheses between operands: quiet, vertically centered. */
+.formula-syntax {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.formula-syntax:empty {
+  display: none;
+}
+
+/* Each operand is a self-contained tile: a small control strip over its
+   value/sub-formula, so the recursive tree reads as nested cards. */
+.formula-operand {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  width: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--surface);
+}
+
+.formula-operand-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+/* Trim the default icon-button padding so the control strip stays compact. */
+.formula-operand-controls .icon-btn {
+  padding: 0.3rem;
+}
+
+.formula-operand-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.formula-operand-body select,
+.formula-operand-body input {
+  width: 100%;
+}
+
+.formula-operand-chooser {
+  background-color: var(--surface-2);
+}
+
 /* ---- Spell slot pips ---- */
 .slot-pips {
   flex-wrap: wrap;

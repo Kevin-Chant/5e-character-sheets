@@ -249,6 +249,7 @@ export type FieldTypeNode =
   | "otherProficiencies"
   | "armorProficiencies"
   | "attack"
+  | "selectWeapon"
   | "hitDice"
   | "spellcastingClass"
   | "spell"

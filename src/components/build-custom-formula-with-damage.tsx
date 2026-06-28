@@ -1,4 +1,4 @@
-import { FaPencil } from "react-icons/fa6";
+import { FaPencil, FaPlus, FaTrash } from "react-icons/fa6";
 import {
   DamageType,
   DieOperation,
@@ -94,22 +94,29 @@ export default function BuildCustomFormulaWithDamage() {
   };
 
   return (
-    <form>
-      <div className="column">
+    <form className="formula-with-damage">
+      <p className="modal-hint">
+        Each damage type rolls its own dice and modifiers — e.g. 1d8 piercing
+        plus 1d6 fire.
+      </p>
+      <div className="damage-entry-list">
         {(
           Object.entries(formulaWithDamage) as Array<
             [DamageType, CustomFormula]
           >
         ).map(([damageType, customFormula], index) => {
           return (
-            <div className="row" key={index}>
-              <div className="column">
-                <button onClick={(e) => updateFormula(e, damageType)}>
-                  <FaPencil />
-                </button>
-
-                <p>{formatCustomFormula(customFormula, character, false)}</p>
-              </div>
+            <div className="damage-entry" key={index}>
+              <button
+                type="button"
+                className="formula-edit-button"
+                onClick={(e) => updateFormula(e, damageType)}
+              >
+                <span className="formula-preview">
+                  {formatCustomFormula(customFormula, character, false)}
+                </span>
+                <FaPencil />
+              </button>
               <select
                 value={damageType}
                 onChange={(e) => updateDamageType(e, index)}
@@ -120,19 +127,26 @@ export default function BuildCustomFormulaWithDamage() {
                   </option>
                 ))}
               </select>
-              <button onClick={(e) => removeEntry(e, index)}>x</button>
+              <button
+                type="button"
+                className="icon-btn btn-danger"
+                aria-label="Remove damage type"
+                onClick={(e) => removeEntry(e, index)}
+              >
+                <FaTrash />
+              </button>
             </div>
           );
         })}
-        {unusedDamageTypes.length > 0 && (
-          <button className="margin-small" onClick={addEntry}>
-            +
-          </button>
-        )}
-        <button className="margin-small" onClick={saveData}>
-          Save
-        </button>
       </div>
+      {unusedDamageTypes.length > 0 && (
+        <button type="button" className="add-row-button" onClick={addEntry}>
+          <FaPlus /> Add damage type
+        </button>
+      )}
+      <button className="btn-primary" onClick={saveData}>
+        Save
+      </button>
     </form>
   );
 }

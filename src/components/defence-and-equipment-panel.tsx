@@ -1,12 +1,4 @@
-import {
-  CoinType,
-  DamageType,
-  DieOperation,
-  FIELD,
-  Operation,
-  StandardDie,
-  StatKey,
-} from "src/lib/data/data-definitions";
+import { CoinType, FIELD, StandardDie } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   calculateCustomFormula,
@@ -40,22 +32,7 @@ export default function DefenceAndEquipmentPanel() {
   );
   const addAttackRow = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const newValue = structuredClone(character.attacks);
-    newValue.push({
-      name: "Shortsword",
-      bonus: {
-        operation: Operation.addition,
-        operands: [StatKey.dex, "proficiencyBonus"],
-      },
-      formula: {
-        [DamageType.Piercing]: {
-          operation: Operation.addition,
-          operands: [[1, StandardDie.d6, DieOperation.roll], StatKey.dex],
-        },
-      },
-    });
-    dispatch(updateData(FIELD.attacks, { value: newValue }));
-    pushTargetedField(FIELD.attacks, (newValue.length - 1).toString());
+    pushTargetedField(FIELD.attacks, "new");
   };
   const removeAttackRow = (index: number) => {
     const newValue = structuredClone(character.attacks);
@@ -237,7 +214,7 @@ export default function DefenceAndEquipmentPanel() {
           </tbody>
         </table>
         <div className="row">
-          <b>Attacks & Spellcasting</b>
+          <b>Weapon Attacks</b>
           {editMode && <button onClick={addAttackRow}>+</button>}
         </div>
       </div>

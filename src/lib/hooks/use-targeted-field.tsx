@@ -36,6 +36,7 @@ interface UseTargetedField {
   targetedField: FIELD | undefined;
   subField: string | undefined;
   pushTargetedField: (value: FIELD, subField?: string) => void;
+  replaceTargetedField: (value: FIELD, subField?: string) => void;
   popTargetedField: () => void;
   clearTargetedField: () => void;
   targetedFieldStackLength: number;
@@ -49,6 +50,12 @@ export function useTargetedField(): UseTargetedField {
     if (!editMode && !TRACKER_FIELDS.has(field)) return;
     setTargetedFieldStack(targetedFieldStack.concat([[field, subField]]));
   };
+  const replaceTargetedField = (field: FIELD, subField?: string) => {
+    if (!editMode && !TRACKER_FIELDS.has(field)) return;
+    setTargetedFieldStack(
+      targetedFieldStack.slice(0, -1).concat([[field, subField]]),
+    );
+  };
   const popTargetedField = () => {
     setTargetedFieldStack(targetedFieldStack.slice(0, -1));
   };
@@ -56,6 +63,7 @@ export function useTargetedField(): UseTargetedField {
     targetedField: targetedFieldStack[targetedFieldStack.length - 1]?.[0],
     subField: targetedFieldStack[targetedFieldStack.length - 1]?.[1],
     pushTargetedField,
+    replaceTargetedField,
     popTargetedField,
     clearTargetedField: () => setTargetedFieldStack([]),
     targetedFieldStackLength: targetedFieldStack.length,

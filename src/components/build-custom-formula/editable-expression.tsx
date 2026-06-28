@@ -1,4 +1,5 @@
 import React from "react";
+import { FaPlus } from "react-icons/fa6";
 import { Operation, StatKey } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
@@ -70,10 +71,9 @@ export function EditableExpression({
   // TODO: revert expression to atomic variable
   return (
     <>
-      <div className="row">
-        <p className="font-medium">Formula type</p>
+      <div className="row formula-type-row">
+        <p className="field-label">Formula type</p>
         <select
-          className="font-large"
           value={expr.operation}
           onChange={(e) =>
             setOperation(e.target.value as Expression["operation"])
@@ -86,8 +86,8 @@ export function EditableExpression({
           ))}
         </select>
       </div>
-      <div className="row">
-        <p className="font-large margin-large">
+      <div className="row formula-operand-row">
+        <p className="formula-syntax">
           {EDITOR_SYNTAX[expr.operation].startStr}
         </p>
         {isSingleOperandOperation(expr) && (
@@ -108,7 +108,7 @@ export function EditableExpression({
               }}
               subField={subField ? `${subField}.operand1` : "operand1"}
             />
-            <p className="font-large margin-large nowrap">
+            <p className="formula-syntax nowrap">
               {EDITOR_SYNTAX[expr.operation].connector}
             </p>
             <EditableCustomFormula
@@ -148,13 +148,17 @@ export function EditableExpression({
                   }
                 />
                 {i < arr.length - 1 && (
-                  <p className="font-large margin-large nowrap">
+                  <p className="formula-syntax nowrap">
                     {EDITOR_SYNTAX[expr.operation].connector}
                   </p>
                 )}
               </React.Fragment>
             ))}
             <button
+              type="button"
+              className="icon-btn"
+              title="Add operand"
+              aria-label="Add operand"
               onClick={(e) => {
                 e.preventDefault();
                 // TODO: persist new operands immediately so they can be edited (at least if they're formulas)
@@ -164,11 +168,11 @@ export function EditableExpression({
                 });
               }}
             >
-              +
+              <FaPlus />
             </button>
           </>
         )}
-        <p className="font-large margin-large nowrap">
+        <p className="formula-syntax nowrap">
           {EDITOR_SYNTAX[expr.operation].endStr}
         </p>
       </div>

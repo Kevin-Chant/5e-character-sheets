@@ -1,5 +1,6 @@
 import { sum } from "lodash";
 import {
+  Attack,
   Character,
   ClassName,
   CoinAmounts,
@@ -22,6 +23,7 @@ import {
   HIT_DICE,
   OfficialClass,
   Operation,
+  PB,
   SPELLCASTING_ABILITIES,
   SkillName,
   SpellLevel,
@@ -414,55 +416,270 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
         : undefined,
 };
 
-export const DEFAULT_WEAPONS: GroupedOptionsList<string> = [
-  { label: "Weapon Types", options: ["Simple Weapons", "Martial Weapons"] },
+// Which ability a weapon's attack/damage uses. "versatile" means the better of
+// STR or DEX (i.e. 5e finesse) and pre-populates as max(STR, DEX).
+export type WeaponAbility = StatKey.str | StatKey.dex | "versatile";
+
+export interface WeaponPreset {
+  name: string;
+  ability: WeaponAbility;
+  // Omitted for weapons that deal no damage (e.g. Net).
+  damage?: { count: number; die?: StandardDie; type: DamageType };
+}
+
+const D = (count: number, die: StandardDie | undefined, type: DamageType) => ({
+  count,
+  die,
+  type,
+});
+
+export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
   {
     label: "Simple Melee Weapons",
     options: [
-      "Club",
-      "Dagger",
-      "Greatclub",
-      "Handaxe",
-      "Javelin",
-      "Light Hammer",
-      "Mace",
-      "Quarterstaff",
-      "Sickle",
-      "Spear",
+      {
+        name: "Club",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d4, DamageType.Bludgeoning),
+      },
+      {
+        name: "Dagger",
+        ability: "versatile",
+        damage: D(1, StandardDie.d4, DamageType.Piercing),
+      },
+      {
+        name: "Greatclub",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d8, DamageType.Bludgeoning),
+      },
+      {
+        name: "Handaxe",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d6, DamageType.Slashing),
+      },
+      {
+        name: "Javelin",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d6, DamageType.Piercing),
+      },
+      {
+        name: "Light Hammer",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d4, DamageType.Bludgeoning),
+      },
+      {
+        name: "Mace",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d6, DamageType.Bludgeoning),
+      },
+      {
+        name: "Quarterstaff",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d6, DamageType.Bludgeoning),
+      },
+      {
+        name: "Sickle",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d4, DamageType.Slashing),
+      },
+      {
+        name: "Spear",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d6, DamageType.Piercing),
+      },
     ],
   },
   {
     label: "Simple Ranged Weapons",
-    options: ["Light Crossbow", "Dart", "Shortbow", "Sling"],
+    options: [
+      {
+        name: "Light Crossbow",
+        ability: StatKey.dex,
+        damage: D(1, StandardDie.d8, DamageType.Piercing),
+      },
+      {
+        name: "Dart",
+        ability: "versatile",
+        damage: D(1, StandardDie.d4, DamageType.Piercing),
+      },
+      {
+        name: "Shortbow",
+        ability: StatKey.dex,
+        damage: D(1, StandardDie.d6, DamageType.Piercing),
+      },
+      {
+        name: "Sling",
+        ability: StatKey.dex,
+        damage: D(1, StandardDie.d4, DamageType.Bludgeoning),
+      },
+    ],
   },
   {
     label: "Martial Melee Weapons",
     options: [
-      "Battleaxe",
-      "Flail",
-      "Glaive",
-      "Greataxe",
-      "Greatsword",
-      "Halberd",
-      "Lance",
-      "Longsword",
-      "Maul",
-      "Morningstar",
-      "Pike",
-      "Rapier",
-      "Scimitar",
-      "Shortsword",
-      "Trident",
-      "War Pick",
-      "Warhammer",
-      "Whip",
+      {
+        name: "Battleaxe",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d8, DamageType.Slashing),
+      },
+      {
+        name: "Flail",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d8, DamageType.Bludgeoning),
+      },
+      {
+        name: "Glaive",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d10, DamageType.Slashing),
+      },
+      {
+        name: "Greataxe",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d12, DamageType.Slashing),
+      },
+      {
+        name: "Greatsword",
+        ability: StatKey.str,
+        damage: D(2, StandardDie.d6, DamageType.Slashing),
+      },
+      {
+        name: "Halberd",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d10, DamageType.Slashing),
+      },
+      {
+        name: "Lance",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d12, DamageType.Piercing),
+      },
+      {
+        name: "Longsword",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d8, DamageType.Slashing),
+      },
+      {
+        name: "Maul",
+        ability: StatKey.str,
+        damage: D(2, StandardDie.d6, DamageType.Bludgeoning),
+      },
+      {
+        name: "Morningstar",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d8, DamageType.Piercing),
+      },
+      {
+        name: "Pike",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d10, DamageType.Piercing),
+      },
+      {
+        name: "Rapier",
+        ability: "versatile",
+        damage: D(1, StandardDie.d8, DamageType.Piercing),
+      },
+      {
+        name: "Scimitar",
+        ability: "versatile",
+        damage: D(1, StandardDie.d6, DamageType.Slashing),
+      },
+      {
+        name: "Shortsword",
+        ability: "versatile",
+        damage: D(1, StandardDie.d6, DamageType.Piercing),
+      },
+      {
+        name: "Trident",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d6, DamageType.Piercing),
+      },
+      {
+        name: "War Pick",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d8, DamageType.Piercing),
+      },
+      {
+        name: "Warhammer",
+        ability: StatKey.str,
+        damage: D(1, StandardDie.d8, DamageType.Bludgeoning),
+      },
+      {
+        name: "Whip",
+        ability: "versatile",
+        damage: D(1, StandardDie.d4, DamageType.Slashing),
+      },
     ],
   },
   {
     label: "Martial Ranged Weapons",
-    options: ["Blowgun", "Hand Crossbow", "Heavy Crossbow", "Longbow", "Net"],
+    options: [
+      {
+        name: "Blowgun",
+        ability: StatKey.dex,
+        damage: D(1, undefined, DamageType.Piercing),
+      },
+      {
+        name: "Hand Crossbow",
+        ability: StatKey.dex,
+        damage: D(1, StandardDie.d6, DamageType.Piercing),
+      },
+      {
+        name: "Heavy Crossbow",
+        ability: StatKey.dex,
+        damage: D(1, StandardDie.d10, DamageType.Piercing),
+      },
+      {
+        name: "Longbow",
+        ability: StatKey.dex,
+        damage: D(1, StandardDie.d8, DamageType.Piercing),
+      },
+      { name: "Net", ability: StatKey.dex },
+    ],
   },
 ];
+
+// Weapon-proficiency typeahead: the broad categories plus every preset's name.
+export const DEFAULT_WEAPONS: GroupedOptionsList<string> = [
+  { label: "Weapon Types", options: ["Simple Weapons", "Martial Weapons"] },
+  ...WEAPON_PRESETS.map((group) => ({
+    label: group.label,
+    options: group.options.map((weapon) => weapon.name),
+  })),
+];
+
+const abilityOperand = (ability: WeaponAbility): CustomFormula =>
+  ability === "versatile"
+    ? { operation: Operation.maximum, operands: [StatKey.str, StatKey.dex] }
+    : ability;
+
+// Build a ready-to-edit Attack from a preset: to-hit = ability + PB, damage =
+// the weapon's die (if any) + ability, keyed by its damage type.
+export function buildAttackFromPreset(weapon: WeaponPreset): Attack {
+  const ability = abilityOperand(weapon.ability);
+  const attack: Attack = {
+    name: weapon.name,
+    bonus: { operation: Operation.addition, operands: [ability, PB] },
+    formula: {},
+  };
+  if (weapon.damage) {
+    const dieOperand: CustomFormula =
+      weapon.damage.die !== undefined
+        ? [weapon.damage.count, weapon.damage.die, DieOperation.roll]
+        : weapon.damage.count;
+    attack.formula = {
+      [weapon.damage.type]: {
+        operation: Operation.addition,
+        operands: [dieOperand, ability],
+      },
+    };
+  }
+  return attack;
+}
+
+export const DEFAULT_CUSTOM_ATTACK: WeaponPreset = {
+  name: "Shortsword",
+  ability: StatKey.dex,
+  damage: { count: 1, die: StandardDie.d6, type: DamageType.Piercing },
+};
 
 export const DEFAULT_LANGUAGES: GroupedOptionsList<string> = [
   {

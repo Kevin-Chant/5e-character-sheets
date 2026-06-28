@@ -20,6 +20,7 @@ import {
   isStatKey,
 } from "src/lib/types";
 import { getPB } from "src/lib/rules";
+import { FaRightLeft, FaTrash } from "react-icons/fa6";
 import OptionOrCustomValue from "../display/option-or-custom-value";
 
 interface EditableAtomicVariableProps {
@@ -49,8 +50,8 @@ export function EditableAtomicVariable({
 
   if (emptyState)
     return (
-      <div>
-        <p>Choose a type of variable</p>
+      <div className="formula-operand formula-operand-chooser">
+        <p className="field-label">Choose a type of variable</p>
         <div className="flex-grid">
           <button
             onClick={(e) => {
@@ -187,19 +188,33 @@ export function EditableAtomicVariable({
   }
 
   return (
-    <div className="column">
-      <div className="row">
+    <div className="formula-operand">
+      <div className="formula-operand-controls">
         <button
+          type="button"
+          className="icon-btn"
+          title="Change variable type"
+          aria-label="Change variable type"
           onClick={(e) => {
             e.preventDefault();
             setEmptyState(true);
           }}
         >
-          {"Change Variable Type"}
+          <FaRightLeft />
         </button>
-        {removeVar && <button onClick={removeVar}>x</button>}
+        {removeVar && (
+          <button
+            type="button"
+            className="icon-btn btn-danger"
+            title="Remove"
+            aria-label="Remove operand"
+            onClick={removeVar}
+          >
+            <FaTrash />
+          </button>
+        )}
       </div>
-      {inputElement}
+      <div className="formula-operand-body">{inputElement}</div>
     </div>
   );
 }
