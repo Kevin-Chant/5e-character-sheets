@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { readLocalStorage, writeLocalStorage } from "../local-storage";
 
-export const CLOUD_DEFAULT_HOST = "http://35.87.176.174:9000";
+export const CLOUD_DEFAULT_HOST = "https://live.dndcharactersheets.net";
 export const DEFAULT_LIVE_EDIT_HOST =
   import.meta.env.VITE_LIVE_EDIT_HOST ?? CLOUD_DEFAULT_HOST;
 

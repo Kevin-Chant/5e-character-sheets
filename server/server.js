@@ -3,13 +3,10 @@ import { createServer } from "http";
 
 let router;
 
+// The sidecar speaks plain HTTP/WS. When exposing it to an HTTPS site, terminate
+// TLS in front of it (e.g. a Caddy/nginx reverse proxy, or a CDN) so the browser
+// reaches it over wss:// — browsers block insecure ws:// from an HTTPS page.
 const transport = createServer(
-  // const transport = https.createServer(
-  //   // TODO: generate keys
-  //   {
-  //     key: fs.readFileSync(__dirname + "/config/server.key"),
-  //     cert: fs.readFileSync(__dirname + "/config/server.crt"),
-  //   },
   (req, res) => {
     const path = req.url || "/";
     if (path === "/health") {
