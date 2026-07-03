@@ -53,3 +53,59 @@ jobs:
 
       - name: Invalidate CloudFront
         run: aws cloudfront create-invalidation --distribution-id E1OOZYBJOLLZ3S --paths "/*"
+
+  # Redeploy the live-edit WAMP sidecar (server/server.js) to its always-on box.
+  # Independent of the SPA plane above (no `needs:`) so neither blocks the other.
+  # workflow_run can't path-filter, so this job is idempotent: it only restarts
+  # the sidecar when server.js actually changed — pure-SPA deploys are a no-op and
+  # never drop live-edit sessions. Host/creds live in secrets so this public repo
+  # carries no infra specifics.
+  deploy-sidecar:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Deploy the exact commit CI validated, not just the branch tip.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Set up SSH (dedicated deploy key + pinned host key)
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SIDECAR_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "${{ secrets.SIDECAR_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy sidecar (restart only if server.js changed; roll back on failure)
+        env:
+          SIDECAR_SSH_HOST: ${{ secrets.SIDECAR_SSH_HOST }}
+        run: |
+          scp -i ~/.ssh/id_deploy server/server.js "ubuntu@${SIDECAR_SSH_HOST}:/tmp/server.js.new"
+          ssh -i ~/.ssh/id_deploy "ubuntu@${SIDECAR_SSH_HOST}" 'bash -s' <<'REMOTE'
+          set -eu
+          if sudo cmp -s /tmp/server.js.new /opt/sidecar/server.js; then
+            echo "server.js unchanged; skipping restart"; rm -f /tmp/server.js.new; exit 0
+          fi
+          sudo cp -a /opt/sidecar/server.js /opt/sidecar/server.js.bak
+          sudo install -o sidecar -g sidecar -m 644 /tmp/server.js.new /opt/sidecar/server.js
+          rm -f /tmp/server.js.new
+          sudo systemctl restart sidecar
+          ok=
+          for _ in $(seq 1 10); do
+            if curl -fsS http://localhost:9000/health >/dev/null; then ok=1; break; fi
+            sleep 2
+          done
+          if [ -z "$ok" ]; then
+            echo "health check failed — rolling back to previous server.js"
+            sudo mv /opt/sidecar/server.js.bak /opt/sidecar/server.js
+            sudo systemctl restart sidecar
+            exit 1
+          fi
+          sudo rm -f /opt/sidecar/server.js.bak
+          echo "sidecar updated and healthy"
+          REMOTE
+
+      - name: Verify end-to-end through Caddy TLS
+        run: curl -fsS --retry 5 --retry-delay 2 https://live.dndcharactersheets.net/health
