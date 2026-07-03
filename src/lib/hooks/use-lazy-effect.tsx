@@ -20,7 +20,7 @@ export function useLazyEffect(
     debounce(() => {
       cleanUp.current = effectRef.current?.();
     }, wait),
-    [],
+    [wait],
   );
   useEffect(lazyEffect, deps);
   useEffect(() => {

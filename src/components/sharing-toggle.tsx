@@ -53,7 +53,7 @@ export default function SharingToggle() {
       </div>
       {sharingSessionOpen && (
         <>
-          <IdentityFields />
+          <IdentityFields uuid={character.uuid} />
           <button className="margin-small" onClick={copyCode}>
             <FaCopy /> Copy sharing code
           </button>

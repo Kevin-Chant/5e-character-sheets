@@ -10,6 +10,13 @@ export type Theme = "system" | "light" | "dark";
 interface Settings {
   liveEditHost: string;
   theme: Theme;
+  // Whether edits persist automatically, and how long (ms) to wait after the
+  // last edit before doing so. Manual save (⌘S / the save button) works either
+  // way.
+  autosave: boolean;
+  autosaveDelay: number;
+  // Whether sheets open ready to edit (vs. locked for play).
+  openInEditMode: boolean;
 }
 
 function sanitizeSettingValue<K extends keyof Settings>(
@@ -17,12 +24,16 @@ function sanitizeSettingValue<K extends keyof Settings>(
   settingsKey: K,
 ): Settings[K] {
   switch (settingsKey) {
-    case "liveEditHost":
+    case "liveEditHost": {
+      const host = settingsValue as string;
       return (
-        settingsValue.includes("http://") || settingsValue.includes("https://")
-          ? settingsValue
-          : `http://${settingsValue}`
+        host.includes("http://") || host.includes("https://")
+          ? host
+          : `http://${host}`
       ) as Settings[K];
+    }
+    case "autosaveDelay":
+      return Math.max(0, settingsValue as number) as Settings[K];
     default:
       return settingsValue;
   }
@@ -31,16 +42,21 @@ function sanitizeSettingValue<K extends keyof Settings>(
 interface SettingsContextData {
   settings: Settings;
   updateSetting: (k: keyof Settings, val: Settings[typeof k]) => void;
+  resetSettings: () => void;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   liveEditHost: DEFAULT_LIVE_EDIT_HOST,
   theme: "system",
+  autosave: true,
+  autosaveDelay: 1000,
+  openInEditMode: true,
 };
 
 export const SettingsContext = React.createContext<SettingsContextData>({
   settings: DEFAULT_SETTINGS,
   updateSetting: (_k, _v) => console.log("Calling default updateSetting"),
+  resetSettings: () => console.log("Calling default resetSettings"),
 });
 
 export function SettingsContextProvider(props: React.PropsWithChildren) {
@@ -58,6 +74,7 @@ export function SettingsContextProvider(props: React.PropsWithChildren) {
           [settingsKey]: sanitizeSettingValue(settingsValue, settingsKey),
         }));
       },
+      resetSettings: () => setSettings(DEFAULT_SETTINGS),
     };
   }, [settings, setSettings]);
 

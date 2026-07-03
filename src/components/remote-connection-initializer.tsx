@@ -56,7 +56,9 @@ export default function RemoteConnectionInitializer() {
         value={uuidInputValue}
         onChange={updateUuidInputValue}
       />
-      <IdentityFields />
+      <IdentityFields
+        uuid={isUuid(uuidInputValue) ? uuidInputValue : undefined}
+      />
       <button
         className="margin-small"
         disabled={!uuidInputValue}

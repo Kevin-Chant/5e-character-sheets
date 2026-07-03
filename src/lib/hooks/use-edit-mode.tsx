@@ -2,6 +2,7 @@ import React, { useContext, useMemo, useState } from "react";
 import { readLocalStorage, writeLocalStorage } from "../local-storage";
 import { FIELD } from "../data/data-definitions";
 import { useCharacter } from "./use-character";
+import { useSettings } from "./use-settings";
 
 type Mode = "edit" | "play";
 
@@ -30,12 +31,15 @@ export const EditModeContext = React.createContext<EditModeContextData>({
 
 export function EditModeContextProvider(props: React.PropsWithChildren) {
   const { character } = useCharacter();
+  const { settings } = useSettings();
   const uuid = character?.uuid;
   const [modes, setModes] = useState<Record<string, Mode>>(() =>
     readLocalStorage("characterModes", {}),
   );
 
-  const editMode = !uuid || (modes[uuid] ?? "edit") === "edit";
+  // A sheet the user hasn't explicitly toggled follows the default-mode setting.
+  const defaultMode: Mode = settings.openInEditMode ? "edit" : "play";
+  const editMode = !uuid || (modes[uuid] ?? defaultMode) === "edit";
 
   const setEditMode = (edit: boolean) => {
     if (!uuid) return;

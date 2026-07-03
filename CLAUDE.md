@@ -45,6 +45,8 @@ Real-time co-editing runs over WAMP (autobahn-browser client ↔ nightlife-rabbi
 - **Self-echo is filtered by a per-tab `clientId`** stamped on every message — nightlife-rabbit does **not** honor WAMP `exclude_me`, so publishers receive their own events. Incoming edits are applied with `suppressBroadcast` to avoid loops.
 - **Roles**: `host` opens the realm + registers the `FULL_SYNC` RPC (backed by a ref so it always serves the _current_ character); `remote` (joiner) calls `FULL_SYNC` and uses `connection.onclose` as the reliable teardown signal. A `remote` character is **not persisted locally** (the host owns it) — see the role check in `CharacterContext`'s lazy-save.
 
+[`.claude/docs/live-editing-and-presence.md`](.claude/docs/live-editing-and-presence.md) is the deep dive: the two message layers (edit `DISPATCH` sync + best-effort `PRESENCE`/`LEAVE` roster with heartbeats and per-user field highlights) and the role-asymmetric teardown.
+
 ### Character model (`src/lib/types.ts`, `src/lib/data/`)
 
 The `Character` type plus 5e data definitions and a recursive **formula engine** for computed fields (AC, HP, attacks). The former grab-bag `src/lib/utils.ts` is split by concern: `src/lib/formula.ts` (the `calculate*`/`format*` engine + `OPERATORS`), `src/lib/rules.ts` (5e domain tables — stat mods, PB, hit dice, spell slots, spellcasting), `src/lib/fields.ts` (dot-path `traverse`/`get`/`setFieldValue` + schema validation), and `src/lib/browser.ts` (secure-context polyfills); `utils.ts` now holds only `ordinal`/`formatClass`. The `is*` type guards live in `src/lib/types.ts`. These pure functions are the main unit-tested surface; Drive/WAMP code is gapi/network-bound and verified manually in-browser (or with throwaway node scripts against a local nightlife-rabbit server).
@@ -54,9 +56,13 @@ The `Character` type plus 5e data definitions and a recursive **formula engine**
 - [`.claude/docs/adding-a-character-field.md`](.claude/docs/adding-a-character-field.md) — the end-to-end checklist (type → schema → migration → UI).
 - [`.claude/docs/editable-fields-and-modals.md`](.claude/docs/editable-fields-and-modals.md) — how the targeted-field stack + `ModalContainer` draft buffer turn a field into an editable modal.
 
+The computed-field system has its own deep dive: [`.claude/docs/formula-engine.md`](.claude/docs/formula-engine.md) — the recursive `CustomFormula` model and the two passes (`calculate*` folds to a number, `format*` renders prose), read it before touching `formula.ts` or adding a computed value.
+
 ### State management
 
 React Context + reducers (no Redux). Providers are **deeply nested in `src/index.tsx` and the order matters** — `SharingSessions` sits above `Datastore`/`Character` so broadcast/role state is reachable. Main contexts: `Settings`, `SharingSessions`, `GoogleOauth`, `DatastoreSelector`, `Datastore`, `Character`.
+
+All character edits funnel through one reducer + the `dispatchAndBroadcast` wrapper. [`.claude/docs/character-state-and-edits.md`](.claude/docs/character-state-and-edits.md) explains the write-path: why `update_*` actions carry a field's _whole_ value (which is what makes undo/redo and live-sync replay fall out for free) and the flags that keep local edits, replays, and remote echoes from looping.
 
 ## Configuration
 

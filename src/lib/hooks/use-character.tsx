@@ -18,6 +18,7 @@ import { Character } from "src/lib/types";
 type HistoryEntry = { action: Action; inverse: Action };
 import { useLazyEffect } from "./use-lazy-effect";
 import { useDatastore } from "./use-datastore";
+import { useSettings } from "./use-settings";
 import {
   useHostSharingSession,
   useSharingSessions,
@@ -77,7 +78,8 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [future, setFuture] = useState<HistoryEntry[]>([]);
   const characterRef = useRef(character);
   characterRef.current = character;
-  const { save, debounceWait } = useDatastore();
+  const { save } = useDatastore();
+  const { settings } = useSettings();
   const getCharacter = useCallback<() => Character | undefined>(() => {
     return character;
   }, [character]);
@@ -105,15 +107,16 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       });
   }, [character, getRole, save]);
 
-  // Debounced autosave. Only persist genuine edits — loading an already-
-  // persisted character leaves unsavedChanges false, so opening a sheet doesn't
-  // trigger a redundant write.
+  // Debounced autosave (when enabled). Only persist genuine edits — loading an
+  // already-persisted character leaves unsavedChanges false, so opening a sheet
+  // doesn't trigger a redundant write. With autosave off, edits stay dirty until
+  // a manual save (⌘S / the save button).
   useLazyEffect(
     () => {
-      if (unsavedChanges) persist();
+      if (settings.autosave && unsavedChanges) persist();
     },
     [character],
-    debounceWait,
+    settings.autosaveDelay,
   );
 
   // Warn before leaving with unsaved work (e.g. a failed save), editor-style.

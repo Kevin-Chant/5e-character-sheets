@@ -67,6 +67,29 @@ export function clearStoredToken() {
   localStorage.removeItem(TOKEN_STORAGE_KEY);
 }
 
+// Signs this browser out of Drive by dropping the token (in-memory + cached).
+// The OAuth grant itself persists, so a later sign-in can be silent.
+export function signOutOfDrive() {
+  if (window.gapi?.client?.getToken()) {
+    window.gapi.client.setToken(null);
+  }
+  clearStoredToken();
+}
+
+// Fully revokes the app's OAuth grant; the next sign-in requires re-consent.
+export function revokeDriveAccess(): Promise<void> {
+  return new Promise((resolve) => {
+    const token = window.gapi?.client?.getToken();
+    if (token) {
+      window.google.accounts.oauth2.revoke(token.access_token, () => resolve());
+      window.gapi.client.setToken(null);
+    } else {
+      resolve();
+    }
+    clearStoredToken();
+  });
+}
+
 // True when the user has granted access before with the scopes we need — even
 // if the cached token has since expired. Used to decide whether a silent
 // (no-UI) token refresh is worth attempting.

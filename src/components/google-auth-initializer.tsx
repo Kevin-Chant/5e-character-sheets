@@ -70,19 +70,6 @@ export default function GoogleAuthInitializer() {
     }
   };
 
-  /**
-   *  Sign out the user upon button click.
-   * TODO: put this in the header somewhere as it's not in use
-   */
-  // function handleSignoutClick() {
-  //   const token = window.gapi.client.getToken();
-  //   if (token !== null) {
-  //     window.google.accounts.oauth2.revoke(token.access_token, () => {});
-  //     window.gapi.client.setToken(null);
-  //     setGoogleOauthReady(false);
-  //   }
-  // }
-
   useScript("https://apis.google.com/js/api.js", () => {
     window.gapi.load("client", () => {
       window.gapi.client

@@ -1,4 +1,8 @@
-import { readLocalStorage, writeLocalStorage } from "./local-storage";
+import {
+  readLocalStorage,
+  removeLocalStorage,
+  writeLocalStorage,
+} from "./local-storage";
 
 // Stable tag for the storage mode the user last chose, persisted so returning
 // visitors can "jump back in" past the home picker. We persist a tag rather
@@ -17,4 +21,8 @@ export function readLastDatastore(): DatastoreMode | undefined {
 
 export function writeLastDatastore(mode: DatastoreMode) {
   writeLocalStorage(LAST_DATASTORE_KEY, mode);
+}
+
+export function clearLastDatastore() {
+  removeLocalStorage(LAST_DATASTORE_KEY);
 }

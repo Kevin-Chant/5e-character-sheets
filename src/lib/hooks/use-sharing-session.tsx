@@ -93,9 +93,13 @@ interface SharingSessionsContextData {
   ) => void;
   forgetConnection: (uuid: UUID) => void;
   broadcast: (uuid: UUID, action: Action, dirtyAction?: boolean) => void;
-  // This tab's presence identity (name + highlight color), persisted locally.
-  identity: Identity;
-  setIdentity: (identity: Identity) => void;
+  // The persisted default presence identity (name + highlight color), and the
+  // resolved identity for a given session (override, else default).
+  defaultIdentity: Identity;
+  setDefaultIdentity: (identity: Identity) => void;
+  resetDefaultIdentity: () => void;
+  getIdentity: (uuid: UUID) => Identity;
+  setSessionIdentity: (uuid: UUID, identity: Identity) => void;
   // Other participants in a character's live session, and the peer (if any)
   // currently editing a given field path.
   getParticipants: (uuid: UUID) => Participant[];
@@ -120,8 +124,11 @@ export const SharingSessionsContext =
     saveConnection: () => {},
     forgetConnection: () => {},
     broadcast: () => {},
-    identity: { name: "", color: "" },
-    setIdentity: () => {},
+    defaultIdentity: { name: "", color: "" },
+    setDefaultIdentity: () => {},
+    resetDefaultIdentity: () => {},
+    getIdentity: () => ({ name: "", color: "" }),
+    setSessionIdentity: () => {},
     getParticipants: () => [],
     getFieldEditor: () => undefined,
     broadcastSelection: () => {},
@@ -142,9 +149,28 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   const [presence, setPresence] = useState<
     Record<UUID, Record<string, Participant>>
   >({});
-  const [identity, setIdentityState] = useState<Identity>(loadIdentity);
-  const identityRef = useRef(identity);
-  identityRef.current = identity;
+  // The persisted default identity, plus optional per-session overrides keyed by
+  // character uuid — so a user can present differently (or under different
+  // names) in each session they host or join. Overrides are ephemeral: a session
+  // with none falls back to the default.
+  const [defaultIdentity, setDefaultIdentityState] =
+    useState<Identity>(loadIdentity);
+  const defaultIdentityRef = useRef(defaultIdentity);
+  defaultIdentityRef.current = defaultIdentity;
+  const [sessionIdentities, setSessionIdentities] = useState<
+    Record<UUID, Identity>
+  >({});
+  const sessionIdentitiesRef = useRef(sessionIdentities);
+  sessionIdentitiesRef.current = sessionIdentities;
+
+  // The identity this tab presents in a given session (override, else default).
+  // Reads refs so presence handlers registered in subscribe() closures stay
+  // current.
+  const getIdentity = useCallback(
+    (uuid: UUID): Identity =>
+      sessionIdentitiesRef.current[uuid] ?? defaultIdentityRef.current,
+    [],
+  );
   // Our own current field selection per session, so a reply to a newcomer's
   // "hello" reflects what we're actually editing.
   const mySelectionRef = useRef<Record<UUID, string | null>>({});
@@ -172,13 +198,28 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     delete lastSeenRef.current[uuid];
   }, []);
 
-  const setIdentity = useCallback((next: Identity) => {
-    setIdentityState(next);
+  const setDefaultIdentity = useCallback((next: Identity) => {
+    setDefaultIdentityState(next);
     try {
       localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(next));
     } catch {
       // Persisting identity is best-effort; an unwritable store isn't fatal.
     }
+  }, []);
+
+  // Restore the default identity to a fresh generated one (used by Settings'
+  // "reset to defaults"). Per-session overrides are left untouched.
+  const resetDefaultIdentity = useCallback(() => {
+    try {
+      localStorage.removeItem(IDENTITY_STORAGE_KEY);
+    } catch {
+      // Best-effort; if storage is unwritable we still reset in-memory below.
+    }
+    setDefaultIdentityState(loadIdentity());
+  }, []);
+
+  const setSessionIdentity = useCallback((uuid: UUID, next: Identity) => {
+    setSessionIdentities((prev) => ({ ...prev, [uuid]: next }));
   }, []);
 
   const applyPresence = useCallback((uuid: UUID, msg: PresenceMessage) => {
@@ -212,14 +253,17 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   };
 
   const myPresence = useCallback(
-    (uuid: UUID, kind: "hello" | "update"): PresenceMessage => ({
-      kind,
-      clientId: clientIdRef.current,
-      name: identityRef.current.name,
-      color: identityRef.current.color,
-      field: mySelectionRef.current[uuid] ?? null,
-    }),
-    [],
+    (uuid: UUID, kind: "hello" | "update"): PresenceMessage => {
+      const { name, color } = getIdentity(uuid);
+      return {
+        kind,
+        clientId: clientIdRef.current,
+        name,
+        color,
+        field: mySelectionRef.current[uuid] ?? null,
+      };
+    },
+    [getIdentity],
   );
 
   const joinPresence = useCallback(
@@ -262,13 +306,13 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     });
   }, []);
 
-  // Renaming/recoloring mid-session: re-announce to every open session so peers
-  // update our chip and highlight.
+  // Renaming/recoloring mid-session (default or a per-session override): re-
+  // announce to every open session so peers update our chip and highlight.
   useEffect(() => {
     (Object.keys(openSessionsRef.current) as UUID[]).forEach((uuid) =>
       broadcastSelection(uuid, mySelectionRef.current[uuid] ?? null),
     );
-  }, [identity, broadcastSelection]);
+  }, [defaultIdentity, sessionIdentities, broadcastSelection]);
 
   // Single timer for the provider's lifetime: emit a keep-alive on each open
   // session and drop peers that have gone silent past the timeout. Any received
@@ -317,8 +361,11 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       }));
     },
     forgetConnection,
-    identity,
-    setIdentity,
+    defaultIdentity,
+    setDefaultIdentity,
+    resetDefaultIdentity,
+    getIdentity,
+    setSessionIdentity,
     getParticipants: (uuid) =>
       Object.values(presence[uuid] || {}).filter(
         (p) => p.clientId !== clientIdRef.current,

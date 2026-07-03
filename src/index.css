@@ -216,6 +216,162 @@ p {
   width: 100%;
 }
 
+/* Settings: two columns whose nav is pinned to the top (align-items: flex-start)
+   so it doesn't drift vertically as the chosen panel's height changes. */
+.settings-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+  padding: 1.5rem;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 0 0 200px;
+  position: sticky;
+  top: 1.5rem;
+}
+
+/* Left-aligned pill tabs; the active one is filled with the accent colour. */
+.settings-nav button {
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  border-color: transparent;
+  background-color: transparent;
+  font-weight: 500;
+}
+.settings-nav button:hover:not(:disabled) {
+  background-color: var(--surface-2);
+  box-shadow: none;
+}
+.settings-nav button.active {
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A tab's sections stack in a single readable column, divided by hairlines so
+   each setting reads as a distinct group without heavy boxing. */
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  max-width: 640px;
+}
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-section:first-child {
+  padding-top: 0.25rem;
+}
+.settings-section:last-child {
+  border-bottom: none;
+}
+.settings-section-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.settings-description {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.settings-value {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Checkbox/label pairs in settings: keep the box snug against its label rather
+   than spread apart by the parent .row/.column's even spacing. */
+.settings-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  width: auto;
+}
+.settings-checkbox input[type="checkbox"] {
+  width: auto;
+}
+.settings-delay-input {
+  width: 6rem;
+}
+
+/* Stepped autosave slider (left) with the custom seconds input inline to its
+   right, aligned to the slider track rather than the taller tick-label block. */
+.autosave-control {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.autosave-slider {
+  width: 340px;
+  max-width: 100%;
+}
+.autosave-slider input[type="range"] {
+  width: 100%;
+}
+/* Each label is absolutely centered on its stop's fraction so it lines up with
+   the thumb regardless of the label's own width. The 8px side insets match the
+   native thumb's radius, so its centre travel matches the 0–100% label range. */
+.autosave-ticks {
+  position: relative;
+  height: 1rem;
+  margin: 0.25rem 8px 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.autosave-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.autosave-tick.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* IdentityFields is centered for the narrow share modal; left-align it here. */
+.settings-content .identity-fields,
+.settings-content .identity-fields .column {
+  align-items: flex-start;
+  width: auto;
+}
+.settings-content .identity-fields .identity-color {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  width: auto;
+}
+
+@media (max-width: 640px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+  .settings-nav {
+    flex-direction: row;
+    flex-basis: auto;
+    position: static;
+    flex-wrap: wrap;
+  }
+  .settings-nav button {
+    width: auto;
+  }
+}
+
 .align-flex-start {
   align-items: flex-start;
 }
