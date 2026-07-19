@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { countBy } from "lodash";
 import {
   Alignment,
@@ -20,6 +20,11 @@ import {
   getSrdClass,
 } from "src/lib/builder/srd-classes";
 import { PHB_BACKGROUNDS, getBackground } from "src/lib/builder/backgrounds";
+import {
+  parseEquipmentOption,
+  weaponSlotsForText,
+  weaponsInCategory,
+} from "src/lib/builder/equipment";
 import { buildCharacter } from "src/lib/builder/build-character";
 import { calculateCustomFormula } from "src/lib/formula";
 import { searchSrdSpells } from "src/lib/spells/srd-spells";
@@ -48,6 +53,7 @@ import {
   Choice,
   ChoiceGrid,
   Field,
+  LanguagePicker,
   LinesInput,
   STAT_LABEL,
   StepProps,
@@ -63,7 +69,7 @@ const fmtMod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
 // --------------------------------------------------------------------- Start
 
-export function StartStep({ patch }: StepProps) {
+export function StartStep({ state, patch }: StepProps) {
   return (
     <div className="builder-step">
       <p className="text-muted">
@@ -75,21 +81,21 @@ export function StartStep({ patch }: StepProps) {
             key: "guided",
             title: "Guided build",
             subtitle: "Walk through race, class, ability scores, and more.",
-            selected: true,
+            selected: state.mode === "guided",
             onClick: () => patch({ mode: "guided" }),
           },
           {
             key: "blank",
             title: "Blank sheet",
             subtitle: "Start empty and fill everything in yourself.",
-            selected: false,
+            selected: state.mode === "blank",
             onClick: () => patch({ mode: "blank" }),
           },
           {
             key: "sample",
             title: "Sample character",
             subtitle: "A pre-filled example to explore and edit.",
-            selected: false,
+            selected: state.mode === "sample",
             onClick: () => patch({ mode: "sample" }),
           },
         ]}
@@ -156,6 +162,21 @@ export function RaceStep({ state, patch }: StepProps) {
   const custom = state.raceIsCustom;
   const subraces = subracesForRace(race);
 
+  // When the player switches to a race that offers subraces, the subrace picker
+  // unfolds below the fold — scroll it into view so it isn't missed.
+  const subraceRef = useRef<HTMLDivElement>(null);
+  const prevRaceIndex = useRef(state.raceIndex);
+  useEffect(() => {
+    if (prevRaceIndex.current !== state.raceIndex) {
+      prevRaceIndex.current = state.raceIndex;
+      if (subraces.length)
+        subraceRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+    }
+  }, [state.raceIndex, subraces.length]);
+
   const pickRace = (r: SrdRace) => {
     const firstSub = subracesForRace(r)[0]?.index;
     const subrace = getSubrace(r, firstSub);
@@ -205,7 +226,7 @@ export function RaceStep({ state, patch }: StepProps) {
       <ChoiceGrid choices={raceChoices} />
 
       {race && (
-        <Field label="Subrace">
+        <Field label="Subrace" innerRef={subraceRef}>
           <ChoiceGrid
             choices={[
               ...subraces.map((s) => ({
@@ -250,12 +271,27 @@ export function RaceStep({ state, patch }: StepProps) {
         </Field>
       )}
 
-      {race && (
-        <p className="text-muted builder-hint">
-          Speed {race.speed} ft · Languages: {race.languages.join(", ")}
-          {race.traits.length ? ` · ${race.traits.length} racial traits` : ""}
-        </p>
-      )}
+      {race &&
+        (() => {
+          const subrace = getSubrace(race, state.subraceIndex);
+          const traitTitles = [...race.traits, ...(subrace?.traits ?? [])].map(
+            (t) => t.title,
+          );
+          const fixedSkills = [
+            ...race.proficiencies.skills,
+            ...(subrace?.proficiencies.skills ?? []),
+          ];
+          return (
+            <p className="text-muted builder-hint">
+              Speed {subrace?.speed ?? race.speed} ft · Languages:{" "}
+              {race.languages.join(", ")}
+              {fixedSkills.length
+                ? ` · Skill proficiencies: ${fixedSkills.join(", ")}`
+                : ""}
+              {traitTitles.length ? ` · Traits: ${traitTitles.join(", ")}` : ""}
+            </p>
+          );
+        })()}
 
       {custom && (
         <Field label="Race name">
@@ -289,6 +325,8 @@ export function ClassStep({ state, patch }: StepProps) {
           classIndex: c.index,
           classIsCustom: false,
           subclass: undefined,
+          classEquipmentChoices: {},
+          classWeaponChoices: {},
         }),
     })),
     {
@@ -301,6 +339,8 @@ export function ClassStep({ state, patch }: StepProps) {
           classIndex: undefined,
           classIsCustom: true,
           subclass: undefined,
+          classEquipmentChoices: {},
+          classWeaponChoices: {},
         }),
     },
   ];
@@ -312,7 +352,7 @@ export function ClassStep({ state, patch }: StepProps) {
       {klass?.skillChoices && (
         <p className="text-muted builder-hint">
           You&apos;ll choose this class&apos;s {klass.skillChoices.choose} skill
-          proficiencies together with your background, coming up next.
+          proficiencies in the Background &amp; skills step.
         </p>
       )}
 
@@ -663,6 +703,8 @@ export function BackgroundStep({ state, patch }: StepProps) {
   const custom = state.backgroundIsCustom;
   const languageCount = bg?.languages ?? 0;
   const klass = getSrdClass(state.classIndex);
+  const race = getSrdRace(state.raceIndex);
+  const subrace = getSubrace(race, state.subraceIndex);
 
   const choices: Choice[] = [
     ...PHB_BACKGROUNDS.map((b) => ({
@@ -690,7 +732,12 @@ export function BackgroundStep({ state, patch }: StepProps) {
   // Skills already granted by background + race, so class picks don't waste on
   // duplicates (BG3-style).
   const bgSkills = custom ? state.customBackgroundSkills : (bg?.skills ?? []);
-  const grantedSkills = [...bgSkills, ...state.raceSkillChoices];
+  const grantedSkills = [
+    ...bgSkills,
+    ...state.raceSkillChoices,
+    ...(race?.proficiencies.skills ?? []),
+    ...(subrace?.proficiencies.skills ?? []),
+  ];
   const classSkillOptions = (klass?.skillChoices?.from ?? []).filter(
     (s) => !grantedSkills.includes(s),
   );
@@ -756,10 +803,9 @@ export function BackgroundStep({ state, patch }: StepProps) {
           label="Extra languages"
           hint={`Your background grants ${languageCount} language(s) of your choice`}
         >
-          <LinesInput
-            rows={2}
+          <LanguagePicker
+            count={languageCount}
             value={state.backgroundLanguageChoices}
-            placeholder="One language per line"
             onChange={(backgroundLanguageChoices) =>
               patch({ backgroundLanguageChoices })
             }
@@ -906,6 +952,24 @@ export function SpellsStep({ state, patch }: StepProps) {
 export function EquipmentStep({ state, patch }: StepProps) {
   const klass = getSrdClass(state.classIndex);
   const bg = getBackground(state.backgroundName);
+  const parsedOptions = klass
+    ? klass.startingEquipmentOptions.map(parseEquipmentOption)
+    : [];
+  // Fixed grants: the class's flat items plus any option line with no "(x)"
+  // choice (e.g. "holy symbol").
+  const fixedItems = [
+    ...(klass?.startingEquipment ?? []),
+    ...parsedOptions.flatMap((o) => (o.kind === "fixed" ? [o.text] : [])),
+  ];
+  const setChoice = (i: number, idx: number) =>
+    patch({
+      classEquipmentChoices: { ...state.classEquipmentChoices, [i]: idx },
+    });
+  const setWeapon = (i: number, slot: number, name: string) => {
+    const picks = [...(state.classWeaponChoices[i] ?? [])];
+    picks[slot] = name;
+    patch({ classWeaponChoices: { ...state.classWeaponChoices, [i]: picks } });
+  };
   return (
     <div className="builder-step">
       {klass && (
@@ -916,16 +980,55 @@ export function EquipmentStep({ state, patch }: StepProps) {
             onChange={(e) => patch({ acceptClassEquipment: e.target.checked })}
           />
           <span>
-            <strong>Class equipment</strong>
-            <span className="text-muted builder-hint">
-              {[
-                ...klass.startingEquipment,
-                ...klass.startingEquipmentOptions,
-              ].join("; ")}
-            </span>
+            <strong>Class equipment ({klass.name})</strong>
+            {fixedItems.length > 0 && (
+              <span className="text-muted builder-hint">
+                Includes: {fixedItems.join(", ")}
+              </span>
+            )}
           </span>
         </label>
       )}
+      {klass &&
+        state.acceptClassEquipment &&
+        parsedOptions.map((opt, i) => {
+          if (opt.kind !== "choice") return null;
+          const selIdx = state.classEquipmentChoices[i] ?? 0;
+          const slots = weaponSlotsForText(opt.choices[selIdx]?.text ?? "");
+          return (
+            <Field key={i} label="Choose one">
+              {opt.choices.map((c, idx) => (
+                <label key={c.key} className="builder-check-row">
+                  <input
+                    type="radio"
+                    name={`class-equip-${i}`}
+                    checked={selIdx === idx}
+                    onChange={() => setChoice(i, idx)}
+                  />
+                  <span>{c.text}</span>
+                </label>
+              ))}
+              {slots.map((category, slot) => {
+                const weapons = weaponsInCategory(category);
+                const value = state.classWeaponChoices[i]?.[slot] ?? weapons[0]?.name; // prettier-ignore
+                return (
+                  <select
+                    key={slot}
+                    className="builder-input builder-weapon-select"
+                    value={value}
+                    onChange={(e) => setWeapon(i, slot, e.target.value)}
+                  >
+                    {weapons.map((w) => (
+                      <option key={w.name} value={w.name}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                );
+              })}
+            </Field>
+          );
+        })}
       {bg && (
         <label className="builder-check-row">
           <input

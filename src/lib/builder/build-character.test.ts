@@ -141,6 +141,47 @@ describe("buildCharacter — subrace speed & tool dedup", () => {
     );
     expect(tools.filter((t) => t === "thieves' tools")).toHaveLength(1);
   });
+
+  it("grants the elf's fixed Perception proficiency (Keen Senses)", () => {
+    expect(char.proficiencies.skills).toMatchObject({ Perception: true });
+  });
+});
+
+describe("buildCharacter — class equipment choices, attacks & AC", () => {
+  it("resolves category choices to a concrete weapon and builds its attack", () => {
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "barbarian",
+      // Option 0: "(a) a greataxe or (b) any martial melee weapon" → pick (b),
+      // and explicitly choose a Glaive for that martial-melee slot.
+      classEquipmentChoices: { 0: 1 },
+      classWeaponChoices: { 0: ["Glaive"] },
+    });
+    const items = char.equipment.map((e) => e.title);
+    expect(items).toContain("Glaive");
+    expect(items).not.toContain("any martial melee weapon");
+    // Option 1: "(a) two handaxes or (b) any simple weapon" defaults to (a).
+    expect(items).toContain("Handaxe (2)");
+    // Concrete weapons become rollable attacks.
+    expect(char.attacks.map((a) => a.name)).toEqual(
+      expect.arrayContaining(["Glaive", "Handaxe", "Javelin"]),
+    );
+  });
+
+  it("derives the AC formula from chosen armor and a shield", () => {
+    // Cleric: fixed Shield + a scale-mail option (default choice a).
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "cleric",
+    });
+    // Scale mail (14 + min(DEX,2)) + shield (+2).
+    expect(char.acFormula).toEqual({
+      operation: "addition",
+      operands: [14, { operation: "minimum", operands: ["dex", 2] }, 2],
+    });
+  });
 });
 
 describe("buildCharacter — escape hatches", () => {

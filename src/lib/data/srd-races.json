@@ -18,7 +18,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": []
     },
     "traits": [
       {
@@ -51,7 +52,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": []
     },
     "traits": [
       {
@@ -88,7 +90,8 @@
         "proficiencies": {
           "armor": [],
           "weapons": [],
-          "tools": []
+          "tools": [],
+          "skills": []
         },
         "traits": [
           {
@@ -114,7 +117,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": ["Perception"]
     },
     "traits": [
       {
@@ -147,7 +151,8 @@
         "proficiencies": {
           "armor": [],
           "weapons": [],
-          "tools": []
+          "tools": [],
+          "skills": []
         },
         "traits": [
           {
@@ -181,7 +186,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": []
     },
     "traits": [
       {
@@ -206,7 +212,8 @@
         "proficiencies": {
           "armor": [],
           "weapons": [],
-          "tools": []
+          "tools": [],
+          "skills": []
         },
         "traits": [
           {
@@ -264,7 +271,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": []
     },
     "traits": [
       {
@@ -301,7 +309,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": ["Intimidation"]
     },
     "traits": [
       {
@@ -338,7 +347,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": []
     },
     "traits": [
       {
@@ -367,7 +377,8 @@
         "proficiencies": {
           "armor": [],
           "weapons": [],
-          "tools": []
+          "tools": [],
+          "skills": []
         },
         "traits": [
           {
@@ -414,7 +425,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": []
     },
     "traits": [],
     "subraces": []
@@ -438,7 +450,8 @@
     "proficiencies": {
       "armor": [],
       "weapons": [],
-      "tools": []
+      "tools": [],
+      "skills": []
     },
     "traits": [
       {

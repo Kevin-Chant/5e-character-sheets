@@ -16,6 +16,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
         armor: ["Light Armor", "Medium Armor"],
         weapons: [],
         tools: [],
+        skills: [],
       },
       traits: [
         {
@@ -31,7 +32,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       name: "Wood Elf",
       abilityBonuses: [{ stat: StatKey.wis, bonus: 1 }],
       speed: 35,
-      proficiencies: { armor: [], weapons: [], tools: [] },
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
       traits: [
         {
           title: "Fleet of Foot",
@@ -48,7 +49,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       index: "drow",
       name: "Drow (Dark Elf)",
       abilityBonuses: [{ stat: StatKey.cha, bonus: 1 }],
-      proficiencies: { armor: [], weapons: [], tools: [] },
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
       traits: [
         {
           title: "Superior Darkvision",
@@ -77,7 +78,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       index: "stout-halfling",
       name: "Stout Halfling",
       abilityBonuses: [{ stat: StatKey.con, bonus: 1 }],
-      proficiencies: { armor: [], weapons: [], tools: [] },
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
       traits: [
         {
           title: "Stout Resilience",
@@ -92,7 +93,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       index: "forest-gnome",
       name: "Forest Gnome",
       abilityBonuses: [{ stat: StatKey.dex, bonus: 1 }],
-      proficiencies: { armor: [], weapons: [], tools: [] },
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
       traits: [
         {
           title: "Natural Illusionist",

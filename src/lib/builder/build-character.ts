@@ -25,6 +25,7 @@ import { getSrdRace, getSubrace } from "src/lib/builder/srd-races";
 import { resolveFinalStats } from "src/lib/builder/resolve";
 import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
 import { getBackground } from "src/lib/builder/backgrounds";
+import { resolveClassLoadout } from "src/lib/builder/equipment";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
 import { buildSpellFromSrd } from "src/lib/spells/srd-spell-adapter";
 
@@ -205,6 +206,8 @@ function guidedCharacter(state: BuilderState): Character {
   const skills = uniq([
     ...state.classSkillChoices,
     ...state.raceSkillChoices,
+    ...(race?.proficiencies.skills ?? []),
+    ...(subrace?.proficiencies.skills ?? []),
     ...(background?.skills ?? []),
     ...(state.backgroundName ? [] : state.customBackgroundSkills),
   ]);
@@ -260,13 +263,20 @@ function guidedCharacter(state: BuilderState): Character {
     if (className === OfficialClass.Warlock) char.pactSlots = { expended: 0 };
   }
 
-  // Equipment & coin
+  // Equipment & coin. The class loadout also derives weapon attacks and (when
+  // armor/shield is taken) the AC formula from the selected gear.
   const equipmentLines: string[] = [];
-  if (state.acceptClassEquipment && klass)
-    equipmentLines.push(
-      ...klass.startingEquipment,
-      ...klass.startingEquipmentOptions,
+  if (state.acceptClassEquipment && klass) {
+    const loadout = resolveClassLoadout(
+      klass.startingEquipment,
+      klass.startingEquipmentOptions,
+      state.classEquipmentChoices,
+      state.classWeaponChoices,
     );
+    equipmentLines.push(...loadout.equipment);
+    char.attacks = loadout.attacks;
+    if (loadout.acFormula) char.acFormula = loadout.acFormula;
+  }
   if (state.acceptBackgroundEquipment && background) {
     equipmentLines.push(...background.equipment);
     if (background.gold) char.coins = { GP: background.gold };

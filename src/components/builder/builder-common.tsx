@@ -1,6 +1,9 @@
 import classNames from "classnames";
-import { ReactNode } from "react";
+import { ReactNode, Ref } from "react";
 import { BuilderState } from "src/lib/builder/types";
+import { DEFAULT_LANGUAGES } from "src/lib/data/option-lists";
+
+const LANGUAGE_OPTIONS = DEFAULT_LANGUAGES.flatMap((g) => g.options);
 
 // Every wizard step receives the working state and a shallow-merge patcher.
 export interface StepProps {
@@ -95,13 +98,15 @@ export function Field({
   label,
   hint,
   children,
+  innerRef,
 }: {
   label: string;
   hint?: string;
   children: ReactNode;
+  innerRef?: Ref<HTMLDivElement>;
 }) {
   return (
-    <div className="builder-field">
+    <div className="builder-field" ref={innerRef}>
       <label className="builder-field-label">{label}</label>
       {hint && <span className="text-muted builder-hint">{hint}</span>}
       {children}
@@ -132,6 +137,44 @@ export function LinesInput({
         onChange(e.target.value.split("\n").map((l) => l.replace(/^\s+/, "")))
       }
     />
+  );
+}
+
+// One datalist-backed input per language slot: a dropdown of standard/exotic
+// languages that still accepts custom entries (same "default or custom" feel as
+// the other suggestion fields).
+export function LanguagePicker({
+  count,
+  value,
+  onChange,
+}: {
+  count: number;
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const set = (i: number, v: string) => {
+    const next = [...value];
+    next[i] = v;
+    onChange(next);
+  };
+  return (
+    <div className="builder-language-picker">
+      {Array.from({ length: count }).map((_, i) => (
+        <input
+          key={i}
+          className="builder-input"
+          list="builder-languages"
+          placeholder="Choose or type a language"
+          value={value[i] ?? ""}
+          onChange={(e) => set(i, e.target.value)}
+        />
+      ))}
+      <datalist id="builder-languages">
+        {LANGUAGE_OPTIONS.map((l) => (
+          <option key={l} value={l} />
+        ))}
+      </datalist>
+    </div>
   );
 }
 

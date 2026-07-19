@@ -23,6 +23,9 @@ export interface ProficiencyGrants {
   armor: string[];
   weapons: string[];
   tools: string[];
+  // Fixed skill proficiencies granted outright (e.g. Elf Keen Senses →
+  // Perception). Distinct from `SrdRace.skillChoices`, which is a "choose N".
+  skills: SkillName[];
 }
 
 export interface SrdSubrace {
@@ -158,6 +161,14 @@ export interface BuilderState {
 
   // Equipment.
   acceptClassEquipment: boolean;
+  // Per class starting-equipment option (keyed by its index in
+  // `startingEquipmentOptions`) → the chosen choice index. Absent = the first
+  // choice. Reset when the class changes.
+  classEquipmentChoices: Record<number, number>;
+  // For option choices that grant a weapon *category* ("any martial weapon"),
+  // the concrete weapon name filling each slot, keyed by option index. Absent
+  // slots default to the category's first weapon. Reset when the class changes.
+  classWeaponChoices: Record<number, string[]>;
   acceptBackgroundEquipment: boolean;
   extraEquipment: string[];
 
@@ -213,6 +224,8 @@ export function defaultBuilderState(): BuilderState {
     cantripIndices: [],
     levelOneSpellIndices: [],
     acceptClassEquipment: true,
+    classEquipmentChoices: {},
+    classWeaponChoices: {},
     acceptBackgroundEquipment: true,
     extraEquipment: [],
     name: "",

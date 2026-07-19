@@ -69,45 +69,55 @@ function abilityBonusOptions(opts) {
 // language_options → number of free extra languages (we don't constrain which).
 const languageChoices = (opts) => opts?.choose ?? undefined;
 
-// Fetch trait $refs → compact [{ title, detail }] feature lines. The SRD is
-// open-license, so bundling the descriptions (as we already do for spells) is
-// fine.
+// Fetch trait $refs → compact [{ title, detail }] feature lines plus any fixed
+// skill proficiencies the trait grants (e.g. Keen Senses → Perception, which
+// the API models on the trait rather than the race's starting_proficiencies).
+// The SRD is open-license, so bundling the descriptions (as we already do for
+// spells) is fine.
 async function resolveTraits(refs) {
-  const out = [];
+  const traits = [];
+  const skills = [];
   for (const ref of refs ?? []) {
     const t = await getJson(ref.url);
-    out.push({ title: t.name, detail: (t.desc ?? []).join("\n\n") });
+    traits.push({ title: t.name, detail: (t.desc ?? []).join("\n\n") });
+    for (const p of t.proficiencies ?? []) {
+      if (p.name.startsWith("Skill: "))
+        skills.push(p.name.replace(/^Skill: /, ""));
+    }
   }
-  return out;
+  return { traits, skills };
 }
 
-// Categorise a starting_proficiencies list into { armor, weapons, tools } by
-// fetching each proficiency's `type`.
+// Categorise a starting_proficiencies list into { armor, weapons, tools, skills }
+// by fetching each proficiency's `type`.
 async function resolveProficiencies(refs) {
   const armor = [];
   const weapons = [];
   const tools = [];
+  const skills = [];
   for (const ref of refs ?? []) {
     const p = await getJson(ref.url);
     const name = p.name.replace(/^Skill: /, "");
     if (p.type === "Armor" || name === "Shields") armor.push(name);
     else if (p.type === "Weapons") weapons.push(name);
-    else if (p.type === "Skills")
-      continue; // handled as skill proficiencies
+    else if (p.type === "Skills") skills.push(name);
     else tools.push(name);
   }
-  return { armor, weapons, tools };
+  return { armor, weapons, tools, skills };
 }
 
 async function buildSubrace(ref) {
   const s = await getJson(ref.url);
+  const proficiencies = await resolveProficiencies(s.starting_proficiencies);
+  const { traits, skills } = await resolveTraits(s.racial_traits);
+  proficiencies.skills = [...new Set([...proficiencies.skills, ...skills])];
   return {
     index: s.index,
     name: s.name,
     abilityBonuses: abilityBonuses(s.ability_bonuses),
     languageChoices: languageChoices(s.language_options),
-    proficiencies: await resolveProficiencies(s.starting_proficiencies),
-    traits: await resolveTraits(s.racial_traits),
+    proficiencies,
+    traits,
   };
 }
 
@@ -115,6 +125,9 @@ async function buildRace(ref) {
   const r = await getJson(ref.url);
   const subraces = [];
   for (const sr of r.subraces ?? []) subraces.push(await buildSubrace(sr));
+  const proficiencies = await resolveProficiencies(r.starting_proficiencies);
+  const { traits, skills } = await resolveTraits(r.traits);
+  proficiencies.skills = [...new Set([...proficiencies.skills, ...skills])];
   return {
     index: r.index,
     name: r.name,
@@ -125,8 +138,8 @@ async function buildRace(ref) {
     languages: (r.languages ?? []).map((l) => l.name),
     languageChoices: languageChoices(r.language_options),
     skillChoices: SKILL_CHOICE_OVERRIDES[r.index],
-    proficiencies: await resolveProficiencies(r.starting_proficiencies),
-    traits: await resolveTraits(r.traits),
+    proficiencies,
+    traits,
     subraces,
   };
 }

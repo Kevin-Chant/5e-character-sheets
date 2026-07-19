@@ -2652,6 +2652,16 @@ button.slot-pip:hover:not(:disabled) {
   flex-direction: column;
   gap: 0.15rem;
 }
+/* Weapon-category pickers shown under a selected (a)/(b) option, and the
+   per-slot language inputs — both stack with a small gap. */
+.builder-weapon-select {
+  margin-top: 0.4rem;
+}
+.builder-language-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
 
 /* Review summary */
 .builder-review {
