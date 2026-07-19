@@ -21,6 +21,9 @@ import EditArmorProficiencies from "./edit-armor-proficiencies";
 import EditHitDice from "./edit-hit-dice";
 import EditAttack from "./edit-attack";
 import AddAttack from "./add-attack";
+import AddSpellFromSrd from "./add-spell-from-srd";
+import RollModal from "./roll-modal";
+import { RollerProvider } from "src/lib/hooks/use-roller";
 import BuildCustomFormulaWithDamage from "./build-custom-formula-with-damage";
 import EditClassLevels from "./edit-class-levels";
 import Spellcasting from "./spellcasting";
@@ -99,6 +102,13 @@ export default function CharSheet() {
           setModalType("limitedUseAbility");
         }
       } else if (
+        standardFieldType === "spell" &&
+        (subField || "").endsWith(".new")
+      ) {
+        // e.g. "cantrips.new" / "First.new": open the SRD spell browser rather
+        // than an empty editor (mirrors the "attacks/new" → selectWeapon path).
+        setModalType("selectSpell");
+      } else if (
         (standardFieldType === "textLine" || standardFieldType === "spell") &&
         (subField || "").includes("Formulas")
       ) {
@@ -164,6 +174,10 @@ export default function CharSheet() {
       modalContents = <EditSpell />;
       modalTitle = "Edit Spell";
       break;
+    case "selectSpell":
+      modalContents = <AddSpellFromSrd />;
+      modalTitle = "Add Spell from SRD";
+      break;
     case "limitedUseAbility":
       modalContents = <EditLimitedUseAbility />;
       modalTitle = "Edit Ability";
@@ -179,85 +193,88 @@ export default function CharSheet() {
       );
   }
   return (
-    <div className="character-sheet-container">
-      <PresenceBroadcaster />
-      {modalIsOpen && (
-        <ModalContainer
-          back={targetedFieldStackLength > 1 ? popTargetedField : undefined}
-          close={clearTargetedField}
-          title={modalTitle}
-        >
-          {modalContents}
-        </ModalContainer>
-      )}
-      <div className="page-container">
-        <div className="character-info-header">
-          <div className="row">
-            <div className="rounded-border-box">
-              <SingleValueDisplay
-                field={FIELD.name}
-                name={"Character Name"}
-                vertical
-                removeBorder
-                editable
-              />
-            </div>
-            <div className="column">
-              <div className="row">
+    <RollerProvider>
+      <div className="character-sheet-container">
+        <PresenceBroadcaster />
+        <RollModal />
+        {modalIsOpen && (
+          <ModalContainer
+            back={targetedFieldStackLength > 1 ? popTargetedField : undefined}
+            close={clearTargetedField}
+            title={modalTitle}
+          >
+            {modalContents}
+          </ModalContainer>
+        )}
+        <div className="page-container">
+          <div className="character-info-header">
+            <div className="row">
+              <div className="rounded-border-box">
                 <SingleValueDisplay
-                  field={FIELD.class}
-                  transform={formatClass}
-                  name={"Class & Level"}
+                  field={FIELD.name}
+                  name={"Character Name"}
                   vertical
-                  editable
-                  compact={formatClass(character.class).length > 25}
-                />
-                <SingleValueDisplay
-                  field={FIELD.background}
-                  name={"Background"}
-                  vertical
-                  editable
-                />
-                <SingleValueDisplay
-                  field={FIELD.playerName}
-                  name={"Player Name"}
-                  vertical
+                  removeBorder
                   editable
                 />
               </div>
-              <div className="row">
-                <SingleValueDisplay
-                  field={FIELD.race}
-                  name={"Race"}
-                  vertical
-                  editable
-                />
-                <SingleValueDisplay
-                  field={FIELD.alignment}
-                  name={"Alignment"}
-                  vertical
-                  editable
-                />
-                <SingleValueDisplay
-                  field={FIELD.exp}
-                  transform={(exp) => exp || "N/A"}
-                  name={"Experience Points"}
-                  vertical
-                  editable
-                />
+              <div className="column">
+                <div className="row">
+                  <SingleValueDisplay
+                    field={FIELD.class}
+                    transform={formatClass}
+                    name={"Class & Level"}
+                    vertical
+                    editable
+                    compact={formatClass(character.class).length > 25}
+                  />
+                  <SingleValueDisplay
+                    field={FIELD.background}
+                    name={"Background"}
+                    vertical
+                    editable
+                  />
+                  <SingleValueDisplay
+                    field={FIELD.playerName}
+                    name={"Player Name"}
+                    vertical
+                    editable
+                  />
+                </div>
+                <div className="row">
+                  <SingleValueDisplay
+                    field={FIELD.race}
+                    name={"Race"}
+                    vertical
+                    editable
+                  />
+                  <SingleValueDisplay
+                    field={FIELD.alignment}
+                    name={"Alignment"}
+                    vertical
+                    editable
+                  />
+                  <SingleValueDisplay
+                    field={FIELD.exp}
+                    transform={(exp) => exp || "N/A"}
+                    name={"Experience Points"}
+                    vertical
+                    editable
+                  />
+                </div>
               </div>
             </div>
           </div>
+          <div className="row">
+            <StatAndSkillPanel />
+            <DefenceAndEquipmentPanel />
+            <CharacterInfoPanel />
+          </div>
         </div>
-        <div className="row">
-          <StatAndSkillPanel />
-          <DefenceAndEquipmentPanel />
-          <CharacterInfoPanel />
+        <div className="page-container">
+          <Spellcasting />
         </div>
       </div>
-      <div className="page-container">
-        <Spellcasting />
-      </div>
-    </div>
+    </RollerProvider>
   );
 }

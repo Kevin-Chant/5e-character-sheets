@@ -4,6 +4,7 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { Character } from "src/lib/types";
 import { getFieldValue, traverse } from "src/lib/fields";
+import RollButton from "../roll-button";
 
 interface ProficiencyDisplayProps {
   id: string;
@@ -16,6 +17,9 @@ interface ProficiencyDisplayProps {
   subtext?: string;
   transform?: (value: any, character: Character) => string | number;
   readOnly?: boolean;
+  // When set, show a d20 roll button that rolls (this row's value) + d20 — used
+  // for skills and saving throws, whose transformed value is the modifier.
+  rollLabel?: string;
   updateProficiency: (data: boolean) => void;
 }
 
@@ -30,6 +34,7 @@ export default function ProficiencyDisplay({
   subtext,
   transform,
   readOnly,
+  rollLabel,
   updateProficiency,
 }: ProficiencyDisplayProps) {
   const { character } = useCharacter();
@@ -68,6 +73,9 @@ export default function ProficiencyDisplay({
         <TextComponent className="display-text">
           {text} {subtext}
         </TextComponent>
+        {rollLabel && typeof value === "number" && (
+          <RollButton label={rollLabel} check={value} />
+        )}
       </div>
     </div>
   );

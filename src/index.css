@@ -2118,3 +2118,107 @@ button.slot-pip:hover:not(:disabled) {
     transform: rotate(360deg);
   }
 }
+
+/* Muted helper text (pickers, roll dialog hints). */
+.muted {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* SRD spell picker */
+.add-spell,
+.spell-search-results {
+  gap: 0.4rem;
+}
+.spell-search-results {
+  max-height: 45vh;
+  overflow-y: auto;
+}
+.spell-search-results button {
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+}
+.spell-add-actions {
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+/* Right-aligned per-spell controls (roll in play mode, edit/delete in edit mode). */
+.spell-row-actions {
+  gap: 0.25rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Roll button + dialog */
+.roll-btn {
+  color: var(--accent);
+}
+.roll-btn:hover {
+  color: var(--accent-hover);
+}
+.roll-inline {
+  align-items: center;
+  gap: 0.35rem;
+}
+.roll-modal {
+  gap: 0.75rem;
+  text-align: center;
+  min-width: min(90vw, 320px);
+}
+.roll-level-select {
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: center;
+}
+.roll-formula {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.roll-go {
+  align-self: center;
+  min-width: 8rem;
+}
+.roll-modes {
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+/* Each roll dialog section (To Hit / Damage) stacks with a little breathing room. */
+.roll-section {
+  gap: 0.5rem;
+  align-items: center;
+}
+.roll-section + .roll-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--display-value-bg);
+}
+.roll-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.roll-btn.check {
+  color: var(--text-muted);
+}
+.roll-result {
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.25rem;
+}
+.roll-total {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+.roll-part {
+  font-size: 0.9rem;
+}
+.roll-history {
+  margin-top: 0.25rem;
+}

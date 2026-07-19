@@ -341,7 +341,6 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       const realmName = generateRealm(uuid);
       const res = await fetch(`${liveEditHost}/closeRealm/${realmName}`);
       if (res.status !== 204) {
-        // TODO: better error handling
         alert("Failed to close sharing session, please try again later");
         return true;
       }
@@ -472,7 +471,6 @@ export function useHostSharingSession(
     const realmName = generateRealm(characterUuid);
     const res = await fetch(`${liveEditHost}/openRealm/${realmName}`);
     if (res.status !== 200) {
-      // TODO: better error handling
       alert("Failed to start sharing session, please try again later");
       return;
     }

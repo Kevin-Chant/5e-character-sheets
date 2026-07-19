@@ -180,11 +180,15 @@ export function EditableExpression({
             aria-label="Add operand"
             onClick={(e) => {
               e.preventDefault();
-              // TODO: persist new operands immediately so they can be edited (at least if they're formulas)
+              // Commit the new operand and open its inline editor immediately,
+              // so it can be edited in place instead of leaving a bare literal
+              // the user has to find and click.
+              const newKey = `operands.${expr.operands.length}`;
               setExpr({
                 operation: expr.operation,
                 operands: expr.operands.concat([1]),
               });
+              setOpenKey(newKey);
             }}
           >
             <FaPlus />

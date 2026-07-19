@@ -253,6 +253,7 @@ export type FieldTypeNode =
   | "hitDice"
   | "spellcastingClass"
   | "spell"
+  | "selectSpell"
   | "limitedUseAbility"
   | typeof Alignment
   | typeof StatKey;

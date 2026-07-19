@@ -217,6 +217,19 @@ export function getSpellcastingAbility(className: ClassName) {
     : StatKey.int;
 }
 
+// The ability a class actually casts with on this character: the character's
+// per-class `abilityOverride` if set, else the class's 5e default. Used to
+// resolve `spellMod` formula leaves live.
+export function spellcastingAbilityFor(
+  character: Character,
+  className: ClassName,
+): StatKey {
+  const entry = character.spellcastingClasses.find(
+    (c) => c.class === className,
+  );
+  return entry?.abilityOverride ?? getSpellcastingAbility(className);
+}
+
 const NUMERIC_SPELL_SLOT_LEVEL: Record<SpellLevel, number> = {
   [SpellLevel.First]: 1,
   [SpellLevel.Second]: 2,
@@ -353,6 +366,44 @@ export function getDefaultSpellSlots(
     slotLevel,
     calculateSpellcasterLevel(character),
   );
+}
+
+// Unspent standard slots at a level (total, respecting any override, minus
+// expended). Used to offer only castable levels in the roll dialog.
+export function availableSpellSlots(
+  character: Character,
+  slotLevel: SpellLevel,
+): number {
+  const total =
+    character.spellSlots[slotLevel]?.totalOverride ??
+    getDefaultSpellSlots(character, slotLevel);
+  const expended = character.spellSlots[slotLevel]?.expended ?? 0;
+  return Math.max(0, total - expended);
+}
+
+// Classes that prepare spells daily from their full list (vs. known casters with
+// a fixed repertoire). Only these show the "prepared" toggle on a spell.
+const PREPARED_CASTER_CLASSES = new Set<OfficialClass>([
+  OfficialClass.Artificer,
+  OfficialClass.Cleric,
+  OfficialClass.Druid,
+  OfficialClass.Paladin,
+  OfficialClass.Wizard,
+]);
+
+export function isPreparedCaster(className: ClassName): boolean {
+  return isOfficialClass(className) && PREPARED_CASTER_CLASSES.has(className);
+}
+
+// The character's spellcasting classes that are official 5e classes (so their
+// SRD spell lists are known). Custom classes are omitted — callers treat an
+// empty result as "don't restrict".
+export function officialSpellcastingClasses(
+  character: Character,
+): OfficialClass[] {
+  return character.spellcastingClasses
+    .map((c) => c.class)
+    .filter(isOfficialClass);
 }
 
 export const OPTIONAL_FIELD_INITIALIZERS: {

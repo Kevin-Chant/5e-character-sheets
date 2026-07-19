@@ -7,6 +7,7 @@ import {
   useRemoteFieldHighlight,
 } from "src/lib/hooks/use-presence";
 import { modifier } from "src/lib/rules";
+import RollButton from "../roll-button";
 
 export default function StatDisplay(props: {
   field: FIELD;
@@ -41,6 +42,10 @@ export default function StatDisplay(props: {
           {props.value}
         </p>
         <p className="display-value small readOnly">{modifier(props.value)}</p>
+        <RollButton
+          label={`${props.name} Check`}
+          check={modifier(props.value)}
+        />
       </div>
     </div>
   );

@@ -134,12 +134,21 @@ export function isCustomFormulaWithDamage(
   return isMap<DamageType, CustomFormula>(data, isDamageType, isCustomFormula);
 }
 
+// A `spellMod` leaf must be a tagged object, not a bare string: `isClassName`
+// accepts *any* string, so a string sentinel would be misread as a class name.
+export function isSpellMod(data: any): data is SpellMod {
+  return (
+    isObject(data) && !isArray(data) && isClassName((data as any).spellMod)
+  );
+}
+
 export function isAtomicVariable(data: any): data is AtomicVariable {
   return (
     isNumber(data) ||
     isStatKey(data) ||
     isDieExpression(data) ||
     isPb(data) ||
+    isSpellMod(data) ||
     isClassName(data)
   );
 }
@@ -208,11 +217,20 @@ export function isLimitedUseAbility(data: any): data is LimitedUseAbility {
 // End Typeguards //
 ////////////////////
 
+// The spellcasting-ability modifier of a specific spellcasting class. Resolved
+// live against the character (honoring any `abilityOverride`), so a spell like
+// Cure Wounds — `1d8 + spellMod` — tracks the class's current ability. Carries
+// the class because a multiclassed character has more than one.
+export interface SpellMod {
+  spellMod: ClassName;
+}
+
 export type AtomicVariable =
   | number
   | StatKey
   | DieExpression
   | ClassName
+  | SpellMod
   | typeof PB;
 
 interface SingleOperandOperation {
@@ -343,6 +361,54 @@ export interface SpellComponents {
   material?: MaterialComponent[];
 }
 
+// One damage type's contribution to a spell, as a formula (reuses the engine, so
+// "1d8", "8d6", or "1d8 + spellMod" all work).
+export interface SpellDamageComponent {
+  damageType: DamageType;
+  formula: CustomFormula;
+}
+
+// How a spell grows when cast above its base level. See
+// `.claude/docs/spell-scaling.md`. `steps` increments are added to the base:
+//   slot driver:      floor((castLevel - Spell base level) / (perLevels ?? 1))
+//   character driver: count of the fixed cantrip tiers [5, 11, 17] reached
+export interface SpellScaling {
+  driver: "slot" | "character";
+  // Slot driver only — add one increment per this many levels above base
+  // (1 normally; 2 for e.g. Spiritual Weapon). Ignored for the character driver.
+  perLevels?: number;
+  // The increment applied per step. Usually the same die as the base.
+  damage?: SpellDamageComponent[];
+  healing?: CustomFormula;
+  // Extra rolled instances per step (Magic Missile darts, Scorching Ray rays).
+  instances?: number;
+}
+
+// How a spell resolves against a target — drives to-hit vs save-DC display.
+export type SpellResolution =
+  | { kind: "attack"; range: "melee" | "ranged" }
+  | { kind: "save"; ability: StatKey; halfOnSuccess?: boolean }
+  | { kind: "auto" };
+
+// The optional, structured mechanical model of a spell. Absent for the
+// free-text spells that dominate real use (so migration is a no-op); populated
+// by the SRD importer and editable in the UI.
+export interface SpellMechanics {
+  // Base spell level; 0 = cantrip.
+  level: number;
+  resolution: SpellResolution;
+  // Base effect at `level`.
+  damage?: SpellDamageComponent[];
+  healing?: CustomFormula;
+  // Base count of rolled instances (Magic Missile = 3, Scorching Ray = 2).
+  instances?: number;
+  scaling?: SpellScaling;
+  // Escape hatch for non-linear spells the rule can't express: exact damage per
+  // cast level, keyed by slot/character level. Preferred over `scaling` when it
+  // has an entry at or below the cast level.
+  damageTable?: Record<number, SpellDamageComponent[]>;
+}
+
 export interface Spell {
   spellcastingClass: ClassName;
   info: TextComponent;
@@ -353,6 +419,7 @@ export interface Spell {
   castingTime?: string;
   range?: string;
   duration?: string;
+  mechanics?: SpellMechanics;
 }
 
 export type Spells = {

@@ -48,6 +48,7 @@ function SkillsColumn({ pb }: { pb: number }) {
                   modifier(character.stats[statKey]) + (proficient ? pb : 0)
                 }
                 text={statName}
+                rollLabel={`${statName} Save`}
                 updateProficiency={createProficiencyUpdater(
                   FIELD.proficiencies,
                   `savingThrows.${statKey}`,
@@ -88,6 +89,7 @@ function SkillsColumn({ pb }: { pb: number }) {
                 }
                 text={skillName}
                 subtext={`(${statKey})`}
+                rollLabel={skillName}
                 updateProficiency={createProficiencyUpdater(
                   FIELD.proficiencies,
                   `skills.${skillName}`,

@@ -10,6 +10,7 @@ import {
 import { Character } from "src/lib/types";
 import { getFieldValue, traverse } from "src/lib/fields";
 import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
+import RollButton from "../roll-button";
 
 interface SingleValueDisplayProps {
   field: FIELD;
@@ -22,6 +23,9 @@ interface SingleValueDisplayProps {
   removeMargin?: boolean;
   editable?: boolean;
   compact?: boolean;
+  // When set, show a d20 roll button that rolls (this display's numeric value) +
+  // d20 — e.g. Initiative. The label names the roll.
+  rollCheck?: string;
 }
 
 export default function SingleValueDisplay({
@@ -35,6 +39,7 @@ export default function SingleValueDisplay({
   removeMargin,
   editable,
   compact,
+  rollCheck,
 }: SingleValueDisplayProps) {
   const { character } = useCharacter();
   const { pushTargetedField } = useTargetedField();
@@ -94,6 +99,9 @@ export default function SingleValueDisplay({
           {valueEl}
           {nameEl}
         </>
+      )}
+      {rollCheck && typeof value === "number" && (
+        <RollButton label={rollCheck} check={value} />
       )}
     </div>
   );

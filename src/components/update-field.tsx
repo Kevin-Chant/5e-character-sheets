@@ -79,7 +79,9 @@ export default function UpdateField({
 
   const setValue = (value: string) => {
     if (!value && !allowUndefined) return;
-    // TODO: validate new data matches expected type
+    // Coerce/validate the raw input to the type this field expects before it
+    // enters the character model; reject values that don't fit rather than
+    // storing a mistyped (or out-of-enum) value.
     let sanitizedValue: any;
     if (modalType === "number") {
       sanitizedValue = parseInt(value);
@@ -90,7 +92,16 @@ export default function UpdateField({
           return;
         }
       }
+    } else if (modalType === "boolean") {
+      sanitizedValue = value === "true";
+    } else if (modalType === Alignment) {
+      if (!(value in Alignment)) return;
+      sanitizedValue = value;
+    } else if (modalType === StatKey) {
+      if (!(value in StatKey)) return;
+      sanitizedValue = value;
     } else {
+      // "string" / "singleClass" / "spellcastingClass" — free-text values.
       sanitizedValue = value;
     }
     dispatch(updateData(targetedField, { value: sanitizedValue }, subField));

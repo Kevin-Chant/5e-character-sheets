@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "screenshot": "node scripts/screenshot.mjs",
     "generate-schema": "typescript-json-schema tsconfig.schema.json Character --required > src/schema.json && prettier --write src/schema.json --log-level silent",
+    "generate-spells": "node scripts/generate-spells.mjs",
     "schema:check": "pnpm generate-schema && git diff --exit-code -- src/schema.json",
     "type-check": "tsc --noEmit",
     "lint": "sh -c 'eslint \"${@:-.}\" --max-warnings 0 --cache || eslint \"${@:-.}\" --fix --max-warnings 0 --cache' --",

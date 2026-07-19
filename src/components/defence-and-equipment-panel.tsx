@@ -1,4 +1,11 @@
-import { CoinType, FIELD, StandardDie } from "src/lib/data/data-definitions";
+import {
+  CoinType,
+  DieOperation,
+  FIELD,
+  Operation,
+  StandardDie,
+  StatKey,
+} from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   calculateCustomFormula,
@@ -8,6 +15,7 @@ import { getHitDice, totalGP } from "src/lib/rules";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 import SingleValueDisplay from "./display/single-value-display";
 import SlotPips from "./display/slot-pips";
+import RollButton from "./roll-button";
 import { FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
@@ -57,6 +65,7 @@ export default function DefenceAndEquipmentPanel() {
           transform={calculateCustomFormula}
           vertical
           editable
+          rollCheck="Initiative"
         />
         <SingleValueDisplay
           field={FIELD.speed}
@@ -120,7 +129,21 @@ export default function DefenceAndEquipmentPanel() {
               {hitDice.map((die) => {
                 return (
                   <tr key={die}>
-                    <td>{die}</td>
+                    <td>
+                      <span className="row roll-inline">
+                        {die}
+                        <RollButton
+                          label={`Hit Die (${die})`}
+                          formula={{
+                            operation: Operation.addition,
+                            operands: [
+                              [1, die, DieOperation.roll],
+                              StatKey.con,
+                            ],
+                          }}
+                        />
+                      </span>
+                    </td>
                     <td>{totalHitDice[die] || 0}</td>
                     <td>
                       <SingleValueDisplay
@@ -189,10 +212,11 @@ export default function DefenceAndEquipmentPanel() {
                   <td>
                     {formatCustomFormulaWithDamage(attack.formula, character)}
                   </td>
-                  {editMode && (
-                    <>
-                      <td>
+                  <td>
+                    {editMode ? (
+                      <span className="flex">
                         <button
+                          aria-label="Edit attack"
                           onClick={(e) => {
                             e.preventDefault();
                             pushTargetedField(FIELD.attacks, index.toString());
@@ -200,9 +224,8 @@ export default function DefenceAndEquipmentPanel() {
                         >
                           <FaPencil />
                         </button>
-                      </td>
-                      <td>
                         <button
+                          aria-label="Remove attack"
                           onClick={(e) => {
                             e.preventDefault();
                             removeAttackRow(index);
@@ -210,9 +233,15 @@ export default function DefenceAndEquipmentPanel() {
                         >
                           x
                         </button>
-                      </td>
-                    </>
-                  )}
+                      </span>
+                    ) : (
+                      <RollButton
+                        label={attack.name}
+                        toHit={attackBonus}
+                        damage={attack.formula}
+                      />
+                    )}
+                  </td>
                 </tr>
               );
             })}

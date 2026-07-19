@@ -7,6 +7,7 @@ import {
   isCustomFormula,
 } from "src/lib/types";
 import { getFieldValue, traverse } from "src/lib/fields";
+import { StatKey } from "src/lib/data/data-definitions";
 import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
 import { EditableAtomicVariable } from "./editable-atomic-variable";
 import { EditableExpression } from "./editable-expression";
@@ -39,17 +40,33 @@ export default function BuildCustomFormula() {
       );
   }
 
-  if (!formula) {
-    // TODO: empty state
-    // Display function types or presets or (forgot the 3rd option)
-    return <></>;
-  }
-
-  if (!isCustomFormula(formula)) return <></>;
-
   const setFormula = (newVal: CustomFormula) => {
     dispatch(updateData(targetedField, { value: newVal }, subField));
   };
+
+  if (!formula) {
+    // Nothing stored yet — offer starting points that seed an editable
+    // formula; picking one drops straight into the editor rendered below.
+    return (
+      <div className="build-custom-formula column">
+        <p className="font-large bold">Build a formula</p>
+        <i>Start from a single value or an expression, then customize it.</i>
+        <button type="button" onClick={() => setFormula(0)}>
+          Single value
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setFormula({ operation: "addition", operands: [StatKey.dex, 2] })
+          }
+        >
+          Expression
+        </button>
+      </div>
+    );
+  }
+
+  if (!isCustomFormula(formula)) return <></>;
 
   if (isAtomicVariable(formula)) {
     return (

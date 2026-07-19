@@ -38,9 +38,45 @@ Two conventions matter and are easy to get wrong:
 | `--viewport WxH`   | Viewport size (default `1280x900`)                                  |
 | `--no-full`        | Capture only the viewport instead of the full scroll height         |
 | `--base <url>`     | Dev server URL (default `http://localhost:3000`)                    |
+| `--seed <int>`     | Make `Math.random` deterministic — reproducible dice rolls          |
+| `--steps <json>`   | Array of interaction steps run in order before capture (see below)  |
+| `--steps-file <p>` | Same as `--steps`, read from a JSON file                            |
 
 Available fixtures: `empty-level-1`, `full-caster-wizard`, `martial-fighter`,
 `multiclass`.
+
+## Modal / interaction flows — `--steps`
+
+To capture something that only exists after interaction (a modal, a picker, a
+roll result), pass `--steps` a JSON array of actions run in order after the sheet
+opens. Each step is an object with exactly one action key:
+
+| Step                              | Does                                         |
+| --------------------------------- | -------------------------------------------- |
+| `{"click":"<selector>"}`          | Click (Playwright selector: CSS, or `text=`) |
+| `{"fill":["<selector>","text"]}`  | Type into an input                           |
+| `{"select":["<selector>","val"]}` | Choose a `<select>` option (value or label)  |
+| `{"press":"<key>"}`               | Keyboard press, e.g. `"Enter"`, `"Escape"`   |
+| `{"wait":300}`                    | Wait N ms                                    |
+| `{"wait":"<selector>"}`           | Wait until the selector is visible           |
+
+A failing step reports its index and selector, so flows are debuggable. Prefer
+stable selectors — `aria-label` (buttons carry them, e.g. `Roll Greatsword`,
+`Edit spell`) and component classes (`.roll-go`, `.roll-modal`) — over brittle
+text. Pair with **`--no-full`** (modals are viewport-fixed, so full-page capture
+misplaces them) and **`--seed`** for reproducible dice.
+
+Example — open the damage roll dialog for an attack and roll it:
+
+```bash
+pnpm screenshot --fixture martial-fighter --open --no-full --seed 7 \
+  --viewport 900x760 --out "$SCRATCHPAD/roll.png" \
+  --steps '[{"click":"[aria-label=\"Roll Greatsword\"]"},{"click":".roll-go"},{"wait":300}]'
+```
+
+Multi-step flows compose naturally — e.g. enter edit mode, open the SRD picker,
+search, and pick a spell: `[{"click":"[aria-label=\"Browse SRD\"]"},
+{"fill":[".add-spell input","fireball"]},{"click":"text=Fireball"}]`.
 
 ## Gotcha: the sheet scrolls _inside_ `#detail`, so `--full` caps at the viewport
 

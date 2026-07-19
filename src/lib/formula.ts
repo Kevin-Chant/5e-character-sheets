@@ -2,6 +2,7 @@ import { isNumber } from "lodash";
 import {
   AtomicVariable,
   Character,
+  ClassName,
   CustomFormula,
   CustomFormulaWithDamage,
   Expression,
@@ -14,11 +15,36 @@ import {
   isExpression,
   isPb,
   isSingleOperandOperation,
+  isSpellMod,
   isStandardDie,
   isStatKey,
 } from "src/lib/types";
 import { DamageType, Operation } from "./data/data-definitions";
-import { getDieOperation, getPB, levelInClass, modifier } from "./rules";
+import {
+  getDieOperation,
+  getPB,
+  levelInClass,
+  modifier,
+  spellcastingAbilityFor,
+} from "./rules";
+
+// The spell attack bonus for a class on this character: the per-class
+// `attackBonusOverride` if set, else PB + the class's spellcasting modifier.
+// Mirrors the default the spellcasting card shows (see OPTIONAL_FIELD_INITIALIZERS).
+export function getSpellAttackBonus(
+  character: Character,
+  className: ClassName,
+): number {
+  const entry = character.spellcastingClasses.find(
+    (c) => c.class === className,
+  );
+  if (entry?.attackBonusOverride)
+    return calculateCustomFormula(entry.attackBonusOverride, character);
+  return (
+    getPB(character) +
+    modifier(character.stats[spellcastingAbilityFor(character, className)])
+  );
+}
 
 /**
  * A formatted piece of a formula, carrying the structural context a parent
@@ -191,6 +217,13 @@ export function calculateAtomicVariable(
   if (isPb(atomicVariable)) {
     return getPB(character);
   }
+  // A spellMod resolves to the modifier of its class's spellcasting ability.
+  if (isSpellMod(atomicVariable))
+    return modifier(
+      character.stats[
+        spellcastingAbilityFor(character, atomicVariable.spellMod)
+      ],
+    );
   // Classnames pull the level for the character in the specified class
   if (isClassName(atomicVariable))
     return levelInClass(atomicVariable, character);
@@ -226,6 +259,17 @@ function formatAtomicVariablePart(
     return evaluateReferences
       ? numberPart(getPB(character))
       : { text: "PB", precedence: PREC_ATOM };
+  // A spellMod renders as its resolved number, or "spellcasting mod" symbolically.
+  if (isSpellMod(atomicVariable))
+    return evaluateReferences
+      ? numberPart(
+          modifier(
+            character.stats[
+              spellcastingAbilityFor(character, atomicVariable.spellMod)
+            ],
+          ),
+        )
+      : { text: "spellcasting mod", precedence: PREC_ATOM };
   // Classnames pull the level for the character in the specified class.
   if (isClassName(atomicVariable))
     return evaluateReferences

@@ -58,6 +58,10 @@ The `Character` type plus 5e data definitions and a recursive **formula engine**
 
 The computed-field system has its own deep dive: [`.claude/docs/formula-engine.md`](.claude/docs/formula-engine.md) — the recursive `CustomFormula` model and the two passes (`calculate*` folds to a number, `format*` renders prose), read it before touching `formula.ts` or adding a computed value.
 
+**Spells** get their official content the same way weapons do, but bundled rather than hand-authored: the full SRD catalog is fetched at build time (`pnpm generate-spells`) into `src/lib/data/srd-spells.json` and surfaced through a "Browse SRD" picker — see [`.claude/docs/srd-spell-catalog.md`](.claude/docs/srd-spell-catalog.md). Structural spell **damage scaling** (upcast/cantrip tiers) is modelled by an optional `Spell.mechanics` block plus a pure `spellDamageAtLevel` expander that keeps the formula engine untouched — see [`.claude/docs/spell-scaling.md`](.claude/docs/spell-scaling.md). The one engine addition is the `spellMod` `AtomicVariable` leaf (a class's live spellcasting modifier).
+
+**Rolling dice in play** goes through a reusable `RollButton` + a roll dialog that is deliberately _separate_ from the edit modal (rolling is play-mode and read-only) — and a random `src/lib/roll.ts` evaluator kept apart from the deterministic engine. See [`.claude/docs/rolling.md`](.claude/docs/rolling.md).
+
 ### State management
 
 React Context + reducers (no Redux). Providers are **deeply nested in `src/index.tsx` and the order matters** — `SharingSessions` sits above `Datastore`/`Character` so broadcast/role state is reachable. Main contexts: `Settings`, `SharingSessions`, `GoogleOauth`, `DatastoreSelector`, `Datastore`, `Character`.

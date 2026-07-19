@@ -139,6 +139,9 @@
                     "type": "array"
                 },
                 {
+                    "$ref": "#/definitions/SpellMod"
+                },
+                {
                     "$ref": "#/definitions/Ceil"
                 },
                 {
@@ -213,6 +216,24 @@
                 }
             },
             "type": "object"
+        },
+        "DamageType": {
+            "enum": [
+                "Acid",
+                "Bludgeoning",
+                "Cold",
+                "Fire",
+                "Force",
+                "Lightning",
+                "Necrotic",
+                "Piercing",
+                "Poison",
+                "Psychic",
+                "Radiant",
+                "Slashing",
+                "Thunder"
+            ],
+            "type": "string"
         },
         "DieDefinition": {
             "anyOf": [
@@ -598,6 +619,9 @@
                 "info": {
                     "$ref": "#/definitions/TextComponent"
                 },
+                "mechanics": {
+                    "$ref": "#/definitions/SpellMechanics"
+                },
                 "prepared": {
                     "type": "boolean"
                 },
@@ -652,6 +676,159 @@
                     "type": "boolean"
                 }
             },
+            "type": "object"
+        },
+        "SpellDamageComponent": {
+            "properties": {
+                "damageType": {
+                    "$ref": "#/definitions/DamageType"
+                },
+                "formula": {
+                    "$ref": "#/definitions/CustomFormula"
+                }
+            },
+            "required": [
+                "damageType",
+                "formula"
+            ],
+            "type": "object"
+        },
+        "SpellMechanics": {
+            "properties": {
+                "damage": {
+                    "items": {
+                        "$ref": "#/definitions/SpellDamageComponent"
+                    },
+                    "type": "array"
+                },
+                "damageTable": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^[0-9]+$": {
+                            "items": {
+                                "$ref": "#/definitions/SpellDamageComponent"
+                            },
+                            "type": "array"
+                        }
+                    },
+                    "type": "object"
+                },
+                "healing": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "instances": {
+                    "type": "number"
+                },
+                "level": {
+                    "type": "number"
+                },
+                "resolution": {
+                    "$ref": "#/definitions/SpellResolution"
+                },
+                "scaling": {
+                    "$ref": "#/definitions/SpellScaling"
+                }
+            },
+            "required": [
+                "level",
+                "resolution"
+            ],
+            "type": "object"
+        },
+        "SpellMod": {
+            "properties": {
+                "spellMod": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "spellMod"
+            ],
+            "type": "object"
+        },
+        "SpellResolution": {
+            "anyOf": [
+                {
+                    "properties": {
+                        "kind": {
+                            "const": "attack",
+                            "type": "string"
+                        },
+                        "range": {
+                            "enum": [
+                                "melee",
+                                "ranged"
+                            ],
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "kind",
+                        "range"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "ability": {
+                            "$ref": "#/definitions/StatKey"
+                        },
+                        "halfOnSuccess": {
+                            "type": "boolean"
+                        },
+                        "kind": {
+                            "const": "save",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "ability",
+                        "kind"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "kind": {
+                            "const": "auto",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "kind"
+                    ],
+                    "type": "object"
+                }
+            ]
+        },
+        "SpellScaling": {
+            "properties": {
+                "damage": {
+                    "items": {
+                        "$ref": "#/definitions/SpellDamageComponent"
+                    },
+                    "type": "array"
+                },
+                "driver": {
+                    "enum": [
+                        "character",
+                        "slot"
+                    ],
+                    "type": "string"
+                },
+                "healing": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "instances": {
+                    "type": "number"
+                },
+                "perLevels": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "driver"
+            ],
             "type": "object"
         },
         "SpellSlots": {
