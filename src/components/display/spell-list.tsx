@@ -15,7 +15,6 @@ interface SpellListProps {
   // Cursor to this bucket within `character.spells` (the "cantrips" or a
   // SpellLevel array). Optional since a level's array may not exist yet.
   bucket: Cursor<Spell[] | undefined>;
-  defaultValue: Spell;
   // Cantrips are never prepared, so the prepared toggle is hidden for them.
   preparable: boolean;
   // Show the originating class on each spell (only useful when multiclassing).
@@ -24,7 +23,6 @@ interface SpellListProps {
 
 export default function SpellList({
   bucket,
-  defaultValue,
   preparable,
   showClassBadge,
 }: SpellListProps) {
@@ -46,10 +44,9 @@ export default function SpellList({
     );
   };
 
-  const addSpell = () => {
-    dispatch(updateAt(bucket, spells.concat(defaultValue)));
-    pushCursor(bucket.at(spells.length));
-  };
+  // Open the editor on the next (empty) index; EditSpell seeds a blank spell
+  // into the modal draft, so nothing is persisted until the user saves.
+  const addSpell = () => pushCursor(bucket.at(spells.length));
 
   // Open the SRD browser for this level; the ".new" sentinel routes to the
   // picker, which appends the chosen spell itself (see charsheet.tsx /

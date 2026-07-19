@@ -62,9 +62,15 @@ dispatch. Editors must call `saveData()` to persist.
   `TextComponent` (title + optional detail, both with positional `{{}}`
   formulas). `EditSpell` and `EditLimitedUseAbility` are the reference examples.
 - **`BuildCustomFormula` only renders if the formula already exists.** For a list
-  of items each holding a formula, persist a default item _first_ (with a valid
-  default formula), then `pushTargetedField` to edit it — the spell/ability
-  "add" buttons do exactly this. Don't open an editor on a not-yet-created index.
+  of items each holding a formula, the "add" button opens the editor on the next
+  (not-yet-created) index without writing anything, and the editor **seeds a
+  default item into the modal draft** on mount (see the `useEffect` in `EditSpell`
+  / `EditLimitedUseAbility`). Because the seed lives only in the draft, nothing is
+  persisted until the user saves and backing out discards it. Seed by replacing
+  the whole bucket array with `preSeedList.concat(default)` so the effect is
+  idempotent under StrictMode's double-invoke. (Simple text-line lists like
+  `MultiLineTextDisplay` need no seed — `EditTextLine` just falls back to a blank
+  `TextComponent` when the index is empty, since it writes the whole object.)
 
 ## Displaying a value
 

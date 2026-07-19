@@ -230,8 +230,8 @@ export const defaultCharacter: Character = {
   ],
 };
 
-// A blank ability used when the user adds a new entry; persisted up-front (like
-// spells) so the formula editor has a target to edit.
+// A blank ability seeded into the modal draft when the user adds a new entry,
+// so the editor has a target; it's only persisted to the character on save.
 export const newLimitedUseAbility = (): LimitedUseAbility => ({
   info: { title: "New ability", titleFormulas: [] },
   maxUses: 1,

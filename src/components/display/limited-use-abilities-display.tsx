@@ -6,7 +6,6 @@ import { FIELD } from "src/lib/data/data-definitions";
 import { isTextComponentWithDetail } from "src/lib/types";
 import { charPath, updateAt } from "src/lib/cursor";
 import { calculateCustomFormula } from "src/lib/formula";
-import { newLimitedUseAbility } from "src/lib/data/default-data";
 import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 import SlotPips from "./slot-pips";
@@ -37,12 +36,9 @@ export default function LimitedUseAbilitiesDisplay() {
   const setExpended = (index: number, expended: number) =>
     dispatch(updateAt(list.at(index).k("expended"), expended));
 
-  // Persist a blank ability up-front (like spells) so the formula editor has a
-  // target, then open it for editing.
-  const addAbility = () => {
-    dispatch(updateAt(list, abilities.concat(newLimitedUseAbility())));
-    pushCursor(list.at(abilities.length));
-  };
+  // Open the editor on the next (empty) index; EditLimitedUseAbility seeds a
+  // blank ability into the modal draft, so nothing is persisted until save.
+  const addAbility = () => pushCursor(list.at(abilities.length));
 
   return (
     <div className="column rounded-border-box">

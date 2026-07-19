@@ -1,5 +1,10 @@
-import React from "react";
-import { CastingTime, FIELD, SpellLevel } from "src/lib/data/data-definitions";
+import React, { useEffect } from "react";
+import {
+  CastingTime,
+  FIELD,
+  OfficialClass,
+  SpellLevel,
+} from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   CustomFormula,
@@ -29,19 +34,52 @@ export default function EditSpell() {
   const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
 
-  if (!character || targetedField !== FIELD.spells || !subField) return <></>;
+  const isSpellTarget =
+    !!character && targetedField === FIELD.spells && !!subField;
+  // Cantrips are always available and never prepared. The storage bucket also
+  // drives the base spell level (cantrip = 0, "First" = 1…).
+  const bucketKey = subField?.split(".")[0] ?? "";
+  const isCantrip = bucketKey === "cantrips";
 
-  const spell = traverse(subField, getFieldValue(targetedField, character));
-  if (!spell) return <></>;
+  const spell: Spell | undefined = isSpellTarget
+    ? traverse(subField!, getFieldValue(FIELD.spells, character!))
+    : undefined;
+
+  // The "+" add button opens the editor on the next (not-yet-created) index.
+  // Seed a blank spell into the *modal draft* so there's something to edit;
+  // because it lives only in the draft, nothing is persisted until the user
+  // saves and backing out discards it. The seed replaces the whole bucket with
+  // the pre-seed list plus one default, so it stays idempotent under
+  // StrictMode's double-invoked effects (running it twice yields the same list).
+  useEffect(() => {
+    if (!isSpellTarget || spell) return;
+    const defaultSpellClass =
+      character!.spellcastingClasses[0]?.class ??
+      character!.class[0]?.name ??
+      OfficialClass.Wizard;
+    const bucket = fromStack<Spell[]>(FIELD.spells, bucketKey);
+    const list: Spell[] = getFieldValue(bucket.toString(), character!) ?? [];
+    dispatch(
+      updateAt(
+        bucket,
+        list.concat({
+          spellcastingClass: defaultSpellClass,
+          info: {
+            title: isCantrip ? "New cantrip" : "New spell",
+            titleFormulas: [],
+          },
+        }),
+      ),
+    );
+  }, [isSpellTarget, spell, bucketKey, isCantrip]);
+
+  if (!character || targetedField !== FIELD.spells || !subField || !spell)
+    return <></>;
 
   const textComponent = spell.info;
   if (!isTextComponent(textComponent)) return <></>;
 
-  // Cantrips are always available and never prepared.
-  const bucket = subField.split(".")[0];
-  const isCantrip = bucket === "cantrips";
-  // Base spell level, driven by the storage bucket (cantrip = 0, "First" = 1…).
-  const spellLevel = isCantrip ? 0 : SPELL_LEVEL_BUCKETS.indexOf(bucket) + 1;
+  const spellLevel = isCantrip ? 0 : SPELL_LEVEL_BUCKETS.indexOf(bucketKey) + 1;
 
   const spellCursor = fromStack<Spell>(targetedField, subField);
   // `detailFormulas` lives only on the with-details TextComponent variant;

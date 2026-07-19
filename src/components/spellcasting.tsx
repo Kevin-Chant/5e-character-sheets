@@ -16,7 +16,7 @@ import {
   getPactSlotInfo,
   isSpellcastingClass,
 } from "src/lib/rules";
-import { Character, Spell, SpellCastingClass } from "src/lib/types";
+import { Character, SpellCastingClass } from "src/lib/types";
 import { charPath, updateAt } from "src/lib/cursor";
 import SpellList from "./display/spell-list";
 import { FaTrash } from "react-icons/fa6";
@@ -79,10 +79,6 @@ function SpellsTable({ character }: SpellsTableProps) {
   const spellcastingClasses = character.spellcastingClasses.map(
     (klass) => klass.class,
   );
-  // Default the spellcasting class for newly-added spells; fall back to the
-  // character's first class (or Wizard) when no spellcasting class exists yet.
-  const defaultSpellClass =
-    spellcastingClasses[0] ?? character.class[0]?.name ?? OfficialClass.Wizard;
   // Show each spell's class only when multiclassing, where it's ambiguous.
   const showClassBadge = spellcastingClasses.length > 1;
 
@@ -113,11 +109,6 @@ function SpellsTable({ character }: SpellsTableProps) {
   });
   const hiddenLevels = allLevels.filter((l) => !visibleLevels.includes(l));
 
-  const newSpellDefault = (label: string): Spell => ({
-    spellcastingClass: defaultSpellClass,
-    info: { title: label, titleFormulas: [] },
-  });
-
   return (
     <div className="spell-area">
       <PactSlots character={character} />
@@ -130,7 +121,6 @@ function SpellsTable({ character }: SpellsTableProps) {
             bucket={charPath(FIELD.spells).k("cantrips")}
             preparable={false}
             showClassBadge={showClassBadge}
-            defaultValue={newSpellDefault("New cantrip")}
           />
         </div>
         {visibleLevels.map((level) => {
@@ -172,7 +162,6 @@ function SpellsTable({ character }: SpellsTableProps) {
                 bucket={charPath(FIELD.spells).k(level)}
                 preparable
                 showClassBadge={showClassBadge}
-                defaultValue={newSpellDefault("New spell")}
               />
             </div>
           );
