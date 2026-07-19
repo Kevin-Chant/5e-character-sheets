@@ -36,7 +36,10 @@ interface CharacterContextData {
   setUnsavedChanges: (isUnsaved: boolean) => void;
   saveError: boolean;
   saveNow: () => void;
-  openSharingSession: () => void;
+  // Start hosting a live session for the open character. `silent` suppresses the
+  // failure alert (used by the auto-bootstrap, which should stay solo quietly if
+  // the sidecar is unreachable).
+  openSharingSession: (options?: { silent?: boolean }) => void;
   closeSharingSession: () => void;
 }
 
@@ -232,8 +235,11 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     dispatch(resetCharacter());
   };
 
-  const openSharingSession = () => {
-    startSession().catch((error) => alert(error));
+  const openSharingSession = (options?: { silent?: boolean }) => {
+    startSession().catch((error) => {
+      if (!options?.silent) alert(error);
+      else console.warn("Auto live session failed to start", error);
+    });
   };
 
   const closeSharingSession = () => {

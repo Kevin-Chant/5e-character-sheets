@@ -107,8 +107,8 @@ export default function DefenceAndEquipmentPanel() {
         />
       </div>
       {/* Hit dice, death saves */}
-      <div className="row">
-        <div className="column rounded-border-box">
+      <div className="row tracker-row">
+        <div className="column rounded-border-box tracker-box">
           <table>
             <thead>
               <tr>
@@ -162,7 +162,7 @@ export default function DefenceAndEquipmentPanel() {
           </table>
           <b>Hit Dice</b>
         </div>
-        <div className="column rounded-border-box">
+        <div className="column rounded-border-box tracker-box">
           <div className="column death-save-row">
             <span>Successes</span>
             <SlotPips

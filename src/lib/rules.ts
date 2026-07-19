@@ -148,6 +148,9 @@ export function getHitDice(character: Character): HitDice {
 
 export function getHpFormula(character: Character): CustomFormula {
   const firstClass = character.class[0];
+  // A classless (e.g. freshly blank) character has no hit die to derive HP
+  // from; fall back to 0 so the sheet still renders and the user can fill it in.
+  if (!firstClass) return 0;
   const rest = character.class.slice(1);
   const firstClassHp = {
     operation: Operation.addition,

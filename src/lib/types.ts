@@ -6,6 +6,10 @@ import {
   isString,
   isUndefined,
 } from "lodash";
+import type {
+  SharePresenceEntry,
+  SharePresenceSelf,
+} from "src/lib/share-presence";
 import {
   Alignment,
   CoinType,
@@ -530,8 +534,21 @@ export interface Datastore {
   // character to a first-class document, share it with a person by email, and
   // report whether it has been promoted yet.
   isShared?: (uuid: UUID) => boolean;
+  // Which side of a shared document we're on: "owner" for a shareable doc we
+  // created, "recipient" for one shared *with* us (imported via the Picker),
+  // undefined when it isn't a shared doc. Drives who auto-hosts vs. auto-joins
+  // a live session.
+  getShareRole?: (uuid: UUID) => "owner" | "recipient" | undefined;
   promoteCharacter?: (uuid: UUID) => Promise<void>;
   shareCharacter?: (uuid: UUID, email: string) => Promise<void>;
+  // Editor-presence heartbeat for shared documents with no live session: record
+  // that we're editing and return the *other* editors currently on the file.
+  // Clear our heartbeat when we stop editing. (Google Drive only.)
+  heartbeatSharePresence?: (
+    uuid: UUID,
+    self: SharePresenceSelf,
+  ) => Promise<SharePresenceEntry[]>;
+  clearSharePresence?: (uuid: UUID, clientId: string) => Promise<void>;
   // Pick a character document shared with the user and add it to this store,
   // returning it for the caller to open (undefined if nothing was picked).
   importSharedCharacter?: () => Promise<Character | undefined>;

@@ -562,6 +562,11 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
       }
 
       intentionalDisconnectRef.current = false;
+      // True once the realm has actually opened. A connection that closes
+      // *before* opening (e.g. the host isn't online yet, so the realm doesn't
+      // exist) is a quiet probe failure, not a host-ended-the-session event — so
+      // auto-join retries don't wipe the open character or alert on every miss.
+      let everOpened = false;
       const connection = new autobahn.Connection({
         url: liveEditHost,
         realm: generateRealm(uuid),
@@ -569,6 +574,7 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
 
       return new Promise<Connection>((resolve, reject) => {
         connection.onopen = (session: any) => {
+          everOpened = true;
           // Apply edits streamed from the host (and other joiners).
           session.subscribe(
             SessionEvent.DISPATCH,
@@ -588,7 +594,10 @@ export function useRemoteSharingSession(dispatch: Dispatch) {
         connection.onclose = () => {
           const wasIntentional = intentionalDisconnectRef.current;
           intentionalDisconnectRef.current = false;
-          cleanUpAfterClose(uuid, !wasIntentional);
+          // Only treat a close as "the host ended the session" (clearing the
+          // character + alerting) if we had actually joined. A close before the
+          // realm ever opened just means no host is there — fail quietly.
+          if (everOpened) cleanUpAfterClose(uuid, !wasIntentional);
           // Reject any still-pending open; harmless once resolved.
           reject(new Error("Sharing session connection closed"));
           return true; // suppress autobahn auto-reconnect

@@ -46,6 +46,20 @@ export default function GeneralSettings() {
       <AutosaveSettings />
 
       <SettingsSection
+        title="Automatic live sessions"
+        description="When you open a Google Drive character you've shared (or that was shared with you), start or join a live co-editing session automatically, so edits sync instead of overwriting each other. Turn off to share manually with the toggle in each sheet."
+      >
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={settings.autoLiveSession}
+            onChange={(e) => updateSetting("autoLiveSession", e.target.checked)}
+          />
+          Auto-connect shared Drive characters
+        </label>
+      </SettingsSection>
+
+      <SettingsSection
         title="Sharing host"
         description={
           <>

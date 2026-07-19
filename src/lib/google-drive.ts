@@ -225,6 +225,39 @@ export async function renameFile(fileId: string, name: string) {
   return window.gapi.client.drive.files.update({ fileId, resource: { name } });
 }
 
+// Reads a file's app-private metadata (visible to every user who accesses the
+// file through this same app). Used for the lightweight editor-presence
+// heartbeat on shared documents.
+export async function getFileAppProperties(
+  fileId: string,
+): Promise<Record<string, string>> {
+  try {
+    const res = await window.gapi.client.drive.files.get({
+      fileId,
+      fields: "appProperties",
+    });
+    return res.result.appProperties ?? {};
+  } catch (err: any) {
+    console.error(err);
+    return {};
+  }
+}
+
+// Merges a partial appProperties patch into a file (metadata-only). Keys mapped
+// to null are removed; keys not mentioned are left untouched — so this never
+// disturbs the SHARED_* markers or other editors' heartbeats.
+export async function patchFileAppProperties(
+  fileId: string,
+  appProperties: Record<string, string | null>,
+) {
+  return window.gapi.client.drive.files.update({
+    fileId,
+    // Drive treats a null appProperties value as "delete this key", but the gapi
+    // types only model string values — cast at this boundary.
+    resource: { appProperties } as gapi.client.drive.File,
+  });
+}
+
 // Grants a user write access to a file and emails them a notification.
 export async function shareFileByEmail(fileId: string, email: string) {
   const res = await fetch(

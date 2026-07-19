@@ -18,6 +18,7 @@ import RemoteConnectionInitializer from "./components/remote-connection-initiali
 import SettingsPage from "./routes/settings-page";
 import { SettingsContextProvider } from "./lib/hooks/use-settings";
 import { SharingSessionsContextProvider } from "./lib/hooks/use-sharing-session";
+import { CharacterBuilderProvider } from "./lib/hooks/use-character-builder";
 
 const router = createBrowserRouter([
   {
@@ -32,7 +33,9 @@ const router = createBrowserRouter([
                   <EditModeContextProvider>
                     <ConfirmProvider>
                       <TargetedFieldContextProvider>
-                        <Root />
+                        <CharacterBuilderProvider>
+                          <Root />
+                        </CharacterBuilderProvider>
                       </TargetedFieldContextProvider>
                     </ConfirmProvider>
                   </EditModeContextProvider>

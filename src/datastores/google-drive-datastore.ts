@@ -3,9 +3,11 @@ import { defaultCharacter } from "src/lib/data/default-data";
 import {
   createFile,
   deleteFile,
+  getFileAppProperties,
   getFileContents,
   listAppDataFiles,
   listSharedCharacterFiles,
+  patchFileAppProperties,
   pickSharedCharacters,
   renameFile,
   SHARED_MARKER_KEY,
@@ -13,6 +15,11 @@ import {
   shareFileByEmail,
   updateFile,
 } from "src/lib/google-drive";
+import {
+  computePresenceUpdate,
+  EDITOR_PREFIX,
+  SharePresenceSelf,
+} from "src/lib/share-presence";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 import { Character, Datastore } from "src/lib/types";
 import { randomUUID } from "src/lib/browser";
@@ -179,6 +186,35 @@ const promoteCharacter = async (uuid: UUID) => {
   }
 };
 
+// Records our editor heartbeat on the shared file (pruning long-dead ones) and
+// returns the other editors currently on it. Best-effort: metadata failures
+// just yield "no others" rather than blocking editing.
+const heartbeatSharePresence = async (uuid: UUID, self: SharePresenceSelf) => {
+  const known = knownFiles[uuid];
+  if (!known?.shared) return [];
+  try {
+    const current = await getFileAppProperties(known.fileId);
+    const { patch, others } = computePresenceUpdate(current, self, Date.now());
+    await patchFileAppProperties(known.fileId, patch);
+    return others;
+  } catch (err) {
+    console.error("Editor-presence heartbeat failed", err);
+    return [];
+  }
+};
+
+const clearSharePresence = async (uuid: UUID, clientId: string) => {
+  const known = knownFiles[uuid];
+  if (!known?.shared) return;
+  try {
+    await patchFileAppProperties(known.fileId, {
+      [EDITOR_PREFIX + clientId]: null,
+    });
+  } catch (err) {
+    console.error("Failed to clear editor presence", err);
+  }
+};
+
 const shareCharacter = async (uuid: UUID, email: string) => {
   const known = knownFiles[uuid];
   if (!known?.shared) {
@@ -272,8 +308,18 @@ const GoogleDriveDatastore: Datastore = {
     return newDefaultCharacter;
   },
   isShared: (uuid: UUID) => !!knownFiles[uuid]?.shared,
+  getShareRole: (uuid: UUID) => {
+    // Imported (shared-with-me) documents live in the importedIndex; those are
+    // owned by someone else, so we join their session rather than host it.
+    if (importedIndex[uuid]) return "recipient";
+    // A promoted document we created (and can share) — we host.
+    if (knownFiles[uuid]?.shared) return "owner";
+    return undefined;
+  },
   promoteCharacter,
   shareCharacter,
+  heartbeatSharePresence,
+  clearSharePresence,
   importSharedCharacter,
 };
 

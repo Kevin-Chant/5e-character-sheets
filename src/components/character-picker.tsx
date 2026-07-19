@@ -3,6 +3,7 @@ import { FaPlus, FaTowerBroadcast } from "react-icons/fa6";
 import Spinner from "src/components/spinner";
 import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { useCharacterBuilder } from "src/lib/hooks/use-character-builder";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import { formatClass } from "src/lib/utils";
@@ -10,14 +11,10 @@ import { formatClass } from "src/lib/utils";
 // Landing gallery shown when a datastore is selected but no character is open.
 // Previews each saved character as a card and offers a "create" affordance.
 export default function CharacterPicker() {
-  const { characters, createCharacter, characterLoading } = useDatastore();
+  const { characters, characterLoading } = useDatastore();
   const { dispatch } = useCharacter();
   const { getRole } = useSharingSessions();
-
-  const createNewCharacter = async () => {
-    const newChar = await createCharacter();
-    if (newChar) dispatch(loadPersistedCharacter(newChar));
-  };
+  const { openBuilder } = useCharacterBuilder();
 
   return (
     <div className="character-picker">
@@ -59,10 +56,7 @@ export default function CharacterPicker() {
           );
         })}
 
-        <button
-          className="option-card create-card"
-          onClick={createNewCharacter}
-        >
+        <button className="option-card create-card" onClick={openBuilder}>
           <span className="option-card-icon">
             <FaPlus />
           </span>

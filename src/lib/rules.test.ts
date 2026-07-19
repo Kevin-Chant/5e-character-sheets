@@ -3,6 +3,7 @@ import { OfficialClass, SpellLevel } from "./data/data-definitions";
 import { defaultCharacter } from "./data/default-data";
 import {
   availableSpellSlots,
+  getHpFormula,
   isPreparedCaster,
   officialSpellcastingClasses,
 } from "./rules";
@@ -27,6 +28,14 @@ describe("isPreparedCaster", () => {
     expect(isPreparedCaster(OfficialClass.Bard)).toBe(false);
     expect(isPreparedCaster(OfficialClass.Warlock)).toBe(false);
     expect(isPreparedCaster("Homebrew Mage")).toBe(false);
+  });
+});
+
+describe("getHpFormula", () => {
+  it("falls back to 0 for a classless (blank) character", () => {
+    const c = structuredClone(defaultCharacter);
+    c.class = [];
+    expect(getHpFormula(c)).toBe(0);
   });
 });
 

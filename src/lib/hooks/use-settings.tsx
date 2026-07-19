@@ -17,6 +17,10 @@ interface Settings {
   autosaveDelay: number;
   // Whether sheets open ready to edit (vs. locked for play).
   openInEditMode: boolean;
+  // Whether opening a shared Google Drive character automatically starts/joins a
+  // live co-editing session (owner hosts, recipient joins). Off falls back to the
+  // manual share toggle.
+  autoLiveSession: boolean;
 }
 
 function sanitizeSettingValue<K extends keyof Settings>(
@@ -51,6 +55,7 @@ const DEFAULT_SETTINGS: Settings = {
   autosave: true,
   autosaveDelay: 1000,
   openInEditMode: true,
+  autoLiveSession: true,
 };
 
 export const SettingsContext = React.createContext<SettingsContextData>({

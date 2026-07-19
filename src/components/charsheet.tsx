@@ -30,6 +30,8 @@ import Spellcasting from "./spellcasting";
 import EditSpell from "./edit-spell";
 import EditLimitedUseAbility from "./edit-limited-use-ability";
 import PresenceBroadcaster from "./presence-broadcaster";
+import DriveLiveSessionBootstrap from "./drive-live-session-bootstrap";
+import SharePresenceWarning from "./share-presence-warning";
 
 export default function CharSheet() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -196,6 +198,7 @@ export default function CharSheet() {
     <RollerProvider>
       <div className="character-sheet-container">
         <PresenceBroadcaster />
+        <DriveLiveSessionBootstrap />
         <RollModal />
         {modalIsOpen && (
           <ModalContainer
@@ -207,6 +210,7 @@ export default function CharSheet() {
           </ModalContainer>
         )}
         <div className="page-container">
+          <SharePresenceWarning />
           <div className="character-info-header">
             <div className="row">
               <div className="rounded-border-box">

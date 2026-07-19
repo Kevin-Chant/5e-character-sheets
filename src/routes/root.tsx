@@ -23,6 +23,7 @@ import {
   resetCharacter,
 } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { useCharacterBuilder } from "src/lib/hooks/use-character-builder";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
@@ -37,10 +38,10 @@ import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 
 function Sidebar() {
   const { datastore } = useDatastoreSelector();
-  const { characters, deleteCharacter, characterLoading, createCharacter } =
-    useDatastore();
+  const { characters, deleteCharacter, characterLoading } = useDatastore();
   const { character, dispatch } = useCharacter();
   const { getRole, teardownSession } = useSharingSessions();
+  const { openBuilder } = useCharacterBuilder();
 
   const deleteCharacterAndRefocus = (uuid: UUID) => {
     // End any live session for this character before removing it, so we don't
@@ -48,13 +49,6 @@ function Sidebar() {
     teardownSession(uuid);
     deleteCharacter(uuid);
     dispatch(resetCharacter());
-  };
-
-  const loadNewCharacter = async () => {
-    const newChar = await createCharacter();
-    if (newChar) {
-      dispatch(loadPersistedCharacter(newChar));
-    }
   };
 
   const charactersNavText = !datastore
@@ -105,7 +99,7 @@ function Sidebar() {
             );
           })}
           {datastore?.createCharacter && (
-            <button className="btn-primary" onClick={loadNewCharacter}>
+            <button className="btn-primary" onClick={openBuilder}>
               Create new character
             </button>
           )}
