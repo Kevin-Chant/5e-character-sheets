@@ -17,7 +17,7 @@ import {
   isSpellcastingClass,
 } from "src/lib/rules";
 import { Character, Spell, SpellCastingClass } from "src/lib/types";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { charPath, updateAt } from "src/lib/cursor";
 import SpellList from "./display/spell-list";
 import { FaTrash } from "react-icons/fa6";
 
@@ -37,8 +37,7 @@ function PactSlots({ character }: SpellsTableProps) {
       <p className="title">Pact Slots</p>
       <div className="spell-slot-tracker">
         <SingleValueDisplay
-          field={FIELD.pactSlots}
-          subField={`levelOverride`}
+          cursor={charPath(FIELD.pactSlots).k("levelOverride")}
           name={"Slot level"}
           vertical
           editable
@@ -46,8 +45,7 @@ function PactSlots({ character }: SpellsTableProps) {
           removeMargin
         />
         <SingleValueDisplay
-          field={FIELD.pactSlots}
-          subField={`totalOverride`}
+          cursor={charPath(FIELD.pactSlots).k("totalOverride")}
           name={"Slots total"}
           vertical
           editable
@@ -59,7 +57,7 @@ function PactSlots({ character }: SpellsTableProps) {
           expended={expended}
           onChange={(newExpended) =>
             dispatch(
-              updateData(FIELD.pactSlots, { value: newExpended }, "expended"),
+              updateAt(charPath(FIELD.pactSlots).k("expended"), newExpended),
             )
           }
         />
@@ -129,7 +127,7 @@ function SpellsTable({ character }: SpellsTableProps) {
             <p className="title">Cantrips</p>
           </div>
           <SpellList
-            subField="cantrips"
+            bucket={charPath(FIELD.spells).k("cantrips")}
             preparable={false}
             showClassBadge={showClassBadge}
             defaultValue={newSpellDefault("New cantrip")}
@@ -147,8 +145,9 @@ function SpellsTable({ character }: SpellsTableProps) {
                 {total > 0 && (
                   <div className="spell-slot-tracker">
                     <SingleValueDisplay
-                      field={FIELD.spellSlots}
-                      subField={`${level}.totalOverride`}
+                      cursor={charPath(FIELD.spellSlots)
+                        .k(level)
+                        .k("totalOverride")}
                       name={"Slots"}
                       editable
                       removeBorder
@@ -159,10 +158,9 @@ function SpellsTable({ character }: SpellsTableProps) {
                       expended={expended}
                       onChange={(newExpended) =>
                         dispatch(
-                          updateData(
-                            FIELD.spellSlots,
-                            { value: newExpended },
-                            `${level}.expended`,
+                          updateAt(
+                            charPath(FIELD.spellSlots).k(level).k("expended"),
+                            newExpended,
                           ),
                         )
                       }
@@ -171,7 +169,7 @@ function SpellsTable({ character }: SpellsTableProps) {
                 )}
               </div>
               <SpellList
-                subField={level}
+                bucket={charPath(FIELD.spells).k(level)}
                 preparable
                 showClassBadge={showClassBadge}
                 defaultValue={newSpellDefault("New spell")}
@@ -226,12 +224,10 @@ export default function Spellcasting() {
   useEffect(() => {
     if (character && missingClasses.length > 0) {
       dispatch(
-        updateData(FIELD.spellcastingClasses, {
-          value: [
-            ...character.spellcastingClasses,
-            ...missingClasses.map((name) => ({ class: name })),
-          ],
-        }),
+        updateAt(charPath(FIELD.spellcastingClasses), [
+          ...character.spellcastingClasses,
+          ...missingClasses.map((name) => ({ class: name })),
+        ]),
       );
     }
   }, [missingClasses.join("|")]);
@@ -243,16 +239,17 @@ export default function Spellcasting() {
       class: OfficialClass.Wizard,
     };
     dispatch(
-      updateData(FIELD.spellcastingClasses, {
-        value: [...character.spellcastingClasses, newSpellcastingClass],
-      }),
+      updateAt(charPath(FIELD.spellcastingClasses), [
+        ...character.spellcastingClasses,
+        newSpellcastingClass,
+      ]),
     );
   };
 
   const removeSpellcastingClass = (index: number) => {
     const newValue = [...character.spellcastingClasses];
     newValue.splice(index, 1);
-    dispatch(updateData(FIELD.spellcastingClasses, { value: newValue }));
+    dispatch(updateAt(charPath(FIELD.spellcastingClasses), newValue));
   };
 
   return (
@@ -264,16 +261,16 @@ export default function Spellcasting() {
             key={index}
           >
             <SingleValueDisplay
-              field={FIELD.spellcastingClasses}
-              subField={`${index}.class`}
+              cursor={charPath(FIELD.spellcastingClasses).at(index).k("class")}
               name={"Spellcasting Class"}
               vertical
               editable
               removeBorder
             />
             <SingleValueDisplay
-              field={FIELD.spellcastingClasses}
-              subField={`${index}.abilityOverride`}
+              cursor={charPath(FIELD.spellcastingClasses)
+                .at(index)
+                .k("abilityOverride")}
               name={"Spellcasting ability"}
               transform={upperFirst}
               vertical
@@ -281,8 +278,9 @@ export default function Spellcasting() {
               removeBorder
             />
             <SingleValueDisplay
-              field={FIELD.spellcastingClasses}
-              subField={`${index}.saveDcOverride`}
+              cursor={charPath(FIELD.spellcastingClasses)
+                .at(index)
+                .k("saveDcOverride")}
               name={"Spell Save DC"}
               transform={calculateCustomFormula}
               vertical
@@ -290,8 +288,9 @@ export default function Spellcasting() {
               removeBorder
             />
             <SingleValueDisplay
-              field={FIELD.spellcastingClasses}
-              subField={`${index}.attackBonusOverride`}
+              cursor={charPath(FIELD.spellcastingClasses)
+                .at(index)
+                .k("attackBonusOverride")}
               name={"Spell Attack Bonus"}
               transform={calculateCustomFormula}
               vertical

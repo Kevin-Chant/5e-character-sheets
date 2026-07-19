@@ -1,15 +1,14 @@
 import classNames from "classnames";
-import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { Character } from "src/lib/types";
+import { Cursor } from "src/lib/cursor";
 import { getFieldValue, traverse } from "src/lib/fields";
 import RollButton from "../roll-button";
 
 interface ProficiencyDisplayProps {
   id: string;
-  field: FIELD;
-  subField: string;
+  cursor: Cursor<boolean | undefined>;
   proficient: boolean;
   expert: boolean;
   jack: boolean;
@@ -25,8 +24,7 @@ interface ProficiencyDisplayProps {
 
 export default function ProficiencyDisplay({
   id,
-  field,
-  subField,
+  cursor,
   proficient,
   expert,
   jack,
@@ -41,6 +39,9 @@ export default function ProficiencyDisplay({
   const { editMode } = useEditMode();
 
   if (!character) return <></>;
+
+  const field = cursor.root();
+  const subField = cursor.subpath();
 
   const locked = readOnly || !editMode;
   const onClick = locked

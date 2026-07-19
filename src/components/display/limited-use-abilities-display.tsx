@@ -1,10 +1,10 @@
 import { FaPencil, FaArrowRotateLeft } from "react-icons/fa6";
-import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
 import { isTextComponentWithDetail } from "src/lib/types";
+import { charPath, updateAt } from "src/lib/cursor";
 import { calculateCustomFormula } from "src/lib/formula";
 import { newLimitedUseAbility } from "src/lib/data/default-data";
 import ComponentWithPopover from "./component-with-popover";
@@ -17,40 +17,31 @@ const PIP_THRESHOLD = 6;
 
 export default function LimitedUseAbilitiesDisplay() {
   const { character, dispatch } = useCharacter();
-  const { pushTargetedField } = useTargetedField();
+  const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
   if (!character) return <></>;
 
+  const list = charPath(FIELD.limitedUseAbilities);
   const abilities = character.limitedUseAbilities;
 
-  const editAbility = (index: number) =>
-    pushTargetedField(FIELD.limitedUseAbilities, `${index}`);
+  const editAbility = (index: number) => pushCursor(list.at(index));
 
   const removeAbility = (index: number) =>
     dispatch(
-      updateData(FIELD.limitedUseAbilities, {
-        value: abilities.filter((_, i) => i !== index),
-      }),
+      updateAt(
+        list,
+        abilities.filter((_, i) => i !== index),
+      ),
     );
 
   const setExpended = (index: number, expended: number) =>
-    dispatch(
-      updateData(
-        FIELD.limitedUseAbilities,
-        { value: expended },
-        `${index}.expended`,
-      ),
-    );
+    dispatch(updateAt(list.at(index).k("expended"), expended));
 
   // Persist a blank ability up-front (like spells) so the formula editor has a
   // target, then open it for editing.
   const addAbility = () => {
-    dispatch(
-      updateData(FIELD.limitedUseAbilities, {
-        value: abilities.concat(newLimitedUseAbility()),
-      }),
-    );
-    pushTargetedField(FIELD.limitedUseAbilities, `${abilities.length}`);
+    dispatch(updateAt(list, abilities.concat(newLimitedUseAbility())));
+    pushCursor(list.at(abilities.length));
   };
 
   return (

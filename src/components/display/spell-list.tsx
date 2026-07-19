@@ -1,11 +1,10 @@
 import { FaPencil } from "react-icons/fa6";
-import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
-import { FIELD } from "src/lib/data/data-definitions";
 import { Spell, isTextComponentWithDetail } from "src/lib/types";
-import { getFieldValue, traverse } from "src/lib/fields";
+import { Cursor, updateAt } from "src/lib/cursor";
+import { getFieldValue } from "src/lib/fields";
 import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 import RollButton from "../roll-button";
@@ -13,8 +12,9 @@ import { getSpellAttackBonus } from "src/lib/formula";
 import { isPreparedCaster } from "src/lib/rules";
 
 interface SpellListProps {
-  // Sub-path within `character.spells`, e.g. "cantrips" or a SpellLevel.
-  subField: string;
+  // Cursor to this bucket within `character.spells` (the "cantrips" or a
+  // SpellLevel array). Optional since a level's array may not exist yet.
+  bucket: Cursor<Spell[] | undefined>;
   defaultValue: Spell;
   // Cantrips are never prepared, so the prepared toggle is hidden for them.
   preparable: boolean;
@@ -23,50 +23,41 @@ interface SpellListProps {
 }
 
 export default function SpellList({
-  subField,
+  bucket,
   defaultValue,
   preparable,
   showClassBadge,
 }: SpellListProps) {
   const { character, dispatch } = useCharacter();
-  const { pushTargetedField } = useTargetedField();
+  const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
   if (!character) return <></>;
 
-  const spells: Spell[] =
-    traverse(subField, getFieldValue(FIELD.spells, character)) ?? [];
+  const spells: Spell[] = getFieldValue(bucket.toString(), character) ?? [];
 
-  const editSpell = (index: number) =>
-    pushTargetedField(FIELD.spells, `${subField}.${index}`);
+  const editSpell = (index: number) => pushCursor(bucket.at(index));
 
   const removeSpell = (index: number) => {
-    const newValue = spells.filter((_, i) => i !== index);
-    dispatch(updateData(FIELD.spells, { value: newValue }, subField));
+    dispatch(
+      updateAt(
+        bucket,
+        spells.filter((_, i) => i !== index),
+      ),
+    );
   };
 
   const addSpell = () => {
-    dispatch(
-      updateData(
-        FIELD.spells,
-        { value: spells.concat(defaultValue) },
-        subField,
-      ),
-    );
-    pushTargetedField(FIELD.spells, `${subField}.${spells.length}`);
+    dispatch(updateAt(bucket, spells.concat(defaultValue)));
+    pushCursor(bucket.at(spells.length));
   };
 
-  // Open the SRD browser for this level; ".new" routes to the picker, which
-  // appends the chosen spell itself (see charsheet.tsx / add-spell-from-srd.tsx).
-  const browseSrd = () => pushTargetedField(FIELD.spells, `${subField}.new`);
+  // Open the SRD browser for this level; the ".new" sentinel routes to the
+  // picker, which appends the chosen spell itself (see charsheet.tsx /
+  // add-spell-from-srd.tsx).
+  const browseSrd = () => pushCursor(bucket.append());
 
   const togglePrepared = (index: number, prepared: boolean) =>
-    dispatch(
-      updateData(
-        FIELD.spells,
-        { value: prepared },
-        `${subField}.${index}.prepared`,
-      ),
-    );
+    dispatch(updateAt(bucket.at(index).k("prepared"), prepared));
 
   return (
     <div className="column rounded-border-box">

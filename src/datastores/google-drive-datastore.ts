@@ -270,6 +270,13 @@ const GoogleDriveDatastore: Datastore = {
   savedSheetsCopy: "Characters saved in Google Drive:",
   debounceWait: 5000,
   initializeDatastore: async () => {
+    // These caches are module-level and outlive sign-out / account switches, so
+    // start from scratch: without this, a second sign-in (or another account)
+    // would list — and write to — the previous session's cached characters.
+    knownFiles = {};
+    importedIndex = {};
+    importedIndexFileId = undefined;
+    for (const key of Object.keys(localCache)) delete localCache[key as UUID];
     await populateKnownFiles();
     const promises = Object.keys(knownFiles).map((uuid) =>
       readThroughCache(uuid as UUID),

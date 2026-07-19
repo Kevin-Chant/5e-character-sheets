@@ -1,5 +1,6 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
 import { Datastore } from "src/lib/types";
+import { missingProvider } from "src/lib/missing-provider";
 
 interface DatastoreSelectorContextData {
   datastore?: Datastore;
@@ -11,19 +12,17 @@ interface DatastoreSelectorContextData {
 export const DatastoreSelectorContext =
   React.createContext<DatastoreSelectorContextData>({
     datastore: undefined,
-    setDatastore: () => {
-      console.log("Calling default setDatastore");
-    },
+    setDatastore: missingProvider("setDatastore"),
   });
 
 export function DatastoreSelectorContextProvider(
   props: React.PropsWithChildren,
 ) {
   const [datastore, setDatastore] = useState<Datastore>();
-  const providerData = {
-    datastore,
-    setDatastore,
-  };
+  const providerData = useMemo(
+    () => ({ datastore, setDatastore }),
+    [datastore],
+  );
 
   return (
     <DatastoreSelectorContext.Provider value={providerData}>

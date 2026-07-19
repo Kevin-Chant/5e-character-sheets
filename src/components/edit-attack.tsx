@@ -10,11 +10,12 @@ import {
 import { getFieldValue } from "src/lib/fields";
 import { FaPencil } from "react-icons/fa6";
 import { useSave } from "./modals/modal-container";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { fromStack, updateAt } from "src/lib/cursor";
+import { Attack } from "src/lib/types";
 
 export default function EditAttack() {
   const { character, dispatch } = useCharacter();
-  const { targetedField, subField, pushTargetedField } = useTargetedField();
+  const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
 
   if (
@@ -25,23 +26,24 @@ export default function EditAttack() {
   )
     return <></>;
 
+  // Re-enter the typed world from the string stack: the modal knows it points at
+  // a single Attack (bare index subField, guarded above).
+  const attackCursor = fromStack<Attack>(targetedField, subField);
   const attack = getFieldValue(FIELD.attacks, character)[subField];
 
   const updateName = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
-    dispatch(
-      updateData(targetedField, { value: e.target.value }, subField + ".name"),
-    );
+    dispatch(updateAt(attackCursor.k("name"), e.target.value));
   };
 
   const editBonus = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    pushTargetedField(targetedField, `${subField}.bonus`);
+    pushCursor(attackCursor.k("bonus"));
   };
 
   const editFormula = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    pushTargetedField(targetedField, `${subField}.formula`);
+    pushCursor(attackCursor.k("formula"));
   };
 
   const onSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {

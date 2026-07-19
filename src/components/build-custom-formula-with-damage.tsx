@@ -6,14 +6,18 @@ import {
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import { CustomFormula, isCustomFormulaWithDamage } from "src/lib/types";
+import {
+  CustomFormula,
+  CustomFormulaWithDamage,
+  isCustomFormulaWithDamage,
+} from "src/lib/types";
 import { formatCustomFormula } from "src/lib/formula";
 import { getFieldValue, traverse } from "src/lib/fields";
 import { useSave } from "./modals/modal-container";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { fromStack, updateAt } from "src/lib/cursor";
 
 export default function BuildCustomFormulaWithDamage() {
-  const { targetedField, subField, pushTargetedField } = useTargetedField();
+  const { targetedField, subField, pushCursor } = useTargetedField();
   const { character, dispatch } = useCharacter();
   const { saveData } = useSave();
 
@@ -23,6 +27,17 @@ export default function BuildCustomFormulaWithDamage() {
     formulaWithDamage = traverse(subField, formulaWithDamage);
   }
   if (!isCustomFormulaWithDamage(formulaWithDamage)) return <></>;
+
+  // The map lives at targetedField+subField; `.k(damageType)` reaches a formula
+  // slot but cannot descend into it (a Cursor<CustomFormula> has no `.k`).
+  const mapCursor = fromStack<CustomFormulaWithDamage>(targetedField, subField);
+  const setMap = (entries: [string, CustomFormula][]) =>
+    dispatch(
+      updateAt(
+        mapCursor,
+        Object.fromEntries(entries) as CustomFormulaWithDamage,
+      ),
+    );
 
   const formulaEntries = Object.entries(formulaWithDamage);
   const usedDamageTypes = formulaEntries.map((entry) => entry[0]);
@@ -37,15 +52,7 @@ export default function BuildCustomFormulaWithDamage() {
       unusedDamageTypes[0],
       [1, StandardDie.d6, DieOperation.roll],
     ]);
-    dispatch(
-      updateData(
-        targetedField,
-        {
-          value: Object.fromEntries(formulaEntries),
-        },
-        subField,
-      ),
-    );
+    setMap(formulaEntries);
   };
 
   const updateFormula = (
@@ -53,8 +60,7 @@ export default function BuildCustomFormulaWithDamage() {
     damageType: DamageType,
   ) => {
     e.preventDefault();
-    const subFieldPrefix = subField ? subField + "." : "";
-    pushTargetedField(targetedField, subFieldPrefix + damageType);
+    pushCursor(mapCursor.k(damageType));
   };
 
   const updateDamageType = (
@@ -64,15 +70,7 @@ export default function BuildCustomFormulaWithDamage() {
     e.preventDefault();
     const formulaEntries = Object.entries(formulaWithDamage);
     formulaEntries[index][0] = e.target.value;
-    dispatch(
-      updateData(
-        targetedField,
-        {
-          value: Object.fromEntries(formulaEntries),
-        },
-        subField,
-      ),
-    );
+    setMap(formulaEntries);
   };
 
   const removeEntry = (
@@ -82,15 +80,7 @@ export default function BuildCustomFormulaWithDamage() {
     e.preventDefault();
     const formulaEntries = Object.entries(formulaWithDamage);
     formulaEntries.splice(index, 1);
-    dispatch(
-      updateData(
-        targetedField,
-        {
-          value: Object.fromEntries(formulaEntries),
-        },
-        subField,
-      ),
-    );
+    setMap(formulaEntries);
   };
 
   return (

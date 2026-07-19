@@ -1,26 +1,32 @@
 import React from "react";
-import { CastingTime, FIELD } from "src/lib/data/data-definitions";
+import { CastingTime, FIELD, SpellLevel } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   CustomFormula,
   isTextComponent,
   MaterialComponent,
+  Spell,
   SpellComponents,
+  TextComponentWithDetails,
 } from "src/lib/types";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue, traverse } from "src/lib/fields";
 import { useSave } from "./modals/modal-container";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { fromStack, updateAt } from "src/lib/cursor";
 import { ControlledEditTextLine } from "./edit-text-line";
 import { FaTrash } from "react-icons/fa6";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 import { DEFAULT_SPELL_DURATIONS, DEFAULT_SPELL_RANGES } from "src/lib/rules";
+import EditSpellMechanics from "./edit-spell-mechanics";
+
+// SpellLevel buckets in numeric order, so a spell's storage bucket → base level.
+const SPELL_LEVEL_BUCKETS = Object.values(SpellLevel) as string[];
 
 const CASTING_TIME_PRESETS = Object.values(CastingTime) as string[];
 
 export default function EditSpell() {
   const { character, dispatch } = useCharacter();
-  const { targetedField, subField, pushTargetedField } = useTargetedField();
+  const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
 
   if (!character || targetedField !== FIELD.spells || !subField) return <></>;
@@ -32,13 +38,24 @@ export default function EditSpell() {
   if (!isTextComponent(textComponent)) return <></>;
 
   // Cantrips are always available and never prepared.
-  const isCantrip = subField.split(".")[0] === "cantrips";
+  const bucket = subField.split(".")[0];
+  const isCantrip = bucket === "cantrips";
+  // Base spell level, driven by the storage bucket (cantrip = 0, "First" = 1…).
+  const spellLevel = isCantrip ? 0 : SPELL_LEVEL_BUCKETS.indexOf(bucket) + 1;
+
+  const spellCursor = fromStack<Spell>(targetedField, subField);
+  // `detailFormulas` lives only on the with-details TextComponent variant;
+  // used solely from the branch where details already exist.
+  const infoDetail = fromStack<TextComponentWithDetails>(
+    targetedField,
+    `${subField}.info`,
+  );
 
   // Leaf fields whose parent (the spell object) already exists can be written
   // directly; `components` is rebuilt wholesale because it may not exist yet and
   // the reducer requires the parent of a written path to be present.
-  const updateSpellField = (key: string, value: unknown) =>
-    dispatch(updateData(targetedField, { value }, `${subField}.${key}`));
+  const updateSpellField = <K extends keyof Spell>(key: K, value: Spell[K]) =>
+    dispatch(updateAt(spellCursor.k(key), value));
 
   const updateCastingClass = (e: React.ChangeEvent<HTMLSelectElement>) =>
     updateSpellField("spellcastingClass", e.target.value);
@@ -70,7 +87,7 @@ export default function EditSpell() {
       titleFormulas: formulas,
     });
   const editTitleFormula = (index: number) =>
-    pushTargetedField(targetedField, `${subField}.info.titleFormulas.${index}`);
+    pushCursor(spellCursor.k("info").k("titleFormulas").at(index));
   const addDetail = () =>
     updateSpellField("info", {
       ...textComponent,
@@ -84,10 +101,7 @@ export default function EditSpell() {
       detailFormulas: formulas,
     });
   const editDetailFormula = (index: number) =>
-    pushTargetedField(
-      targetedField,
-      `${subField}.info.detailFormulas.${index}`,
-    );
+    pushCursor(infoDetail.k("detailFormulas").at(index));
   const clearDetails = () =>
     updateSpellField("info", {
       ...textComponent,
@@ -286,6 +300,15 @@ export default function EditSpell() {
           clearDetails,
         }}
       />
+
+      <EditSpellMechanics
+        key={subField}
+        mechanics={spell.mechanics}
+        level={spellLevel}
+        spellcastingClass={spell.spellcastingClass}
+        onChange={(mechanics) => updateSpellField("mechanics", mechanics)}
+      />
+
       <button className="margin-small" onClick={onSubmit}>
         Save
       </button>

@@ -4,7 +4,7 @@ import {
   useSettings,
 } from "src/lib/hooks/use-settings";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
-import InputField from "../InputField";
+import InputField from "../input-field";
 import IdentityFields from "../identity-fields";
 import AutosaveSettings from "./autosave-settings";
 import SettingsSection from "./settings-section";

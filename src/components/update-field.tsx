@@ -14,7 +14,7 @@ import {
   DEFAULT_LANGUAGES,
   DEFAULT_RACES,
   DEFAULT_WEAPONS,
-  OPTIONAL_FIELD_INITIALIZERS,
+  getOptionalInitializer,
 } from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
@@ -53,17 +53,10 @@ export default function UpdateField({
   let currentValue =
     targetedField && character ? getFieldValue(targetedField, character) : "";
   if (subField) currentValue = traverse(subField, currentValue);
-  if (
-    !currentValue &&
-    targetedField &&
-    character &&
-    OPTIONAL_FIELD_INITIALIZERS[targetedField]
-  ) {
-    currentValue = OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
-      undefined,
-      character,
-      subField,
-    );
+  // Only genuinely-absent values fall back to the initializer — a stored 0,
+  // "", or false is a real value the user set, not a gap to fill.
+  if (currentValue == null && character) {
+    currentValue = getOptionalInitializer(targetedField, subField, character);
   }
 
   // Local state so the input can be freely edited (including cleared to empty)

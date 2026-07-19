@@ -2,7 +2,7 @@ import ProficiencyDisplay from "src/components/display/proficiency-display";
 import SingleValueDisplay from "src/components/display/single-value-display";
 import StatDisplay from "src/components/display/stat-display";
 import { FIELD, SkillName, StatKey } from "src/lib/data/data-definitions";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { charPath, Cursor, updateAt } from "src/lib/cursor";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { calculateCustomFormula } from "src/lib/formula";
 import { SKILL_SOURCE_STATS, STAT_NAMES, getPB, modifier } from "src/lib/rules";
@@ -12,9 +12,9 @@ function SkillsColumn({ pb }: { pb: number }) {
   const { character, dispatch } = useCharacter();
   if (!character) return <></>;
 
-  const createProficiencyUpdater = (field: FIELD, subField: string) => {
+  const createProficiencyUpdater = (cursor: Cursor<boolean | undefined>) => {
     return (value: boolean) => {
-      dispatch(updateData(field, { value: value }, subField));
+      dispatch(updateAt(cursor, value));
     };
   };
 
@@ -22,12 +22,12 @@ function SkillsColumn({ pb }: { pb: number }) {
     <div className="column">
       <SingleValueDisplay
         name="Inspiration"
-        field={FIELD.inspiration}
+        cursor={charPath(FIELD.inspiration)}
         editable
       />
       <SingleValueDisplay
         name="Proficiency Bonus"
-        field={FIELD.pbOverride}
+        cursor={charPath(FIELD.pbOverride)}
         transform={calculateCustomFormula}
         editable
       />
@@ -35,11 +35,13 @@ function SkillsColumn({ pb }: { pb: number }) {
         {(Object.entries(STAT_NAMES) as [StatKey, string][]).map(
           ([statKey, statName]) => {
             const proficient = !!character.proficiencies.savingThrows[statKey];
+            const cursor = charPath(FIELD.proficiencies)
+              .k("savingThrows")
+              .k(statKey);
             return (
               <ProficiencyDisplay
                 key={statKey}
-                field={FIELD.proficiencies}
-                subField={`savingThrows.${statKey}`}
+                cursor={cursor}
                 id={`${statKey}_save_proficiency`}
                 proficient={proficient}
                 expert={false}
@@ -49,10 +51,7 @@ function SkillsColumn({ pb }: { pb: number }) {
                 }
                 text={statName}
                 rollLabel={`${statName} Save`}
-                updateProficiency={createProficiencyUpdater(
-                  FIELD.proficiencies,
-                  `savingThrows.${statKey}`,
-                )}
+                updateProficiency={createProficiencyUpdater(cursor)}
               />
             );
           },
@@ -68,11 +67,13 @@ function SkillsColumn({ pb }: { pb: number }) {
             const jack =
               (character.class.find((klass) => klass.name === "Bard")?.level ||
                 0) > 1 || character.proficiencies.isJackOfAllTradesOverride;
+            const cursor = charPath(FIELD.proficiencies)
+              .k("skills")
+              .k(skillName);
             return (
               <ProficiencyDisplay
                 key={skillName}
-                field={FIELD.proficiencies}
-                subField={`skills.${skillName}`}
+                cursor={cursor}
                 id={`${skillName}_proficiency`}
                 proficient={proficient}
                 expert={expert}
@@ -90,10 +91,7 @@ function SkillsColumn({ pb }: { pb: number }) {
                 text={skillName}
                 subtext={`(${statKey})`}
                 rollLabel={skillName}
-                updateProficiency={createProficiencyUpdater(
-                  FIELD.proficiencies,
-                  `skills.${skillName}`,
-                )}
+                updateProficiency={createProficiencyUpdater(cursor)}
               />
             );
           },
@@ -115,8 +113,7 @@ function StatsAndSkills({ pb }: { pb: number }) {
             const statName = STAT_NAMES[statKey];
             return (
               <StatDisplay
-                field={FIELD.stats}
-                subField={statKey}
+                cursor={charPath(FIELD.stats).k(statKey)}
                 name={statName}
                 value={statVal}
                 key={statKey}
@@ -143,8 +140,7 @@ export default function StatAndSkillPanel() {
       <StatsAndSkills pb={pb} />
       <SingleValueDisplay
         name="Passive Wisdom (Perception)"
-        field={FIELD.stats}
-        subField="wis"
+        cursor={charPath(FIELD.stats).k(StatKey.wis)}
         transform={(wis) => calculatePassivePerception(wis)}
       />
       <OtherProficienciesDisplay />

@@ -33,7 +33,10 @@ import { Action } from "./hooks/reducers/actions";
 // Begin Typeguards //
 //////////////////////
 export function isUuid(data: any): data is UUID {
-  return typeof data === "string" && !!data.match(/^\w+-\w+-\w+-\w+-\w+$/);
+  return (
+    typeof data === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data)
+  );
 }
 export function isArr<T>(
   data: any,
@@ -48,8 +51,11 @@ export function isMap<K extends string | number | symbol, V>(
   kValidator: (data: any) => data is K,
   vValidator: (data: any) => data is V,
 ): data is Record<K, V> {
+  // Arrays are lodash "objects" whose keys (indices) would pass numeric key
+  // validators, so reject them explicitly.
   return (
     isObject(data) &&
+    !isArray(data) &&
     every(Object.keys(data), kValidator) &&
     every(Object.values(data), vValidator)
   );
@@ -67,7 +73,7 @@ export function isTextComponentWithoutDetail(
     typeof data.title === "string" &&
     isArray(data.titleFormulas) &&
     typeof data.detail === "undefined" &&
-    typeof data.detail === "undefined"
+    typeof data.detailFormulas === "undefined"
   );
 }
 
@@ -322,7 +328,7 @@ export type CoinAmounts = { [key in CoinType]?: number };
 
 export type Proficiencies<T extends string | number> = { [key in T]?: boolean };
 
-interface TextComponentWithDetails {
+export interface TextComponentWithDetails {
   title: string;
   titleFormulas: CustomFormula[];
   detail: string;
@@ -459,9 +465,7 @@ export interface LimitedUseAbility {
   expended: number;
 }
 
-type BaseCharacter = { [key in FIELD]?: any };
-
-export interface Character extends BaseCharacter {
+export interface Character {
   // Monotonic schema version, bumped whenever a breaking change to this type
   // needs a migration. See src/lib/migrations/.
   schemaVersion: number;
@@ -511,6 +515,16 @@ export interface Character extends BaseCharacter {
 }
 
 export type CharacterField = keyof Character;
+
+// Static guard: every FIELD enum member must be a key of Character. This holds
+// the two in sync now that Character no longer has an `[key in FIELD]: any`
+// index signature papering over drift. If a FIELD is added without a matching
+// Character property (or one is renamed), this line fails to compile.
+type _AssertFieldsAreCharacterKeys = FIELD extends keyof Character
+  ? true
+  : never;
+const _fieldsCovered: _AssertFieldsAreCharacterKeys = true;
+void _fieldsCovered;
 
 export interface IClass {
   name: string;

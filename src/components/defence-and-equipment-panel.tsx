@@ -19,11 +19,11 @@ import RollButton from "./roll-button";
 import { FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { charPath, updateAt } from "src/lib/cursor";
 
 export default function DefenceAndEquipmentPanel() {
   const { character, dispatch } = useCharacter();
-  const { pushTargetedField } = useTargetedField();
+  const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
   if (!character) return <></>;
   const totalHitDice = character.totalHitDice || getHitDice(character);
@@ -41,26 +41,26 @@ export default function DefenceAndEquipmentPanel() {
   );
   const addAttackRow = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    pushTargetedField(FIELD.attacks, "new");
+    pushCursor(charPath(FIELD.attacks).append());
   };
   const removeAttackRow = (index: number) => {
     const newValue = structuredClone(character.attacks);
     newValue.splice(index, 1);
-    dispatch(updateData(FIELD.attacks, { value: newValue }));
+    dispatch(updateAt(charPath(FIELD.attacks), newValue));
   };
   return (
     <div className="column">
       {/* AC, Init, Speed */}
       <div className="row">
         <SingleValueDisplay
-          field={FIELD.acFormula}
+          cursor={charPath(FIELD.acFormula)}
           transform={calculateCustomFormula}
           name="Armor Class"
           vertical
           editable
         />
         <SingleValueDisplay
-          field={FIELD.initiativeFormula}
+          cursor={charPath(FIELD.initiativeFormula)}
           name="Initiative"
           transform={calculateCustomFormula}
           vertical
@@ -68,7 +68,7 @@ export default function DefenceAndEquipmentPanel() {
           rollCheck="Initiative"
         />
         <SingleValueDisplay
-          field={FIELD.speed}
+          cursor={charPath(FIELD.speed)}
           name="Speed"
           vertical
           editable
@@ -77,7 +77,7 @@ export default function DefenceAndEquipmentPanel() {
       {/* HP */}
       <div className="column rounded-border-box hp-box">
         <SingleValueDisplay
-          field={FIELD.maxHp}
+          cursor={charPath(FIELD.maxHp)}
           name="Hit Point Maximum"
           transform={calculateCustomFormula}
           flipped
@@ -85,21 +85,21 @@ export default function DefenceAndEquipmentPanel() {
           editable
         />
         <SingleValueDisplay
-          field={FIELD.currHp}
+          cursor={charPath(FIELD.currHp)}
           name="Current Hit Points"
           flipped
           removeBorder
           editable
         />
         <SingleValueDisplay
-          field={FIELD.tempHp}
+          cursor={charPath(FIELD.tempHp)}
           name="Temporary Hit Points"
           flipped
           removeBorder
           editable
         />
         <SingleValueDisplay
-          field={FIELD.exhaustion}
+          cursor={charPath(FIELD.exhaustion)}
           name="Exhaustion"
           flipped
           removeBorder
@@ -115,7 +115,7 @@ export default function DefenceAndEquipmentPanel() {
                 <th>
                   {editMode && (
                     <button
-                      onClick={() => pushTargetedField(FIELD.totalHitDice)}
+                      onClick={() => pushCursor(charPath(FIELD.totalHitDice))}
                     >
                       <FaPencil />
                     </button>
@@ -147,8 +147,7 @@ export default function DefenceAndEquipmentPanel() {
                     <td>{totalHitDice[die] || 0}</td>
                     <td>
                       <SingleValueDisplay
-                        field={FIELD.expendedHitDice}
-                        subField={die}
+                        cursor={charPath(FIELD.expendedHitDice).k(die)}
                         name=""
                         removeBorder={true}
                         editable
@@ -170,7 +169,9 @@ export default function DefenceAndEquipmentPanel() {
               expended={character.deathSaves.successes}
               fillMode
               onChange={(value) =>
-                dispatch(updateData(FIELD.deathSaves, { value }, "successes"))
+                dispatch(
+                  updateAt(charPath(FIELD.deathSaves).k("successes"), value),
+                )
               }
             />
           </div>
@@ -181,7 +182,9 @@ export default function DefenceAndEquipmentPanel() {
               expended={character.deathSaves.failures}
               fillMode
               onChange={(value) =>
-                dispatch(updateData(FIELD.deathSaves, { value }, "failures"))
+                dispatch(
+                  updateAt(charPath(FIELD.deathSaves).k("failures"), value),
+                )
               }
             />
           </div>
@@ -219,7 +222,7 @@ export default function DefenceAndEquipmentPanel() {
                           aria-label="Edit attack"
                           onClick={(e) => {
                             e.preventDefault();
-                            pushTargetedField(FIELD.attacks, index.toString());
+                            pushCursor(charPath(FIELD.attacks).at(index));
                           }}
                         >
                           <FaPencil />
@@ -258,8 +261,7 @@ export default function DefenceAndEquipmentPanel() {
           {(Object.keys(CoinType) as CoinType[]).map((coinType) => {
             return (
               <SingleValueDisplay
-                field={FIELD.coins}
-                subField={coinType}
+                cursor={charPath(FIELD.coins).k(coinType)}
                 name={coinType}
                 flipped
                 key={coinType}
@@ -268,13 +270,16 @@ export default function DefenceAndEquipmentPanel() {
             );
           })}
           <SingleValueDisplay
-            field={FIELD.coins}
+            cursor={charPath(FIELD.coins)}
             transform={totalGP}
             name={"Total Value"}
             flipped
           />
         </div>
-        <MultiLineTextDisplay title="Equipment" field={FIELD.equipment} />
+        <MultiLineTextDisplay
+          title="Equipment"
+          cursor={charPath(FIELD.equipment)}
+        />
       </div>
     </div>
   );

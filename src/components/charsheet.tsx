@@ -114,12 +114,6 @@ export default function CharSheet() {
         (standardFieldType === "textLine" || standardFieldType === "spell") &&
         (subField || "").includes("Formulas")
       ) {
-        console.log(
-          "Working with textLine, subField info is",
-          subField,
-          "includes formulas?",
-          (subField || "").includes("Formulas"),
-        );
         setModalType("formula");
       } else {
         setModalType(standardFieldType);

@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { Character } from "src/lib/types";
 import { UUID } from "crypto";
 import { useDatastoreSelector } from "./use-datastore-selector";
+import { missingProvider } from "src/lib/missing-provider";
 
 interface DatastoreContextData {
   saving: boolean;
@@ -19,35 +20,20 @@ interface DatastoreContextData {
 export const DatastoreContext = React.createContext<DatastoreContextData>({
   saving: false,
   characters: [],
-  save: () => {
-    return new Promise((resolve) => {
-      console.log("Calling default save");
-      resolve();
-    });
-  },
-  load: () => {
-    return new Promise((resolve) => {
-      console.log("Calling default load");
-
-      resolve(undefined);
-    });
-  },
-  createCharacter: () => {
-    console.log("Calling default createCharacter");
-    return new Promise((resolve) => resolve(undefined));
-  },
-  importCharacter: () => {
-    console.log("Calling default importCharacter");
-    return new Promise((resolve) => resolve(undefined));
-  },
-  deleteCharacter: () => {
-    console.log("Calling default deleteCharacter");
-  },
+  save: missingProvider("save", Promise.resolve()),
+  load: missingProvider("load", Promise.resolve(undefined)),
+  createCharacter: missingProvider(
+    "createCharacter",
+    Promise.resolve(undefined),
+  ),
+  importCharacter: missingProvider(
+    "importCharacter",
+    Promise.resolve(undefined),
+  ),
+  deleteCharacter: missingProvider("deleteCharacter"),
   debounceWait: 1000,
   characterLoading: false,
-  setCharacterLoading: () => {
-    console.log("Calling default setCharacterLoading");
-  },
+  setCharacterLoading: missingProvider("setCharacterLoading"),
 });
 
 export function DatastoreContextProvider(props: React.PropsWithChildren) {
@@ -59,15 +45,15 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   >({});
 
   const save = async (character: Character) => {
-    if (datastore) {
-      setSaving(true);
+    if (!datastore) return;
+    setSaving(true);
+    try {
       await datastore.saveToDatastore(character);
-      const newLocalCharacters = structuredClone(localCharacters);
-      newLocalCharacters[character.uuid] = character;
-      setLocalCharacters(newLocalCharacters);
+      // Functional update: overlapping saves must not clobber each other's
+      // list entries via a stale closure snapshot.
+      setLocalCharacters((prev) => ({ ...prev, [character.uuid]: character }));
+    } finally {
       setSaving(false);
-    } else {
-      return new Promise<void>((resolve) => resolve(undefined));
     }
   };
 
@@ -110,9 +96,11 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   const deleteCharacter = (uuid: UUID) => {
     if (datastore) {
       datastore.deleteFromDatastore(uuid);
-      const newLocalCharacters = structuredClone(localCharacters);
-      delete newLocalCharacters[uuid];
-      setLocalCharacters(newLocalCharacters);
+      setLocalCharacters((prev) => {
+        const next = { ...prev };
+        delete next[uuid];
+        return next;
+      });
     }
   };
 
@@ -136,18 +124,24 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     });
   }, [datastore]);
 
-  const providerData = {
-    saving,
-    characterLoading,
-    setCharacterLoading,
-    characters: Object.values(localCharacters),
-    save,
-    load,
-    createCharacter,
-    importCharacter,
-    deleteCharacter,
-    debounceWait: datastore?.debounceWait || 1000,
-  };
+  // Memoized so consumers only re-render on real state changes; the callbacks
+  // above close over `datastore` (a dep) and use functional setState, so the
+  // captured instances stay correct between rebuilds.
+  const providerData = React.useMemo(
+    () => ({
+      saving,
+      characterLoading,
+      setCharacterLoading,
+      characters: Object.values(localCharacters),
+      save,
+      load,
+      createCharacter,
+      importCharacter,
+      deleteCharacter,
+      debounceWait: datastore?.debounceWait || 1000,
+    }),
+    [saving, characterLoading, localCharacters, datastore],
+  );
 
   return (
     <DatastoreContext.Provider value={providerData}>

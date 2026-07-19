@@ -1,10 +1,15 @@
 import { FIELD, RestType } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import { CustomFormula, isTextComponent } from "src/lib/types";
+import {
+  CustomFormula,
+  LimitedUseAbility,
+  TextComponentWithDetails,
+  isTextComponent,
+} from "src/lib/types";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue, traverse } from "src/lib/fields";
 import { calculateCustomFormula } from "src/lib/formula";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { fromStack, updateAt } from "src/lib/cursor";
 import { useSave } from "./modals/modal-container";
 import { ControlledEditTextLine } from "./edit-text-line";
 import OptionOrCustomValue from "./display/option-or-custom-value";
@@ -13,7 +18,7 @@ const RECHARGE_PRESETS = Object.values(RestType) as string[];
 
 export default function EditLimitedUseAbility() {
   const { character, dispatch } = useCharacter();
-  const { targetedField, subField, pushTargetedField } = useTargetedField();
+  const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
 
   if (!character || targetedField !== FIELD.limitedUseAbilities || !subField)
@@ -25,37 +30,48 @@ export default function EditLimitedUseAbility() {
   const textComponent = ability.info;
   if (!isTextComponent(textComponent)) return <></>;
 
-  const updateField = (key: string, value: unknown) =>
-    dispatch(updateData(targetedField, { value }, `${subField}.${key}`));
+  const abilityCursor = fromStack<LimitedUseAbility>(targetedField, subField);
+  const info = abilityCursor.k("info");
+  // `detailFormulas` only exists on the with-details variant; used solely from
+  // the branch where details are present.
+  const infoDetail = fromStack<TextComponentWithDetails>(
+    targetedField,
+    `${subField}.info`,
+  );
 
   // --- info (name/description), delegated to ControlledEditTextLine ---
   const setTitle = (text: string, formulas: CustomFormula[]) =>
-    updateField("info", {
-      ...textComponent,
-      title: text,
-      titleFormulas: formulas,
-    });
-  const editTitleFormula = (index: number) =>
-    pushTargetedField(targetedField, `${subField}.info.titleFormulas.${index}`);
-  const addDetail = () =>
-    updateField("info", { ...textComponent, detail: "", detailFormulas: [] });
-  const updateDetail = (text: string, formulas: CustomFormula[]) =>
-    updateField("info", {
-      ...textComponent,
-      detail: text,
-      detailFormulas: formulas,
-    });
-  const editDetailFormula = (index: number) =>
-    pushTargetedField(
-      targetedField,
-      `${subField}.info.detailFormulas.${index}`,
+    dispatch(
+      updateAt(info, {
+        ...textComponent,
+        title: text,
+        titleFormulas: formulas,
+      }),
     );
+  const editTitleFormula = (index: number) =>
+    pushCursor(info.k("titleFormulas").at(index));
+  const addDetail = () =>
+    dispatch(
+      updateAt(info, { ...textComponent, detail: "", detailFormulas: [] }),
+    );
+  const updateDetail = (text: string, formulas: CustomFormula[]) =>
+    dispatch(
+      updateAt(info, {
+        ...textComponent,
+        detail: text,
+        detailFormulas: formulas,
+      }),
+    );
+  const editDetailFormula = (index: number) =>
+    pushCursor(infoDetail.k("detailFormulas").at(index));
   const clearDetails = () =>
-    updateField("info", {
-      ...textComponent,
-      detail: undefined,
-      detailFormulas: undefined,
-    });
+    dispatch(
+      updateAt(info, {
+        ...textComponent,
+        detail: undefined,
+        detailFormulas: undefined,
+      }),
+    );
 
   const maxUses = calculateCustomFormula(ability.maxUses, character);
 
@@ -81,7 +97,7 @@ export default function EditLimitedUseAbility() {
             type="button"
             onClick={(e) => {
               e.preventDefault();
-              pushTargetedField(targetedField, `${subField}.maxUses`);
+              pushCursor(abilityCursor.k("maxUses"));
             }}
           >
             {maxUses} (edit formula)
@@ -91,7 +107,9 @@ export default function EditLimitedUseAbility() {
           Recharges per
           <OptionOrCustomValue
             value={ability.recharge}
-            setValue={(v: string) => updateField("recharge", v)}
+            setValue={(v: string) =>
+              dispatch(updateAt(abilityCursor.k("recharge"), v))
+            }
             options={RECHARGE_PRESETS}
             customDefaultValue=""
             customInputType="text"

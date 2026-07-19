@@ -2,6 +2,7 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 import LimitedUseAbilitiesDisplay from "./display/limited-use-abilities-display";
 import { FIELD } from "src/lib/data/data-definitions";
+import { charPath } from "src/lib/cursor";
 
 export default function CharacterInfoPanel() {
   const { character } = useCharacter();
@@ -10,25 +11,24 @@ export default function CharacterInfoPanel() {
     <div className="column">
       <MultiLineTextDisplay
         title="Personality Traits"
-        field={FIELD.personality}
-        subField="traits"
+        cursor={charPath(FIELD.personality).k("traits")}
       />
       <MultiLineTextDisplay
         title="Ideals"
-        field={FIELD.personality}
-        subField="ideals"
+        cursor={charPath(FIELD.personality).k("ideals")}
       />
       <MultiLineTextDisplay
         title="Bonds"
-        field={FIELD.personality}
-        subField="bonds"
+        cursor={charPath(FIELD.personality).k("bonds")}
       />
       <MultiLineTextDisplay
         title="Flaws"
-        field={FIELD.personality}
-        subField="flaws"
+        cursor={charPath(FIELD.personality).k("flaws")}
       />
-      <MultiLineTextDisplay title="Features & Traits" field={FIELD.features} />
+      <MultiLineTextDisplay
+        title="Features & Traits"
+        cursor={charPath(FIELD.features)}
+      />
       <LimitedUseAbilitiesDisplay />
     </div>
   );

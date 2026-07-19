@@ -8,12 +8,12 @@ import {
 } from "src/lib/types";
 import { getFieldValue, traverse } from "src/lib/fields";
 import { StatKey } from "src/lib/data/data-definitions";
-import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
+import { getOptionalInitializer } from "src/lib/rules";
 import { EditableAtomicVariable } from "./editable-atomic-variable";
 import { EditableExpression } from "./editable-expression";
 import Switch from "react-switch";
 import { useSave } from "../modals/modal-container";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { fromStack, updateAt } from "src/lib/cursor";
 
 export default function BuildCustomFormula() {
   const { targetedField, subField } = useTargetedField();
@@ -24,24 +24,19 @@ export default function BuildCustomFormula() {
   if (!character || !targetedField) return <></>;
 
   let formula = getFieldValue(targetedField, character);
-  if (!formula && OPTIONAL_FIELD_INITIALIZERS[targetedField]) {
-    formula = OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
-      undefined,
-      character,
-    );
+  if (!formula) {
+    formula = getOptionalInitializer(targetedField, undefined, character);
   }
   if (subField) {
     formula =
       traverse(subField, formula) ||
-      OPTIONAL_FIELD_INITIALIZERS[targetedField]?.call(
-        undefined,
-        character,
-        subField,
-      );
+      getOptionalInitializer(targetedField, subField, character);
   }
 
   const setFormula = (newVal: CustomFormula) => {
-    dispatch(updateData(targetedField, { value: newVal }, subField));
+    dispatch(
+      updateAt(fromStack<CustomFormula>(targetedField, subField), newVal),
+    );
   };
 
   if (!formula) {

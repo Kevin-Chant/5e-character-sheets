@@ -9,7 +9,7 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { IClass, isOfficialClass } from "src/lib/types";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 import { useSave } from "./modals/modal-container";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { charPath, updateAt } from "src/lib/cursor";
 
 export interface EditSingleClassProps {
   klass: IClass;
@@ -64,6 +64,7 @@ export default function EditClassLevels() {
 
   if (!character) return <></>;
 
+  const classes = charPath(FIELD.class);
   const klassArr = character.class;
 
   const unusedClassnames = Object.keys(OfficialClass).filter(
@@ -73,11 +74,12 @@ export default function EditClassLevels() {
   const addClass = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     dispatch(
-      updateData(FIELD.class, {
-        value: klassArr.concat([
+      updateAt(
+        classes,
+        klassArr.concat([
           { name: unusedClassnames[0] || "Homebrew Class", level: 1 },
         ]),
-      }),
+      ),
     );
   };
 
@@ -88,23 +90,11 @@ export default function EditClassLevels() {
     e.preventDefault();
     const newKlassArr = klassArr.slice();
     newKlassArr.splice(index, 1);
-    dispatch(
-      updateData(FIELD.class, {
-        value: newKlassArr,
-      }),
-    );
+    dispatch(updateAt(classes, newKlassArr));
   };
 
   const updateKlass = (index: number, newKlass: IClass) => {
-    dispatch(
-      updateData(
-        FIELD.class,
-        {
-          value: newKlass,
-        },
-        index.toString(),
-      ),
-    );
+    dispatch(updateAt(classes.at(index), newKlass));
   };
 
   return (

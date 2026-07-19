@@ -6,6 +6,13 @@ let router;
 // The sidecar speaks plain HTTP/WS. When exposing it to an HTTPS site, terminate
 // TLS in front of it (e.g. a Caddy/nginx reverse proxy, or a CDN) so the browser
 // reaches it over wss:// — browsers block insecure ws:// from an HTTPS page.
+//
+// Known, accepted limitations of this trust model (hobby deployment, no
+// accounts): openRealm/closeRealm are unauthenticated GETs, so anyone who can
+// reach the sidecar and knows a character uuid can open or close its realm; and
+// realms whose host vanishes without calling closeRealm are never garbage-
+// collected, so a long-running process slowly accumulates them. Restart the
+// sidecar to reclaim; an idle-realm sweep would be the real fix.
 const transport = createServer((req, res) => {
   const path = req.url || "/";
   if (path === "/health") {

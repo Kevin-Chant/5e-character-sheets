@@ -341,7 +341,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       const realmName = generateRealm(uuid);
       const res = await fetch(`${liveEditHost}/closeRealm/${realmName}`);
       if (res.status !== 204) {
-        alert("Failed to close sharing session, please try again later");
+        window.alert("Failed to close sharing session, please try again later");
         return true;
       }
       return false;
@@ -349,63 +349,82 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     [liveEditHost],
   );
 
-  const providerData: SharingSessionsContextData = {
-    clientId: clientIdRef.current,
-    getConnection: (uuid) => openSessions[uuid]?.connection,
-    getRole: (uuid) => openSessions[uuid]?.role,
-    saveConnection: (uuid, connection, role) => {
-      setOpenSessions((current) => ({
-        ...current,
-        [uuid]: { connection, role },
-      }));
-    },
-    forgetConnection,
-    defaultIdentity,
-    setDefaultIdentity,
-    resetDefaultIdentity,
-    getIdentity,
-    setSessionIdentity,
-    getParticipants: (uuid) =>
-      Object.values(presence[uuid] || {}).filter(
-        (p) => p.clientId !== clientIdRef.current,
-      ),
-    getFieldEditor: (uuid, field) =>
-      Object.values(presence[uuid] || {}).find(
-        (p) => p.clientId !== clientIdRef.current && p.field === field,
-      ),
-    broadcastSelection,
-    joinPresence,
-    leavePresence,
-    // Publish a local edit to everyone else in the realm. No-op when there is
-    // no open session for this character.
-    broadcast: (uuid, action, dirtyAction) => {
-      const connection = openSessions[uuid]?.connection;
-      if (!connection?.session) return;
-      const payload: DispatchPayload = {
-        action,
-        dirtyAction,
-        senderId: clientIdRef.current,
-      };
-      connection.session.publish(SessionEvent.DISPATCH, payload);
-    },
-    teardownSession: async (uuid) => {
-      const session = openSessions[uuid];
-      if (!session) return false;
-      const { connection, role } = session;
-      let failed = false;
-      if (role === "host") {
-        // Best-effort: tell joiners we're closing before the realm disappears.
-        connection?.session?.publish(SessionEvent.CLOSE_SESSION, []);
-        failed = await closeRealm(uuid);
-      } else {
-        // Joiners politely announce departure so peers drop our chip/highlight.
-        leavePresence(uuid);
-      }
-      connection?.close?.();
-      forgetConnection(uuid);
-      return failed;
-    },
-  };
+  // Memoized on the state it exposes (sessions, roster, identity); the inline
+  // closures below are rebuilt exactly when that state changes, so they always
+  // see current values.
+  const providerData: SharingSessionsContextData = React.useMemo(
+    () => ({
+      clientId: clientIdRef.current,
+      getConnection: (uuid) => openSessions[uuid]?.connection,
+      getRole: (uuid) => openSessions[uuid]?.role,
+      saveConnection: (uuid, connection, role) => {
+        setOpenSessions((current) => ({
+          ...current,
+          [uuid]: { connection, role },
+        }));
+      },
+      forgetConnection,
+      defaultIdentity,
+      setDefaultIdentity,
+      resetDefaultIdentity,
+      getIdentity,
+      setSessionIdentity,
+      getParticipants: (uuid) =>
+        Object.values(presence[uuid] || {}).filter(
+          (p) => p.clientId !== clientIdRef.current,
+        ),
+      getFieldEditor: (uuid, field) =>
+        Object.values(presence[uuid] || {}).find(
+          (p) => p.clientId !== clientIdRef.current && p.field === field,
+        ),
+      broadcastSelection,
+      joinPresence,
+      leavePresence,
+      // Publish a local edit to everyone else in the realm. No-op when there is
+      // no open session for this character.
+      broadcast: (uuid, action, dirtyAction) => {
+        const connection = openSessions[uuid]?.connection;
+        if (!connection?.session) return;
+        const payload: DispatchPayload = {
+          action,
+          dirtyAction,
+          senderId: clientIdRef.current,
+        };
+        connection.session.publish(SessionEvent.DISPATCH, payload);
+      },
+      teardownSession: async (uuid) => {
+        const session = openSessions[uuid];
+        if (!session) return false;
+        const { connection, role } = session;
+        let failed = false;
+        if (role === "host") {
+          // Best-effort: tell joiners we're closing before the realm disappears.
+          connection?.session?.publish(SessionEvent.CLOSE_SESSION, []);
+          failed = await closeRealm(uuid);
+        } else {
+          // Joiners politely announce departure so peers drop our chip/highlight.
+          leavePresence(uuid);
+        }
+        connection?.close?.();
+        forgetConnection(uuid);
+        return failed;
+      },
+    }),
+    [
+      openSessions,
+      presence,
+      defaultIdentity,
+      forgetConnection,
+      setDefaultIdentity,
+      resetDefaultIdentity,
+      getIdentity,
+      setSessionIdentity,
+      broadcastSelection,
+      joinPresence,
+      leavePresence,
+      closeRealm,
+    ],
+  );
 
   return (
     <SharingSessionsContext.Provider value={providerData}>
@@ -463,7 +482,7 @@ export function useHostSharingSession(
   const startSession = async () => {
     const characterUuid = getCharacter()?.uuid;
     if (!characterUuid) {
-      alert(
+      window.alert(
         "Failed to start sharing session. No character was found to share!",
       );
       return;
@@ -471,7 +490,7 @@ export function useHostSharingSession(
     const realmName = generateRealm(characterUuid);
     const res = await fetch(`${liveEditHost}/openRealm/${realmName}`);
     if (res.status !== 200) {
-      alert("Failed to start sharing session, please try again later");
+      window.alert("Failed to start sharing session, please try again later");
       return;
     }
 

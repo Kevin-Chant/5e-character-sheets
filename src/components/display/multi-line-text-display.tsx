@@ -1,4 +1,3 @@
-import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   Character,
@@ -14,25 +13,36 @@ import { FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
+import { Cursor, fromStack, updateAt } from "src/lib/cursor";
 
 interface MultiLineTextDisplayProps {
   title: string;
-  field: FIELD;
+  // Typed cursor to the TextComponent array is preferred; `field`/`subField` are
+  // the legacy string form for not-yet-migrated call sites.
+  cursor?: Cursor<TextComponent[] | undefined>;
+  field?: FIELD;
   subField?: string;
   transform?: (data: any, character: Character) => any;
 }
 
 export default function MultiLineTextDisplay({
   title,
-  field,
-  subField,
+  cursor,
+  field: fieldProp,
+  subField: subFieldProp,
   transform,
 }: MultiLineTextDisplayProps) {
+  const field = cursor ? cursor.root() : fieldProp;
+  const subField = cursor ? cursor.subpath() : subFieldProp;
   const { character, dispatch } = useCharacter();
-  const { pushTargetedField } = useTargetedField();
+  const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
 
-  if (!character) return <></>;
+  if (!character || !field) return <></>;
+
+  // Re-derive a typed list cursor from the resolved field/subField (covers both
+  // the cursor prop and the legacy string props identically).
+  const list = fromStack<TextComponent[]>(field, subField);
 
   let textComponents = getFieldValue(field, character);
   if (subField) textComponents = traverse(subField, textComponents);
@@ -45,18 +55,12 @@ export default function MultiLineTextDisplay({
   if (!isArr<TextComponent>(renderedTextComponents, isTextComponent))
     return <></>;
 
-  const editTextComponent = (index: number) => {
-    if (subField) {
-      pushTargetedField(field, `${subField}.${index}`);
-    } else {
-      pushTargetedField(field, index.toString());
-    }
-  };
+  const editTextComponent = (index: number) => pushCursor(list.at(index));
 
   const removeTextComponent = (index: number) => {
     const newValue = structuredClone(textComponents);
     newValue.splice(index, 1);
-    dispatch(updateData(field, { value: newValue }, subField));
+    dispatch(updateAt(list, newValue));
   };
 
   // Open the editor at the next (empty) index; the entry is only persisted when

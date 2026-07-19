@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import CharacterBuilder from "src/components/builder/CharacterBuilder";
+import CharacterBuilder from "src/components/builder/character-builder";
 import { Character } from "src/lib/types";
 import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";

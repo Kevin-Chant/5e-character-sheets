@@ -2,8 +2,8 @@ import React, { useMemo, useState } from "react";
 import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import { updateData } from "src/lib/hooks/reducers/actions";
-import { getFieldValue, traverse } from "src/lib/fields";
+import { fromStack, updateAt } from "src/lib/cursor";
+import { getFieldValue } from "src/lib/fields";
 import {
   getNumericSpellSlotLevel,
   officialSpellcastingClasses,
@@ -26,7 +26,7 @@ const numericLevelFor = (levelKey: string): number =>
 // straight into its editor, so backing out without saving discards it.
 export default function AddSpellFromSrd() {
   const { character, dispatch } = useCharacter();
-  const { subField, replaceTargetedField } = useTargetedField();
+  const { subField, replaceCursor } = useTargetedField();
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
 
@@ -61,13 +61,15 @@ export default function AddSpellFromSrd() {
   if (!character) return <></>;
 
   const add = (srd: SrdSpell) => {
-    const list: Spell[] =
-      traverse(levelKey, getFieldValue(FIELD.spells, character)) ?? [];
+    // `levelKey` is a runtime string (the bucket the picker was opened from), so
+    // re-enter the typed world with the documented downcast.
+    const bucket = fromStack<Spell[]>(FIELD.spells, levelKey);
+    const list: Spell[] = getFieldValue(bucket.toString(), character) ?? [];
     const newList = list.concat(
       buildSpellFromSrd(srd, defaultSpellClass || srd.classes[0] || ""),
     );
-    dispatch(updateData(FIELD.spells, { value: newList }, levelKey));
-    replaceTargetedField(FIELD.spells, `${levelKey}.${newList.length - 1}`);
+    dispatch(updateAt(bucket, newList));
+    replaceCursor(bucket.at(newList.length - 1));
   };
 
   return (

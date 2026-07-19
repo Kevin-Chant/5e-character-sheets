@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { readLocalStorage, writeLocalStorage } from "../local-storage";
+import { missingProvider } from "../missing-provider";
 
 export const CLOUD_DEFAULT_HOST = "https://live.dndcharactersheets.net";
 export const DEFAULT_LIVE_EDIT_HOST =
@@ -60,8 +61,8 @@ const DEFAULT_SETTINGS: Settings = {
 
 export const SettingsContext = React.createContext<SettingsContextData>({
   settings: DEFAULT_SETTINGS,
-  updateSetting: (_k, _v) => console.log("Calling default updateSetting"),
-  resetSettings: () => console.log("Calling default resetSettings"),
+  updateSetting: missingProvider("updateSetting"),
+  resetSettings: missingProvider("resetSettings"),
 });
 
 export function SettingsContextProvider(props: React.PropsWithChildren) {

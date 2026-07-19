@@ -49,7 +49,7 @@ export const OfficialSubclasses: Record<OfficialClass, string[]> = {
     "Order",
     "Peace",
     "Tempest",
-    "Tricker",
+    "Trickery",
     "Twilight",
     "War",
   ],
@@ -107,7 +107,7 @@ export const OfficialSubclasses: Record<OfficialClass, string[]> = {
     "Phantom",
     "Scout",
     "Soulknife",
-    "Swashbucker",
+    "Swashbuckler",
     "Thief",
   ],
   Sorcerer: [

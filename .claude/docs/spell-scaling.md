@@ -2,10 +2,14 @@
 
 > Status: **implemented** (type model, expansion engine, SRD importer, tests),
 > and now consumed by the play-mode roll dialog — which is where the "cast at
-> level N" selector lives (see [`rolling.md`](./rolling.md)). The remaining gap is
-> _editing_: no field editor exposes `mechanics` for hand-authoring yet; it's
-> populated by the importer. This doc explains how 5e scaling works and how the
-> model describes it.
+> level N" selector lives (see [`rolling.md`](./rolling.md)). `mechanics` is now
+> also **hand-editable**: the spell modal's "Rolling" section
+> (`src/components/edit-spell-mechanics.tsx`) exposes resolution, damage/healing,
+> instances, and scaling, bridged to the model by
+> `src/lib/spells/mechanics-form.ts` (simple "8d6" / "1d8 + spell mod" text; richer
+> imported shapes like `damageTable` are shown read-only and passed through
+> untouched). This doc explains how 5e scaling works and how the model describes
+> it.
 >
 > `mechanics` is an **optional** field on `Spell`, so no migration/version bump
 > was needed (old data validates unchanged); the schema was regenerated so the

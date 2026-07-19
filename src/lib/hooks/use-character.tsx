@@ -9,13 +9,19 @@ import React, {
 import {
   Action,
   invertAction,
+  isUpdateAction,
   resetCharacter,
 } from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
+import { missingProvider } from "src/lib/missing-provider";
 
 // One reversible edit: the action applied and the action that undoes it.
 type HistoryEntry = { action: Action; inverse: Action };
+
+// Undo history is per-tab and in-memory; cap it so a long editing session
+// doesn't accumulate unboundedly (each entry holds two full field values).
+const MAX_HISTORY = 100;
 import { useLazyEffect } from "./use-lazy-effect";
 import { useDatastore } from "./use-datastore";
 import { useSettings } from "./use-settings";
@@ -45,30 +51,18 @@ interface CharacterContextData {
 
 export const CharacterContext = React.createContext<CharacterContextData>({
   character: undefined,
-  reset: () => {
-    console.log("Calling default reset");
-  },
-  dispatch: () => {
-    console.log("Calling default dispatch");
-  },
-  undo: () => {},
-  redo: () => {},
+  reset: missingProvider("reset"),
+  dispatch: missingProvider("dispatch"),
+  undo: missingProvider("undo"),
+  redo: missingProvider("redo"),
   canUndo: false,
   canRedo: false,
   unsavedChanges: false,
-  setUnsavedChanges: () => {
-    console.log("Calling default setUnsavedChanges");
-  },
+  setUnsavedChanges: missingProvider("setUnsavedChanges"),
   saveError: false,
-  saveNow: () => {
-    console.log("Calling default saveNow");
-  },
-  openSharingSession: () => {
-    console.log("Calling default openSharingSession");
-  },
-  closeSharingSession: () => {
-    console.log("Calling default closeSharingSession");
-  },
+  saveNow: missingProvider("saveNow"),
+  openSharingSession: missingProvider("openSharingSession"),
+  closeSharingSession: missingProvider("closeSharingSession"),
 });
 
 export function CharacterContextProvider(props: React.PropsWithChildren) {
@@ -142,59 +136,67 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       : "5e Character Sheets";
   }, [character, unsavedChanges]);
 
-  const dispatchAndBroadcast = (
-    action: Action,
-    dirtyAction: boolean = true,
-    suppressBroadcast: boolean = false,
-    record: boolean = true,
-  ) => {
-    // Loading an already-persisted character isn't a user edit, so it must not
-    // flag unsaved changes (see loadPersistedCharacter).
-    const isDirty = dirtyAction && action.type !== "load_character";
-    // Record only genuine local edits, so undo/redo covers this tab's own
-    // changes; remote echoes (suppressed) and replays (record=false) stay out.
-    if (
-      record &&
-      isDirty &&
-      !suppressBroadcast &&
-      action.type.startsWith("update_") &&
-      characterRef.current
-    ) {
-      const entry = {
-        action,
-        inverse: invertAction(characterRef.current, action),
-      };
-      setPast((p) => [...p, entry]);
-      setFuture([]);
-    }
-    // A new character context has no history to carry over.
-    if (action.type === "load_character" || action.type === "reset_character") {
-      setPast([]);
-      setFuture([]);
-    }
-    dispatch(action);
-    setUnsavedChanges(isDirty);
-    if (character && !suppressBroadcast) {
-      broadcast(character.uuid, action, isDirty);
-    }
-  };
+  // Stable via characterRef, so undo/redo (and the keydown effect below) don't
+  // have to rebind on every character change.
+  const dispatchAndBroadcast = useCallback(
+    (
+      action: Action,
+      dirtyAction: boolean = true,
+      suppressBroadcast: boolean = false,
+      record: boolean = true,
+    ) => {
+      // Loading an already-persisted character isn't a user edit, so it must
+      // not flag unsaved changes (see loadPersistedCharacter).
+      const isDirty = dirtyAction && action.type !== "load_character";
+      // Record only genuine local edits, so undo/redo covers this tab's own
+      // changes; remote echoes (suppressed) and replays (record=false) stay out.
+      if (
+        record &&
+        isDirty &&
+        !suppressBroadcast &&
+        isUpdateAction(action) &&
+        characterRef.current
+      ) {
+        const entry = {
+          action,
+          inverse: invertAction(characterRef.current, action),
+        };
+        setPast((p) => [...p.slice(-(MAX_HISTORY - 1)), entry]);
+        setFuture([]);
+      }
+      // A new character context has no history to carry over.
+      if (
+        action.type === "load_character" ||
+        action.type === "reset_character"
+      ) {
+        setPast([]);
+        setFuture([]);
+      }
+      dispatch(action);
+      setUnsavedChanges(isDirty);
+      if (characterRef.current && !suppressBroadcast) {
+        broadcast(characterRef.current.uuid, action, isDirty);
+      }
+    },
+    [broadcast],
+  );
 
   // Undo/redo replay a recorded action (broadcasting to peers) without
   // recording a new entry; the moved entry crosses between the two stacks.
-  const undo = () => {
+  const undo = useCallback(() => {
     if (past.length === 0) return;
     const entry = past[past.length - 1];
     setPast((p) => p.slice(0, -1));
     setFuture((f) => [...f, entry]);
     dispatchAndBroadcast(entry.inverse, true, false, false);
-  };
-  const redo = () => {
+  }, [past, dispatchAndBroadcast]);
+  const redo = useCallback(() => {
     if (future.length === 0) return;
     const entry = future[future.length - 1];
     setFuture((f) => f.slice(0, -1));
     setPast((p) => [...p, entry]);
     dispatchAndBroadcast(entry.action, true, false, false);
-  };
+  }, [future, dispatchAndBroadcast]);
 
   // Cmd/Ctrl+S saves; Cmd/Ctrl+Z undoes; Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y redoes.
   useEffect(() => {
@@ -229,38 +231,63 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [unsavedChanges, persist, undo, redo]);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setPast([]);
     setFuture([]);
     dispatch(resetCharacter());
-  };
+  }, []);
 
-  const openSharingSession = (options?: { silent?: boolean }) => {
-    startSession().catch((error) => {
-      if (!options?.silent) alert(error);
+  // startSession/endSession are recreated by their hook on every render; mirror
+  // them in refs so the context-facing wrappers can stay stable.
+  const startSessionRef = useRef(startSession);
+  startSessionRef.current = startSession;
+  const endSessionRef = useRef(endSession);
+  endSessionRef.current = endSession;
+
+  const openSharingSession = useCallback((options?: { silent?: boolean }) => {
+    startSessionRef.current().catch((error) => {
+      if (!options?.silent) window.alert(error);
       else console.warn("Auto live session failed to start", error);
     });
-  };
+  }, []);
 
-  const closeSharingSession = () => {
-    endSession();
-  };
+  const closeSharingSession = useCallback(() => {
+    endSessionRef.current();
+  }, []);
 
-  const providerData = {
-    character,
-    reset,
-    dispatch: dispatchAndBroadcast,
-    undo,
-    redo,
-    canUndo: past.length > 0,
-    canRedo: future.length > 0,
-    unsavedChanges,
-    setUnsavedChanges,
-    saveError,
-    saveNow: persist,
-    openSharingSession,
-    closeSharingSession,
-  };
+  // Memoized so consumers re-render on real changes (character, history,
+  // dirty/save state) rather than on every provider render.
+  const providerData = React.useMemo(
+    () => ({
+      character,
+      reset,
+      dispatch: dispatchAndBroadcast,
+      undo,
+      redo,
+      canUndo: past.length > 0,
+      canRedo: future.length > 0,
+      unsavedChanges,
+      setUnsavedChanges,
+      saveError,
+      saveNow: persist,
+      openSharingSession,
+      closeSharingSession,
+    }),
+    [
+      character,
+      reset,
+      dispatchAndBroadcast,
+      undo,
+      redo,
+      past.length,
+      future.length,
+      unsavedChanges,
+      saveError,
+      persist,
+      openSharingSession,
+      closeSharingSession,
+    ],
+  );
 
   return (
     <CharacterContext.Provider value={providerData}>

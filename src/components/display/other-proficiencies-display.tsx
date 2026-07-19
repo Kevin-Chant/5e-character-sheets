@@ -1,14 +1,14 @@
 import { FaPencil } from "react-icons/fa6";
-import { updateData } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { ArmorType, FIELD } from "src/lib/data/data-definitions";
 import { isTextComponentWithDetail } from "src/lib/types";
+import { charPath, updateAt } from "src/lib/cursor";
 import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 
-const FIELD_NAME = FIELD.otherProficiencies;
+const OTHER_PROFS = charPath(FIELD.otherProficiencies);
 
 function AddButton({ onClick }: { onClick: () => void }) {
   return (
@@ -44,20 +44,20 @@ function RemoveButton({ onClick }: { onClick: () => void }) {
 // sheet while keeping per-entry editing.
 function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
   const { character, dispatch } = useCharacter();
-  const { pushTargetedField } = useTargetedField();
+  const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
   if (!character) return <></>;
 
+  const list = OTHER_PROFS.k(subField);
   const items = character.otherProficiencies[subField];
 
   // Open the editor at the next (empty) index rather than pre-inserting a
   // placeholder, so the typeahead starts blank and shows every suggestion.
-  const add = () =>
-    pushTargetedField(FIELD_NAME, `${subField}.${items.length}`);
+  const add = () => pushCursor(list.at(items.length));
   const remove = (index: number) => {
     const next = items.slice();
     next.splice(index, 1);
-    dispatch(updateData(FIELD_NAME, { value: next }, subField));
+    dispatch(updateAt(list, next));
   };
 
   return (
@@ -68,7 +68,7 @@ function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
             className="prof-chip-label"
             onClick={(e) => {
               e.preventDefault();
-              pushTargetedField(FIELD_NAME, `${subField}.${i}`);
+              pushCursor(list.at(i));
             }}
           >
             {item}
@@ -86,19 +86,19 @@ function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
 // popover, editing opens the full text-line modal.
 function ToolsCell() {
   const { character, dispatch } = useCharacter();
-  const { pushTargetedField } = useTargetedField();
+  const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
   if (!character) return <></>;
 
+  const list = OTHER_PROFS.k("toolsAndOther");
   const items = character.otherProficiencies.toolsAndOther;
   // Open the editor at the next (empty) index; the entry is only persisted when
   // the user saves, so no placeholder is written up-front.
-  const add = () =>
-    pushTargetedField(FIELD_NAME, `toolsAndOther.${items.length}`);
+  const add = () => pushCursor(list.at(items.length));
   const remove = (index: number) => {
     const next = structuredClone(items);
     next.splice(index, 1);
-    dispatch(updateData(FIELD_NAME, { value: next }, "toolsAndOther"));
+    dispatch(updateAt(list, next));
   };
 
   return (
@@ -110,7 +110,7 @@ function ToolsCell() {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              pushTargetedField(FIELD_NAME, `toolsAndOther.${i}`);
+              pushCursor(list.at(i));
             }}
           >
             <TextWithFormulasDisplay
@@ -149,10 +149,11 @@ function ToolsCell() {
 // "None") and edit the full checkbox set in a modal.
 function ArmorCell() {
   const { character } = useCharacter();
-  const { pushTargetedField } = useTargetedField();
+  const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
   if (!character) return <></>;
 
+  const armorCursor = OTHER_PROFS.k("armor");
   const armor = character.otherProficiencies.armor;
   const proficient = Object.values(ArmorType).filter((type) => armor[type]);
   return (
@@ -161,7 +162,7 @@ function ArmorCell() {
         className="prof-chip-label"
         onClick={(e) => {
           e.preventDefault();
-          pushTargetedField(FIELD_NAME, "armor");
+          pushCursor(armorCursor);
         }}
       >
         {proficient.length ? proficient.join(", ") : "None"}
@@ -171,7 +172,7 @@ function ArmorCell() {
           className="prof-add"
           onClick={(e) => {
             e.preventDefault();
-            pushTargetedField(FIELD_NAME, "armor");
+            pushCursor(armorCursor);
           }}
         >
           <FaPencil />

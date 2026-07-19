@@ -1,5 +1,6 @@
 import classNames from "classnames";
-import { FIELD, StatKey } from "src/lib/data/data-definitions";
+import { StatKey } from "src/lib/data/data-definitions";
+import { Cursor } from "src/lib/cursor";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import {
@@ -10,19 +11,20 @@ import { modifier } from "src/lib/rules";
 import RollButton from "../roll-button";
 
 export default function StatDisplay(props: {
-  field: FIELD;
-  subField: string;
+  cursor: Cursor<number>;
   statKey: StatKey;
   name: string;
   value: number;
   editable?: boolean;
 }) {
+  const field = props.cursor.root();
+  const subField = props.cursor.subpath();
   const { pushTargetedField } = useTargetedField();
   const { editMode } = useEditMode();
-  const editor = useRemoteFieldHighlight(props.field, props.subField);
+  const editor = useRemoteFieldHighlight(field, subField);
   const isEditable = props.editable && editMode;
   const onClick = isEditable
-    ? () => pushTargetedField(props.field, props.subField)
+    ? () => pushTargetedField(field, subField)
     : () => {
         return;
       };

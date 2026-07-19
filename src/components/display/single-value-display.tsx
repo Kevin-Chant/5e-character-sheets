@@ -8,12 +8,17 @@ import {
   useRemoteFieldHighlight,
 } from "src/lib/hooks/use-presence";
 import { Character } from "src/lib/types";
+import { Cursor } from "src/lib/cursor";
 import { getFieldValue, traverse } from "src/lib/fields";
-import { OPTIONAL_FIELD_INITIALIZERS } from "src/lib/rules";
+import { getOptionalInitializer } from "src/lib/rules";
 import RollButton from "../roll-button";
 
 interface SingleValueDisplayProps {
-  field: FIELD;
+  // A typed cursor is the preferred way to point at the value; `field`/`subField`
+  // are the legacy string form kept for not-yet-migrated call sites. Exactly one
+  // form is supplied, and both serialize to the same targeted-field stack entry.
+  cursor?: Cursor<unknown>;
+  field?: FIELD;
   subField?: string;
   name: string;
   transform?: (value: any, character: Character) => string | number;
@@ -29,8 +34,9 @@ interface SingleValueDisplayProps {
 }
 
 export default function SingleValueDisplay({
-  field,
-  subField,
+  cursor,
+  field: fieldProp,
+  subField: subFieldProp,
   name,
   transform,
   vertical,
@@ -41,25 +47,27 @@ export default function SingleValueDisplay({
   compact,
   rollCheck,
 }: SingleValueDisplayProps) {
+  const field = cursor ? cursor.root() : fieldProp;
+  const subField = cursor ? cursor.subpath() : subFieldProp;
   const { character } = useCharacter();
   const { pushTargetedField } = useTargetedField();
   const { editMode } = useEditMode();
-  const highlight = highlightProps(useRemoteFieldHighlight(field, subField));
-
-  const isEditable = editable && (editMode || TRACKER_FIELDS.has(field));
-  const onClick = isEditable
-    ? () => pushTargetedField(field, subField)
-    : () => {
-        return;
-      };
-
-  if (!character) return <></>;
-
-  const optionalOverride = OPTIONAL_FIELD_INITIALIZERS[field]?.call(
-    undefined,
-    character,
-    subField,
+  const highlight = highlightProps(
+    useRemoteFieldHighlight(field ?? "", subField),
   );
+
+  const isEditable =
+    editable && !!field && (editMode || TRACKER_FIELDS.has(field));
+  const onClick =
+    isEditable && field
+      ? () => pushTargetedField(field, subField)
+      : () => {
+          return;
+        };
+
+  if (!character || !field) return <></>;
+
+  const optionalOverride = getOptionalInitializer(field, subField, character);
   let value = getFieldValue(field, character);
   if (subField) value = traverse(subField, value);
   if (typeof value === "undefined" && typeof optionalOverride !== "undefined")

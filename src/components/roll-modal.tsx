@@ -209,7 +209,7 @@ function EffectControls({
         </label>
       )}
       {noSlots && <p className="muted">No spell slots available.</p>}
-      {isCantrip && (
+      {isCantrip && (mechanics?.scaling || mechanics?.damageTable) && (
         <p className="muted">Scales with character level ({charLevel}).</p>
       )}
 

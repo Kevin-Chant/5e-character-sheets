@@ -4,7 +4,7 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { getFieldValue } from "src/lib/fields";
 import { getHitDice } from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { charPath, clearAt, updateAt } from "src/lib/cursor";
 
 export default function EditHitDice() {
   const { character, dispatch } = useCharacter();
@@ -12,30 +12,23 @@ export default function EditHitDice() {
 
   if (!character) return <></>;
 
+  const totalCursor = charPath(FIELD.totalHitDice);
   let totalHitDice = getFieldValue(FIELD.totalHitDice, character);
   if (!totalHitDice) {
     totalHitDice = getHitDice(character);
-    dispatch(updateData(FIELD.totalHitDice, { value: totalHitDice }));
+    dispatch(updateAt(totalCursor, totalHitDice));
   }
 
   const updateHitDice = (
     e: React.ChangeEvent<HTMLInputElement>,
     die: StandardDie,
   ) => {
-    dispatch(
-      updateData(
-        FIELD.totalHitDice,
-        {
-          value: parseInt(e.target.value),
-        },
-        die,
-      ),
-    );
+    dispatch(updateAt(totalCursor.k(die), parseInt(e.target.value)));
   };
 
   const clearOverride = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    saveData(e, updateData(FIELD.totalHitDice, { value: undefined }));
+    saveData(e, clearAt(totalCursor));
   };
 
   return (

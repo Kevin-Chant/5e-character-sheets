@@ -1,14 +1,11 @@
 import { sum } from "lodash";
 import {
-  Attack,
   Character,
   ClassName,
   CoinAmounts,
   CustomFormula,
   DieDefinition,
-  GroupedOptionsList,
   HitDice,
-  SingleOptionsList,
   IClass,
   isNonStandardDie,
   isOfficialClass,
@@ -23,7 +20,6 @@ import {
   HIT_DICE,
   OfficialClass,
   Operation,
-  PB,
   SPELLCASTING_ABILITIES,
   SkillName,
   SpellLevel,
@@ -69,7 +65,8 @@ export function modifier(stat: number) {
 }
 
 export function getPB(character: Character) {
-  if (character.pbOverride) {
+  // != null (not truthiness) so an explicit override of 0 is honored.
+  if (character.pbOverride != null) {
     return character.pbOverride;
   } else {
     const totalLevel = sum(character.class.map((classDef) => classDef.level));
@@ -470,373 +467,34 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
         : undefined,
 };
 
-// Which ability a weapon's attack/damage uses. "finesse" means the better of
-// STR or DEX and pre-populates as max(STR, DEX).
-export type WeaponAbility = StatKey.str | StatKey.dex | "finesse";
-
-export interface WeaponPreset {
-  name: string;
-  ability: WeaponAbility;
-  // Omitted for weapons that deal no damage (e.g. Net).
-  damage?: {
-    count: number;
-    die?: StandardDie;
-    type: DamageType;
-    // Larger die when wielded two-handed (5e "versatile"). When set, the picker
-    // offers a separate two-handed attack alongside the one-handed default.
-    versatileDie?: StandardDie;
-  };
+// Boundary over OPTIONAL_FIELD_INITIALIZERS: the seeded default (if any) for the
+// value at `field`+`subField`. Callers pass the field/subField pair (typically
+// from a cursor's `.root()`/`.subpath()`) and no longer hand-index the map or
+// know its per-field subField shapes — those stay encapsulated in the entries
+// above (which still parse subField internally).
+export function getOptionalInitializer(
+  field: FIELD | undefined,
+  subField: string | undefined,
+  character: Character,
+): CustomFormula | undefined {
+  if (!field) return undefined;
+  return OPTIONAL_FIELD_INITIALIZERS[field]?.(character, subField);
 }
 
-const D = (
-  count: number,
-  die: StandardDie | undefined,
-  type: DamageType,
-  versatileDie?: StandardDie,
-) => ({ count, die, type, versatileDie });
-
-export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
-  {
-    label: "Simple Melee Weapons",
-    options: [
-      {
-        name: "Club",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d4, DamageType.Bludgeoning),
-      },
-      {
-        name: "Dagger",
-        ability: "finesse",
-        damage: D(1, StandardDie.d4, DamageType.Piercing),
-      },
-      {
-        name: "Greatclub",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Bludgeoning),
-      },
-      {
-        name: "Handaxe",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Slashing),
-      },
-      {
-        name: "Javelin",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Piercing),
-      },
-      {
-        name: "Light Hammer",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d4, DamageType.Bludgeoning),
-      },
-      {
-        name: "Mace",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Bludgeoning),
-      },
-      {
-        name: "Quarterstaff",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Bludgeoning, StandardDie.d8),
-      },
-      {
-        name: "Sickle",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d4, DamageType.Slashing),
-      },
-      {
-        name: "Spear",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Piercing, StandardDie.d8),
-      },
-    ],
-  },
-  {
-    label: "Simple Ranged Weapons",
-    options: [
-      {
-        name: "Light Crossbow",
-        ability: StatKey.dex,
-        damage: D(1, StandardDie.d8, DamageType.Piercing),
-      },
-      {
-        name: "Dart",
-        ability: "finesse",
-        damage: D(1, StandardDie.d4, DamageType.Piercing),
-      },
-      {
-        name: "Shortbow",
-        ability: StatKey.dex,
-        damage: D(1, StandardDie.d6, DamageType.Piercing),
-      },
-      {
-        name: "Sling",
-        ability: StatKey.dex,
-        damage: D(1, StandardDie.d4, DamageType.Bludgeoning),
-      },
-    ],
-  },
-  {
-    label: "Martial Melee Weapons",
-    options: [
-      {
-        name: "Battleaxe",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Slashing, StandardDie.d10),
-      },
-      {
-        name: "Flail",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Bludgeoning),
-      },
-      {
-        name: "Glaive",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d10, DamageType.Slashing),
-      },
-      {
-        name: "Greataxe",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d12, DamageType.Slashing),
-      },
-      {
-        name: "Greatsword",
-        ability: StatKey.str,
-        damage: D(2, StandardDie.d6, DamageType.Slashing),
-      },
-      {
-        name: "Halberd",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d10, DamageType.Slashing),
-      },
-      {
-        name: "Lance",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d12, DamageType.Piercing),
-      },
-      {
-        name: "Longsword",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Slashing, StandardDie.d10),
-      },
-      {
-        name: "Maul",
-        ability: StatKey.str,
-        damage: D(2, StandardDie.d6, DamageType.Bludgeoning),
-      },
-      {
-        name: "Morningstar",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Piercing),
-      },
-      {
-        name: "Pike",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d10, DamageType.Piercing),
-      },
-      {
-        name: "Rapier",
-        ability: "finesse",
-        damage: D(1, StandardDie.d8, DamageType.Piercing),
-      },
-      {
-        name: "Scimitar",
-        ability: "finesse",
-        damage: D(1, StandardDie.d6, DamageType.Slashing),
-      },
-      {
-        name: "Shortsword",
-        ability: "finesse",
-        damage: D(1, StandardDie.d6, DamageType.Piercing),
-      },
-      {
-        name: "Trident",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d6, DamageType.Piercing, StandardDie.d8),
-      },
-      {
-        name: "War Pick",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Piercing),
-      },
-      {
-        name: "Warhammer",
-        ability: StatKey.str,
-        damage: D(1, StandardDie.d8, DamageType.Bludgeoning, StandardDie.d10),
-      },
-      {
-        name: "Whip",
-        ability: "finesse",
-        damage: D(1, StandardDie.d4, DamageType.Slashing),
-      },
-    ],
-  },
-  {
-    label: "Martial Ranged Weapons",
-    options: [
-      {
-        name: "Blowgun",
-        ability: StatKey.dex,
-        damage: D(1, undefined, DamageType.Piercing),
-      },
-      {
-        name: "Hand Crossbow",
-        ability: StatKey.dex,
-        damage: D(1, StandardDie.d6, DamageType.Piercing),
-      },
-      {
-        name: "Heavy Crossbow",
-        ability: StatKey.dex,
-        damage: D(1, StandardDie.d10, DamageType.Piercing),
-      },
-      {
-        name: "Longbow",
-        ability: StatKey.dex,
-        damage: D(1, StandardDie.d8, DamageType.Piercing),
-      },
-      { name: "Net", ability: StatKey.dex },
-    ],
-  },
-];
-
-// Weapon-proficiency typeahead: the broad categories plus every preset's name.
-export const DEFAULT_WEAPONS: GroupedOptionsList<string> = [
-  { label: "Weapon Types", options: ["Simple Weapons", "Martial Weapons"] },
-  ...WEAPON_PRESETS.map((group) => ({
-    label: group.label,
-    options: group.options.map((weapon) => weapon.name),
-  })),
-];
-
-const abilityOperand = (ability: WeaponAbility): CustomFormula =>
-  ability === "finesse"
-    ? { operation: Operation.maximum, operands: [StatKey.str, StatKey.dex] }
-    : ability;
-
-// Build a ready-to-edit Attack from a preset: to-hit = ability + PB, damage =
-// the weapon's die (if any) + ability, keyed by its damage type. Pass
-// `twoHanded` for a versatile weapon to use its larger die and a "(2H)" name.
-export function buildAttackFromPreset(
-  weapon: WeaponPreset,
-  twoHanded = false,
-): Attack {
-  const ability = abilityOperand(weapon.ability);
-  const twoHandedDie = twoHanded ? weapon.damage?.versatileDie : undefined;
-  const attack: Attack = {
-    name: twoHandedDie ? `${weapon.name} (2H)` : weapon.name,
-    bonus: { operation: Operation.addition, operands: [ability, PB] },
-    formula: {},
-  };
-  if (weapon.damage) {
-    const die = twoHandedDie ?? weapon.damage.die;
-    const dieOperand: CustomFormula =
-      die !== undefined
-        ? [weapon.damage.count, die, DieOperation.roll]
-        : weapon.damage.count;
-    attack.formula = {
-      [weapon.damage.type]: {
-        operation: Operation.addition,
-        operands: [dieOperand, ability],
-      },
-    };
-  }
-  return attack;
-}
-
-export const DEFAULT_CUSTOM_ATTACK: WeaponPreset = {
-  name: "Shortsword",
-  ability: StatKey.dex,
-  damage: { count: 1, die: StandardDie.d6, type: DamageType.Piercing },
-};
-
-export const DEFAULT_LANGUAGES: GroupedOptionsList<string> = [
-  {
-    label: "Standard Languages",
-    options: [
-      "Common",
-      "Dwarvish",
-      "Elvish",
-      "Giant",
-      "Gnomish",
-      "Goblin",
-      "Halfling",
-      "Orc",
-    ],
-  },
-  {
-    label: "Exotic Languages",
-    options: [
-      "Abyssal",
-      "Celestial",
-      "Deep Speech",
-      "Draconic",
-      "Infernal",
-      "Primordial",
-      "Sylvan",
-      "Undercommon",
-    ],
-  },
-];
-
-export const DEFAULT_BACKGROUNDS: SingleOptionsList<string> = [
-  "Acolyte",
-  "Charlatan",
-  "Criminal",
-  "Entertainer",
-  "Folk Hero",
-  "Guild Artisan",
-  "Hermit",
-  "Noble",
-  "Outlander",
-  "Sage",
-  "Sailor",
-  "Soldier",
-  "Urchin",
-];
-
-export const DEFAULT_RACES: SingleOptionsList<string> = [
-  "Dragonborn",
-  "Dwarf",
-  "Elf",
-  "Gnome",
-  "Half-Elf",
-  "Half-Orc",
-  "Halfling",
-  "Human",
-  "Tiefling",
-];
-
-export const DEFAULT_SPELL_RANGES: SingleOptionsList<string> = [
-  "Self",
-  "Touch",
-  "5 feet",
-  "10 feet",
-  "30 feet",
-  "60 feet",
-  "90 feet",
-  "120 feet",
-  "150 feet",
-  "300 feet",
-  "500 feet",
-  "1 mile",
-  "Sight",
-  "Unlimited",
-  "Special",
-];
-
-export const DEFAULT_SPELL_DURATIONS: SingleOptionsList<string> = [
-  "Instantaneous",
-  "1 round",
-  "1 minute",
-  "10 minutes",
-  "1 hour",
-  "8 hours",
-  "24 hours",
-  "7 days",
-  "Until dispelled",
-  "Concentration, up to 1 minute",
-  "Concentration, up to 10 minutes",
-  "Concentration, up to 1 hour",
-  "Concentration, up to 8 hours",
-  "Special",
-];
+// The static preset/option-list data used to live in this file; it moved to
+// src/lib/data/ (this file is for rules logic). Re-exported here so existing
+// imports keep working.
+export {
+  buildAttackFromPreset,
+  DEFAULT_CUSTOM_ATTACK,
+  DEFAULT_WEAPONS,
+  WEAPON_PRESETS,
+} from "./data/weapon-presets";
+export type { WeaponAbility, WeaponPreset } from "./data/weapon-presets";
+export {
+  DEFAULT_BACKGROUNDS,
+  DEFAULT_LANGUAGES,
+  DEFAULT_RACES,
+  DEFAULT_SPELL_DURATIONS,
+  DEFAULT_SPELL_RANGES,
+} from "./data/option-lists";

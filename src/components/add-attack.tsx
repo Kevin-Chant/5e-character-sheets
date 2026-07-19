@@ -2,7 +2,7 @@ import React from "react";
 import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { charPath, updateAt } from "src/lib/cursor";
 import {
   DEFAULT_CUSTOM_ATTACK,
   WEAPON_PRESETS,
@@ -12,16 +12,17 @@ import {
 
 export default function AddAttack() {
   const { character, dispatch } = useCharacter();
-  const { replaceTargetedField } = useTargetedField();
+  const { replaceCursor } = useTargetedField();
   if (!character) return <></>;
 
   // Append the built attack and swap the picker for its editor (so closing the
   // editor without saving discards the new attack rather than orphaning it).
   const create = (preset: WeaponPreset, twoHanded = false) => {
+    const attacks = charPath(FIELD.attacks);
     const newValue = structuredClone(character.attacks);
     newValue.push(buildAttackFromPreset(preset, twoHanded));
-    dispatch(updateData(FIELD.attacks, { value: newValue }));
-    replaceTargetedField(FIELD.attacks, (newValue.length - 1).toString());
+    dispatch(updateAt(attacks, newValue));
+    replaceCursor(attacks.at(newValue.length - 1));
   };
 
   return (

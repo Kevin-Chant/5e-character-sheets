@@ -31,7 +31,7 @@ export default function SharingToggle() {
   const copyCode = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     copyToClipboard(character.uuid);
-    alert(
+    window.alert(
       "Your sharing code has been copied to the clipboard.\nShare this code with your friend:\n" +
         character.uuid,
     );

@@ -1,6 +1,6 @@
 import { ArmorType, FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { charPath, updateAt } from "src/lib/cursor";
 import { useSave } from "./modals/modal-container";
 
 export default function EditArmorProficiencies() {
@@ -8,6 +8,7 @@ export default function EditArmorProficiencies() {
   const { saveData } = useSave();
 
   if (!character) return <></>;
+  const armorCursor = charPath(FIELD.otherProficiencies).k("armor");
   const armor = character.otherProficiencies.armor;
 
   return (
@@ -20,13 +21,7 @@ export default function EditArmorProficiencies() {
               type="checkbox"
               checked={!!armor[type]}
               onChange={() =>
-                dispatch(
-                  updateData(
-                    FIELD.otherProficiencies,
-                    { value: !armor[type] },
-                    `armor.${type}`,
-                  ),
-                )
+                dispatch(updateAt(armorCursor.k(type), !armor[type]))
               }
             />
           </label>

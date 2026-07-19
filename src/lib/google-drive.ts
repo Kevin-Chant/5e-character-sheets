@@ -181,14 +181,24 @@ export async function getFileContents(fileId: string) {
 }
 
 export async function updateFile(fileId: string, fileContents: string) {
-  return fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}`, {
-    method: "PATCH",
-    headers: new Headers({
-      Authorization: `Bearer ${window.gapi.client.getToken().access_token}`,
-      "Content-Type": "application/json",
-    }),
-    body: fileContents,
-  });
+  const res = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
+    {
+      method: "PATCH",
+      headers: new Headers({
+        Authorization: `Bearer ${window.gapi.client.getToken().access_token}`,
+        "Content-Type": "application/json",
+      }),
+      body: fileContents,
+    },
+  );
+  // fetch only rejects on network failure; an expired token (401) or missing
+  // write access (403) resolves "successfully" and would otherwise be reported
+  // as a completed save.
+  if (!res.ok) {
+    throw new Error(`Failed to write Drive file ${fileId} (${res.status})`);
+  }
+  return res;
 }
 
 interface CreateFileOptions {

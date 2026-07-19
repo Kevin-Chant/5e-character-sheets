@@ -5,13 +5,14 @@ import {
   Character,
   CustomFormula,
   TextComponent,
+  TextComponentWithDetails,
   isTextComponent,
   isTextComponentWithDetail,
 } from "src/lib/types";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue, traverse } from "src/lib/fields";
 import { useSave } from "./modals/modal-container";
-import { updateData } from "src/lib/hooks/reducers/actions";
+import { fromStack, updateAt } from "src/lib/cursor";
 import EditTextWithFormulas from "./display/edit-text-with-formulas";
 
 interface ControlledEditTextLineProps {
@@ -104,7 +105,7 @@ export function ControlledEditTextLine({
 
 export default function EditTextLine() {
   const { character, dispatch } = useCharacter();
-  const { targetedField, subField, pushTargetedField } = useTargetedField();
+  const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
 
   if (!character || !targetedField || !subField) return <></>;
@@ -117,63 +118,49 @@ export default function EditTextLine() {
     ? existing
     : { title: "", titleFormulas: [] };
 
+  const tc = fromStack<TextComponent>(targetedField, subField);
+  // `detailFormulas` isn't a key of the bare TextComponent union (only the
+  // with-details variant has it); this narrower cursor unlocks that slot, and is
+  // only used from the branch where details already exist.
+  const tcDetail = fromStack<TextComponentWithDetails>(targetedField, subField);
+
   const updateTitle = (text: string, formulas: CustomFormula[]) => {
     dispatch(
-      updateData(
-        targetedField,
-        { value: { ...textComponent, title: text, titleFormulas: formulas } },
-        subField,
-      ),
+      updateAt(tc, { ...textComponent, title: text, titleFormulas: formulas }),
     );
   };
 
   const editTitleFormula = (index: number) => {
-    pushTargetedField(targetedField, `${subField}.titleFormulas.${index}`);
+    pushCursor(tc.k("titleFormulas").at(index));
   };
 
   const addDetail = () => {
     dispatch(
-      updateData(
-        targetedField,
-        {
-          value: {
-            ...textComponent,
-            detail: "",
-            detailFormulas: [],
-          },
-        },
-        subField,
-      ),
+      updateAt(tc, { ...textComponent, detail: "", detailFormulas: [] }),
     );
   };
 
   const updateDetail = (text: string, formulas: CustomFormula[]) => {
     dispatch(
-      updateData(
-        targetedField,
-        { value: { ...textComponent, detail: text, detailFormulas: formulas } },
-        subField,
-      ),
+      updateAt(tc, {
+        ...textComponent,
+        detail: text,
+        detailFormulas: formulas,
+      }),
     );
   };
 
   const editDetailFormula = (index: number) => {
-    pushTargetedField(targetedField, `${subField}.detailFormulas.${index}`);
+    pushCursor(tcDetail.k("detailFormulas").at(index));
   };
 
   const clearDetails = () => {
     dispatch(
-      updateData(
-        targetedField,
-        {
-          value: {
-            ...textComponent,
-            detail: undefined,
-            detailFormulas: undefined,
-          },
-        },
-        subField,
-      ),
+      updateAt(tc, {
+        ...textComponent,
+        detail: undefined,
+        detailFormulas: undefined,
+      }),
     );
   };
 
