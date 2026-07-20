@@ -1,4 +1,5 @@
 import classNames from "classnames";
+import { ReactNode } from "react";
 import { FIELD } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
@@ -31,6 +32,10 @@ interface SingleValueDisplayProps {
   // When set, show a d20 roll button that rolls (this display's numeric value) +
   // d20 — e.g. Initiative. The label names the roll.
   rollCheck?: string;
+  // An element pinned to the box's top-right corner (e.g. the level-up button on
+  // Class & Level). Rendered outside the editable value so its clicks don't open
+  // the field editor.
+  cornerAction?: ReactNode;
 }
 
 export default function SingleValueDisplay({
@@ -46,6 +51,7 @@ export default function SingleValueDisplay({
   editable,
   compact,
   rollCheck,
+  cornerAction,
 }: SingleValueDisplayProps) {
   const field = cursor ? cursor.root() : fieldProp;
   const subField = cursor ? cursor.subpath() : subFieldProp;
@@ -95,8 +101,10 @@ export default function SingleValueDisplay({
       className={classNames(vertical ? "column" : "row", {
         "rounded-border-box": !removeBorder,
         "margin-small": !removeMargin,
+        "has-corner-action": !!cornerAction,
       })}
     >
+      {cornerAction && <div className="corner-action">{cornerAction}</div>}
       {flipped ? (
         <>
           {nameEl}

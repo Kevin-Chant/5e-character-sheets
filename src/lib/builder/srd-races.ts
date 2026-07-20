@@ -1,8 +1,14 @@
 import raceData from "src/lib/data/srd-races.json";
 import { PHB_SUBRACES } from "src/lib/data/phb-subraces";
+import { NONSRD_RACES } from "src/lib/data/nonsrd-races";
 import { SrdRace, SrdSubrace } from "src/lib/builder/types";
 
-export const SRD_RACES = raceData as unknown as SrdRace[];
+// The bundled SRD races plus the hand-authored official races from other books
+// (Volo's, Mordenkainen's, Eberron, Ravnica, Theros, the Feywild books, …).
+export const SRD_RACES = [
+  ...(raceData as unknown as SrdRace[]),
+  ...NONSRD_RACES,
+];
 
 const BY_INDEX = new Map(SRD_RACES.map((r) => [r.index, r]));
 

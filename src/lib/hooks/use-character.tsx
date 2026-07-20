@@ -10,6 +10,7 @@ import {
   Action,
   invertAction,
   isUpdateAction,
+  replaceCharacter,
   resetCharacter,
 } from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
@@ -150,19 +151,25 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       const isDirty = dirtyAction && action.type !== "load_character";
       // Record only genuine local edits, so undo/redo covers this tab's own
       // changes; remote echoes (suppressed) and replays (record=false) stay out.
-      if (
-        record &&
-        isDirty &&
-        !suppressBroadcast &&
-        isUpdateAction(action) &&
-        characterRef.current
-      ) {
-        const entry = {
-          action,
-          inverse: invertAction(characterRef.current, action),
-        };
-        setPast((p) => [...p.slice(-(MAX_HISTORY - 1)), entry]);
-        setFuture([]);
+      // A `replace_character` (e.g. a level-up) is recorded too — its inverse is
+      // another replace carrying the current whole character, so one undo
+      // reverts the entire change.
+      if (record && isDirty && !suppressBroadcast && characterRef.current) {
+        let entry: HistoryEntry | undefined;
+        if (isUpdateAction(action))
+          entry = {
+            action,
+            inverse: invertAction(characterRef.current, action),
+          };
+        else if (action.type === "replace_character")
+          entry = {
+            action,
+            inverse: replaceCharacter(characterRef.current),
+          };
+        if (entry) {
+          setPast((p) => [...p.slice(-(MAX_HISTORY - 1)), entry!]);
+          setFuture([]);
+        }
       }
       // A new character context has no history to carry over.
       if (

@@ -4,9 +4,14 @@ import {
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
+import { CustomFormula } from "src/lib/types";
 
 // ---------------------------------------------------------------------------
-// Bundled SRD data shapes (mirror the JSON written by the generate-* scripts).
+// Bundled catalog data shapes. `srd-races.json` / `srd-classes.json` are frozen
+// snapshots of the open-license 2014 SRD (edit them directly — the old
+// generate-races/classes scripts have been retired). The hand-authored official
+// extras live in `src/lib/data/nonsrd-*.ts` and `subclasses.ts` and share these
+// shapes. (Spells are still refreshed via `pnpm generate-spells`.)
 // ---------------------------------------------------------------------------
 
 export interface AbilityBonus {
@@ -76,6 +81,78 @@ export interface SrdClass {
   spellcasting?: SrdClassSpellcasting;
   subclassAtLevel1: boolean;
   features: RaceTrait[];
+}
+
+// A class's subclass ("Divine Domain", "Sorcerous Origin", "Otherworldly
+// Patron", …). Every official subclass is listed by name so the builder can
+// offer the full catalog. `grants` carries the *level-1* mechanics and is only
+// present for the three classes that choose a subclass at level 1
+// (cleric/sorcerer/warlock) — the only point the level-1 builder can apply
+// them. As elsewhere, only mechanical facts are stored; the summaries and
+// feature details are original short paraphrases, not published prose.
+export interface SrdSubclass {
+  index: string;
+  // Owning class index ("cleric", "sorcerer", …), matching `SrdClass.index`.
+  classIndex: string;
+  name: string;
+  // One-line original summary shown in the builder.
+  summary: string;
+  grants?: {
+    features?: RaceTrait[];
+    // Partial so a subclass only names the proficiency categories it touches.
+    proficiencies?: Partial<ProficiencyGrants>;
+    // SRD spell indices granted/always-prepared at level 1 (e.g. cleric domain
+    // spells). Only spells present in the bundled SRD catalog are auto-added;
+    // any non-SRD domain spells are named in a feature detail instead.
+    spellIndices?: string[];
+  };
+}
+
+// The mechanical grants a feat applies on top of its `effect` prose. Only the
+// parts of a feat that the sheet model can actually represent live here;
+// purely situational rules (e.g. Great Weapon Master's -5/+10) stay as `effect`
+// text. Fields split into automatic grants and player choices.
+export interface FeatGrants {
+  // --- automatic (no choice) ---
+  // Grant saving-throw proficiency in the ability this feat raises (Resilient).
+  savingThrowFromAbility?: boolean;
+  armor?: string[]; // armor-proficiency grant strings ("Heavy Armor", …)
+  weapons?: string[]; // fixed weapon proficiencies
+  tools?: string[]; // fixed tool proficiencies
+  speedBonus?: number; // added to walking speed (Mobile)
+  initiativeBonus?: number; // added to the initiative formula (Alert)
+  fixedCantrips?: string[]; // SRD cantrip indices always granted
+  fixedSpells?: string[]; // SRD leveled-spell indices always granted
+  // A refreshing resource pool surfaced as a limited-use ability. `maxUses` is a
+  // formula (like the character model's LimitedUseAbility) so a pool can scale
+  // off proficiency bonus, an ability modifier, or level — not just a constant.
+  limitedUse?: {
+    name: string;
+    detail?: string;
+    maxUses: CustomFormula;
+    recharge: "short" | "long";
+  };
+  // --- player choices (pickers in the level-up feat step) ---
+  chooseSkills?: number; // choose N skill proficiencies
+  chooseExpertise?: number; // choose N skills to gain expertise in
+  chooseWeapons?: number; // choose N weapon proficiencies
+  // Spell choices, one entry per level (0 = cantrips): choose `count` at `level`.
+  chooseSpells?: { level: number; count: number }[];
+}
+
+// A selectable feat. Only Grappler is in the open SRD, so the catalog is
+// hand-authored: mechanical facts + an original paraphrase in `effect` (shown
+// as a feature), never published prose. Half-feats carry `abilityIncrease`
+// (raise one of `from` by `by`); pure feats omit it. `grants` carries the
+// mechanically-enforced parts (the rest stays situational in `effect`).
+export interface Feat {
+  index: string;
+  name: string;
+  summary: string;
+  prerequisite?: string;
+  abilityIncrease?: { by: number; from: StatKey[] };
+  effect: string;
+  grants?: FeatGrants;
 }
 
 // ---------------------------------------------------------------------------

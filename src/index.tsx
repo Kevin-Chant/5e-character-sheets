@@ -19,6 +19,7 @@ import SettingsPage from "./routes/settings-page";
 import { SettingsContextProvider } from "./lib/hooks/use-settings";
 import { SharingSessionsContextProvider } from "./lib/hooks/use-sharing-session";
 import { CharacterBuilderProvider } from "./lib/hooks/use-character-builder";
+import { LevelUpProvider } from "./lib/hooks/use-level-up";
 
 const router = createBrowserRouter([
   {
@@ -34,7 +35,9 @@ const router = createBrowserRouter([
                     <ConfirmProvider>
                       <TargetedFieldContextProvider>
                         <CharacterBuilderProvider>
-                          <Root />
+                          <LevelUpProvider>
+                            <Root />
+                          </LevelUpProvider>
                         </CharacterBuilderProvider>
                       </TargetedFieldContextProvider>
                     </ConfirmProvider>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   Alignment,
+  ArmorType,
   SkillName,
   StandardDie,
 } from "src/lib/data/data-definitions";
@@ -181,6 +182,83 @@ describe("buildCharacter — class equipment choices, attacks & AC", () => {
       operation: "addition",
       operands: [14, { operation: "minimum", operands: ["dex", 2] }, 2],
     });
+  });
+});
+
+describe("buildCharacter — level-1 subclass mechanics", () => {
+  it("applies a Cleric Life Domain's heavy armor, domain spells, and feature", () => {
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "cleric",
+      subclass: "Life",
+    });
+    expect(char.class).toEqual([
+      { name: "Cleric", level: 1, subclass: "Life" },
+    ]);
+    // Life Domain grants heavy armor on top of the cleric's light + medium.
+    expect(char.otherProficiencies.armor[ArmorType.Heavy]).toBe(true);
+    // Domain spells (bless, cure wounds) are always prepared and land as
+    // 1st-level spells even though the player didn't pick them.
+    const first = char.spells.First?.map((s) => s.info.title) ?? [];
+    expect(first).toEqual(expect.arrayContaining(["Bless", "Cure Wounds"]));
+    // The subclass's level-1 feature is merged into the sheet.
+    expect(char.features.map((f) => f.title)).toContain("Disciple of Life");
+  });
+
+  it("applies a Warlock Hexblade's bonus weapon/armor proficiencies", () => {
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "warlock",
+      subclass: "Hexblade",
+    });
+    expect(char.otherProficiencies.armor[ArmorType.Medium]).toBe(true);
+    expect(char.otherProficiencies.armor[ArmorType.Shields]).toBe(true);
+    expect(char.otherProficiencies.weapons).toContain("Martial Weapons");
+    expect(char.features.map((f) => f.title)).toContain("Hex Warrior");
+  });
+
+  it("applies a Sorcerer origin's level-1 feature", () => {
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "sorcerer",
+      subclass: "Draconic Bloodline",
+    });
+    expect(char.features.map((f) => f.title)).toContain("Draconic Resilience");
+  });
+
+  it("leaves a name-only subclass (no level-1 grants) as just a label", () => {
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "fighter",
+      subclass: "Champion",
+    });
+    expect(char.class).toEqual([
+      { name: "Fighter", level: 1, subclass: "Champion" },
+    ]);
+    // No spurious subclass feature is added for a name-only subclass.
+    expect(char.features.map((f) => f.title)).not.toContain("Champion");
+  });
+});
+
+describe("buildCharacter — non-SRD race", () => {
+  it("applies a Goliath's ability bonuses, skill grant, and traits", () => {
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      raceIndex: "goliath",
+      classIndex: "fighter",
+      scoreMethod: "manual",
+      baseStats: { str: 15, dex: 12, con: 13, int: 10, wis: 10, cha: 8 },
+    });
+    expect(char.race).toBe("Goliath");
+    expect(char.stats.str).toBe(17); // 15 + 2
+    expect(char.stats.con).toBe(14); // 13 + 1
+    expect(char.proficiencies.skills).toMatchObject({ Athletics: true });
+    expect(char.features.map((f) => f.title)).toContain("Stone's Endurance");
   });
 });
 

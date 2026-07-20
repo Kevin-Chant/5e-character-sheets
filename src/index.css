@@ -173,6 +173,25 @@ p {
   display: flex;
 }
 
+/* A control (e.g. the level-up button) pinned to a box's top-right corner. */
+.rounded-border-box.has-corner-action {
+  position: relative;
+}
+.corner-action {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.15rem;
+  z-index: 1;
+}
+.level-up-btn {
+  opacity: 0.65;
+}
+.level-up-btn:hover,
+.level-up-btn:focus-visible {
+  opacity: 1;
+  color: var(--accent);
+}
+
 /* Stabilise the metadata grid so box positions/sizes don't jump as fields
    change length. Each box takes a fixed share of its row (flex-basis, not
    content width), and long single words wrap instead of escaping their box. An
@@ -2638,6 +2657,30 @@ button.slot-pip:hover:not(:disabled) {
 }
 .builder-spell-row.selected {
   background: var(--surface-2);
+}
+.builder-spell-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.25rem;
+  font-size: 0.85rem;
+}
+
+/* ASI: two columns of +1 radio picks */
+.builder-asi-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.builder-asi-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.builder-radio {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
 }
 
 /* Equipment checkboxes */

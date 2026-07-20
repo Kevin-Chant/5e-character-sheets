@@ -24,6 +24,7 @@ import { BuilderState, CUSTOM_SUBRACE } from "src/lib/builder/types";
 import { getSrdRace, getSubrace } from "src/lib/builder/srd-races";
 import { resolveFinalStats } from "src/lib/builder/resolve";
 import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
+import { getSubclassByName } from "src/lib/builder/subclasses";
 import { getBackground } from "src/lib/builder/backgrounds";
 import { resolveClassLoadout } from "src/lib/builder/equipment";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
@@ -137,7 +138,13 @@ function armorFromGrants(grants: string[]): Record<ArmorType, boolean> {
   return armor;
 }
 
-function buildSpells(state: BuilderState, className: string): Spells {
+function buildSpells(
+  state: BuilderState,
+  className: string,
+  // Always-prepared extras a subclass grants (e.g. cleric domain spells),
+  // added on top of the player's own selections.
+  grantedIndices: string[] = [],
+): Spells {
   const spells = emptySpells();
   const add = (index: string) => {
     const srd = getSrdSpell(index);
@@ -148,6 +155,7 @@ function buildSpells(state: BuilderState, className: string): Spells {
   };
   state.cantripIndices.forEach(add);
   state.levelOneSpellIndices.forEach(add);
+  grantedIndices.forEach(add);
   return spells;
 }
 
@@ -173,6 +181,9 @@ function guidedCharacter(state: BuilderState): Character {
   char.race = subraceName ? `${baseRaceName} (${subraceName})` : baseRaceName;
 
   const className = klass?.name ?? (state.customClassName.trim() || "Custom");
+  // Level-1 subclass mechanics, if the chosen subclass carries any (only the
+  // classes that pick a subclass at level 1 — cleric/sorcerer/warlock — do).
+  const subclassGrant = getSubclassByName(klass?.index, state.subclass)?.grants;
   char.class = [
     {
       name: className,
@@ -208,6 +219,7 @@ function guidedCharacter(state: BuilderState): Character {
     ...state.raceSkillChoices,
     ...(race?.proficiencies.skills ?? []),
     ...(subrace?.proficiencies.skills ?? []),
+    ...(subclassGrant?.proficiencies?.skills ?? []),
     ...(background?.skills ?? []),
     ...(state.backgroundName ? [] : state.customBackgroundSkills),
   ]);
@@ -223,17 +235,20 @@ function guidedCharacter(state: BuilderState): Character {
     ...(klass?.proficiencies.armor ?? []),
     ...(race?.proficiencies.armor ?? []),
     ...(subrace?.proficiencies.armor ?? []),
+    ...(subclassGrant?.proficiencies?.armor ?? []),
   ]);
   char.otherProficiencies.weapons = uniq([
     ...(klass?.proficiencies.weapons ?? []),
     ...(race?.proficiencies.weapons ?? []),
     ...(subrace?.proficiencies.weapons ?? []),
+    ...(subclassGrant?.proficiencies?.weapons ?? []),
   ]);
   const toolLabels = uniqBy(
     [
       ...(klass?.proficiencies.tools ?? []),
       ...(race?.proficiencies.tools ?? []),
       ...(subrace?.proficiencies.tools ?? []),
+      ...(subclassGrant?.proficiencies?.tools ?? []),
       ...(background?.tools ?? []),
       ...(state.backgroundName ? [] : splitLines(state.customBackgroundTools)),
     ].filter(Boolean),
@@ -243,11 +258,13 @@ function guidedCharacter(state: BuilderState): Character {
   );
   char.otherProficiencies.toolsAndOther = toolLabels.map((t) => text(t));
 
-  // Features — racial traits, class level-1 features, background feature
+  // Features — racial traits, class level-1 features, subclass level-1
+  // features, background feature
   char.features = [
     ...(race?.traits ?? []),
     ...(subrace?.traits ?? []),
     ...(klass?.features ?? []),
+    ...(subclassGrant?.features ?? []),
   ].map((f) => text(f.title, f.detail));
   const bgFeature = background?.feature ?? {
     title: state.customBackgroundFeatureTitle.trim(),
@@ -259,7 +276,9 @@ function guidedCharacter(state: BuilderState): Character {
   // Spellcasting
   if (klass && castsAtLevelOne(klass)) {
     char.spellcastingClasses = [{ class: className }];
-    char.spells = buildSpells(state, className);
+    // Subclass-granted always-prepared spells (e.g. cleric domain spells) are
+    // folded in alongside the player's own picks.
+    char.spells = buildSpells(state, className, subclassGrant?.spellIndices);
     if (className === OfficialClass.Warlock) char.pactSlots = { expended: 0 };
   }
 

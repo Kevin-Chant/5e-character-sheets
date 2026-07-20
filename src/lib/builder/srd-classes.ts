@@ -1,7 +1,13 @@
 import classData from "src/lib/data/srd-classes.json";
+import { NONSRD_CLASSES } from "src/lib/data/nonsrd-classes";
 import { SrdClass } from "src/lib/builder/types";
 
-export const SRD_CLASSES = classData as unknown as SrdClass[];
+// The bundled SRD classes plus the hand-authored official classes from other
+// books (currently the Artificer).
+export const SRD_CLASSES = [
+  ...(classData as unknown as SrdClass[]),
+  ...NONSRD_CLASSES,
+];
 
 const BY_INDEX = new Map(SRD_CLASSES.map((c) => [c.index, c]));
 

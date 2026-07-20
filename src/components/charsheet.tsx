@@ -32,6 +32,8 @@ import EditLimitedUseAbility from "./edit-limited-use-ability";
 import PresenceBroadcaster from "./presence-broadcaster";
 import DriveLiveSessionBootstrap from "./drive-live-session-bootstrap";
 import SharePresenceWarning from "./share-presence-warning";
+import { FaAnglesUp } from "react-icons/fa6";
+import { useLevelUp } from "src/lib/hooks/use-level-up";
 
 export default function CharSheet() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -42,6 +44,7 @@ export default function CharSheet() {
     clearTargetedField,
     targetedFieldStackLength,
   } = useTargetedField();
+  const { openLevelUp } = useLevelUp();
   const [modalType, setModalType] = useState<FieldTypeNode>();
 
   useEffect(() => {
@@ -225,6 +228,17 @@ export default function CharSheet() {
                     vertical
                     editable
                     compact={formatClass(character.class).length > 25}
+                    cornerAction={
+                      <button
+                        type="button"
+                        className="icon-btn level-up-btn"
+                        onClick={openLevelUp}
+                        title="Level up this character"
+                        aria-label="Level up this character"
+                      >
+                        <FaAnglesUp />
+                      </button>
+                    }
                   />
                   <SingleValueDisplay
                     field={FIELD.background}

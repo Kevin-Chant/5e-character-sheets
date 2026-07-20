@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { countBy } from "lodash";
 import {
   Alignment,
-  OfficialSubclasses,
   SkillName,
   StandardDie,
   StatKey,
@@ -19,6 +18,7 @@ import {
   castsAtLevelOne,
   getSrdClass,
 } from "src/lib/builder/srd-classes";
+import { subclassesForClass } from "src/lib/builder/subclasses";
 import { PHB_BACKGROUNDS, getBackground } from "src/lib/builder/backgrounds";
 import {
   parseEquipmentOption,
@@ -364,16 +364,20 @@ export function ClassStep({ state, patch }: StepProps) {
             onChange={(e) => patch({ subclass: e.target.value || undefined })}
           >
             <option value="">Choose… (optional)</option>
-            {(
-              OfficialSubclasses[
-                klass.name as keyof typeof OfficialSubclasses
-              ] ?? []
-            ).map((sub) => (
-              <option key={sub} value={sub}>
-                {sub}
+            {subclassesForClass(klass.index).map((sub) => (
+              <option key={sub.index} value={sub.name}>
+                {sub.name}
               </option>
             ))}
           </select>
+          {(() => {
+            const chosen = subclassesForClass(klass.index).find(
+              (s) => s.name === state.subclass,
+            );
+            return chosen ? (
+              <p className="text-muted builder-hint">{chosen.summary}</p>
+            ) : null;
+          })()}
         </Field>
       )}
 
@@ -836,14 +840,16 @@ export function BackgroundStep({ state, patch }: StepProps) {
 
 // ------------------------------------------------------------------- Spells
 
-function SpellChecklist({
+export function SpellChecklist({
   className,
   level,
   selected,
   max,
   onChange,
 }: {
-  className: string;
+  // Undefined shows every SRD spell (used for classes the catalog doesn't tag,
+  // e.g. Artificer); a class name filters to that class's spell list.
+  className?: string;
   level: number;
   selected: string[];
   max: number | null;
@@ -869,25 +875,33 @@ function SpellChecklist({
         onChange={(e) => setQuery(e.target.value)}
       />
       <div className="builder-spell-list">
-        {spells.map((s) => {
-          const on = selected.includes(s.index);
-          return (
-            <label
-              key={s.index}
-              className={
-                on ? "builder-spell-row selected" : "builder-spell-row"
-              }
-            >
-              <input
-                type="checkbox"
-                checked={on}
-                disabled={!on && atCap}
-                onChange={() => toggle(s.index)}
-              />
-              {s.name}
-            </label>
-          );
-        })}
+        {spells.length === 0 ? (
+          <p className="builder-spell-empty text-muted">
+            {query.trim()
+              ? `No SRD spells match "${query.trim()}". Only SRD spells are searchable here — add spells from other books or homebrew manually from the sheet.`
+              : "No SRD spells at this level. Add spells from other books or homebrew manually from the sheet."}
+          </p>
+        ) : (
+          spells.map((s) => {
+            const on = selected.includes(s.index);
+            return (
+              <label
+                key={s.index}
+                className={
+                  on ? "builder-spell-row selected" : "builder-spell-row"
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={!on && atCap}
+                  onChange={() => toggle(s.index)}
+                />
+                {s.name}
+              </label>
+            );
+          })
+        )}
       </div>
     </div>
   );

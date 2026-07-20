@@ -6,7 +6,7 @@ export default function reducer(
   state: Character | undefined,
   action: Action,
 ): Character | undefined {
-  if (action.type === "load_character") {
+  if (action.type === "load_character" || action.type === "replace_character") {
     return { ...action.payload };
   }
   if (action.type === "reset_character") {

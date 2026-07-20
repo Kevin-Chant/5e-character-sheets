@@ -25,6 +25,33 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
         },
       ],
     },
+    {
+      index: "duergar",
+      name: "Duergar (Gray Dwarf)",
+      abilityBonuses: [{ stat: StatKey.str, bonus: 1 }],
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
+      traits: [
+        {
+          title: "Superior Darkvision",
+          detail: "Your darkvision has a range of 120 feet.",
+        },
+        {
+          title: "Duergar Resilience",
+          detail:
+            "You have advantage on saving throws against illusions and against being charmed or paralyzed.",
+        },
+        {
+          title: "Duergar Magic",
+          detail:
+            "From 3rd level you can cast Enlarge/Reduce (enlarge only) on yourself once per long rest, and from 5th level Invisibility on yourself once per long rest, using Intelligence.",
+        },
+        {
+          title: "Sunlight Sensitivity",
+          detail:
+            "You have disadvantage on attack rolls and on Perception checks that rely on sight while you, the target, or what you're perceiving is in direct sunlight.",
+        },
+      ],
+    },
   ],
   elf: [
     {
@@ -72,6 +99,59 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
         },
       ],
     },
+    {
+      index: "eladrin",
+      name: "Eladrin",
+      abilityBonuses: [{ stat: StatKey.cha, bonus: 1 }],
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
+      traits: [
+        {
+          title: "Fey Step",
+          detail:
+            "As a bonus action you can teleport up to 30 feet to a space you can see. From 3rd level the season you're attuned to adds an extra effect. Once per short or long rest.",
+        },
+      ],
+    },
+    {
+      index: "sea-elf",
+      name: "Sea Elf",
+      abilityBonuses: [{ stat: StatKey.con, bonus: 1 }],
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
+      traits: [
+        {
+          title: "Sea Elf Training",
+          detail:
+            "You are proficient with the spear, trident, light crossbow, and net.",
+        },
+        {
+          title: "Child of the Sea",
+          detail:
+            "You have a swimming speed of 30 feet, and you can breathe air and water.",
+        },
+        {
+          title: "Friend of the Sea",
+          detail:
+            "You can communicate simple ideas to any beast that has a swimming speed.",
+        },
+      ],
+    },
+    {
+      index: "shadar-kai",
+      name: "Shadar-kai",
+      abilityBonuses: [{ stat: StatKey.con, bonus: 1 }],
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
+      traits: [
+        {
+          title: "Necrotic Resistance",
+          detail: "You have resistance to necrotic damage.",
+        },
+        {
+          title: "Blessing of the Raven Queen",
+          detail:
+            "As a bonus action you can teleport up to 30 feet to a space you can see. From 3rd level you also gain resistance to all damage until the start of your next turn after teleporting. Once per long rest.",
+        },
+      ],
+    },
   ],
   halfling: [
     {
@@ -84,6 +164,19 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
           title: "Stout Resilience",
           detail:
             "You have advantage on saving throws against poison, and resistance against poison damage.",
+        },
+      ],
+    },
+    {
+      index: "ghostwise-halfling",
+      name: "Ghostwise Halfling",
+      abilityBonuses: [{ stat: StatKey.wis, bonus: 1 }],
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
+      traits: [
+        {
+          title: "Silent Speech",
+          detail:
+            "You can speak telepathically to any creature within 30 feet that shares a language with you.",
         },
       ],
     },
@@ -103,6 +196,23 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
           title: "Speak with Small Beasts",
           detail:
             "Through sounds and gestures, you can communicate simple ideas with Small or smaller beasts.",
+        },
+      ],
+    },
+    {
+      index: "deep-gnome",
+      name: "Deep Gnome (Svirfneblin)",
+      abilityBonuses: [{ stat: StatKey.dex, bonus: 1 }],
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
+      traits: [
+        {
+          title: "Superior Darkvision",
+          detail: "Your darkvision has a range of 120 feet.",
+        },
+        {
+          title: "Stone Camouflage",
+          detail:
+            "You have advantage on Dexterity (Stealth) checks to hide in rocky terrain.",
         },
       ],
     },

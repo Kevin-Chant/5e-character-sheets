@@ -62,6 +62,11 @@ The computed-field system has its own deep dive: [`.claude/docs/formula-engine.m
 
 **Rolling dice in play** goes through a reusable `RollButton` + a roll dialog that is deliberately _separate_ from the edit modal (rolling is play-mode and read-only) — and a random `src/lib/roll.ts` evaluator kept apart from the deterministic engine. See [`.claude/docs/rolling.md`](.claude/docs/rolling.md).
 
+**Races / classes / subclasses** for the guided builder are bundled catalog data under `src/lib/data/`, consumed via `src/lib/builder/srd-races.ts` / `srd-classes.ts` / `subclasses.ts`:
+
+- `srd-races.json` + `srd-classes.json` are **frozen** snapshots of the open-license 2014 SRD — edit the JSON directly (the old `generate-races`/`generate-classes` scripts were retired; only `generate-spells` remains, since the 319-spell set still benefits from regeneration).
+- Official content beyond the SRD is **hand-authored** in `nonsrd-races.ts`, `phb-subraces.ts` (extra subraces), `nonsrd-classes.ts` (Artificer), and `subclasses.ts`, then merged into the SRD lists at load time. Keep these files separate from the SRD JSON: SRD prose may be verbatim (open license) but **non-SRD content must store only mechanical facts with original paraphrased summaries** — never published prose. Subclass `grants` (level-1 mechanics) exist only for cleric/sorcerer/warlock, the classes that choose a subclass at level 1.
+
 ### State management
 
 React Context + reducers (no Redux). Providers are **deeply nested in `src/index.tsx` and the order matters** — `SharingSessions` sits above `Datastore`/`Character` so broadcast/role state is reachable. Main contexts: `Settings`, `SharingSessions`, `GoogleOauth`, `DatastoreSelector`, `Datastore`, `Character`.
