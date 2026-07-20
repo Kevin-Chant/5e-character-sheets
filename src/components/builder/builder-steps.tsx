@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Ref, useEffect, useMemo, useRef, useState } from "react";
 import { countBy } from "lodash";
 import {
   Alignment,
@@ -44,6 +44,7 @@ import {
 } from "src/lib/builder/resolve";
 import {
   CUSTOM_SUBRACE,
+  NO_SUBRACE,
   RaceBonus,
   SrdRace,
   SrdSubrace,
@@ -53,6 +54,7 @@ import {
   Choice,
   ChoiceGrid,
   Field,
+  FilterSearch,
   LanguagePicker,
   LinesInput,
   STAT_LABEL,
@@ -112,7 +114,11 @@ export function StartStep({ state, patch }: StepProps) {
 const seedBonuses = (race?: SrdRace, subrace?: SrdSubrace): RaceBonus[] =>
   defaultRaceBonuses(race, subrace);
 
-function RaceBonusEditor({ state, patch }: StepProps) {
+function RaceBonusEditor({
+  state,
+  patch,
+  innerRef,
+}: StepProps & { innerRef?: Ref<HTMLDivElement> }) {
   if (!state.raceBonuses.length) return null;
   const race = getSrdRace(state.raceIndex);
   const subrace = getSubrace(race, state.subraceIndex);
@@ -126,6 +132,7 @@ function RaceBonusEditor({ state, patch }: StepProps) {
     <Field
       label="Ability score bonuses"
       hint="Defaults from your race — reassign these if your game uses floating bonuses."
+      innerRef={innerRef}
     >
       <div className="builder-bonus-rows">
         {state.raceBonuses.map((b, i) => (
@@ -161,24 +168,43 @@ export function RaceStep({ state, patch }: StepProps) {
   const race = getSrdRace(state.raceIndex);
   const custom = state.raceIsCustom;
   const subraces = subracesForRace(race);
+  const [query, setQuery] = useState("");
 
-  // When the player switches to a race that offers subraces, the subrace picker
-  // unfolds below the fold — scroll it into view so it isn't missed.
+  // Guide the player down the step as each choice unfolds: picking a race scrolls
+  // to the subrace picker (everyone lands there — races with no official subrace
+  // get a pre-selected "No subrace" card); picking a subrace scrolls on to the
+  // ability-score bonuses. Race changes co-occur with a subrace reset, so race
+  // wins to avoid a double scroll.
   const subraceRef = useRef<HTMLDivElement>(null);
-  const prevRaceIndex = useRef(state.raceIndex);
+  const bonusRef = useRef<HTMLDivElement>(null);
+  const prev = useRef({
+    raceIndex: state.raceIndex,
+    subraceIndex: state.subraceIndex,
+  });
   useEffect(() => {
-    if (prevRaceIndex.current !== state.raceIndex) {
-      prevRaceIndex.current = state.raceIndex;
-      if (subraces.length)
+    const changedRace = prev.current.raceIndex !== state.raceIndex;
+    const changedSubrace = prev.current.subraceIndex !== state.subraceIndex;
+    prev.current = {
+      raceIndex: state.raceIndex,
+      subraceIndex: state.subraceIndex,
+    };
+    if (changedRace) {
+      if (state.raceIndex)
         subraceRef.current?.scrollIntoView({
           behavior: "smooth",
           block: "nearest",
         });
+    } else if (changedSubrace) {
+      bonusRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
     }
-  }, [state.raceIndex, subraces.length]);
+  }, [state.raceIndex, state.subraceIndex]);
 
   const pickRace = (r: SrdRace) => {
-    const firstSub = subracesForRace(r)[0]?.index;
+    const subs = subracesForRace(r);
+    const firstSub = subs.length ? subs[0].index : NO_SUBRACE;
     const subrace = getSubrace(r, firstSub);
     patch({
       raceIndex: r.index,
@@ -192,12 +218,16 @@ export function RaceStep({ state, patch }: StepProps) {
 
   const pickSubrace = (index?: string) => {
     const subrace =
-      index === CUSTOM_SUBRACE ? undefined : getSubrace(race, index);
+      index === CUSTOM_SUBRACE || index === NO_SUBRACE
+        ? undefined
+        : getSubrace(race, index);
     patch({ subraceIndex: index, raceBonuses: seedBonuses(race, subrace) });
   };
 
+  const q = query.trim().toLowerCase();
+  const matches = SRD_RACES.filter((r) => r.name.toLowerCase().includes(q));
   const raceChoices: Choice[] = [
-    ...SRD_RACES.map((r) => ({
+    ...matches.map((r) => ({
       key: r.index,
       title: r.name,
       subtitle: r.abilityBonuses
@@ -223,12 +253,28 @@ export function RaceStep({ state, patch }: StepProps) {
 
   return (
     <div className="builder-step">
+      <FilterSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Search races…"
+      />
       <ChoiceGrid choices={raceChoices} />
 
       {race && (
         <Field label="Subrace" innerRef={subraceRef}>
           <ChoiceGrid
             choices={[
+              ...(subraces.length
+                ? []
+                : [
+                    {
+                      key: NO_SUBRACE,
+                      title: "No subrace",
+                      subtitle: "This race has no subrace.",
+                      selected: state.subraceIndex === NO_SUBRACE,
+                      onClick: () => pickSubrace(NO_SUBRACE),
+                    },
+                  ]),
               ...subraces.map((s) => ({
                 key: s.index,
                 title: s.name,
@@ -258,7 +304,7 @@ export function RaceStep({ state, patch }: StepProps) {
         </Field>
       )}
 
-      <RaceBonusEditor state={state} patch={patch} />
+      <RaceBonusEditor state={state} patch={patch} innerRef={bonusRef} />
 
       {race?.skillChoices && (
         <Field label="Skill proficiencies (from your race)">
@@ -312,8 +358,25 @@ export function RaceStep({ state, patch }: StepProps) {
 export function ClassStep({ state, patch }: StepProps) {
   const klass = getSrdClass(state.classIndex);
   const custom = state.classIsCustom;
+  const [query, setQuery] = useState("");
+
+  // Selecting "Other class" unfolds the name & hit-die inputs below the grid —
+  // scroll to them so the player knows to fill them in.
+  const customRef = useRef<HTMLDivElement>(null);
+  const prevCustom = useRef(custom);
+  useEffect(() => {
+    if (!prevCustom.current && custom)
+      customRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    prevCustom.current = custom;
+  }, [custom]);
+
+  const q = query.trim().toLowerCase();
+  const matches = SRD_CLASSES.filter((c) => c.name.toLowerCase().includes(q));
   const choices: Choice[] = [
-    ...SRD_CLASSES.map((c) => ({
+    ...matches.map((c) => ({
       key: c.index,
       title: c.name,
       subtitle: `d${c.hitDie} · ${c.savingThrows
@@ -347,6 +410,11 @@ export function ClassStep({ state, patch }: StepProps) {
 
   return (
     <div className="builder-step">
+      <FilterSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Search classes…"
+      />
       <ChoiceGrid choices={choices} />
 
       {klass?.skillChoices && (
@@ -383,7 +451,7 @@ export function ClassStep({ state, patch }: StepProps) {
 
       {custom && (
         <>
-          <Field label="Class name">
+          <Field label="Class name" innerRef={customRef}>
             <input
               className="builder-input"
               value={state.customClassName}
@@ -429,10 +497,17 @@ function StatPreview({ state }: { state: StepProps["state"] }) {
         return (
           <div key={stat} className="builder-stat-final">
             <span className="builder-stat-name">{stat.toUpperCase()}</span>
-            <span className="builder-stat-score">{final[stat]}</span>
+            <span className="builder-stat-score">
+              {final[stat]}
+              {bonus ? (
+                <span className="builder-stat-breakdown">
+                  {" "}
+                  ({base[stat]} + {bonus})
+                </span>
+              ) : null}
+            </span>
             <span className="text-muted builder-stat-mod">
               {fmtMod(modifier(final[stat]))}
-              {bonus ? ` (${base[stat]}+${bonus})` : ""}
             </span>
           </div>
         );
@@ -710,6 +785,21 @@ export function BackgroundStep({ state, patch }: StepProps) {
   const race = getSrdRace(state.raceIndex);
   const subrace = getSubrace(race, state.subraceIndex);
 
+  // Every background choice unfolds something below the grid — a custom
+  // background's pickers, or (for any background) the class skill-proficiency
+  // choices — so scroll to that block whenever a background is picked.
+  const belowRef = useRef<HTMLDivElement>(null);
+  const selectionKey = custom ? "__custom" : state.backgroundName;
+  const prevSelection = useRef(selectionKey);
+  useEffect(() => {
+    if (prevSelection.current !== selectionKey && selectionKey)
+      belowRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    prevSelection.current = selectionKey;
+  }, [selectionKey]);
+
   const choices: Choice[] = [
     ...PHB_BACKGROUNDS.map((b) => ({
       key: b.name,
@@ -753,87 +843,94 @@ export function BackgroundStep({ state, patch }: StepProps) {
     <div className="builder-step">
       <ChoiceGrid choices={choices} />
 
-      {bg && (
-        <p className="text-muted builder-hint">
-          Skills: {bg.skills.join(", ")}
-          {bg.tools.length ? ` · Tools: ${bg.tools.join(", ")}` : ""} · Feature:{" "}
-          {bg.feature.title}
-        </p>
-      )}
+      <div ref={belowRef} className="builder-below-grid">
+        {bg && (
+          <p className="text-muted builder-hint">
+            Skills: {bg.skills.join(", ")}
+            {bg.tools.length ? ` · Tools: ${bg.tools.join(", ")}` : ""} ·
+            Feature: {bg.feature.title}
+          </p>
+        )}
 
-      {custom && (
-        <>
-          <Field label="Background skill proficiencies" hint="Choose 2">
+        {custom && (
+          <>
+            <Field label="Background skill proficiencies" hint="Choose 2">
+              <ChipMultiSelect<SkillName>
+                options={ALL_SKILLS}
+                selected={state.customBackgroundSkills}
+                max={2}
+                onChange={(customBackgroundSkills) =>
+                  patch({ customBackgroundSkills })
+                }
+              />
+            </Field>
+            <Field
+              label="Tool proficiencies / languages"
+              hint="Comma separated"
+            >
+              <input
+                className="builder-input"
+                value={state.customBackgroundTools}
+                onChange={(e) =>
+                  patch({ customBackgroundTools: e.target.value })
+                }
+              />
+            </Field>
+            <Field label="Background feature">
+              <input
+                className="builder-input"
+                placeholder="Feature name"
+                value={state.customBackgroundFeatureTitle}
+                onChange={(e) =>
+                  patch({ customBackgroundFeatureTitle: e.target.value })
+                }
+              />
+              <textarea
+                className="builder-textarea"
+                rows={2}
+                placeholder="What it does (optional)"
+                value={state.customBackgroundFeatureDetail}
+                onChange={(e) =>
+                  patch({ customBackgroundFeatureDetail: e.target.value })
+                }
+              />
+            </Field>
+          </>
+        )}
+
+        {languageCount > 0 && (
+          <Field
+            label="Extra languages"
+            hint={`Your background grants ${languageCount} language(s) of your choice`}
+          >
+            <LanguagePicker
+              count={languageCount}
+              value={state.backgroundLanguageChoices}
+              onChange={(backgroundLanguageChoices) =>
+                patch({ backgroundLanguageChoices })
+              }
+            />
+          </Field>
+        )}
+
+        {klass?.skillChoices && (
+          <Field
+            label={`Class skill proficiencies (${klass.name})`}
+            hint={`Choose ${klass.skillChoices.choose}${
+              grantedSkills.length
+                ? " — skills from your background/race are hidden to avoid duplicates"
+                : ""
+            }`}
+          >
             <ChipMultiSelect<SkillName>
-              options={ALL_SKILLS}
-              selected={state.customBackgroundSkills}
-              max={2}
-              onChange={(customBackgroundSkills) =>
-                patch({ customBackgroundSkills })
-              }
+              options={classSkillOptions}
+              selected={classSelected}
+              max={klass.skillChoices.choose}
+              onChange={(classSkillChoices) => patch({ classSkillChoices })}
             />
           </Field>
-          <Field label="Tool proficiencies / languages" hint="Comma separated">
-            <input
-              className="builder-input"
-              value={state.customBackgroundTools}
-              onChange={(e) => patch({ customBackgroundTools: e.target.value })}
-            />
-          </Field>
-          <Field label="Background feature">
-            <input
-              className="builder-input"
-              placeholder="Feature name"
-              value={state.customBackgroundFeatureTitle}
-              onChange={(e) =>
-                patch({ customBackgroundFeatureTitle: e.target.value })
-              }
-            />
-            <textarea
-              className="builder-textarea"
-              rows={2}
-              placeholder="What it does (optional)"
-              value={state.customBackgroundFeatureDetail}
-              onChange={(e) =>
-                patch({ customBackgroundFeatureDetail: e.target.value })
-              }
-            />
-          </Field>
-        </>
-      )}
-
-      {languageCount > 0 && (
-        <Field
-          label="Extra languages"
-          hint={`Your background grants ${languageCount} language(s) of your choice`}
-        >
-          <LanguagePicker
-            count={languageCount}
-            value={state.backgroundLanguageChoices}
-            onChange={(backgroundLanguageChoices) =>
-              patch({ backgroundLanguageChoices })
-            }
-          />
-        </Field>
-      )}
-
-      {klass?.skillChoices && (
-        <Field
-          label={`Class skill proficiencies (${klass.name})`}
-          hint={`Choose ${klass.skillChoices.choose}${
-            grantedSkills.length
-              ? " — skills from your background/race are hidden to avoid duplicates"
-              : ""
-          }`}
-        >
-          <ChipMultiSelect<SkillName>
-            options={classSkillOptions}
-            selected={classSelected}
-            max={klass.skillChoices.choose}
-            onChange={(classSkillChoices) => patch({ classSkillChoices })}
-          />
-        </Field>
-      )}
+        )}
+      </div>
     </div>
   );
 }

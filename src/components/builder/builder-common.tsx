@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { ReactNode, Ref } from "react";
+import { ReactNode, Ref, useEffect, useRef, useState } from "react";
 import { BuilderState } from "src/lib/builder/types";
 import { DEFAULT_LANGUAGES } from "src/lib/data/option-lists";
 
@@ -40,6 +40,27 @@ export function ChoiceGrid({ choices }: { choices: Choice[] }) {
         </button>
       ))}
     </div>
+  );
+}
+
+// A search box that filters a ChoiceGrid (races, classes). Kept above the grid.
+export function FilterSearch({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <input
+      type="search"
+      className="builder-input builder-filter"
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
   );
 }
 
@@ -140,9 +161,78 @@ export function LinesInput({
   );
 }
 
-// One datalist-backed input per language slot: a dropdown of standard/exotic
-// languages that still accepts custom entries (same "default or custom" feel as
-// the other suggestion fields).
+// A text input with a suggestion dropdown that still accepts free-text entries.
+// Replaces a native `<input list>` datalist, whose Chrome popup only appears on
+// the *second* click of an empty field — this list shows on first focus.
+function Combobox({
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  options: readonly string[];
+  placeholder: string;
+  onChange: (next: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Dismiss on any click outside the widget.
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  // Show every match — the list scrolls (see .builder-combobox-list max-height),
+  // so no cap is needed, and a cap would silently hide options past it (e.g. the
+  // exotic languages, which all sort after the 8 standard ones).
+  const q = value.trim().toLowerCase();
+  const matches = options.filter((o) => o.toLowerCase().includes(q));
+
+  return (
+    <div className="builder-combobox" ref={wrapRef}>
+      <input
+        className="builder-input"
+        placeholder={placeholder}
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+      />
+      {open && matches.length > 0 && (
+        <ul className="builder-combobox-list">
+          {matches.map((o) => (
+            <li key={o}>
+              <button
+                type="button"
+                className="builder-combobox-option"
+                // mousedown fires before the input's blur, so the pick lands.
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(o);
+                  setOpen(false);
+                }}
+              >
+                {o}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// One combobox per language slot: suggests standard/exotic languages but still
+// accepts custom entries (same "default or custom" feel as the other fields).
 export function LanguagePicker({
   count,
   value,
@@ -160,20 +250,14 @@ export function LanguagePicker({
   return (
     <div className="builder-language-picker">
       {Array.from({ length: count }).map((_, i) => (
-        <input
+        <Combobox
           key={i}
-          className="builder-input"
-          list="builder-languages"
-          placeholder="Choose or type a language"
           value={value[i] ?? ""}
-          onChange={(e) => set(i, e.target.value)}
+          options={LANGUAGE_OPTIONS}
+          placeholder="Choose or type a language"
+          onChange={(v) => set(i, v)}
         />
       ))}
-      <datalist id="builder-languages">
-        {LANGUAGE_OPTIONS.map((l) => (
-          <option key={l} value={l} />
-        ))}
-      </datalist>
     </div>
   );
 }

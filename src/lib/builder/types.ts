@@ -184,6 +184,9 @@ export interface RaceBonus {
 export type StatAssignment = Record<StatKey, number | null>;
 
 export const CUSTOM_SUBRACE = "__custom";
+// Explicit "this race has no subrace" selection, pre-selected for races that
+// offer no official subrace so the subrace step still resolves to a choice.
+export const NO_SUBRACE = "__none";
 
 export interface BuilderState {
   mode: StartMode;

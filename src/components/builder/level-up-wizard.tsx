@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import classNames from "classnames";
 import { Character } from "src/lib/types";
 import {
@@ -89,6 +89,16 @@ export default function LevelUpWizard({
   const isFirst = clampedIndex === 0;
   const isLast = clampedIndex === steps.length - 1;
 
+  // Each step opens scrolled to its top, not wherever the previous one left off.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [clampedIndex]);
+
+  // Once a level-up is underway, a stray backdrop click would throw away the
+  // choices made so far — so only the X button can dismiss it then.
+  const guardExit = clampedIndex > 0;
+
   const finish = () => onFinish(applyLevelUp(character, state));
   const next = () => (isLast ? finish() : setIndex(clampedIndex + 1));
   const back = () => setIndex(Math.max(0, clampedIndex - 1));
@@ -97,18 +107,24 @@ export default function LevelUpWizard({
 
   return (
     <div className="modal-container">
-      <div className="modal-background" onClick={onCancel} />
+      <div
+        className="modal-background"
+        onClick={guardExit ? undefined : onCancel}
+      />
       <div className="modal-content builder-modal">
         <div className="builder-header">
           <div className="builder-progress">
             {steps.map((s, i) => (
-              <span
+              <button
                 key={s.key}
+                type="button"
                 className={classNames("builder-progress-dot", {
                   active: i === clampedIndex,
                   done: i < clampedIndex,
                 })}
                 title={s.title}
+                aria-label={`Go to step ${i + 1}: ${s.title}`}
+                onClick={() => setIndex(i)}
               />
             ))}
           </div>
@@ -119,7 +135,7 @@ export default function LevelUpWizard({
 
         <h1 className="builder-title">{step.title}</h1>
 
-        <div className="builder-body">
+        <div className="builder-body" ref={bodyRef}>
           <StepComponent character={character} state={state} patch={patch} />
         </div>
 

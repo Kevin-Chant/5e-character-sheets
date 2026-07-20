@@ -2478,11 +2478,20 @@ button.slot-pip:hover:not(:disabled) {
 }
 
 .builder-progress-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
+  padding: 0;
   border-radius: 50%;
   background: var(--surface-2);
   border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    background 0.1s ease;
+}
+.builder-progress-dot:hover {
+  transform: scale(1.2);
+  border-color: var(--accent);
 }
 .builder-progress-dot.active {
   background: var(--accent);
@@ -2502,13 +2511,24 @@ button.slot-pip:hover:not(:disabled) {
 .builder-body {
   flex: 1;
   overflow-y: auto;
-  padding-right: 0.25rem;
+  /* Room so focus outlines on full-width inputs aren't clipped by the scroll box. */
+  padding: 4px 6px;
 }
 
 .builder-step {
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
+}
+/* A scroll target grouping everything below a choice grid; keeps the same
+   column rhythm as .builder-step so nesting it changes nothing visually. */
+.builder-below-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.builder-below-grid:empty {
+  display: none;
 }
 
 .builder-footer {
@@ -2598,6 +2618,9 @@ button.slot-pip:hover:not(:disabled) {
 .builder-textarea {
   resize: vertical;
 }
+.builder-filter {
+  margin-bottom: 0.6rem;
+}
 
 /* Ability-score method tabs */
 .builder-method-tabs {
@@ -2671,6 +2694,13 @@ button.slot-pip:hover:not(:disabled) {
 .builder-stat-score {
   font-size: 1.4rem;
   font-weight: 700;
+  text-align: center;
+}
+.builder-stat-breakdown {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 .builder-stat-mod {
   font-size: 0.78rem;
@@ -2754,6 +2784,41 @@ button.slot-pip:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+/* Combobox: text input + suggestion dropdown */
+.builder-combobox {
+  position: relative;
+}
+.builder-combobox-list {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+.builder-combobox-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  font-weight: 400;
+  border: none;
+  background: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: calc(var(--radius) - 2px);
+}
+.builder-combobox-option:hover {
+  background: var(--surface-2);
 }
 
 /* Review summary */

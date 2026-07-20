@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import classNames from "classnames";
 import { Character } from "src/lib/types";
 import { buildCharacter } from "src/lib/builder/build-character";
@@ -76,6 +76,16 @@ export default function CharacterBuilder({ onCancel, onFinish }: Props) {
   const isFirst = clampedIndex === 0;
   const isLast = clampedIndex === steps.length - 1;
 
+  // Each step opens scrolled to its top, not wherever the previous one left off.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [clampedIndex]);
+
+  // Once a guided build is underway, a stray backdrop click would throw away all
+  // progress — so only the X button (and Escape-free intent) can dismiss it then.
+  const guardExit = state.mode === "guided" && clampedIndex > 0;
+
   // On the first step, a Blank/Sample choice creates immediately.
   const finishesNow =
     (isFirst && state.mode !== "guided") || (isLast && state.mode === "guided");
@@ -88,18 +98,24 @@ export default function CharacterBuilder({ onCancel, onFinish }: Props) {
 
   return (
     <div className="modal-container">
-      <div className="modal-background" onClick={onCancel} />
+      <div
+        className="modal-background"
+        onClick={guardExit ? undefined : onCancel}
+      />
       <div className="modal-content builder-modal">
         <div className="builder-header">
           <div className="builder-progress">
             {steps.map((s, i) => (
-              <span
+              <button
                 key={s.key}
+                type="button"
                 className={classNames("builder-progress-dot", {
                   active: i === clampedIndex,
                   done: i < clampedIndex,
                 })}
                 title={s.title}
+                aria-label={`Go to step ${i + 1}: ${s.title}`}
+                onClick={() => setIndex(i)}
               />
             ))}
           </div>
@@ -110,7 +126,7 @@ export default function CharacterBuilder({ onCancel, onFinish }: Props) {
 
         <h1 className="builder-title">{step.title}</h1>
 
-        <div className="builder-body">
+        <div className="builder-body" ref={bodyRef}>
           <StepComponent state={state} patch={patch} />
         </div>
 
