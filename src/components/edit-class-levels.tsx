@@ -6,6 +6,7 @@ import {
   OfficialSubclasses,
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { randomUUID } from "src/lib/browser";
 import { IClass, isOfficialClass } from "src/lib/types";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 import { useSave } from "./modals/modal-container";
@@ -77,7 +78,11 @@ export default function EditClassLevels() {
       updateAt(
         classes,
         klassArr.concat([
-          { name: unusedClassnames[0] || "Homebrew Class", level: 1 },
+          {
+            id: randomUUID(),
+            name: unusedClassnames[0] || "Homebrew Class",
+            level: 1,
+          },
         ]),
       ),
     );

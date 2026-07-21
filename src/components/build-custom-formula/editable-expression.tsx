@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FaPlus } from "react-icons/fa6";
 import { Operation, StatKey } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { randomUUID } from "src/lib/browser";
 import {
   Addition,
   Ceil,
@@ -52,6 +53,12 @@ export function EditableExpression({
   const [openKey, setOpenKey] = useState<string | null>(null);
   if (!character) return <></>;
 
+  // Default class-level leaf for the operations seeded with one (e.g. the
+  // common "floor(level / 2)" shape); references the character's first class.
+  const defaultClassLevel: CustomFormula = {
+    classLevel: character.class[0]?.id ?? randomUUID(),
+  };
+
   const setOperation = (operation: Expression["operation"]) => {
     switch (operation) {
       case "ceil":
@@ -60,18 +67,22 @@ export function EditableExpression({
           operation: operation,
           operand1: {
             operation: "division",
-            operand1: "Fighter",
+            operand1: defaultClassLevel,
             operand2: 2,
           },
         });
         return;
       case "subtraction":
-        setExpr({ operation: operation, operand1: "Fighter", operand2: 1 });
+        setExpr({
+          operation: operation,
+          operand1: defaultClassLevel,
+          operand2: 1,
+        });
         return;
       case "division":
         setExpr({
           operation: operation,
-          operand1: "Fighter",
+          operand1: defaultClassLevel,
           operand2: 2,
         });
         return;

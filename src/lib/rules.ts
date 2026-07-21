@@ -1,4 +1,5 @@
 import { sum } from "lodash";
+import { UUID } from "crypto";
 import {
   Character,
   ClassName,
@@ -22,7 +23,7 @@ import {
   Operation,
   SPELLCASTING_ABILITIES,
   SkillName,
-  SpellLevel,
+  LeveledSpellLevel,
   StandardDie,
   StatKey,
 } from "./data/data-definitions";
@@ -126,6 +127,21 @@ export function levelInClass(className: ClassName, character: Character) {
   return character.class.find((klass) => klass.name === className)?.level || 0;
 }
 
+// Class-identity resolution by stable id (the form spells / spellcasting entries
+// / `spellMod` / `classLevel` leaves reference).
+export function classById(character: Character, id: UUID): IClass | undefined {
+  return character.class.find((klass) => klass.id === id);
+}
+export function classNameForId(
+  character: Character,
+  id: UUID,
+): ClassName | undefined {
+  return classById(character, id)?.name;
+}
+export function levelOfClassId(character: Character, id: UUID): number {
+  return classById(character, id)?.level ?? 0;
+}
+
 function getHitDie(className: ClassName): StandardDie {
   return isOfficialClass(className)
     ? HIT_DICE[className]
@@ -175,7 +191,7 @@ export function getHpFormula(character: Character): CustomFormula {
                 },
                 {
                   operation: Operation.subtraction,
-                  operand1: firstClass.name,
+                  operand1: { classLevel: firstClass.id },
                   operand2: 1,
                 },
               ],
@@ -192,7 +208,7 @@ export function getHpFormula(character: Character): CustomFormula {
         return {
           operation: Operation.multiplication,
           operands: [
-            classDef.name,
+            { classLevel: classDef.id },
             {
               operation: Operation.addition,
               operands: [
@@ -222,28 +238,15 @@ export function getSpellcastingAbility(className: ClassName) {
 // resolve `spellMod` formula leaves live.
 export function spellcastingAbilityFor(
   character: Character,
-  className: ClassName,
+  classId: UUID,
 ): StatKey {
   const entry = character.spellcastingClasses.find(
-    (c) => c.class === className,
+    (c) => c.classId === classId,
   );
-  return entry?.abilityOverride ?? getSpellcastingAbility(className);
-}
-
-const NUMERIC_SPELL_SLOT_LEVEL: Record<SpellLevel, number> = {
-  [SpellLevel.First]: 1,
-  [SpellLevel.Second]: 2,
-  [SpellLevel.Third]: 3,
-  [SpellLevel.Fourth]: 4,
-  [SpellLevel.Fifth]: 5,
-  [SpellLevel.Sixth]: 6,
-  [SpellLevel.Seventh]: 7,
-  [SpellLevel.Eighth]: 8,
-  [SpellLevel.Ninth]: 9,
-};
-
-export function getNumericSpellSlotLevel(level: SpellLevel) {
-  return NUMERIC_SPELL_SLOT_LEVEL[level];
+  return (
+    entry?.abilityOverride ??
+    getSpellcastingAbility(classNameForId(character, classId) ?? "")
+  );
 }
 
 export function getPactSlotInfo(character: Character) {
@@ -292,12 +295,12 @@ const SPELL_SLOTS_BY_CASTER_LEVEL: number[][] = [
 ];
 
 export function getSpellSlotsByLevelAndSpellcasterLevel(
-  slotLevel: SpellLevel,
+  slotLevel: LeveledSpellLevel,
   spellcastingLevel: number,
 ) {
   const row =
     SPELL_SLOTS_BY_CASTER_LEVEL[Math.min(Math.max(spellcastingLevel, 0), 20)];
-  return row[getNumericSpellSlotLevel(slotLevel) - 1] ?? 0;
+  return row[slotLevel - 1] ?? 0;
 }
 
 /**
@@ -360,7 +363,7 @@ export function isSpellcastingClass(klass: IClass): boolean {
 
 export function getDefaultSpellSlots(
   character: Character,
-  slotLevel: SpellLevel,
+  slotLevel: LeveledSpellLevel,
 ): number {
   return getSpellSlotsByLevelAndSpellcasterLevel(
     slotLevel,
@@ -372,7 +375,7 @@ export function getDefaultSpellSlots(
 // expended). Used to offer only castable levels in the roll dialog.
 export function availableSpellSlots(
   character: Character,
-  slotLevel: SpellLevel,
+  slotLevel: LeveledSpellLevel,
 ): number {
   const total =
     character.spellSlots[slotLevel]?.totalOverride ??
@@ -402,7 +405,7 @@ export function officialSpellcastingClasses(
   character: Character,
 ): OfficialClass[] {
   return character.spellcastingClasses
-    .map((c) => c.class)
+    .map((c) => classNameForId(character, c.classId))
     .filter(isOfficialClass);
 }
 
@@ -426,7 +429,10 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
     const [index, subSubField] = subField.split(".");
     if (subSubField === "abilityOverride") {
       return getSpellcastingAbility(
-        character.spellcastingClasses[parseInt(index)].class,
+        classNameForId(
+          character,
+          character.spellcastingClasses[parseInt(index)].classId,
+        ) ?? "",
       );
     }
     if (subSubField === "saveDcOverride") {
@@ -437,7 +443,10 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
           "proficiencyBonus",
           character.spellcastingClasses[parseInt(index)].abilityOverride ||
             getSpellcastingAbility(
-              character.spellcastingClasses[parseInt(index)].class,
+              classNameForId(
+                character,
+                character.spellcastingClasses[parseInt(index)].classId,
+              ) ?? "",
             ),
         ],
       };
@@ -448,7 +457,10 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
           "proficiencyBonus",
           character.spellcastingClasses[parseInt(index)].abilityOverride ||
             getSpellcastingAbility(
-              character.spellcastingClasses[parseInt(index)].class,
+              classNameForId(
+                character,
+                character.spellcastingClasses[parseInt(index)].classId,
+              ) ?? "",
             ),
         ],
       };
@@ -457,7 +469,10 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
   },
   spellSlots: (character, subField) =>
     subField?.split(".")[1] === "totalOverride"
-      ? getDefaultSpellSlots(character, subField?.split(".")[0] as SpellLevel)
+      ? getDefaultSpellSlots(
+          character,
+          Number(subField?.split(".")[0]) as LeveledSpellLevel,
+        )
       : undefined,
   pactSlots: (character, subField) =>
     subField === "totalOverride"

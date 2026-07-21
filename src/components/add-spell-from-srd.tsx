@@ -4,21 +4,15 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { fromStack, updateAt } from "src/lib/cursor";
 import { getFieldValue } from "src/lib/fields";
-import {
-  getNumericSpellSlotLevel,
-  officialSpellcastingClasses,
-} from "src/lib/rules";
-import { SpellLevel } from "src/lib/data/data-definitions";
+import { classNameForId, officialSpellcastingClasses } from "src/lib/rules";
+import { randomUUID } from "src/lib/browser";
 import { Spell } from "src/lib/types";
 import { buildSpellFromSrd } from "src/lib/spells/srd-spell-adapter";
 import { searchSrdSpells, SrdSpell } from "src/lib/spells/srd-spells";
 
-// The `subField` targeting this picker is `<levelKey>.new`, e.g. "cantrips.new"
-// or "First.new" — the list the chosen spell should land in.
-const numericLevelFor = (levelKey: string): number =>
-  levelKey === "cantrips"
-    ? 0
-    : getNumericSpellSlotLevel(levelKey as SpellLevel);
+// The `subField` targeting this picker is `<level>.new`, e.g. "0.new" (cantrips)
+// or "3.new" — the numeric-level list the chosen spell should land in.
+const numericLevelFor = (levelKey: string): number => Number(levelKey);
 
 // SRD analog of AddAttack: browse the bundled catalog, filtered to the spell
 // level of the list you opened it from (and, when multiclassing, filterable by
@@ -33,11 +27,22 @@ export default function AddSpellFromSrd() {
   const levelKey = (subField ?? "").replace(/\.new$/, "");
   const level = numericLevelFor(levelKey);
 
-  const spellcastingClasses = (character?.spellcastingClasses ?? []).map(
-    (k) => k.class,
-  );
-  const defaultSpellClass =
-    spellcastingClasses[0] ?? character?.class[0]?.name ?? "";
+  // The character's spellcasting classes as {id, name} pairs: the *name* drives
+  // the SRD class filter (SRD spells list classes by name); the *id* is what a
+  // newly-added spell is tagged with.
+  const scPairs = character
+    ? character.spellcastingClasses.map((sc) => ({
+        id: sc.classId,
+        name: classNameForId(character, sc.classId) ?? "",
+      }))
+    : [];
+  // Tag the new spell to the filtered class if one is chosen, else the first
+  // spellcasting class (falling back to the first class / a fresh id).
+  const tagClassId =
+    scPairs.find((p) => p.name === classFilter)?.id ??
+    scPairs[0]?.id ??
+    character?.class[0]?.id ??
+    randomUUID();
 
   // Restrict to spells one of the character's official spellcasting classes can
   // cast (a pure Sorcerer shouldn't see Cure Wounds). Empty — e.g. only custom
@@ -65,9 +70,7 @@ export default function AddSpellFromSrd() {
     // re-enter the typed world with the documented downcast.
     const bucket = fromStack<Spell[]>(FIELD.spells, levelKey);
     const list: Spell[] = getFieldValue(bucket.toString(), character) ?? [];
-    const newList = list.concat(
-      buildSpellFromSrd(srd, defaultSpellClass || srd.classes[0] || ""),
-    );
+    const newList = list.concat(buildSpellFromSrd(srd, tagClassId));
     dispatch(updateAt(bucket, newList));
     replaceCursor(bucket.at(newList.length - 1));
   };
@@ -81,15 +84,15 @@ export default function AddSpellFromSrd() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      {spellcastingClasses.length > 1 && (
+      {scPairs.length > 1 && (
         <select
           value={classFilter}
           onChange={(e) => setClassFilter(e.target.value)}
         >
           <option value="">All classes</option>
-          {spellcastingClasses.map((c) => (
-            <option key={c} value={c}>
-              {c}
+          {scPairs.map((p) => (
+            <option key={p.id} value={p.name}>
+              {p.name}
             </option>
           ))}
         </select>

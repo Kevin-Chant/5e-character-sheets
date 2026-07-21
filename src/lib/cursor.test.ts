@@ -4,7 +4,6 @@ import {
   DamageType,
   FIELD,
   SkillName,
-  SpellLevel,
   StatKey,
 } from "src/lib/data/data-definitions";
 
@@ -14,10 +13,10 @@ import {
 // *shape* that appears in the editor inventory.
 describe("Cursor serialization parity", () => {
   it("bare top-level field → no subField", () => {
-    const c = charPath(FIELD.speed);
-    expect(c.root()).toBe(FIELD.speed);
+    const c = charPath(FIELD.currHp);
+    expect(c.root()).toBe(FIELD.currHp);
     expect(c.subpath()).toBeUndefined();
-    expect(c.toString()).toBe("speed");
+    expect(c.toString()).toBe("currHp");
   });
 
   it("array index (bare) → '0'", () => {
@@ -43,9 +42,9 @@ describe("Cursor serialization parity", () => {
     expect(c.subpath()).toBe("savingThrows.str");
   });
 
-  it("spell-slot override → 'First.totalOverride'", () => {
-    const c = charPath(FIELD.spellSlots).k(SpellLevel.First).k("totalOverride");
-    expect(c.subpath()).toBe("First.totalOverride");
+  it("spell-slot override → '1.totalOverride'", () => {
+    const c = charPath(FIELD.spellSlots).k(1).k("totalOverride");
+    expect(c.subpath()).toBe("1.totalOverride");
   });
 
   it("spellcasting class override → '0.saveDcOverride'", () => {
@@ -53,14 +52,14 @@ describe("Cursor serialization parity", () => {
     expect(c.subpath()).toBe("0.saveDcOverride");
   });
 
-  it("nested spell formula slot → 'cantrips.2.info.titleFormulas.1'", () => {
+  it("nested spell formula slot → '0.2.info.titleFormulas.1'", () => {
     const c = charPath(FIELD.spells)
-      .k("cantrips")
+      .k(0) // cantrips bucket
       .at(2)
       .k("info")
       .k("titleFormulas")
       .at(1);
-    expect(c.subpath()).toBe("cantrips.2.info.titleFormulas.1");
+    expect(c.subpath()).toBe("0.2.info.titleFormulas.1");
   });
 
   it("damage-map formula slot → 'formula.Fire'", () => {
@@ -74,9 +73,9 @@ describe("Cursor serialization parity", () => {
     expect(c.toString()).toBe("attacks.new");
   });
 
-  it("spell-bucket append sentinel → 'cantrips.new'", () => {
-    const c = charPath(FIELD.spells).k("cantrips").append();
-    expect(c.subpath()).toBe("cantrips.new");
+  it("spell-bucket append sentinel → '0.new'", () => {
+    const c = charPath(FIELD.spells).k(0).append();
+    expect(c.subpath()).toBe("0.new");
   });
 });
 
@@ -107,22 +106,20 @@ describe("updateAt / clearAt produce the pipeline's Action shape", () => {
   });
 
   it("updateAt on a bare field omits subField", () => {
-    const action = updateAt(charPath(FIELD.speed), 30);
+    const action = updateAt(charPath(FIELD.currHp), 30);
     expect(action).toEqual({
-      type: "update_speed",
+      type: "update_currHp",
       payload: { value: 30 },
       subField: undefined,
     });
   });
 
   it("clearAt dispatches { value: undefined }", () => {
-    const action = clearAt(
-      charPath(FIELD.spellSlots).k(SpellLevel.First).k("totalOverride"),
-    );
+    const action = clearAt(charPath(FIELD.spellSlots).k(1).k("totalOverride"));
     expect(action).toEqual({
       type: "update_spellSlots",
       payload: { value: undefined },
-      subField: "First.totalOverride",
+      subField: "1.totalOverride",
     });
   });
 });
@@ -142,8 +139,8 @@ describe("type-level guards (compile-time only)", () => {
     charPath(FIELD.attacks).at(0).k("nope");
 
     // `.at()` requires an array cursor.
-    // @ts-expect-error speed is a number, not an array
-    charPath(FIELD.speed).at(0);
+    // @ts-expect-error currHp is a number, not an array
+    charPath(FIELD.currHp).at(0);
 
     expect(true).toBe(true);
   });

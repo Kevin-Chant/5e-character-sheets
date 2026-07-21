@@ -1,4 +1,3 @@
-import { SpellLevel } from "src/lib/data/data-definitions";
 import { SpellMechanics } from "src/lib/types";
 import srdSpellData from "src/lib/data/srd-spells.json";
 
@@ -69,19 +68,7 @@ export function searchSrdSpells(query: string, className?: string): SrdSpell[] {
     });
 }
 
-const NUMERIC_TO_SPELL_LEVEL: Record<number, SpellLevel> = {
-  1: SpellLevel.First,
-  2: SpellLevel.Second,
-  3: SpellLevel.Third,
-  4: SpellLevel.Fourth,
-  5: SpellLevel.Fifth,
-  6: SpellLevel.Sixth,
-  7: SpellLevel.Seventh,
-  8: SpellLevel.Eighth,
-  9: SpellLevel.Ninth,
-};
-
 // The `character.spells` sub-path a spell of this numeric level belongs in:
-// "cantrips" for level 0, otherwise the matching `SpellLevel`.
-export const spellSubFieldForLevel = (level: number): string =>
-  level === 0 ? "cantrips" : NUMERIC_TO_SPELL_LEVEL[level];
+// the level number itself (0 for cantrips, 1–9 for leveled), as a string since
+// field sub-paths are strings.
+export const spellSubFieldForLevel = (level: number): string => String(level);

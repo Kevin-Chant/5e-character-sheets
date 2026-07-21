@@ -14,12 +14,15 @@ import {
   isDieExpression,
 } from "src/lib/types";
 import { defaultCharacter } from "src/lib/data/default-data";
+import { randomUUID } from "src/lib/browser";
 import {
   scalingSteps,
   spellDamageAtLevel,
   spellHealingAtLevel,
   spellInstancesAtLevel,
 } from "./spell-scaling";
+
+const CLERIC_ID = randomUUID();
 
 const roll = (count: number, die: StandardDie): DieExpression => [
   count,
@@ -180,7 +183,7 @@ describe("spellHealingAtLevel", () => {
     resolution: { kind: "auto" },
     healing: {
       operation: "addition",
-      operands: [roll(1, StandardDie.d8), { spellMod: OfficialClass.Cleric }],
+      operands: [roll(1, StandardDie.d8), { spellMod: CLERIC_ID }],
     },
     scaling: { driver: "slot", perLevels: 1, healing: roll(1, StandardDie.d8) },
   };
@@ -234,9 +237,10 @@ describe("spellInstancesAtLevel", () => {
 describe("spellMod formula leaf", () => {
   it("resolves to the class's spellcasting ability modifier, live", () => {
     const character: Character = structuredClone(defaultCharacter);
-    character.spellcastingClasses = [{ class: OfficialClass.Cleric }];
+    character.class = [{ id: CLERIC_ID, name: OfficialClass.Cleric, level: 1 }];
+    character.spellcastingClasses = [{ classId: CLERIC_ID }];
     character.stats.wis = 18; // Cleric casts off WIS → +4
-    const formula = { spellMod: OfficialClass.Cleric };
+    const formula = { spellMod: CLERIC_ID };
     expect(calculateCustomFormula(formula, character)).toBe(4);
     expect(formatCustomFormula(formula, character, false)).toBe(
       "spellcasting mod",
@@ -246,12 +250,13 @@ describe("spellMod formula leaf", () => {
 
   it("honors a per-class abilityOverride", () => {
     const character: Character = structuredClone(defaultCharacter);
+    character.class = [{ id: CLERIC_ID, name: OfficialClass.Cleric, level: 1 }];
     character.spellcastingClasses = [
-      { class: OfficialClass.Cleric, abilityOverride: StatKey.cha },
+      { classId: CLERIC_ID, abilityOverride: StatKey.cha },
     ];
     character.stats.wis = 10;
     character.stats.cha = 20; // override → CHA +5
-    const formula = { spellMod: OfficialClass.Cleric };
+    const formula = { spellMod: CLERIC_ID };
     expect(calculateCustomFormula(formula, character)).toBe(5);
   });
 });

@@ -33,6 +33,92 @@ describe("migrateCharacter", () => {
     const current = structuredClone(defaultCharacter);
     expect(migrateCharacter(current)).toEqual(current);
   });
+
+  it("v3 parses a legacy race string into a structured race object", () => {
+    // A real v2 character had a flat numeric `speed` and no `speeds`/`senses`.
+    const {
+      speeds: _s,
+      senses: _n,
+      ...base
+    } = structuredClone(defaultCharacter);
+    void _s;
+    void _n;
+    const legacy = {
+      ...base,
+      schemaVersion: 2,
+      race: "Elf (High Elf)",
+      speed: 35,
+    };
+    const migrated = migrateCharacter(legacy);
+    expect(migrated.race).toEqual({
+      name: "Elf",
+      subrace: "High Elf",
+      size: "Medium",
+    });
+    // Flat speed → structured speeds.walk; the old field is dropped; senses start
+    // empty (a legacy save has no structured senses).
+    expect(migrated.speeds).toEqual({ walk: 35 });
+    expect(migrated.speed).toBeUndefined();
+    expect(migrated.senses).toEqual({});
+    const [valid] = validateCharacterData(migrated);
+    expect(valid).toBe(true);
+  });
+
+  it("v4 remaps word-keyed spell buckets to numeric levels", () => {
+    const legacy = {
+      ...structuredClone(defaultCharacter),
+      schemaVersion: 3,
+      spells: { cantrips: [{ marker: "c" }], First: [{ marker: "1" }] },
+      spellSlots: { First: { expended: 1 }, Third: { expended: 0 } },
+    };
+    const migrated = migrateCharacter(legacy);
+    expect(migrated.spells[0]).toEqual([{ marker: "c" }]);
+    expect(migrated.spells[1]).toEqual([{ marker: "1" }]);
+    expect(migrated.spells.cantrips).toBeUndefined();
+    expect(migrated.spellSlots[1]).toEqual({ expended: 1 });
+    expect(migrated.spellSlots[3]).toEqual({ expended: 0 });
+  });
+
+  it("v5 gives classes ids and rewrites name-based references to them", () => {
+    const legacy = {
+      ...structuredClone(defaultCharacter),
+      schemaVersion: 4,
+      class: [{ name: "Wizard", level: 5 }],
+      spellcastingClasses: [{ class: "Wizard", abilityOverride: "int" }],
+      spells: {
+        0: [
+          {
+            spellcastingClass: "Wizard",
+            info: { title: "Fire Bolt", titleFormulas: [] },
+          },
+        ],
+      },
+      // A limited-use pool scaled by "Wizard level" (bare class-name leaf) and a
+      // spellMod leaf carrying the class name.
+      limitedUseAbilities: [
+        {
+          info: { title: "Arcane Recovery", titleFormulas: [] },
+          maxUses: "Wizard",
+          recharge: "Long Rest",
+          expended: 0,
+        },
+      ],
+    };
+    const migrated = migrateCharacter(legacy);
+    const wizardId = migrated.class[0].id;
+    expect(typeof wizardId).toBe("string");
+    expect(migrated.spellcastingClasses[0]).toEqual({
+      classId: wizardId,
+      abilityOverride: "int",
+    });
+    expect(migrated.spells[0][0].spellcastingClass).toBe(wizardId);
+    // Bare class-name leaf became an id-tagged classLevel leaf.
+    expect(migrated.limitedUseAbilities[0].maxUses).toEqual({
+      classLevel: wizardId,
+    });
+    const [valid] = validateCharacterData(migrated);
+    expect(valid).toBe(true);
+  });
 });
 
 describe("hydrateCharacter", () => {

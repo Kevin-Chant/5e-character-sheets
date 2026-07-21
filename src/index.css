@@ -553,6 +553,18 @@ p {
   padding: 0.4rem;
 }
 
+/* Senses box reuses the Other-Proficiencies look; its box-level add "+" sits in
+   the title, matching the Limited-Use Abilities / Features boxes. */
+.other-proficiencies .senses-title {
+  position: relative;
+}
+.senses-add {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 /* Typeahead combobox: free-text input with a filtered, optionally grouped list
    of suggestions below it. */
 .typeahead {

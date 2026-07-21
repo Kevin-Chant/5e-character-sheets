@@ -11,16 +11,13 @@ import {
   spellHealingAtLevel,
 } from "src/lib/spells/spell-scaling";
 import { availableSpellSlots } from "src/lib/rules";
-import { SpellLevel } from "src/lib/data/data-definitions";
+import { LeveledSpellLevel } from "src/lib/data/data-definitions";
 import {
   Character,
   CustomFormula,
   CustomFormulaWithDamage,
   Spell,
 } from "src/lib/types";
-
-// SpellLevel enum values indexed by numeric level (index 0 = 1st).
-const SPELL_LEVELS = Object.values(SpellLevel) as SpellLevel[];
 
 const totalLevel = (levels: { level: number }[]) =>
   levels.reduce((sum, c) => sum + (c.level || 0), 0);
@@ -141,7 +138,7 @@ function EffectControls({
     if (!mechanics || isCantrip) return [];
     const out: number[] = [];
     for (let lvl = mechanics.level; lvl <= 9; lvl++)
-      if (availableSpellSlots(character, SPELL_LEVELS[lvl - 1]) > 0)
+      if (availableSpellSlots(character, lvl as LeveledSpellLevel) > 0)
         out.push(lvl);
     return out;
   }, [mechanics, isCantrip, character]);

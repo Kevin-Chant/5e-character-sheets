@@ -1,5 +1,6 @@
 import { useCharacter } from "src/lib/hooks/use-character";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
+import SensesDisplay from "./display/senses-display";
 import LimitedUseAbilitiesDisplay from "./display/limited-use-abilities-display";
 import { FIELD } from "src/lib/data/data-definitions";
 import { charPath } from "src/lib/cursor";
@@ -29,6 +30,7 @@ export default function CharacterInfoPanel() {
         title="Features & Traits"
         cursor={charPath(FIELD.features)}
       />
+      <SensesDisplay />
       <LimitedUseAbilitiesDisplay />
     </div>
   );

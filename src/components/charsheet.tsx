@@ -29,6 +29,9 @@ import EditClassLevels from "./edit-class-levels";
 import Spellcasting from "./spellcasting";
 import EditSpell from "./edit-spell";
 import EditLimitedUseAbility from "./edit-limited-use-ability";
+import EditRace from "./edit-race";
+import EditSpeeds from "./edit-speeds";
+import EditSenses from "./edit-senses";
 import PresenceBroadcaster from "./presence-broadcaster";
 import DriveLiveSessionBootstrap from "./drive-live-session-bootstrap";
 import SharePresenceWarning from "./share-presence-warning";
@@ -181,6 +184,18 @@ export default function CharSheet() {
       modalContents = <EditLimitedUseAbility />;
       modalTitle = "Edit Ability";
       break;
+    case "race":
+      modalContents = <EditRace />;
+      modalTitle = "Edit Race";
+      break;
+    case "speeds":
+      modalContents = <EditSpeeds />;
+      modalTitle = "Edit Speeds";
+      break;
+    case "senses":
+      modalContents = <EditSenses />;
+      modalTitle = subField === "new" ? "Add Sense" : "Edit Sense";
+      break;
     default:
       modalContents = (
         <UpdateField
@@ -256,6 +271,11 @@ export default function CharSheet() {
                 <div className="row">
                   <SingleValueDisplay
                     field={FIELD.race}
+                    transform={(race) =>
+                      race.subrace
+                        ? `${race.name} (${race.subrace})`
+                        : race.name
+                    }
                     name={"Race"}
                     vertical
                     editable

@@ -14,6 +14,7 @@ import {
 import { getHitDice, totalGP } from "src/lib/rules";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 import SingleValueDisplay from "./display/single-value-display";
+import SpeedDisplay from "./display/speed-display";
 import SlotPips from "./display/slot-pips";
 import RollButton from "./roll-button";
 import { FaPencil } from "react-icons/fa6";
@@ -67,12 +68,7 @@ export default function DefenceAndEquipmentPanel() {
           editable
           rollCheck="Initiative"
         />
-        <SingleValueDisplay
-          cursor={charPath(FIELD.speed)}
-          name="Speed"
-          vertical
-          editable
-        />
+        <SpeedDisplay />
       </div>
       {/* HP */}
       <div className="column rounded-border-box hp-box">

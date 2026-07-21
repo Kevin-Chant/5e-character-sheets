@@ -5,7 +5,6 @@ import {
   StandardDie,
 } from "src/lib/data/data-definitions";
 import {
-  ClassName,
   CustomFormula,
   DieExpression,
   SpellDamageComponent,
@@ -15,6 +14,7 @@ import {
   isDieExpression,
   isSpellMod,
 } from "src/lib/types";
+import { UUID } from "crypto";
 
 // Bridges the structured `SpellMechanics` model (see spell-scaling.md) and the
 // plain text inputs the spell editor exposes. The editor only offers the two
@@ -89,14 +89,14 @@ export function formulaToDiceInput(
 // text is unparseable (so the caller can keep the field empty / drop the row).
 export function diceInputToFormula(
   input: DiceFormulaInput,
-  className: ClassName,
+  classId: UUID,
 ): CustomFormula | undefined {
   const dice = parseDice(input.dice);
   if (!dice) return undefined;
   if (!input.addSpellMod) return dice;
   return {
     operation: Operation.addition,
-    operands: [dice, { spellMod: className }],
+    operands: [dice, { spellMod: classId }],
   };
 }
 
@@ -203,7 +203,7 @@ function formScaling(sf: ScalingForm): SpellScaling | undefined {
 export function formToMechanics(
   form: MechForm,
   level: number,
-  className: ClassName,
+  classId: UUID,
 ): SpellMechanics {
   const damage: SpellDamageComponent[] = [];
   for (const row of form.damage) {
@@ -211,7 +211,7 @@ export function formToMechanics(
       row.raw ??
       diceInputToFormula(
         { dice: row.dice, addSpellMod: row.addSpellMod },
-        className,
+        classId,
       );
     if (formula) damage.push({ damageType: row.damageType, formula });
   }
@@ -220,7 +220,7 @@ export function formToMechanics(
     (form.healing.raw ??
       diceInputToFormula(
         { dice: form.healing.dice, addSpellMod: form.healing.addSpellMod },
-        className,
+        classId,
       ));
   const scaling = form.scaling && formScaling(form.scaling);
   return {

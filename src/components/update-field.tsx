@@ -12,7 +12,6 @@ import { getFieldValue, traverse } from "src/lib/fields";
 import {
   DEFAULT_BACKGROUNDS,
   DEFAULT_LANGUAGES,
-  DEFAULT_RACES,
   DEFAULT_WEAPONS,
   getOptionalInitializer,
 } from "src/lib/rules";
@@ -130,8 +129,6 @@ export default function UpdateField({
     else if (section === "languages") knownOptions = DEFAULT_LANGUAGES;
   } else if (targetedField === FIELD.background) {
     knownOptions = DEFAULT_BACKGROUNDS;
-  } else if (targetedField === FIELD.race) {
-    knownOptions = DEFAULT_RACES;
   }
 
   return (

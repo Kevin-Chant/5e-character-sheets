@@ -9,10 +9,11 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 import { Character, IClass, Spell, TextComponent } from "src/lib/types";
+import { randomUUID } from "src/lib/browser";
 import { averageDie, getHitDice, getHpFormula, modifier } from "src/lib/rules";
 import { getSubclassByName } from "src/lib/builder/subclasses";
 import { getFeat } from "src/lib/builder/feats";
-import { getSrdSpell, spellSubFieldForLevel } from "src/lib/spells/srd-spells";
+import { getSrdSpell } from "src/lib/spells/srd-spells";
 import { buildSpellFromSrd } from "src/lib/spells/srd-spell-adapter";
 import { Feat, SrdSubclass } from "src/lib/builder/types";
 
@@ -256,9 +257,14 @@ function applySubclassGrant(
 function addSpell(char: Character, index: string, className: string): void {
   const srd = getSrdSpell(index);
   if (!srd) return;
-  const key = spellSubFieldForLevel(srd.level);
-  const spell: Spell = buildSpellFromSrd(srd, className);
-  (char.spells[key as keyof typeof char.spells] as Spell[]).push(spell);
+  // Resolve the class name to its stable id (spells reference classes by id).
+  const classId =
+    char.class.find((c) => c.name === className)?.id ??
+    char.class[0]?.id ??
+    randomUUID();
+  const spell: Spell = buildSpellFromSrd(srd, classId);
+  const bucket = (char.spells[srd.level as keyof typeof char.spells] ??= []);
+  bucket.push(spell);
 }
 
 // Apply a chosen feat to the character: its ability increase, its `effect` as a
@@ -290,7 +296,7 @@ function applyFeat(char: Character, feat: Feat, state: LevelUpState): void {
       ...char.otherProficiencies.toolsAndOther,
       ...g.tools.map((t) => text(t)),
     ];
-  if (g.speedBonus) char.speed += g.speedBonus;
+  if (g.speedBonus) char.speeds.walk += g.speedBonus;
   if (g.initiativeBonus)
     char.initiativeFormula = {
       operation: Operation.addition,
@@ -335,7 +341,7 @@ export function applyLevelUp(
   // 1. Advance the class list.
   let klass: IClass;
   if (state.isNewMulticlass) {
-    klass = { name: state.className, level: 1 };
+    klass = { id: randomUUID(), name: state.className, level: 1 };
     char.class.push(klass);
   } else {
     const existing = char.class.find((c) => c.name === state.className);
@@ -344,7 +350,7 @@ export function applyLevelUp(
       klass = existing;
     } else {
       // Advancing a class not yet on the sheet behaves like a fresh entry.
-      klass = { name: state.className, level: 1 };
+      klass = { id: randomUUID(), name: state.className, level: 1 };
       char.class.push(klass);
     }
   }
@@ -371,10 +377,10 @@ export function applyLevelUp(
   // 4. Ensure the class is registered for spellcasting (new caster multiclass).
   if (
     isCasterClass(state.className) &&
-    !char.spellcastingClasses.some((c) => c.class === state.className)
+    !char.spellcastingClasses.some((c) => c.classId === klass.id)
   ) {
-    char.spellcastingClasses.push({ class: state.className });
-    char.spells.cantrips ??= [];
+    char.spellcastingClasses.push({ classId: klass.id });
+    char.spells[0] ??= []; // key 0 = cantrips
   }
   if (state.className === OfficialClass.Warlock && !char.pactSlots)
     char.pactSlots = { expended: 0 };
