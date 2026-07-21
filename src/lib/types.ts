@@ -571,12 +571,22 @@ export interface Character {
     skills: Proficiencies<SkillName>;
     expertise: Proficiencies<SkillName>;
     isJackOfAllTradesOverride: boolean;
+    // Optional per-skill bonus formulas added on top of the ability + proficiency
+    // modifier — a home for Remarkable Athlete, Stone of Good Luck, Observant,
+    // etc. (a formula so half-proficiency scales with level). Absent = no bonus.
+    skillBonuses: { [key in SkillName]?: CustomFormula };
   };
   otherProficiencies: OtherProficiencies;
   // Damage resistances / immunities / vulnerabilities — see `DamageModifiers`.
   damageModifiers: DamageModifiers;
   acFormula: CustomFormula;
   initiativeFormula?: CustomFormula;
+  // Optional Passive Perception override formula. When unset, the value is
+  // computed (10 + WIS mod + Perception proficiency + bonus); set it to model a
+  // passive-only adjustment like Observant's +5 without touching active checks.
+  // Seeded from the computed default when first edited — see
+  // `getPassivePerceptionFormula`.
+  passivePerception?: CustomFormula;
   // Movement speeds (walk + optional fly/swim/climb/burrow). Seeded from the race
   // at creation, then editable — see `Speeds`.
   speeds: Speeds;

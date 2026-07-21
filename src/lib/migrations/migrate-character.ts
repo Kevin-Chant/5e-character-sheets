@@ -346,6 +346,22 @@ const migrations: Migration[] = [
       return filled;
     },
   },
+  {
+    // Per-skill bonus formulas got a home (`proficiencies.skillBonuses`) for
+    // Remarkable Athlete / Stone of Good Luck / Observant etc. Seed it empty.
+    to: 8,
+    migrate: (character) => {
+      if (!character || typeof character !== "object") return character;
+      const filled = { ...character };
+      if (filled.proficiencies && typeof filled.proficiencies === "object") {
+        filled.proficiencies = { ...filled.proficiencies };
+        if (filled.proficiencies.skillBonuses === undefined)
+          filled.proficiencies.skillBonuses = {};
+      }
+      filled.schemaVersion = 8;
+      return filled;
+    },
+  },
 ];
 
 // Sorted, append-only safety: ensures we apply migrations in ascending order

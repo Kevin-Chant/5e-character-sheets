@@ -23,14 +23,19 @@ export default function BuildCustomFormula() {
 
   if (!character || !targetedField) return <></>;
 
+  // Use `undefined` (not falsiness) as the "nothing stored" sentinel: a formula
+  // can legitimately be the number 0 (e.g. a skill bonus), which must still open
+  // the editor rather than fall back to the "Build a formula" starter.
   let formula = getFieldValue(targetedField, character);
-  if (!formula) {
+  if (formula === undefined) {
     formula = getOptionalInitializer(targetedField, undefined, character);
   }
   if (subField) {
+    const nested = traverse(subField, formula);
     formula =
-      traverse(subField, formula) ||
-      getOptionalInitializer(targetedField, subField, character);
+      nested === undefined
+        ? getOptionalInitializer(targetedField, subField, character)
+        : nested;
   }
 
   const setFormula = (newVal: CustomFormula) => {
@@ -39,7 +44,7 @@ export default function BuildCustomFormula() {
     );
   };
 
-  if (!formula) {
+  if (formula === undefined) {
     // Nothing stored yet — offer starting points that seed an editable
     // formula; picking one drops straight into the editor rendered below.
     return (

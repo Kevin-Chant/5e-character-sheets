@@ -153,6 +153,16 @@ describe("migrateCharacter", () => {
     const [valid] = validateCharacterData(migrated);
     expect(valid).toBe(true);
   });
+
+  it("v8 seeds an empty skillBonuses map", () => {
+    const base = structuredClone(defaultCharacter);
+    const { skillBonuses: _drop, ...proficiencies } = base.proficiencies;
+    const legacy = { ...base, schemaVersion: 7, proficiencies };
+    const migrated = migrateCharacter(legacy);
+    expect(migrated.proficiencies.skillBonuses).toEqual({});
+    const [valid] = validateCharacterData(migrated);
+    expect(valid).toBe(true);
+  });
 });
 
 describe("hydrateCharacter", () => {

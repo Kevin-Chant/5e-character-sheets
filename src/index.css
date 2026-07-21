@@ -676,6 +676,59 @@ p {
   margin: 0;
 }
 
+/* Skill / saving-throw proficiency toggle: a small box that cycles none → ✓
+   (proficient) → e (expertise). Saving throws only reach the first two states. */
+.prof-toggle {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+.prof-toggle.editable {
+  cursor: pointer;
+}
+.prof-toggle--proficient {
+  border-color: #3992ff;
+  color: #3992ff;
+}
+.prof-toggle--expert {
+  border-color: #3992ff;
+  background: #3992ff;
+  color: #fff;
+  /* Stylized serif italic "e" so expertise reads distinctly from a checkmark. */
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+}
+
+/* Per-skill bonus editor (pencil), shown in edit mode; brightens when a bonus
+   is set. */
+.prof-bonus-edit {
+  background: transparent;
+  border: none;
+  padding: 0 0.2rem;
+  cursor: pointer;
+  opacity: 0.4;
+  display: inline-flex;
+  align-items: center;
+}
+.prof-bonus-edit:hover {
+  opacity: 0.9;
+}
+.prof-bonus-edit.active {
+  opacity: 1;
+  color: #3992ff;
+}
+
 /* Classic character-sheet look: the value sits on an underline rather than in a
    filled box, so empty/short values read as fields to fill in, not placeholders. */
 .display-value {

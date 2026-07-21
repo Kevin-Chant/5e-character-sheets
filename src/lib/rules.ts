@@ -21,6 +21,7 @@ import {
   HIT_DICE,
   OfficialClass,
   Operation,
+  PB,
   SPELLCASTING_ABILITIES,
   SkillName,
   LeveledSpellLevel,
@@ -157,6 +158,43 @@ export function getHitDice(character: Character): HitDice {
         (hitDice[getHitDie(klass.name)] || 0) + klass.level),
   );
   return hitDice;
+}
+
+// Jack of All Trades applies half proficiency to non-proficient ability checks:
+// Bard level 2+, or the manual override.
+export function hasJackOfAllTrades(character: Character): boolean {
+  const bardLevel =
+    character.class.find((klass) => klass.name === "Bard")?.level || 0;
+  return bardLevel > 1 || character.proficiencies.isJackOfAllTradesOverride;
+}
+
+// The default Passive Perception formula: 10 + WIS modifier + the proficiency
+// contribution for Perception (expertise / proficiency / Jack of All Trades) +
+// any per-skill Perception bonus. Seeds the editable `passivePerception`
+// override so a player can tweak it (e.g. Observant's passive-only +5) starting
+// from the computed value.
+export function getPassivePerceptionFormula(
+  character: Character,
+): CustomFormula {
+  const proficient = !!character.proficiencies.skills.Perception;
+  const expert = !!character.proficiencies.expertise.Perception;
+  const bonus = character.proficiencies.skillBonuses.Perception;
+  const operands: CustomFormula[] = [10, StatKey.wis];
+  // Proficiency contribution as a PB-referencing formula (not a frozen number),
+  // so a saved override keeps scaling with level: PB when proficient, 2×PB with
+  // expertise, and floor(PB/2) for Jack of All Trades.
+  if (expert) {
+    operands.push({ operation: Operation.multiplication, operands: [2, PB] });
+  } else if (proficient) {
+    operands.push(PB);
+  } else if (hasJackOfAllTrades(character)) {
+    operands.push({
+      operation: Operation.floor,
+      operand1: { operation: Operation.division, operand1: PB, operand2: 2 },
+    });
+  }
+  if (bonus !== undefined) operands.push(bonus);
+  return { operation: Operation.addition, operands };
 }
 
 export function getHpFormula(character: Character): CustomFormula {
@@ -418,6 +456,7 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
   pbOverride: getPB,
   maxHp: getHpFormula,
   initiativeFormula: () => StatKey.dex,
+  passivePerception: getPassivePerceptionFormula,
   expendedHitDice: () => 0,
   exp: () => 0,
   coins: () => 0,

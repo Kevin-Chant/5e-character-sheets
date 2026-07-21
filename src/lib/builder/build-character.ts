@@ -113,6 +113,7 @@ function emptyScaffold(): Character {
       skills: {},
       expertise: {},
       isJackOfAllTradesOverride: false,
+      skillBonuses: {},
     },
     otherProficiencies: {
       languages: [],

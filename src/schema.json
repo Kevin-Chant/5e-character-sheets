@@ -1304,6 +1304,68 @@
                 "normal"
             ],
             "type": "object"
+        },
+        "{Acrobatics?:CustomFormula;\"AnimalHandling\"?:CustomFormula;Arcana?:CustomFormula;Athletics?:CustomFormula;Deception?:CustomFormula;History?:CustomFormula;Insight?:CustomFormula;Intimidation?:CustomFormula;Investigation?:CustomFormula;Medicine?:CustomFormula;Nature?:CustomFormula;Perception?:CustomFormula;Performance?:CustomFormula;Persuasion?:CustomFormula;Religion?:CustomFormula;\"SleightofHand\"?:CustomFormula;Stealth?:CustomFormula;Survival?:CustomFormula;\"ThievesTools\"?:CustomFormula;}": {
+            "properties": {
+                "Acrobatics": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Animal Handling": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Arcana": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Athletics": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Deception": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "History": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Insight": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Intimidation": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Investigation": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Medicine": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Nature": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Perception": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Performance": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Persuasion": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Religion": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Sleight of Hand": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Stealth": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Survival": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Thieves Tools": {
+                    "$ref": "#/definitions/CustomFormula"
+                }
+            },
+            "type": "object"
         }
     },
     "properties": {
@@ -1403,6 +1465,9 @@
         "pactSlots": {
             "$ref": "#/definitions/PactSlots"
         },
+        "passivePerception": {
+            "$ref": "#/definitions/CustomFormula"
+        },
         "pbOverride": {
             "type": "number"
         },
@@ -1455,6 +1520,9 @@
                 "savingThrows": {
                     "$ref": "#/definitions/Proficiencies<StatKey>"
                 },
+                "skillBonuses": {
+                    "$ref": "#/definitions/{Acrobatics?:CustomFormula;\"AnimalHandling\"?:CustomFormula;Arcana?:CustomFormula;Athletics?:CustomFormula;Deception?:CustomFormula;History?:CustomFormula;Insight?:CustomFormula;Intimidation?:CustomFormula;Investigation?:CustomFormula;Medicine?:CustomFormula;Nature?:CustomFormula;Perception?:CustomFormula;Performance?:CustomFormula;Persuasion?:CustomFormula;Religion?:CustomFormula;\"SleightofHand\"?:CustomFormula;Stealth?:CustomFormula;Survival?:CustomFormula;\"ThievesTools\"?:CustomFormula;}"
+                },
                 "skills": {
                     "$ref": "#/definitions/Proficiencies<SkillName>"
                 }
@@ -1463,6 +1531,7 @@
                 "expertise",
                 "isJackOfAllTradesOverride",
                 "savingThrows",
+                "skillBonuses",
                 "skills"
             ],
             "type": "object"

@@ -62,6 +62,7 @@ export const defaultCharacter: Character = {
     },
     expertise: {},
     isJackOfAllTradesOverride: false,
+    skillBonuses: {},
   },
   otherProficiencies: {
     languages: ["Common", "Infernal"],

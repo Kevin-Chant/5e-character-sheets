@@ -2,21 +2,37 @@ import ProficiencyDisplay from "src/components/display/proficiency-display";
 import SingleValueDisplay from "src/components/display/single-value-display";
 import StatDisplay from "src/components/display/stat-display";
 import { FIELD, SkillName, StatKey } from "src/lib/data/data-definitions";
-import { charPath, Cursor, updateAt } from "src/lib/cursor";
+import { charPath, updateAt } from "src/lib/cursor";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { calculateCustomFormula } from "src/lib/formula";
-import { SKILL_SOURCE_STATS, STAT_NAMES, getPB, modifier } from "src/lib/rules";
+import {
+  SKILL_SOURCE_STATS,
+  STAT_NAMES,
+  getPB,
+  hasJackOfAllTrades,
+  modifier,
+} from "src/lib/rules";
 import OtherProficienciesDisplay from "./display/other-proficiencies-display";
 
-function SkillsColumn({ pb }: { pb: number }) {
-  const { character, dispatch } = useCharacter();
-  if (!character) return <></>;
+// The proficiency contribution to a d20 modifier: double PB for expertise, PB
+// for proficiency, half PB (rounded down) for Jack of All Trades, else nothing.
+function proficiencyBonus(
+  pb: number,
+  proficient: boolean,
+  expert: boolean,
+  jack: boolean,
+): number {
+  if (expert) return 2 * pb;
+  if (proficient) return pb;
+  if (jack) return Math.floor(pb / 2);
+  return 0;
+}
 
-  const createProficiencyUpdater = (cursor: Cursor<boolean | undefined>) => {
-    return (value: boolean) => {
-      dispatch(updateAt(cursor, value));
-    };
-  };
+function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
+  const { character, dispatch } = useCharacter();
+  const { pushCursor } = useTargetedField();
+  if (!character) return <></>;
 
   return (
     <div className="column">
@@ -51,7 +67,7 @@ function SkillsColumn({ pb }: { pb: number }) {
                 }
                 text={statName}
                 rollLabel={`${statName} Save`}
-                updateProficiency={createProficiencyUpdater(cursor)}
+                onToggle={() => dispatch(updateAt(cursor, !proficient))}
               />
             );
           },
@@ -64,34 +80,54 @@ function SkillsColumn({ pb }: { pb: number }) {
           ([skillName, statKey]) => {
             const proficient = !!character.proficiencies.skills[skillName];
             const expert = !!character.proficiencies.expertise[skillName];
-            const jack =
-              (character.class.find((klass) => klass.name === "Bard")?.level ||
-                0) > 1 || character.proficiencies.isJackOfAllTradesOverride;
-            const cursor = charPath(FIELD.proficiencies)
+            const skillsCursor = charPath(FIELD.proficiencies)
               .k("skills")
               .k(skillName);
+            const expertiseCursor = charPath(FIELD.proficiencies)
+              .k("expertise")
+              .k(skillName);
+            const bonusFormula =
+              character.proficiencies.skillBonuses[skillName];
+            const bonus = bonusFormula
+              ? calculateCustomFormula(bonusFormula, character)
+              : 0;
+            // Cycle none → proficient → expert → none, keeping expertise ⊆
+            // proficiency so an invalid combo can't be reached from the UI.
+            const cycle = () => {
+              if (expert) {
+                dispatch(updateAt(skillsCursor, false));
+                dispatch(updateAt(expertiseCursor, false));
+              } else if (proficient) {
+                dispatch(updateAt(expertiseCursor, true));
+              } else {
+                dispatch(updateAt(skillsCursor, true));
+              }
+            };
             return (
               <ProficiencyDisplay
                 key={skillName}
-                cursor={cursor}
+                cursor={skillsCursor}
                 id={`${skillName}_proficiency`}
                 proficient={proficient}
                 expert={expert}
                 jack={jack}
-                transform={(proficient) =>
+                transform={() =>
                   modifier(character.stats[statKey]) +
-                  (expert
-                    ? 2 * pb
-                    : proficient
-                      ? pb
-                      : jack
-                        ? Math.floor(pb / 2)
-                        : 0)
+                  proficiencyBonus(pb, proficient, expert, jack) +
+                  bonus
                 }
                 text={skillName}
                 subtext={`(${statKey})`}
                 rollLabel={skillName}
-                updateProficiency={createProficiencyUpdater(cursor)}
+                onToggle={cycle}
+                onEditBonus={() =>
+                  pushCursor(
+                    charPath(FIELD.proficiencies)
+                      .k("skillBonuses")
+                      .k(skillName),
+                  )
+                }
+                hasBonus={bonusFormula !== undefined}
               />
             );
           },
@@ -102,7 +138,7 @@ function SkillsColumn({ pb }: { pb: number }) {
   );
 }
 
-function StatsAndSkills({ pb }: { pb: number }) {
+function StatsAndSkills({ pb, jack }: { pb: number; jack: boolean }) {
   const { character } = useCharacter();
   if (!character) return <></>;
   return (
@@ -124,7 +160,7 @@ function StatsAndSkills({ pb }: { pb: number }) {
           },
         )}
       </div>
-      <SkillsColumn pb={pb} />
+      <SkillsColumn pb={pb} jack={jack} />
     </div>
   );
 }
@@ -133,15 +169,18 @@ export default function StatAndSkillPanel() {
   const { character } = useCharacter();
   if (!character) return <></>;
   const pb = getPB(character);
-  const calculatePassivePerception = (wis: number) =>
-    10 + modifier(wis) + (character.proficiencies.skills.Perception ? pb : 0);
+  const jack = hasJackOfAllTrades(character);
   return (
     <div className="stat-and-skill-panel">
-      <StatsAndSkills pb={pb} />
+      <StatsAndSkills pb={pb} jack={jack} />
+      {/* Optional override formula; when unset, the SingleValueDisplay falls back
+          to the computed default (getPassivePerceptionFormula). Editable so a
+          player can set a passive-only adjustment (e.g. Observant's +5). */}
       <SingleValueDisplay
         name="Passive Wisdom (Perception)"
-        cursor={charPath(FIELD.stats).k(StatKey.wis)}
-        transform={(wis) => calculatePassivePerception(wis)}
+        cursor={charPath(FIELD.passivePerception)}
+        transform={calculateCustomFormula}
+        editable
       />
       <OtherProficienciesDisplay />
     </div>

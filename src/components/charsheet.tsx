@@ -87,6 +87,13 @@ export default function CharSheet() {
               "Unexpected subfield for spellcasting class" + subField,
             );
         }
+      } else if (
+        targetedField === FIELD.proficiencies &&
+        (subField || "").startsWith("skillBonuses")
+      ) {
+        // Per-skill bonus is a formula living under the (otherwise boolean)
+        // proficiencies field — route it to the formula builder.
+        setModalType("formula");
       } else if (standardFieldType === "otherProficiencies") {
         // languages/weapons are plain strings; armor is a checkbox set;
         // toolsAndOther are textLines (with formula sub-paths handled like
