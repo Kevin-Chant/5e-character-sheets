@@ -72,7 +72,7 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
             );
           },
         )}
-        <b>Saving Throws</b>
+        <b className="section-heading">Saving Throws</b>
       </div>
 
       <div className="column rounded-border-box margin-medium">
@@ -132,7 +132,7 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
             );
           },
         )}
-        <b>Skills</b>
+        <b className="section-heading">Skills</b>
       </div>
     </div>
   );

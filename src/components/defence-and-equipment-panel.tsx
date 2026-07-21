@@ -64,7 +64,7 @@ export default function DefenceAndEquipmentPanel() {
   return (
     <div className="column">
       {/* AC, Init, Speed */}
-      <div className="row">
+      <div className="row defence-vitals">
         <SingleValueDisplay
           cursor={charPath(FIELD.acFormula)}
           transform={calculateCustomFormula}
@@ -167,7 +167,7 @@ export default function DefenceAndEquipmentPanel() {
               })}
             </tbody>
           </table>
-          <b>Hit Dice</b>
+          <b className="section-heading">Hit Dice</b>
         </div>
         <div className="column rounded-border-box tracker-box">
           <div className="column death-save-row">
@@ -196,7 +196,7 @@ export default function DefenceAndEquipmentPanel() {
               }
             />
           </div>
-          <b>Death Saves</b>
+          <b className="section-heading">Death Saves</b>
         </div>
       </div>
       {/* Attacks */}
@@ -280,7 +280,7 @@ export default function DefenceAndEquipmentPanel() {
           </tbody>
         </table>
         <div className="row">
-          <b>Weapon Attacks</b>
+          <b className="section-heading">Weapon Attacks</b>
           {editMode && <button onClick={addAttackRow}>+</button>}
         </div>
       </div>

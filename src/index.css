@@ -3,24 +3,49 @@
    ============================================================ */
 :root {
   /* palette */
-  --bg: #f7f8fa;
+  --bg: #f5f6f4;
   --surface: #ffffff;
-  --surface-2: #eef0f3;
-  --border: #d7dbe0;
+  --surface-2: #edeeec;
+  --border: #d6d8d4;
+  /* Hairline used for the many secondary boxes, so their repeated frames read as
+     quiet structure rather than competing 2px outlines. */
+  --border-soft: #e2e4e0;
   --text: #1a1c1f;
   --text-muted: #6b7280;
-  --accent: #3992ff;
-  --accent-hover: #2b7ef0;
+  /* Ink-sapphire primary: still blue-family (not a drastic shift from the old
+     #3992ff) but deeper and less generic-SaaS. */
+  --accent: #33518a;
+  --accent-hover: #294273;
   --accent-contrast: #ffffff;
+  /* Semantic hues, each used only on its home region so the eye gets a map:
+     crimson = life, amethyst = magic. */
+  --health: #b23a48;
+  --health-soft: #fbecee;
+  --arcane: #7a5bbd;
+  --arcane-soft: #f0ebfa;
   --danger: #e5484d;
   --danger-contrast: #ffffff;
   --editable: #ece3fb;
-  --display-value-bg: #e3e3e3;
+  --display-value-bg: #e6e7e4;
   --popover-bg: #fff8c5;
+
+  /* type */
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-body:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+
+  /* spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
 
   /* scale */
   --radius: 8px;
-  --radius-lg: 16px;
+  --radius-lg: 14px;
   --shadow-1: 0 1px 2px hsla(0, 0%, 0%, 0.08), 0 1px 3px hsla(0, 0%, 0%, 0.06);
   --shadow-2: 0 2px 6px hsla(0, 0%, 0%, 0.12), 0 1px 2px hsla(0, 0%, 0%, 0.08);
 }
@@ -33,9 +58,18 @@
     --surface: #1f2227;
     --surface-2: #272b31;
     --border: #363b42;
+    --border-soft: #2b2f36;
     --text: #e8eaed;
     --text-muted: #9aa0a8;
-    --accent-contrast: #ffffff;
+    /* Lift the accent/semantic hues on dark so they keep contrast on the slate
+       surfaces (the deep light-mode inks would go muddy). */
+    --accent: #6f97e8;
+    --accent-hover: #85a9ef;
+    --accent-contrast: #16181c;
+    --health: #e07a86;
+    --health-soft: #3a2429;
+    --arcane: #a488e0;
+    --arcane-soft: #2e2740;
     --editable: #3a3350;
     --display-value-bg: #2c3036;
     --popover-bg: #4a4322;
@@ -47,9 +81,16 @@
   --surface: #1f2227;
   --surface-2: #272b31;
   --border: #363b42;
+  --border-soft: #2b2f36;
   --text: #e8eaed;
   --text-muted: #9aa0a8;
-  --accent-contrast: #ffffff;
+  --accent: #6f97e8;
+  --accent-hover: #85a9ef;
+  --accent-contrast: #16181c;
+  --health: #e07a86;
+  --health-soft: #3a2429;
+  --arcane: #a488e0;
+  --arcane-soft: #2e2740;
   --editable: #3a3350;
   --display-value-bg: #2c3036;
   --popover-bg: #4a4322;
@@ -697,13 +738,13 @@ p {
   cursor: pointer;
 }
 .prof-toggle--proficient {
-  border-color: #3992ff;
-  color: #3992ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .prof-toggle--expert {
-  border-color: #3992ff;
-  background: #3992ff;
-  color: #fff;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
   /* Stylized serif italic "e" so expertise reads distinctly from a checkmark. */
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
@@ -726,7 +767,7 @@ p {
 }
 .prof-bonus-edit.active {
   opacity: 1;
-  color: #3992ff;
+  color: var(--accent);
 }
 
 /* Classic character-sheet look: the value sits on an underline rather than in a
@@ -804,9 +845,7 @@ html {
 }
 
 body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
-    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg);
@@ -3086,5 +3125,199 @@ button.slot-pip:hover:not(:disabled) {
   /* Stat blocks and skills read fine stacked full-width on a phone. */
   .stat-display-container {
     width: 100%;
+  }
+}
+
+/* ============================================================
+   UI refresh (design pass)
+   - Cinzel display face on the sheet's uppercase labels/titles + name hero
+   - a visual hierarchy that lifts the play-critical regions
+   - a restrained semantic colour map (crimson = life, amethyst = magic)
+   Layout and markup are unchanged; this section only restyles.
+   ============================================================ */
+
+/* ---- Typography: engraved caps on the labels that are already uppercase ---- */
+.display-title,
+.display-label,
+.section-heading,
+.prof-title,
+.prof-label,
+.senses-title,
+.roll-section-title,
+.typeahead-group-label,
+b.pos-relative.margin-large {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+/* Cinzel runs visually large for its point size; ease the small captions down a
+   touch and give section headings a hair more weight so they still anchor. */
+.display-label {
+  font-size: 0.72rem;
+}
+.section-heading,
+b.pos-relative.margin-large {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* Headings across the app share the display face. */
+#main-nav h1,
+.home-hero h1,
+.character-picker-header h1,
+.builder-title,
+.modal-titlebar > .title,
+.spell-banner .title,
+.settings-section-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+/* Numbers line up in columns and don't jitter as they change. */
+.display-value,
+.stat-modifier,
+.stat-score,
+.roll-total,
+.roll-part,
+.spell-level-number,
+.ammo-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Softer frames: trim the boxy 2px outlines back to a quieter hairline ---- */
+.rounded-border-box {
+  border-width: 1.5px;
+}
+
+/* ---- Stat block: modifier is the hero, score is a small reference chip ---- */
+.stat-modifier {
+  margin: 0.1rem 0 0.15rem;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  margin: 0 auto 0.15rem;
+  padding: 0.05rem 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: var(--surface-2);
+  border-radius: 999px;
+  cursor: default;
+}
+.stat-score.editable {
+  cursor: pointer;
+  color: var(--text);
+  background-color: var(--editable);
+  transition:
+    background-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.stat-score.editable:hover {
+  box-shadow: var(--shadow-1);
+}
+
+/* ---- Hierarchy: lift the regions you reference mid-combat ---- */
+/* AC / Initiative / Speed — a faint raised strip so it reads as the vitals bar. */
+.defence-vitals .rounded-border-box {
+  background-color: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-1);
+}
+.defence-vitals .display-value.large {
+  color: var(--accent);
+}
+
+/* ---- Semantic colour: HP + death saves = crimson (life) ---- */
+.hp-box {
+  border-color: var(--health);
+  background-color: var(--health-soft);
+}
+/* Current HP is the number that actually moves in a fight — make it the loud one. */
+.hp-box .display-value {
+  border-bottom-color: color-mix(in srgb, var(--health) 45%, var(--border));
+}
+.death-save-row .slot-pip {
+  color: var(--health);
+}
+.death-save-row .slot-pip:hover:not(:disabled) {
+  color: var(--health);
+}
+
+/* ---- Semantic colour: spellcasting = amethyst (magic) ---- */
+.spell-banner {
+  border-color: var(--arcane);
+  background-color: var(--arcane-soft);
+}
+.spell-level-number {
+  color: var(--arcane);
+}
+.spell-slot-tracker .slot-pip {
+  color: var(--arcane);
+}
+.spell-slot-tracker .slot-pip:hover:not(:disabled) {
+  color: var(--arcane);
+}
+/* The "prepared" checkbox and spell-level headers pick up the magic hue too. */
+.spell-level-card .prepared-toggle:checked {
+  border-color: var(--arcane);
+}
+.spell-level-card .prepared-toggle:checked::before {
+  background-color: var(--arcane);
+}
+
+/* ---- Identity header: the character name is the hero ---- */
+.character-info-header > .row > .rounded-border-box .display-value.large {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.1rem;
+  line-height: 1.1;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+.character-info-header > .row > .rounded-border-box .display-label {
+  color: var(--accent);
+}
+
+/* ---- Home: give the landing title the display face + a hairline flourish ---- */
+.home-hero h1 {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 0.6rem;
+}
+.home-hero h1::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 3rem;
+  height: 2px;
+  transform: translateX(-50%);
+  background-color: var(--accent);
+}
+
+/* ---- Motion: respect a reduced-motion preference ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Keep the name hero from dominating a phone viewport (more specific than the
+     generic mobile shrink above, so it needs its own clamp). */
+  .character-info-header > .row > .rounded-border-box .display-value.large {
+    font-size: 1.6rem;
   }
 }
