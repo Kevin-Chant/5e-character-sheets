@@ -29,6 +29,7 @@ import EditClassLevels from "./edit-class-levels";
 import Spellcasting from "./spellcasting";
 import EditSpell from "./edit-spell";
 import EditLimitedUseAbility from "./edit-limited-use-ability";
+import EditSkills from "./edit-skills";
 import EditRace from "./edit-race";
 import EditSpeeds from "./edit-speeds";
 import EditSenses from "./edit-senses";
@@ -94,6 +95,12 @@ export default function CharSheet() {
         // Per-skill bonus is a formula living under the (otherwise boolean)
         // proficiencies field — route it to the formula builder.
         setModalType("formula");
+      } else if (
+        targetedField === FIELD.proficiencies &&
+        subField === "skills"
+      ) {
+        // The "Skills" heading opens the consolidated skills editor.
+        setModalType("editSkills");
       } else if (standardFieldType === "otherProficiencies") {
         // languages/weapons are plain strings; armor is a checkbox set;
         // toolsAndOther are textLines (with formula sub-paths handled like
@@ -191,6 +198,10 @@ export default function CharSheet() {
     case "limitedUseAbility":
       modalContents = <EditLimitedUseAbility />;
       modalTitle = "Edit Ability";
+      break;
+    case "editSkills":
+      modalContents = <EditSkills />;
+      modalTitle = "Edit Skills";
       break;
     case "race":
       modalContents = <EditRace />;

@@ -14,6 +14,8 @@ import {
   modifier,
 } from "src/lib/rules";
 import OtherProficienciesDisplay from "./display/other-proficiencies-display";
+import { useEditMode } from "src/lib/hooks/use-edit-mode";
+import { FaPencil } from "react-icons/fa6";
 
 // The proficiency contribution to a d20 modifier: double PB for expertise, PB
 // for proficiency, half PB (rounded down) for Jack of All Trades, else nothing.
@@ -32,6 +34,7 @@ function proficiencyBonus(
 function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
   const { character, dispatch } = useCharacter();
   const { pushCursor } = useTargetedField();
+  const { editMode } = useEditMode();
   if (!character) return <></>;
 
   return (
@@ -120,19 +123,24 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
                 subtext={`(${statKey})`}
                 rollLabel={skillName}
                 onToggle={cycle}
-                onEditBonus={() =>
-                  pushCursor(
-                    charPath(FIELD.proficiencies)
-                      .k("skillBonuses")
-                      .k(skillName),
-                  )
-                }
-                hasBonus={bonusFormula !== undefined}
               />
             );
           },
         )}
-        <b className="section-heading">Skills</b>
+        {editMode ? (
+          <button
+            type="button"
+            className="section-heading section-heading-edit"
+            aria-label="Edit skills"
+            onClick={() =>
+              pushCursor(charPath(FIELD.proficiencies).k("skills"))
+            }
+          >
+            Skills <FaPencil />
+          </button>
+        ) : (
+          <b className="section-heading">Skills</b>
+        )}
       </div>
     </div>
   );

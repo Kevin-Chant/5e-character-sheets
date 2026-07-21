@@ -266,6 +266,7 @@ export type FieldTypeNode =
   | "spell"
   | "selectSpell"
   | "limitedUseAbility"
+  | "editSkills"
   | "race"
   | "speeds"
   | "senses"
