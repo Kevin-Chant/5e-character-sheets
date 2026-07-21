@@ -81,6 +81,7 @@ export const defaultCharacter: Character = {
       },
     ],
   },
+  damageModifiers: { resistances: [], immunities: [], vulnerabilities: [] },
   acFormula: { operation: Operation.addition, operands: [14, StatKey.dex] },
   speeds: { walk: 30 },
   senses: { darkvision: 60 },
@@ -93,6 +94,7 @@ export const defaultCharacter: Character = {
   deathSaves: { successes: 0, failures: 0 },
   attacks: [
     {
+      id: randomUUID(),
       name: "Longsword",
       bonus: { operation: Operation.addition, operands: [PB, StatKey.str] },
       formula: {
@@ -103,6 +105,7 @@ export const defaultCharacter: Character = {
       },
     },
     {
+      id: randomUUID(),
       name: "Bullshit McHomebrew",
       bonus: {
         operation: Operation.addition,
@@ -125,6 +128,7 @@ export const defaultCharacter: Character = {
       },
     },
   ],
+  ammunition: [],
   coins: { GP: 5, SP: 3 },
   equipment: [
     {

@@ -15,17 +15,29 @@ import { getHitDice, totalGP } from "src/lib/rules";
 import MultiLineTextDisplay from "./display/multi-line-text-display";
 import SingleValueDisplay from "./display/single-value-display";
 import SpeedDisplay from "./display/speed-display";
+import AmmunitionDisplay from "./display/ammunition-display";
 import SlotPips from "./display/slot-pips";
 import RollButton from "./roll-button";
 import { FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
+import { useSettings } from "src/lib/hooks/use-settings";
 import { charPath, updateAt } from "src/lib/cursor";
+import { WeaponRange } from "src/lib/types";
+
+// "Range 100/400 ft." for the attack-name tooltip; undefined when no range.
+const formatRange = (range: WeaponRange | undefined): string | undefined =>
+  range
+    ? `Range ${range.normal}${range.long ? `/${range.long}` : ""} ft.`
+    : undefined;
 
 export default function DefenceAndEquipmentPanel() {
   const { character, dispatch } = useCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
+  const {
+    settings: { trackAmmunition },
+  } = useSettings();
   if (!character) return <></>;
   const totalHitDice = character.totalHitDice || getHitDice(character);
   const hitDice = (
@@ -204,9 +216,30 @@ export default function DefenceAndEquipmentPanel() {
                 attack.bonus,
                 character,
               );
+              const rangeText = formatRange(attack.range);
+              // Remaining ammo across every pool linked to this weapon (setting-
+              // gated); the pool is the single source of truth for the count.
+              const linkedAmmo = trackAmmunition
+                ? character.ammunition.filter((a) =>
+                    a.weaponIds.includes(attack.id),
+                  )
+                : [];
+              const ammoTotal = linkedAmmo.reduce((sum, a) => sum + a.count, 0);
               return (
                 <tr key={index}>
-                  <td>{attack.name}</td>
+                  <td>
+                    <span
+                      className={
+                        rangeText ? "attack-name has-range" : undefined
+                      }
+                      title={rangeText}
+                    >
+                      {attack.name}
+                    </span>
+                    {linkedAmmo.length > 0 && (
+                      <span className="ammo-badge"> ({ammoTotal})</span>
+                    )}
+                  </td>
                   <td>{attackBonus > 0 ? `+${attackBonus}` : attackBonus}</td>
                   <td>
                     {formatCustomFormulaWithDamage(attack.formula, character)}
@@ -252,30 +285,33 @@ export default function DefenceAndEquipmentPanel() {
         </div>
       </div>
       {/* Equipment */}
-      <div className="row rounded-border-box">
-        <div className="column">
-          {(Object.keys(CoinType) as CoinType[]).map((coinType) => {
-            return (
-              <SingleValueDisplay
-                cursor={charPath(FIELD.coins).k(coinType)}
-                name={coinType}
-                flipped
-                key={coinType}
-                editable
-              />
-            );
-          })}
-          <SingleValueDisplay
-            cursor={charPath(FIELD.coins)}
-            transform={totalGP}
-            name={"Total Value"}
-            flipped
+      <div className="column rounded-border-box">
+        <div className="row">
+          <div className="column">
+            {(Object.keys(CoinType) as CoinType[]).map((coinType) => {
+              return (
+                <SingleValueDisplay
+                  cursor={charPath(FIELD.coins).k(coinType)}
+                  name={coinType}
+                  flipped
+                  key={coinType}
+                  editable
+                />
+              );
+            })}
+            <SingleValueDisplay
+              cursor={charPath(FIELD.coins)}
+              transform={totalGP}
+              name={"Total Value"}
+              flipped
+            />
+          </div>
+          <MultiLineTextDisplay
+            title="Equipment"
+            cursor={charPath(FIELD.equipment)}
           />
         </div>
-        <MultiLineTextDisplay
-          title="Equipment"
-          cursor={charPath(FIELD.equipment)}
-        />
+        {trackAmmunition && <AmmunitionDisplay />}
       </div>
     </div>
   );

@@ -119,6 +119,40 @@ describe("migrateCharacter", () => {
     const [valid] = validateCharacterData(migrated);
     expect(valid).toBe(true);
   });
+
+  it("v6 gives attacks ids and seeds an empty ammunition list", () => {
+    const { ammunition: _drop, ...rest } = structuredClone(defaultCharacter);
+    const legacy = {
+      ...rest,
+      schemaVersion: 5,
+      attacks: [
+        { name: "Longbow", bonus: 0, formula: {} },
+        { name: "Shortsword", bonus: 0, formula: {} },
+      ],
+    };
+    const migrated = migrateCharacter(legacy);
+    expect(migrated.ammunition).toEqual([]);
+    expect(typeof migrated.attacks[0].id).toBe("string");
+    expect(typeof migrated.attacks[1].id).toBe("string");
+    // Distinct ids per attack.
+    expect(migrated.attacks[0].id).not.toBe(migrated.attacks[1].id);
+    const [valid] = validateCharacterData(migrated);
+    expect(valid).toBe(true);
+  });
+
+  it("v7 seeds empty damage modifiers", () => {
+    const { damageModifiers: _drop, ...rest } =
+      structuredClone(defaultCharacter);
+    const legacy = { ...rest, schemaVersion: 6 };
+    const migrated = migrateCharacter(legacy);
+    expect(migrated.damageModifiers).toEqual({
+      resistances: [],
+      immunities: [],
+      vulnerabilities: [],
+    });
+    const [valid] = validateCharacterData(migrated);
+    expect(valid).toBe(true);
+  });
 });
 
 describe("hydrateCharacter", () => {

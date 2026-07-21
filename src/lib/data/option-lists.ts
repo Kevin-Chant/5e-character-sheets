@@ -1,7 +1,13 @@
 import { GroupedOptionsList, SingleOptionsList } from "src/lib/types";
+import { DamageType } from "./data-definitions";
 
 // Typeahead/suggestion lists for free-text fields. These are suggestions only —
 // every consumer also accepts arbitrary custom values.
+
+// The standard damage types, suggested for damage resistances / immunities /
+// vulnerabilities. Custom entries (e.g. "nonmagical B/P/S") are still accepted.
+export const DEFAULT_DAMAGE_TYPES: SingleOptionsList<string> =
+  Object.values(DamageType);
 
 export const DEFAULT_LANGUAGES: GroupedOptionsList<string> = [
   {

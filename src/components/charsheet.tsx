@@ -32,6 +32,7 @@ import EditLimitedUseAbility from "./edit-limited-use-ability";
 import EditRace from "./edit-race";
 import EditSpeeds from "./edit-speeds";
 import EditSenses from "./edit-senses";
+import EditAmmunition from "./edit-ammunition";
 import PresenceBroadcaster from "./presence-broadcaster";
 import DriveLiveSessionBootstrap from "./drive-live-session-bootstrap";
 import SharePresenceWarning from "./share-presence-warning";
@@ -195,6 +196,10 @@ export default function CharSheet() {
     case "senses":
       modalContents = <EditSenses />;
       modalTitle = subField === "new" ? "Add Sense" : "Edit Sense";
+      break;
+    case "ammunition":
+      modalContents = <EditAmmunition />;
+      modalTitle = subField === "new" ? "Add Ammunition" : "Edit Ammunition";
       break;
     default:
       modalContents = (

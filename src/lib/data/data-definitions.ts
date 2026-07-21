@@ -269,6 +269,7 @@ export type FieldTypeNode =
   | "race"
   | "speeds"
   | "senses"
+  | "ammunition"
   | typeof Alignment
   | typeof StatKey;
 export type FieldTypeInfo = Record<string, FieldTypeNode>;
@@ -320,6 +321,7 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   pbOverride: "number",
   proficiencies: "boolean",
   otherProficiencies: "otherProficiencies",
+  damageModifiers: "string",
   acFormula: "formula",
   initiativeFormula: "formula",
   speeds: "speeds",
@@ -336,6 +338,7 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   personality: "textLine",
   features: "textLine",
   attacks: "attack",
+  ammunition: "ammunition",
   spellcastingClasses: "spellcastingClass",
   spells: "spell",
   spellSlots: "number",
@@ -383,6 +386,7 @@ export enum FIELD {
   pbOverride = "pbOverride",
   proficiencies = "proficiencies",
   otherProficiencies = "otherProficiencies",
+  damageModifiers = "damageModifiers",
   acFormula = "acFormula",
   initiativeFormula = "initiativeFormula",
   speeds = "speeds",
@@ -395,6 +399,7 @@ export enum FIELD {
   exhaustion = "exhaustion",
   deathSaves = "deathSaves",
   attacks = "attacks",
+  ammunition = "ammunition",
   coins = "coins",
   equipment = "equipment",
   personality = "personality",

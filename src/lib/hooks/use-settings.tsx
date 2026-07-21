@@ -22,6 +22,9 @@ interface Settings {
   // live co-editing session (owner hosts, recipient joins). Off falls back to the
   // manual share toggle.
   autoLiveSession: boolean;
+  // Whether to track ammunition. Off hides the Ammunition section and the
+  // per-weapon remaining-ammo count — many tables don't bother with it.
+  trackAmmunition: boolean;
 }
 
 function sanitizeSettingValue<K extends keyof Settings>(
@@ -57,6 +60,7 @@ const DEFAULT_SETTINGS: Settings = {
   autosaveDelay: 1000,
   openInEditMode: true,
   autoLiveSession: true,
+  trackAmmunition: true,
 };
 
 export const SettingsContext = React.createContext<SettingsContextData>({

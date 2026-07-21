@@ -508,6 +508,7 @@ export {
 export type { WeaponAbility, WeaponPreset } from "./data/weapon-presets";
 export {
   DEFAULT_BACKGROUNDS,
+  DEFAULT_DAMAGE_TYPES,
   DEFAULT_LANGUAGES,
   DEFAULT_RACES,
   DEFAULT_SPELL_DURATIONS,

@@ -310,6 +310,42 @@ const migrations: Migration[] = [
       return filled;
     },
   },
+  {
+    // Attacks gained a stable `id` (so ammunition entries can reference the
+    // weapons they feed by id) and an optional `range`. Ammunition itself became
+    // a first-class list. Old attacks get a fresh id; ammunition starts empty.
+    to: 6,
+    migrate: (character) => {
+      if (!character || typeof character !== "object") return character;
+      const filled = { ...character };
+      if (Array.isArray(filled.attacks))
+        filled.attacks = filled.attacks.map((a: any) => ({
+          ...a,
+          id: typeof a?.id === "string" ? a.id : randomUUID(),
+        }));
+      if (filled.ammunition === undefined) filled.ammunition = [];
+      filled.schemaVersion = 6;
+      return filled;
+    },
+  },
+  {
+    // Damage resistances / immunities / vulnerabilities became a first-class,
+    // intrinsic property (`damageModifiers`). Legacy saves tracked none, so start
+    // all three lists empty.
+    to: 7,
+    migrate: (character) => {
+      if (!character || typeof character !== "object") return character;
+      const filled = { ...character };
+      if (filled.damageModifiers === undefined)
+        filled.damageModifiers = {
+          resistances: [],
+          immunities: [],
+          vulnerabilities: [],
+        };
+      filled.schemaVersion = 7;
+      return filled;
+    },
+  },
 ];
 
 // Sorted, append-only safety: ensures we apply migrations in ascending order

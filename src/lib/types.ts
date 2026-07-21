@@ -331,10 +331,35 @@ export type HitDice = {
   [key in StandardDie]?: number;
 };
 
+// A weapon's normal / long range in feet (5e "80/320"). `long` is omitted for
+// weapons with a single range (e.g. Net "5").
+export interface WeaponRange {
+  normal: number;
+  long?: number;
+}
+
 export interface Attack {
+  // Stable identity so ammunition entries can reference the weapons they feed
+  // by id (a rename never orphans the link) — mirrors `IClass.id`.
+  id: UUID;
   name: string;
   bonus: CustomFormula;
   formula: CustomFormulaWithDamage;
+  // Optional weapon range; when present, shown as a tooltip on the attack name.
+  range?: WeaponRange;
+}
+
+// A pool of ammunition (arrows, bolts, …). The entry owns which weapons it
+// feeds (`weaponIds`, referencing `Attack.id`) rather than the weapon owning its
+// ammo, so each table picks its own taxonomy — one shared "Arrows" pool, or
+// distinct bolt types per crossbow. A weapon's remaining-ammo quick-reference
+// sums the counts of every entry linked to it. `count` is the single source of
+// truth for how much is left. See the `trackAmmunition` setting.
+export interface Ammunition {
+  id: UUID;
+  name: string;
+  count: number;
+  weaponIds: UUID[];
 }
 
 export type CoinAmounts = { [key in CoinType]?: number };
@@ -356,6 +381,18 @@ interface TextComponentWithoutDetails {
 export type TextComponent =
   | TextComponentWithDetails
   | TextComponentWithoutDetails;
+
+// A creature's intrinsic damage modifiers — printed on every stat block, so a
+// true property of the character (transient combat state like active conditions
+// and concentration belongs in a separate game-running layer, not here). Each is
+// a free-text list (damage types are offered as a typeahead), so qualified
+// entries like "Bludgeoning, Piercing, and Slashing from nonmagical attacks" are
+// expressible.
+export interface DamageModifiers {
+  resistances: string[];
+  immunities: string[];
+  vulnerabilities: string[];
+}
 
 export interface OtherProficiencies {
   languages: string[];
@@ -536,6 +573,8 @@ export interface Character {
     isJackOfAllTradesOverride: boolean;
   };
   otherProficiencies: OtherProficiencies;
+  // Damage resistances / immunities / vulnerabilities — see `DamageModifiers`.
+  damageModifiers: DamageModifiers;
   acFormula: CustomFormula;
   initiativeFormula?: CustomFormula;
   // Movement speeds (walk + optional fly/swim/climb/burrow). Seeded from the race
@@ -551,6 +590,9 @@ export interface Character {
   exhaustion: number;
   deathSaves: { successes: number; failures: number };
   attacks: Attack[];
+  // Ammunition pools, shown as a sub-section of Equipment. Each entry tracks a
+  // remaining count and which weapons it feeds — see `Ammunition`.
+  ammunition: Ammunition[];
   coins: CoinAmounts;
   equipment: TextComponent[];
   personality: {

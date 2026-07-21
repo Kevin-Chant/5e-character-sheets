@@ -34,6 +34,34 @@
             ],
             "type": "string"
         },
+        "Ammunition": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "id": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "weaponIds": {
+                    "items": {
+                        "pattern": "^.*-.*-.*-.*-.*$",
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "count",
+                "id",
+                "name",
+                "weaponIds"
+            ],
+            "type": "object"
+        },
         "Attack": {
             "properties": {
                 "bonus": {
@@ -42,13 +70,21 @@
                 "formula": {
                     "$ref": "#/definitions/CustomFormulaWithDamage"
                 },
+                "id": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
+                },
+                "range": {
+                    "$ref": "#/definitions/WeaponRange"
                 }
             },
             "required": [
                 "bonus",
                 "formula",
+                "id",
                 "name"
             ],
             "type": "object"
@@ -239,6 +275,34 @@
                     "$ref": "#/definitions/CustomFormula"
                 }
             },
+            "type": "object"
+        },
+        "DamageModifiers": {
+            "properties": {
+                "immunities": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "resistances": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "vulnerabilities": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "immunities",
+                "resistances",
+                "vulnerabilities"
+            ],
             "type": "object"
         },
         "DamageType": {
@@ -1226,6 +1290,20 @@
                 "titleFormulas"
             ],
             "type": "object"
+        },
+        "WeaponRange": {
+            "properties": {
+                "long": {
+                    "type": "number"
+                },
+                "normal": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "normal"
+            ],
+            "type": "object"
         }
     },
     "properties": {
@@ -1234,6 +1312,12 @@
         },
         "alignment": {
             "$ref": "#/definitions/Alignment"
+        },
+        "ammunition": {
+            "items": {
+                "$ref": "#/definitions/Ammunition"
+            },
+            "type": "array"
         },
         "attacks": {
             "items": {
@@ -1255,6 +1339,9 @@
         },
         "currHp": {
             "type": "number"
+        },
+        "damageModifiers": {
+            "$ref": "#/definitions/DamageModifiers"
         },
         "deathSaves": {
             "properties": {
@@ -1421,11 +1508,13 @@
     "required": [
         "acFormula",
         "alignment",
+        "ammunition",
         "attacks",
         "background",
         "class",
         "coins",
         "currHp",
+        "damageModifiers",
         "deathSaves",
         "equipment",
         "exhaustion",

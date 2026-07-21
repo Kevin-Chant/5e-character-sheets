@@ -472,6 +472,59 @@ p {
    from a values column, one row per category, with a heading underneath. */
 /* Override the `.column` parent's centering so every row spans the full width
    and the label edges line up regardless of how wide each row's values are. */
+/* Ranged-weapon name carries a range tooltip; hint it with a help cursor and a
+   dotted underline so players know to hover. */
+.attack-name.has-range {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* Remaining-ammo count shown after a linked weapon's name. */
+.ammo-badge {
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ammunition sub-section of the Equipment box. */
+.ammunition-section {
+  align-items: stretch;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 2px dotted var(--border);
+}
+
+.ammunition-section .ammo-row {
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+
+.ammunition-section .ammo-controls {
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ammunition-section .ammo-count {
+  width: 4.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ammunition-section .ammo-name-edit {
+  text-align: left;
+}
+
+/* Linked-weapon checkboxes in the ammunition editor. */
+.edit-ammunition .ammo-weapons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.75rem;
+}
+
 .other-proficiencies {
   align-items: stretch;
 }
