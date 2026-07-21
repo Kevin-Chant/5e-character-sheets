@@ -27,7 +27,11 @@
   --danger-contrast: #ffffff;
   --editable: #ece3fb;
   --display-value-bg: #e6e7e4;
+  /* Amber, kept for the "someone else is editing" warning banner only. */
   --popover-bg: #fff8c5;
+  /* Info tooltips/popovers + insert menus: a light lavender that harmonises with
+     the arcane accent instead of clashing with it. */
+  --tooltip-bg: #f3eefc;
 
   /* type */
   --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
@@ -67,12 +71,15 @@
     --accent-hover: #85a9ef;
     --accent-contrast: #16181c;
     --health: #e07a86;
-    --health-soft: #3a2429;
+    /* Barely-there crimson wash — a full-saturation fill reads as an alarm on
+       the dark surfaces. */
+    --health-soft: #221c1e;
     --arcane: #a488e0;
     --arcane-soft: #2e2740;
     --editable: #3a3350;
     --display-value-bg: #2c3036;
     --popover-bg: #4a4322;
+    --tooltip-bg: #302b40;
   }
 }
 
@@ -88,12 +95,13 @@
   --accent-hover: #85a9ef;
   --accent-contrast: #16181c;
   --health: #e07a86;
-  --health-soft: #3a2429;
+  --health-soft: #221c1e;
   --arcane: #a488e0;
   --arcane-soft: #2e2740;
   --editable: #3a3350;
   --display-value-bg: #2c3036;
   --popover-bg: #4a4322;
+  --tooltip-bg: #302b40;
 }
 
 /* ============================================================
@@ -572,7 +580,9 @@ p {
 
 .other-proficiencies .prof-row {
   display: grid;
-  grid-template-columns: 6rem 1fr;
+  /* Wide enough that the longest label ("Vulnerabilities") fits on one line in
+     the display face without spilling into the values column. */
+  grid-template-columns: 8rem 1fr;
   align-items: stretch;
   border-bottom: 2px solid var(--border);
 }
@@ -584,6 +594,9 @@ p {
   justify-content: center;
   text-align: left;
   font-weight: 700;
+  /* Small-caps sizing so the engraved-cap labels stay within the fixed column. */
+  font-size: 0.72rem;
+  white-space: nowrap;
   padding: 0.4rem 0.5rem;
   border-right: 2px dotted var(--border);
 }
@@ -636,9 +649,18 @@ p {
   color: var(--accent);
   cursor: pointer;
   line-height: 1;
-  padding: 0.1rem 0.3rem;
+  /* Uniform square affordance shared by every add "+" in these boxes (languages,
+     senses, damage modifiers) so they read as one control, not three. */
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.other-proficiencies .prof-add:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 
 .other-proficiencies .prof-title {
@@ -3236,7 +3258,9 @@ b.pos-relative.margin-large {
 
 /* ---- Semantic colour: HP + death saves = crimson (life) ---- */
 .hp-box {
-  border-color: var(--health);
+  /* Muted crimson frame (mixed toward the neutral border) so it reads as "this
+     is the life region" without shouting — especially on dark. */
+  border-color: color-mix(in srgb, var(--health) 55%, var(--border));
   background-color: var(--health-soft);
 }
 /* Current HP is the number that actually moves in a fight — make it the loud one. */
@@ -3320,4 +3344,21 @@ b.pos-relative.margin-large {
   .character-info-header > .row > .rounded-border-box .display-value.large {
     font-size: 1.6rem;
   }
+}
+
+/* ---- Spacing: give the three columns internal rhythm ---- */
+/* Stats column and skills column were touching — separate them. */
+.stat-and-skill-panel > .row {
+  gap: 1.25rem;
+}
+/* The middle (defence/equipment) and right (personality/features) columns stack
+   their boxes flush; a consistent gap lets each box read as its own card. */
+.page-container > .row > .column {
+  gap: 0.85rem;
+}
+
+/* ---- Info popovers / insert menus: lavender, not amber ---- */
+.popover-container,
+.insert-value-menu {
+  background: var(--tooltip-bg);
 }

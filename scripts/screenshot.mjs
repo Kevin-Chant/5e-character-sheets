@@ -51,6 +51,9 @@ const [w, h] = flag("viewport", "1280x900").split("x").map(Number);
 const fullPage = !has("no-full");
 const base = flag("base", "http://localhost:3000");
 const seed = flag("seed");
+// Emulate the OS colour-scheme preference so the app's `prefers-color-scheme`
+// dark palette can be captured. `--theme dark` | `--theme light`; omit for system.
+const theme = flag("theme");
 
 const stepsFile = flag("steps-file");
 const steps = JSON.parse(
@@ -99,7 +102,10 @@ async function ensureServer() {
   await ensureServer();
 
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  const ctx = await browser.newContext({
+    viewport: { width: w, height: h },
+    ...(theme === "dark" || theme === "light" ? { colorScheme: theme } : {}),
+  });
 
   if (seed !== undefined) {
     // Deterministic Math.random (mulberry32) so dice rolls reproduce across runs.
