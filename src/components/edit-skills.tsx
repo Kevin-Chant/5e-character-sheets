@@ -11,6 +11,7 @@ import {
   hasJackOfAllTrades,
   modifier,
 } from "src/lib/rules";
+import { useSave } from "./modals/modal-container";
 
 // The full modifier a skill contributes to a d20 roll — mirrors the sheet's
 // per-row math so the modal shows the same number the player will roll.
@@ -39,8 +40,11 @@ type ProfState = "none" | "proficient" | "expert";
 // the sheet. Opened from the "Skills" heading (targeted field: proficiencies →
 // "skills"); the bonus editor stacks the formula builder on top of this modal.
 export default function EditSkills() {
-  const { character, dispatch } = useCharacter();
+  const { character } = useCharacter();
   const { pushCursor } = useTargetedField();
+  // Save-on-change: proficiency toggles and bonus removal persist immediately
+  // (the bonus editor itself opens the formula builder, which saves on its own).
+  const { commit } = useSave();
   if (!character) return <></>;
 
   const pb = getPB(character);
@@ -52,8 +56,8 @@ export default function EditSkills() {
     const expertiseCursor = charPath(FIELD.proficiencies)
       .k("expertise")
       .k(skill);
-    dispatch(updateAt(skillCursor, state !== "none"));
-    dispatch(updateAt(expertiseCursor, state === "expert"));
+    commit(updateAt(skillCursor, state !== "none"));
+    commit(updateAt(expertiseCursor, state === "expert"));
   };
 
   return (
@@ -145,7 +149,7 @@ export default function EditSkills() {
                         aria-label={`Remove ${skill} bonus`}
                         onClick={(e) => {
                           e.preventDefault();
-                          dispatch(clearAt(bonusCursor));
+                          commit(clearAt(bonusCursor));
                         }}
                       >
                         ×
