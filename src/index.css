@@ -538,132 +538,326 @@ p {
   font-variant-numeric: tabular-nums;
 }
 
-/* Ammunition sub-section of the Equipment box. */
-.ammunition-section {
+/* ============================================================
+   Equipment box: a stack of quiet sub-sections (coins, equipment,
+   attunement, ammunition) separated by hairline dotted rules, each
+   labelled underneath in the printed-sheet manner.
+   ============================================================ */
+.equipment-box {
   align-items: stretch;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 2px dotted var(--border);
+  gap: 0;
+  padding: 0.35rem 0.9rem 0.75rem;
 }
 
-.ammunition-section .ammo-row {
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.15rem 0;
+.equipment-box > * {
+  padding: 0.5rem 0;
+}
+.equipment-box > *:first-child {
+  padding-top: 0.25rem;
+}
+.equipment-box > *:last-child {
+  padding-bottom: 0.15rem;
+}
+.equipment-box > * + * {
+  border-top: 1.5px dotted var(--border);
 }
 
-.ammunition-section .ammo-controls {
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.ammunition-section .ammo-count {
-  width: 4.5rem;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.ammunition-section .ammo-name-edit {
-  text-align: left;
-}
-
-/* Structured Equipment list. */
-.equipment-section {
+.equipment-subsection {
   align-items: stretch;
+  gap: 0;
 }
 
-.equipment-section .equipment-row {
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.15rem 0;
+/* A sub-section's label sits under its list; the add control tucks in beside
+   the heading (inside the box), not floating off its right edge. */
+.equipment-subheading {
+  align-items: baseline;
+  margin-top: 0.35rem;
 }
-
-.equipment-section .equipment-name {
-  align-items: center;
-  gap: 0.35rem;
-  min-width: 0;
-}
-
-.equipment-section .equipment-name-edit {
+.section-heading-with-add {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  text-align: left;
+  gap: 0.5rem;
+}
+.add-btn {
+  padding: 0 0.45rem;
+  line-height: 1.4;
+  font-size: 0.95rem;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+}
+.add-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
-.equipment-section .equipment-name-edit svg {
-  flex-shrink: 0;
-  opacity: 0.6;
-  font-size: 0.75em;
-}
-
-.equipment-section .equipment-controls {
+/* ---- Coins: a compact currency strip, not a column of boxes ---- */
+.coins-strip {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
-  flex-shrink: 0;
+  gap: 0.35rem 0.7rem;
 }
-
-.equipment-section .equipment-quantity {
-  width: 3.5rem;
-  text-align: center;
+.coin-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.coin-input {
+  width: 3.4rem;
+  padding: 0.25rem 0.4rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.coin-input::-webkit-outer-spin-button,
+.coin-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.coin-field.readonly .coin-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.coin-denom {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.coin-total {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
 }
 
-.equipment-section .equipment-quantity-display,
-.equipment-section .equipment-weight {
-  color: var(--muted, #888);
+/* ---- Equipment list ---- */
+.equipment-row {
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.1rem 0;
+}
+.equipment-name {
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+/* Equipped state: a small toggle dot before the name. Filled = worn/wielded;
+   hollow = stowed. Unequipped item names dim slightly so the worn kit reads
+   first at a glance. */
+.equip-toggle {
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: none;
+}
+.equip-toggle.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--surface);
+}
+.equip-toggle:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+.equipment-name-edit,
+.ammo-name-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+  color: var(--accent);
+}
+.equipment-name-edit:hover:not(:disabled),
+.ammo-name-edit:hover:not(:disabled) {
+  box-shadow: none;
+  text-decoration: underline;
+}
+/* Keep the edit pencil quiet until the row is hovered/focused — the accent-
+   coloured name is already the click affordance. */
+.equipment-name-edit svg {
+  flex-shrink: 0;
+  opacity: 0;
+  font-size: 0.7em;
+  transition: opacity 0.12s ease;
+}
+.equipment-row:hover .equipment-name-edit svg,
+.equipment-name-edit:focus-visible svg {
+  opacity: 0.55;
+}
+.equipment-name-text.unequipped {
+  color: var(--text-muted);
+}
+
+/* Items with a description read as plain text with a dotted underline hinting
+   the hover popover — no per-row box. */
+.equipment-name-detail {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--text-muted);
+  text-underline-offset: 2px;
+}
+
+.equipment-controls {
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+.equipment-quantity-display,
+.equipment-weight {
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
-/* "equipped" pill after an item's name. */
-.equipment-section .equipment-tag {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--muted, #888);
-  border: 1px solid var(--border);
-  border-radius: 0.6rem;
-  padding: 0 0.35rem;
+.equipment-weight {
+  min-width: 3.2rem;
+  text-align: right;
 }
 
-/* The attunement toggle: a checkbox with an "A" glyph. */
-.equipment-section .equipment-attune {
+/* A subtle inline remove control that only warms to danger on hover. */
+.row-remove {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
-  cursor: pointer;
+  justify-content: center;
+  padding: 0.3rem;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+.row-remove:hover:not(:disabled) {
+  color: var(--danger);
+  box-shadow: none;
 }
 
-.equipment-section .equipment-attune-icon {
-  font-weight: 700;
+.equipment-encumbrance {
   font-size: 0.8rem;
-}
-
-/* Attunement / encumbrance summary line above the section label. */
-.equipment-section .equipment-summary {
-  align-items: center;
-  margin-top: 0.5rem;
-  padding-top: 0.4rem;
-  border-top: 2px dotted var(--border);
-  font-size: 0.8rem;
-  color: var(--muted, #888);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-
-.equipment-section .equipment-attunement[role="button"] {
-  cursor: pointer;
+.equipment-encumbrance.over {
+  color: var(--danger);
+  font-weight: 600;
+}
+.equipment-encumbrance-tag {
+  margin-left: 0.2rem;
+  font-weight: 700;
 }
 
-.equipment-section .equipment-attunement.full,
-.equipment-section .equipment-encumbrance.over {
-  color: var(--danger, #c0392b);
+/* ---- Attunement sub-section ---- */
+.attunement-row {
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.12rem 0;
+  cursor: pointer;
+}
+.attunement-name {
+  min-width: 0;
+}
+.attunement-slots {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.attunement-slots[role="button"] {
+  cursor: pointer;
+}
+.attunement-slots.full {
+  color: var(--danger);
   font-weight: 600;
 }
 
-.equipment-section .equipment-encumbrance-tag {
-  margin-left: 0.2rem;
-  font-weight: 700;
+/* ---- Ammunition sub-section ---- */
+.ammo-row {
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.1rem 0;
+}
+.ammo-controls {
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+
+/* ---- Numeric stepper: a themed replacement for the browser spin buttons ---- */
+.stepper {
+  display: inline-flex;
+  align-items: stretch;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.stepper:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.stepper-input {
+  width: 2.4rem;
+  padding: 0 0.35rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.stepper-input:hover:not(:disabled) {
+  box-shadow: none;
+}
+.stepper-input:focus-visible {
+  outline: none;
+}
+.stepper-input::-webkit-outer-spin-button,
+.stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.stepper-btns {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  border-left: 1px solid var(--border);
+}
+.stepper-btns button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 1.25rem;
+  padding: 0 0.25rem;
+  border: none;
+  border-radius: 0;
+  background: var(--surface-2);
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 0.55rem;
+}
+.stepper-btns button:first-child {
+  border-bottom: 1px solid var(--border);
+}
+.stepper-btns button:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: none;
 }
 
 /* Quantity + weight row in the equipment editor. */
@@ -1320,14 +1514,6 @@ button:active:not(:disabled) {
   min-width: 0;
 }
 
-.coin-input {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.25rem;
-  flex: 0 0 auto;
-}
-
 /* ---- Spell mechanics (rolling) editor ---- */
 .spell-mechanics {
   display: flex;
@@ -1452,10 +1638,6 @@ button:active:not(:disabled) {
 .spell-mechanics-scaling > summary {
   cursor: pointer;
   font-weight: 600;
-}
-
-.coin-input input {
-  width: 4.5rem;
 }
 
 /* ---- Text-line editor (name + formulas + details) ---- */
@@ -2617,6 +2799,16 @@ button.slot-pip:hover:not(:disabled) {
   transform: translateY(-50%);
 }
 
+/* Anchor a bottom/top bubble to the trigger's right edge so a wide label flows
+   leftward instead of off the right side of the page — used by the save
+   indicator, which lives in the top-right corner. */
+.tooltip-align-end.tooltip-bottom .tooltip-bubble,
+.tooltip-align-end.tooltip-top .tooltip-bubble {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
 .spinner {
   animation: spinner-rotate 0.8s linear infinite;
 }
@@ -3348,8 +3540,7 @@ b.pos-relative.margin-large {
 .stat-score,
 .roll-total,
 .roll-part,
-.spell-level-number,
-.ammo-count {
+.spell-level-number {
   font-variant-numeric: tabular-nums;
 }
 

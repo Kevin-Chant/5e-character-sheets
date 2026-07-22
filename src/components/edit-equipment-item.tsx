@@ -112,8 +112,6 @@ export default function EditEquipmentItem() {
           : Math.max(0, weightToLb(Number(value) || 0, weightUnit)),
       ),
     );
-  const setEquipped = (equipped: boolean) =>
-    dispatch(updateAt(itemCursor.k("equipped"), equipped));
   const setRequiresAttunement = (required: boolean) =>
     dispatch(
       updateAt(
@@ -315,14 +313,9 @@ export default function EditEquipmentItem() {
         )}
       </fieldset>
 
-      <label className="settings-checkbox">
-        <input
-          type="checkbox"
-          checked={item.equipped}
-          onChange={(e) => setEquipped(e.target.checked)}
-        />
-        Equipped (worn/wielded)
-      </label>
+      {/* Whether the item is currently equipped (worn/wielded) is a direct state
+          toggle on the sheet row, not item setup — only "requires attunement"
+          (a capability of the item) is configured here. */}
       <label className="settings-checkbox">
         <input
           type="checkbox"

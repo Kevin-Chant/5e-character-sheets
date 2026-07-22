@@ -1,5 +1,4 @@
 import {
-  CoinType,
   DieOperation,
   FIELD,
   Operation,
@@ -11,9 +10,11 @@ import {
   calculateCustomFormula,
   formatCustomFormulaWithDamage,
 } from "src/lib/formula";
-import { getHitDice, totalGP } from "src/lib/rules";
+import { getHitDice } from "src/lib/rules";
 import SingleValueDisplay from "./display/single-value-display";
 import EquipmentDisplay from "./display/equipment-display";
+import CoinsDisplay from "./display/coins-display";
+import AttunementDisplay from "./display/attunement-display";
 import SpeedDisplay from "./display/speed-display";
 import AmmunitionDisplay from "./display/ammunition-display";
 import SlotPips from "./display/slot-pips";
@@ -285,29 +286,10 @@ export default function DefenceAndEquipmentPanel() {
         </div>
       </div>
       {/* Equipment */}
-      <div className="column rounded-border-box">
-        <div className="row">
-          <div className="column">
-            {(Object.keys(CoinType) as CoinType[]).map((coinType) => {
-              return (
-                <SingleValueDisplay
-                  cursor={charPath(FIELD.coins).k(coinType)}
-                  name={coinType}
-                  flipped
-                  key={coinType}
-                  editable
-                />
-              );
-            })}
-            <SingleValueDisplay
-              cursor={charPath(FIELD.coins)}
-              transform={totalGP}
-              name={"Total Value"}
-              flipped
-            />
-          </div>
-          <EquipmentDisplay />
-        </div>
+      <div className="column rounded-border-box equipment-box">
+        <CoinsDisplay />
+        <EquipmentDisplay />
+        <AttunementDisplay />
         {trackAmmunition && <AmmunitionDisplay />}
       </div>
     </div>
