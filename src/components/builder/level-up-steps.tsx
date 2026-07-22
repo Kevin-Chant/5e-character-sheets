@@ -3,10 +3,15 @@ import { Character } from "src/lib/types";
 import {
   OfficialClass,
   SkillName,
-  LEVELED_SPELL_LEVELS,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { getDefaultSpellSlots, getPactSlotInfo, getPB } from "src/lib/rules";
+import { getPB, maxSpellLevelForClass } from "src/lib/rules";
+import {
+  ELDRITCH_INVOCATIONS,
+  fightingStyleDueAt,
+  getFightingStyle,
+  newInvocationsAt,
+} from "src/lib/builder/class-features";
 import { WEAPON_PRESETS } from "src/lib/data/weapon-presets";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
 import {
@@ -131,6 +136,86 @@ export function LevelUpSubclassStep({ state, patch }: LevelUpStepProps) {
         </select>
         {chosen && <p className="text-muted builder-hint">{chosen.summary}</p>}
       </Field>
+    </div>
+  );
+}
+
+// ------------------------------------------- Class feature choices step
+// Fighting styles (fighter 1 / paladin 2 / ranger 2) and eldritch invocations
+// (whenever the warlock's known count grows). Choices land as features titled
+// with the bare style/invocation name, so the ones the mechanics catalog
+// knows (Great Weapon Fighting) activate their riders by title.
+export function LevelUpFeatureChoicesStep({
+  character,
+  state,
+  patch,
+}: LevelUpStepProps) {
+  const level = targetClassLevel(character, state);
+  const styleNames = fightingStyleDueAt(state.className, level);
+  const newInvocations =
+    state.className === OfficialClass.Warlock ? newInvocationsAt(level) : 0;
+  const known = new Set(character.features.map((f) => f.title.trim()));
+
+  return (
+    <div className="builder-step">
+      {styleNames && (
+        <Field label="Fighting style">
+          <select
+            className="builder-input"
+            value={state.fightingStyle ?? ""}
+            onChange={(e) =>
+              patch({ fightingStyle: e.target.value || undefined })
+            }
+          >
+            <option value="">Choose…</option>
+            {styleNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          {state.fightingStyle && (
+            <p className="text-muted builder-hint">
+              {getFightingStyle(state.fightingStyle)?.summary}
+            </p>
+          )}
+        </Field>
+      )}
+      {newInvocations > 0 && (
+        <Field label="Eldritch invocations">
+          <p className="text-muted builder-hint">
+            Choose {newInvocations} new invocation
+            {newInvocations > 1 ? "s" : ""}. Only SRD invocations are listed —
+            add others as features from the sheet.
+          </p>
+          <div className="column invocation-options">
+            {ELDRITCH_INVOCATIONS.filter((inv) => !known.has(inv.name)).map(
+              (inv) => (
+                <label key={inv.name} className="row invocation-option">
+                  <input
+                    type="checkbox"
+                    checked={state.invocations.includes(inv.name)}
+                    onChange={(e) =>
+                      patch({
+                        invocations: e.target.checked
+                          ? [...state.invocations, inv.name]
+                          : state.invocations.filter((n) => n !== inv.name),
+                      })
+                    }
+                  />
+                  <span>
+                    <b>{inv.name}</b>
+                    {inv.prerequisite && (
+                      <i className="text-muted"> ({inv.prerequisite})</i>
+                    )}{" "}
+                    <span className="text-muted">{inv.summary}</span>
+                  </span>
+                </label>
+              ),
+            )}
+          </div>
+        </Field>
+      )}
     </div>
   );
 }
@@ -418,19 +503,12 @@ export function LevelUpSpellsStep({
   patch,
 }: LevelUpStepProps) {
   const preview = applyLevelUp(character, state);
-  // The highest leveled spell the character can now cast. Standard casters read
-  // it from the shared multiclass slot table; Warlocks cast via pact magic,
-  // which that table reports as zero, so fold in their pact-slot level too.
-  const standardMax = Math.max(
-    0,
-    ...LEVELED_SPELL_LEVELS.filter(
-      (sl) => getDefaultSpellSlots(preview, sl) > 0,
-    ),
-  );
-  const pactMax = preview.class.some((c) => c.name === OfficialClass.Warlock)
-    ? getPactSlotInfo(preview).level
-    : 0;
-  const maxSpellLevel = Math.max(standardMax, pactMax);
+  // The highest spell level offered is the *leveled class's own* limit at its
+  // new level, as if single-classed — the RAW gate for spells known/prepared.
+  // (Multiclass slot pooling affects casting, not learning: a Paladin 9 /
+  // Warlock 1 picks warlock spells as a warlock 1, despite 3rd-level slots.)
+  const targetKlass = preview.class.find((c) => c.name === state.className);
+  const maxSpellLevel = targetKlass ? maxSpellLevelForClass(targetKlass) : 0;
   const leveledSpellLevels = Array.from(
     { length: maxSpellLevel },
     (_, i) => i + 1,

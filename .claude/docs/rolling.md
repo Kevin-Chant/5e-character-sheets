@@ -46,7 +46,21 @@ its `roll` `DieOperation` is a fixed stub. Real randomness lives in
 
 - **`check`** (a number) → `d20 + modifier`, with Disadv./Roll/Adv. buttons.
   Every "roll a d20 and add a number" surface.
-- **`formula`** (a `CustomFormula`) → rolls its dice (e.g. a hit die + CON).
+- **`formula`** (a `CustomFormula`) → rolls its dice, display-only.
+- **`hitDie`** (a `StandardDie`) → the one roll kind that **writes**: rolls
+  `1d<die> + CON`, then an explicit Apply button heals current HP and marks one
+  die expended. It's declarative (not an `afterRoll` callback) so the modal can
+  gate on the live character: Roll disabled at zero remaining dice, healing
+  clamped to max HP, and any minimum-total rider (Durable) applied. The apply
+  step goes through the mechanics resolver (`resolveEffects` → normal
+  `dispatch`es; see [`ability-mechanics.md`](./ability-mechanics.md)) —
+  play-mode dispatching is fine, only the edit-modal machinery is off-limits.
+
+Every roll consults the character's **riders** for its kind — rerolls, minimum
+dice, crit range, minimums — via `ridersFor` (see
+[`ability-mechanics.md`](./ability-mechanics.md)); `rollFormula`/`rollDamage`/
+`rollD20Check` all take the active rider list.
+
 - **`attack`** (from `toHit` and/or `damage`/`spell`) → **one dialog with both
   steps**: an optional _To Hit_ section (`d20 + toHit`, adv/dis) above a
   _Damage_/_Healing_ section. This is why a weapon or attack-spell has a single
@@ -82,7 +96,7 @@ A spell with no structured `mechanics` (damage or healing) shows no die button.
 | Skills         | `proficiency-display.tsx` (`rollLabel`)  | `check` = skill modifier                      |
 | Initiative     | `single-value-display.tsx` (`rollCheck`) | `check` = init modifier                       |
 | Weapon attack  | `defence-and-equipment-panel.tsx`        | `attack` = to-hit + damage                    |
-| Hit dice       | `defence-and-equipment-panel.tsx`        | `formula` = `1d<die> + CON`                   |
+| Hit dice       | `defence-and-equipment-panel.tsx`        | `hitDie` = spend a die, heal HP               |
 | Spells         | `spell-list.tsx`                         | `attack` = spell (+ to-hit for attack spells) |
 
 Two reusable seams keep the wiring cheap: `ProficiencyDisplay`'s `rollLabel` and

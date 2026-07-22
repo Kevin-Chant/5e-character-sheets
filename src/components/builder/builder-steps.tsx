@@ -18,6 +18,10 @@ import {
   castsAtLevelOne,
   getSrdClass,
 } from "src/lib/builder/srd-classes";
+import {
+  fightingStyleDueAt,
+  getFightingStyle,
+} from "src/lib/builder/class-features";
 import { subclassesForClass } from "src/lib/builder/subclasses";
 import { PHB_BACKGROUNDS, getBackground } from "src/lib/builder/backgrounds";
 import {
@@ -422,6 +426,30 @@ export function ClassStep({ state, patch }: StepProps) {
           You&apos;ll choose this class&apos;s {klass.skillChoices.choose} skill
           proficiencies in the Background &amp; skills step.
         </p>
+      )}
+
+      {klass && fightingStyleDueAt(klass.name, 1) && (
+        <Field label="Fighting style">
+          <select
+            className="builder-input"
+            value={state.fightingStyle ?? ""}
+            onChange={(e) =>
+              patch({ fightingStyle: e.target.value || undefined })
+            }
+          >
+            <option value="">Choose… (optional)</option>
+            {fightingStyleDueAt(klass.name, 1)!.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          {state.fightingStyle && (
+            <p className="text-muted builder-hint">
+              {getFightingStyle(state.fightingStyle)?.summary}
+            </p>
+          )}
+        </Field>
       )}
 
       {klass?.subclassAtLevel1 && (

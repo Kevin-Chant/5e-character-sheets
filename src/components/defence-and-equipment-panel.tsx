@@ -1,10 +1,4 @@
-import {
-  DieOperation,
-  FIELD,
-  Operation,
-  StandardDie,
-  StatKey,
-} from "src/lib/data/data-definitions";
+import { FIELD, StandardDie } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   calculateCustomFormula,
@@ -141,16 +135,7 @@ export default function DefenceAndEquipmentPanel() {
                     <td>
                       <span className="row roll-inline">
                         {die}
-                        <RollButton
-                          label={`Hit Die (${die})`}
-                          formula={{
-                            operation: Operation.addition,
-                            operands: [
-                              [1, die, DieOperation.roll],
-                              StatKey.con,
-                            ],
-                          }}
-                        />
+                        <RollButton label={`Hit Die (${die})`} hitDie={die} />
                       </span>
                     </td>
                     <td>{totalHitDice[die] || 0}</td>

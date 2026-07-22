@@ -162,6 +162,16 @@ export function getHitDice(character: Character): HitDice {
   return hitDice;
 }
 
+// Unspent hit dice of one size (total, respecting any override, minus
+// expended). Gates the spend-a-hit-die flow in the roll dialog.
+export function remainingHitDice(
+  character: Character,
+  die: StandardDie,
+): number {
+  const total = (character.totalHitDice || getHitDice(character))[die] || 0;
+  return Math.max(0, total - (character.expendedHitDice[die] || 0));
+}
+
 // Jack of All Trades applies half proficiency to non-proficient ability checks:
 // Bard level 2+, or the manual override.
 export function hasJackOfAllTrades(character: Character): boolean {
@@ -509,6 +519,57 @@ export function getDefaultSpellSlots(
     slotLevel,
     calculateSpellcasterLevel(character),
   );
+}
+
+// The highest spell level a class entry can learn/prepare **as if
+// single-classed** at its own level — the RAW gate for spells known/prepared
+// (PHB multiclassing: each class determines its spells individually, even
+// though *slots* pool). Half-casters use ceil(level/2) as their effective
+// caster level (a single-classed paladin 9 has 3rd-level slots), warlocks
+// their pact-slot level, subclass third-casters ceil(level/3) from their
+// subclass level.
+export function maxSpellLevelForClass(klass: IClass): number {
+  const highestSlot = (casterLevel: number): number => {
+    for (let sl = 9; sl >= 1; sl--)
+      if (
+        getSpellSlotsByLevelAndSpellcasterLevel(
+          sl as LeveledSpellLevel,
+          casterLevel,
+        ) > 0
+      )
+        return sl;
+    return 0;
+  };
+  if (!isOfficialClass(klass.name)) return 0;
+  switch (klass.name) {
+    case OfficialClass.Bard:
+    case OfficialClass.Cleric:
+    case OfficialClass.Druid:
+    case OfficialClass.Sorcerer:
+    case OfficialClass.Wizard:
+      return highestSlot(klass.level);
+    case OfficialClass.Paladin:
+    case OfficialClass.Ranger:
+      return klass.level < 2 ? 0 : highestSlot(Math.ceil(klass.level / 2));
+    case OfficialClass.Artificer:
+      return highestSlot(Math.ceil(klass.level / 2));
+    case OfficialClass.Warlock:
+      return Math.min(5, Math.ceil(klass.level / 2));
+    case OfficialClass.Fighter:
+      return klass.subclass === "Eldritch Knight"
+        ? klass.level < 3
+          ? 0
+          : highestSlot(Math.ceil(klass.level / 3))
+        : 0;
+    case OfficialClass.Rogue:
+      return klass.subclass === "Arcane Trickster"
+        ? klass.level < 3
+          ? 0
+          : highestSlot(Math.ceil(klass.level / 3))
+        : 0;
+    default:
+      return 0;
+  }
 }
 
 // Unspent standard slots at a level (total, respecting any override, minus

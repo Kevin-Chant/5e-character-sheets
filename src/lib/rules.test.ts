@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OfficialClass } from "./data/data-definitions";
+import { OfficialClass, StandardDie } from "./data/data-definitions";
 import { defaultCharacter } from "./data/default-data";
 import {
   availableSpellSlots,
@@ -9,7 +9,9 @@ import {
   formatWeight,
   getHpFormula,
   isPreparedCaster,
+  maxSpellLevelForClass,
   officialSpellcastingClasses,
+  remainingHitDice,
   totalEquipmentWeightLb,
   weightInUnit,
   weightToLb,
@@ -58,6 +60,65 @@ describe("officialSpellcastingClasses", () => {
       { classId: randomUUID() },
     ];
     expect(officialSpellcastingClasses(c)).toEqual([OfficialClass.Wizard]);
+  });
+});
+
+describe("remainingHitDice", () => {
+  it("is total (from the override) minus expended, floored at 0", () => {
+    const c = structuredClone(defaultCharacter);
+    c.totalHitDice = { d10: 3 };
+    c.expendedHitDice = { d10: 1 };
+    expect(remainingHitDice(c, StandardDie.d10)).toBe(2);
+    c.expendedHitDice = { d10: 5 };
+    expect(remainingHitDice(c, StandardDie.d10)).toBe(0);
+    expect(remainingHitDice(c, StandardDie.d6)).toBe(0);
+  });
+
+  it("derives totals from class levels when no override is set", () => {
+    const c = wizard(4); // 4 × d6
+    c.totalHitDice = undefined;
+    c.expendedHitDice = { d6: 1 };
+    expect(remainingHitDice(c, StandardDie.d6)).toBe(3);
+  });
+});
+
+describe("maxSpellLevelForClass", () => {
+  const k = (name: OfficialClass, level: number, subclass?: string) => ({
+    id: randomUUID(),
+    name,
+    level,
+    subclass,
+  });
+
+  it("full casters follow their own single-class table", () => {
+    expect(maxSpellLevelForClass(k(OfficialClass.Wizard, 1))).toBe(1);
+    expect(maxSpellLevelForClass(k(OfficialClass.Wizard, 3))).toBe(2);
+    expect(maxSpellLevelForClass(k(OfficialClass.Wizard, 17))).toBe(9);
+  });
+
+  it("half-casters round up (a single-classed paladin 9 casts 3rd)", () => {
+    expect(maxSpellLevelForClass(k(OfficialClass.Paladin, 1))).toBe(0);
+    expect(maxSpellLevelForClass(k(OfficialClass.Paladin, 2))).toBe(1);
+    expect(maxSpellLevelForClass(k(OfficialClass.Paladin, 4))).toBe(1);
+    expect(maxSpellLevelForClass(k(OfficialClass.Paladin, 5))).toBe(2);
+    expect(maxSpellLevelForClass(k(OfficialClass.Paladin, 9))).toBe(3);
+  });
+
+  it("warlocks gate on their own pact-slot level", () => {
+    expect(maxSpellLevelForClass(k(OfficialClass.Warlock, 1))).toBe(1);
+    expect(maxSpellLevelForClass(k(OfficialClass.Warlock, 3))).toBe(2);
+    expect(maxSpellLevelForClass(k(OfficialClass.Warlock, 11))).toBe(5);
+  });
+
+  it("non-casters and subclass casters", () => {
+    expect(maxSpellLevelForClass(k(OfficialClass.Fighter, 10))).toBe(0);
+    expect(
+      maxSpellLevelForClass(k(OfficialClass.Fighter, 3, "Eldritch Knight")),
+    ).toBe(1);
+    expect(
+      maxSpellLevelForClass(k(OfficialClass.Rogue, 3, "Arcane Trickster")),
+    ).toBe(1);
+    expect(maxSpellLevelForClass(k(OfficialClass.Barbarian, 20))).toBe(0);
   });
 });
 

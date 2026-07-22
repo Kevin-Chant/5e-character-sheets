@@ -1,0 +1,140 @@
+import { calculateCustomFormula } from "src/lib/formula";
+import { Character } from "src/lib/types";
+import {
+  FEATURE_MECHANICS,
+  mechanicsForAbility,
+  normalizeTitle,
+  RACE_MECHANICS,
+} from "./catalog";
+import { ActiveRider, FeatureMechanics, RollKind } from "./types";
+
+// The roll-time interpreter: collects the riders in play for a roll and
+// applies them. Die-level adjustments (rerolls, minimum dice) hook into
+// `roll.ts`'s per-die loop; total-level ones (minimums, bonuses) apply to the
+// finished sum.
+
+// Every rider active for this character and roll kind. Sources: feature
+// titles (feats land on the sheet as features), limited-use abilities (their
+// authored `mechanics` field, falling back to catalog-by-title), and the race
+// (for traits like Halfling Luck whose titles are too generic).
+export function ridersFor(character: Character, kind: RollKind): ActiveRider[] {
+  const out: ActiveRider[] = [];
+  const collectEntry = (entry: FeatureMechanics | undefined, source: string) =>
+    entry?.riders?.forEach((r) => {
+      if (r.appliesTo.includes(kind)) out.push({ source, rider: r.rider });
+    });
+  character.features.forEach((f) =>
+    collectEntry(FEATURE_MECHANICS[normalizeTitle(f.title)], f.title.trim()),
+  );
+  character.limitedUseAbilities.forEach((a) =>
+    collectEntry(mechanicsForAbility(a), a.info.title.trim()),
+  );
+  const race = normalizeTitle(character.race.name);
+  Object.entries(RACE_MECHANICS).forEach(([key, entry]) => {
+    if (!race.includes(key)) return;
+    entry.riders?.forEach((r) => {
+      if (r.appliesTo.includes(kind))
+        out.push({ source: character.race.name, rider: r.rider });
+    });
+  });
+  return out;
+}
+
+// Adjust one rolled die: reroll-below first (RAW: you must keep the new
+// roll), then minimum-die floors the result. `reroll` re-rolls the same die.
+export function adjustDieRoll(
+  raw: number,
+  riders: ActiveRider[],
+  reroll: () => number,
+): number {
+  let result = raw;
+  const rerollAt = Math.max(
+    0,
+    ...riders.flatMap((r) =>
+      r.rider.rider === "rerollBelow" ? [r.rider.threshold] : [],
+    ),
+  );
+  if (result <= rerollAt) result = reroll();
+  const dieFloor = Math.max(
+    0,
+    ...riders.flatMap((r) =>
+      r.rider.rider === "minimumDie" ? [r.rider.value] : [],
+    ),
+  );
+  return Math.max(result, dieFloor);
+}
+
+// The floor the roll's total can't come out below (0 when no rider applies).
+export function riderMinimumTotal(
+  riders: ActiveRider[],
+  character: Character,
+): number {
+  return Math.max(
+    0,
+    ...riders.flatMap((r) =>
+      r.rider.rider === "minimumTotal"
+        ? [calculateCustomFormula(r.rider.value, character)]
+        : [],
+    ),
+  );
+}
+
+// Flat additions to the total.
+export function riderFlatBonus(
+  riders: ActiveRider[],
+  character: Character,
+): number {
+  return riders.reduce(
+    (sum, r) =>
+      r.rider.rider === "bonus"
+        ? sum + calculateCustomFormula(r.rider.value, character)
+        : sum,
+    0,
+  );
+}
+
+// Fold the total-level riders into a finished roll. Note the implicit floor
+// at 0 (riderMinimumTotal's base) — correct for the damage/healing/hit-die
+// totals this is meant for, so don't use it on d20 checks, whose totals can
+// legitimately be negative and whose riders are all die-level.
+export function applyTotalRiders(
+  total: number,
+  riders: ActiveRider[],
+  character: Character,
+): number {
+  return (
+    Math.max(total, riderMinimumTotal(riders, character)) +
+    riderFlatBonus(riders, character)
+  );
+}
+
+// The d20 value at or above which this roll crits (20 without riders).
+export function critThreshold(riders: ActiveRider[]): number {
+  return Math.min(
+    20,
+    ...riders.flatMap((r) =>
+      r.rider.rider === "critRange" ? [r.rider.value] : [],
+    ),
+  );
+}
+
+// Advisory advantage notes to surface in the dialog.
+export function advantageNotes(riders: ActiveRider[]): string[] {
+  return riders.flatMap((r) =>
+    r.rider.rider === "advantage" ? [`${r.source}: ${r.rider.note}`] : [],
+  );
+}
+
+// HP regained from spending one hit die, given the rolled die + CON total:
+// never negative, raised by any minimum-total rider (Durable). Lives here
+// rather than rules.ts because rider values are formulas and rules.ts sits
+// below the formula engine in the import graph.
+export function hitDieHealing(
+  character: Character,
+  rolledTotal: number,
+): number {
+  return Math.max(
+    0,
+    applyTotalRiders(rolledTotal, ridersFor(character, "hitDie"), character),
+  );
+}

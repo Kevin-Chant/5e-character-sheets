@@ -11,8 +11,14 @@ import {
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import {
+  fightingStyleDueAt,
+  newInvocationsAt,
+} from "src/lib/builder/class-features";
+import { OfficialClass } from "src/lib/data/data-definitions";
+import {
   LevelUpAdvancementStep,
   LevelUpClassStep,
+  LevelUpFeatureChoicesStep,
   LevelUpReviewStep,
   LevelUpSpellsStep,
   LevelUpStepProps,
@@ -41,6 +47,19 @@ const STEPS: StepDef[] = [
     title: "Choose a subclass",
     Component: LevelUpSubclassStep,
     visible: subclassStepVisible,
+  },
+  {
+    key: "featureChoices",
+    title: "Class features",
+    Component: LevelUpFeatureChoicesStep,
+    visible: (character, state) => {
+      const level = targetClassLevel(character, state);
+      return (
+        !!fightingStyleDueAt(state.className, level) ||
+        (state.className === OfficialClass.Warlock &&
+          newInvocationsAt(level) > 0)
+      );
+    },
   },
   {
     key: "advancement",

@@ -14,6 +14,7 @@ import { charPath, fromStack, updateAt } from "src/lib/cursor";
 import { newLimitedUseAbility } from "src/lib/data/default-data";
 import { useSave } from "./modals/modal-container";
 import { ControlledEditTextLine } from "./edit-text-line";
+import EditAbilityMechanics from "./edit-ability-mechanics";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 
 const RECHARGE_PRESETS = Object.values(RestType) as string[];
@@ -138,6 +139,7 @@ export default function EditLimitedUseAbility() {
           />
         </label>
       </div>
+      <EditAbilityMechanics ability={ability} cursor={abilityCursor} />
       <button
         className="btn-primary edit-save"
         onClick={(e) => {

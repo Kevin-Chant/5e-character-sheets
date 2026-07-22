@@ -1,6 +1,64 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "definitions": {
+        "AbilityAction": {
+            "properties": {
+                "choose": {
+                    "properties": {
+                        "amount": {
+                            "const": "uses",
+                            "type": "string"
+                        },
+                        "slotLevel": {
+                            "enum": [
+                                "toExpend",
+                                "toRestore"
+                            ],
+                            "type": "string"
+                        },
+                        "slotLevelMax": {
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
+                "cost": {
+                    "$ref": "#/definitions/ActionCost"
+                },
+                "costNote": {
+                    "type": "string"
+                },
+                "effects": {
+                    "items": {
+                        "$ref": "#/definitions/Effect"
+                    },
+                    "type": "array"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "cost",
+                "effects",
+                "id",
+                "name"
+            ],
+            "type": "object"
+        },
+        "ActionCost": {
+            "enum": [
+                "action",
+                "bonusAction",
+                "free",
+                "reaction",
+                "special"
+            ],
+            "type": "string"
+        },
         "Addition": {
             "properties": {
                 "operands": {
@@ -61,6 +119,79 @@
                 "weaponIds"
             ],
             "type": "object"
+        },
+        "AmountExpr": {
+            "anyOf": [
+                {
+                    "properties": {
+                        "fixed": {
+                            "$ref": "#/definitions/CustomFormula"
+                        },
+                        "levelMultiplier": {
+                            "type": "number"
+                        },
+                        "plusLevelOf": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "fixed"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "chosenAmount": {
+                            "const": true,
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "chosenAmount"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "chosenAmountDice": {
+                            "$ref": "#/definitions/StandardDie"
+                        }
+                    },
+                    "required": [
+                        "chosenAmountDice"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "chosenLevel": {
+                            "const": true,
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "chosenLevel"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "byChosenLevel": {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^[0-9]+$": {
+                                    "type": "number"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "required": [
+                        "byChosenLevel"
+                    ],
+                    "type": "object"
+                }
+            ]
         },
         "ArmorCategory": {
             "enum": [
@@ -412,6 +543,156 @@
             ],
             "type": "object"
         },
+        "Effect": {
+            "anyOf": [
+                {
+                    "properties": {
+                        "amount": {
+                            "$ref": "#/definitions/AmountExpr"
+                        },
+                        "effect": {
+                            "const": "heal",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "amount",
+                        "effect"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "amount": {
+                            "$ref": "#/definitions/AmountExpr"
+                        },
+                        "effect": {
+                            "const": "gainTempHp",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "amount",
+                        "effect"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "amount": {
+                            "$ref": "#/definitions/AmountExpr"
+                        },
+                        "effect": {
+                            "const": "spendUses",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "amount",
+                        "effect"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "amount": {
+                            "$ref": "#/definitions/AmountExpr"
+                        },
+                        "effect": {
+                            "const": "restoreUses",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "amount",
+                        "effect"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "effect": {
+                            "const": "expendSlot",
+                            "type": "string"
+                        },
+                        "level": {
+                            "$ref": "#/definitions/LeveledSpellLevel"
+                        }
+                    },
+                    "required": [
+                        "effect"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "effect": {
+                            "const": "restoreSlot",
+                            "type": "string"
+                        },
+                        "level": {
+                            "$ref": "#/definitions/LeveledSpellLevel"
+                        }
+                    },
+                    "required": [
+                        "effect"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "die": {
+                            "$ref": "#/definitions/StandardDie"
+                        },
+                        "effect": {
+                            "const": "spendHitDie",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "die",
+                        "effect"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "amount": {
+                            "$ref": "#/definitions/AmountExpr"
+                        },
+                        "effect": {
+                            "const": "roll",
+                            "type": "string"
+                        },
+                        "label": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "amount",
+                        "effect",
+                        "label"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "effect": {
+                            "const": "remind",
+                            "type": "string"
+                        },
+                        "note": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "effect",
+                        "note"
+                    ],
+                    "type": "object"
+                }
+            ]
+        },
         "EquipmentItem": {
             "properties": {
                 "armor": {
@@ -468,6 +749,41 @@
             },
             "required": [
                 "equippedArmor"
+            ],
+            "type": "object"
+        },
+        "FeatureMechanics": {
+            "properties": {
+                "actions": {
+                    "items": {
+                        "$ref": "#/definitions/AbilityAction"
+                    },
+                    "type": "array"
+                },
+                "riders": {
+                    "items": {
+                        "$ref": "#/definitions/FeatureRider"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "FeatureRider": {
+            "properties": {
+                "appliesTo": {
+                    "items": {
+                        "$ref": "#/definitions/RollKind"
+                    },
+                    "type": "array"
+                },
+                "rider": {
+                    "$ref": "#/definitions/RollRider"
+                }
+            },
+            "required": [
+                "appliesTo",
+                "rider"
             ],
             "type": "object"
         },
@@ -533,6 +849,20 @@
             ],
             "type": "object"
         },
+        "LeveledSpellLevel": {
+            "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9
+            ],
+            "type": "number"
+        },
         "LimitedUseAbility": {
             "properties": {
                 "expended": {
@@ -543,6 +873,9 @@
                 },
                 "maxUses": {
                     "$ref": "#/definitions/CustomFormula"
+                },
+                "mechanics": {
+                    "$ref": "#/definitions/FeatureMechanics"
                 },
                 "recharge": {
                     "type": "string"
@@ -812,6 +1145,116 @@
                 "Shields"
             ],
             "type": "object"
+        },
+        "RollKind": {
+            "enum": [
+                "attack",
+                "check",
+                "damage",
+                "healing",
+                "hitDie"
+            ],
+            "type": "string"
+        },
+        "RollRider": {
+            "anyOf": [
+                {
+                    "properties": {
+                        "rider": {
+                            "const": "minimumTotal",
+                            "type": "string"
+                        },
+                        "value": {
+                            "$ref": "#/definitions/CustomFormula"
+                        }
+                    },
+                    "required": [
+                        "rider",
+                        "value"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "rider": {
+                            "const": "minimumDie",
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "rider",
+                        "value"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "rider": {
+                            "const": "rerollBelow",
+                            "type": "string"
+                        },
+                        "threshold": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "rider",
+                        "threshold"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "rider": {
+                            "const": "bonus",
+                            "type": "string"
+                        },
+                        "value": {
+                            "$ref": "#/definitions/CustomFormula"
+                        }
+                    },
+                    "required": [
+                        "rider",
+                        "value"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "rider": {
+                            "const": "critRange",
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "rider",
+                        "value"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "note": {
+                            "type": "string"
+                        },
+                        "rider": {
+                            "const": "advantage",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "note",
+                        "rider"
+                    ],
+                    "type": "object"
+                }
+            ]
         },
         "Senses": {
             "properties": {
@@ -1313,6 +1756,17 @@
                 }
             },
             "type": "object"
+        },
+        "StandardDie": {
+            "enum": [
+                "d4",
+                "d6",
+                "d8",
+                "d10",
+                "d12",
+                "d20"
+            ],
+            "type": "string"
         },
         "StatKey": {
             "enum": [

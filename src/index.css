@@ -915,6 +915,38 @@ p {
   justify-content: flex-start;
 }
 
+/* The homebrew mechanics editor inside the limited-use ability modal: one card
+   per action, one compact row per effect. */
+.edit-ability-mechanics {
+  align-items: stretch;
+  gap: 0.5rem;
+  text-align: left;
+}
+.edit-action {
+  align-items: stretch;
+  gap: 0.4rem;
+}
+.edit-action-header {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+.edit-action-header input {
+  flex: 1;
+}
+.edit-effect-row {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.edit-effect-row input[type="number"] {
+  width: 3.5rem;
+}
+.add-action-btn,
+.add-effect-btn {
+  align-self: flex-start;
+}
+
 /* A number field read better typed than spun (e.g. decimal weights); the themed
    StepperInput covers ±1 integer fields elsewhere in the form. */
 .no-spin {
@@ -2245,6 +2277,46 @@ button.slot-pip:hover:not(:disabled) {
 .limited-use-count {
   justify-content: flex-start;
   gap: 0.5rem;
+}
+
+/* Special-ability action rows (Second Wind, Font of Magic, Lay on Hands, …):
+   compact picker + button + action-cost badge, flush left under the pips. */
+.ability-actions {
+  align-items: stretch;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+.ability-action {
+  align-items: stretch;
+  gap: 0.15rem;
+}
+.ability-action-row {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ability-action-row select {
+  flex: 0 1 auto;
+}
+.ability-action-row input[type="number"] {
+  width: 3.5rem;
+}
+.ability-action-outcome {
+  margin: 0;
+  text-align: left;
+}
+
+/* The action-economy badge: what using the ability costs at the table. */
+.action-cost-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border, currentColor);
+  color: var(--text-muted, inherit);
+  white-space: nowrap;
 }
 
 /* Filled accent button for primary actions. */

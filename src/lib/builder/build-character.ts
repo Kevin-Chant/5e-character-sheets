@@ -2,6 +2,7 @@ import { uniq, uniqBy } from "lodash";
 import {
   Alignment,
   ArmorType,
+  DamageType,
   LEVELED_SPELL_LEVELS,
   Operation,
   Size,
@@ -25,6 +26,11 @@ import {
 import { CURRENT_SCHEMA_VERSION } from "src/lib/migrations/version";
 import { defaultCharacter } from "src/lib/data/default-data";
 import { BuilderState, CUSTOM_SUBRACE } from "src/lib/builder/types";
+import {
+  fightingStyleDueAt,
+  getFightingStyle,
+} from "src/lib/builder/class-features";
+import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
 import { getSrdRace, getSubrace } from "src/lib/builder/srd-races";
 import { resolveFinalStats } from "src/lib/builder/resolve";
 import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
@@ -48,6 +54,26 @@ const sizeFromLabel = (label?: string): Size =>
   (Object.values(Size) as string[]).includes(label ?? "")
     ? (label as Size)
     : Size.Medium;
+
+// Damage resistances certain racial traits confer, keyed by normalized trait
+// title — so Hellish Resistance lands as a structured Fire resistance, not
+// just prose. Dragonborn's Damage Resistance is ancestry-dependent and stays
+// prose-only (the sheet doesn't model the ancestry choice yet).
+const TRAIT_RESISTANCES: Record<string, DamageType[]> = {
+  "hellish resistance": [DamageType.Fire],
+  "dwarven resilience": [DamageType.Poison],
+  "stout resilience": [DamageType.Poison],
+  "celestial resistance": [DamageType.Necrotic, DamageType.Radiant],
+};
+
+const resistancesFromTraits = (traits: TextComponent[]): DamageType[] => {
+  const out: DamageType[] = [];
+  for (const t of traits) {
+    for (const dt of TRAIT_RESISTANCES[t.title.trim().toLowerCase()] ?? [])
+      if (!out.includes(dt)) out.push(dt);
+  }
+  return out;
+};
 
 // Pull a darkvision range out of a race's traits. SRD traits title the feature
 // "Darkvision" and put the range in the detail prose ("…within 60 feet…"), so
@@ -326,6 +352,35 @@ function guidedCharacter(state: BuilderState): Character {
   };
   if (bgFeature.title)
     char.features.push(text(bgFeature.title, bgFeature.detail || undefined));
+
+  // Limited-use pools behind the level-1 features (Rage, Second Wind, Lay on
+  // Hands, a dragonborn's Breath Weapon, …). Titles match the mechanics
+  // catalog so the pools come with their actions attached.
+  syncClassPools(char, char.class[0]);
+  syncRacePools(
+    char,
+    raceTraits.map((t) => t.title),
+  );
+
+  // Structured racial damage resistances (Hellish Resistance → Fire, …).
+  char.damageModifiers.resistances = resistancesFromTraits(raceTraits);
+
+  // Level-1 fighting style (Fighter). Bare style name as the feature title so
+  // catalog riders (Great Weapon Fighting) match; Defense folds +1 into AC.
+  if (
+    state.fightingStyle &&
+    fightingStyleDueAt(className, 1)?.includes(state.fightingStyle)
+  ) {
+    const style = getFightingStyle(state.fightingStyle);
+    if (style) {
+      char.features.push(text(style.name, style.summary));
+      if (style.acBonus)
+        char.acFormula = {
+          operation: Operation.addition,
+          operands: [char.acFormula, style.acBonus],
+        };
+    }
+  }
 
   // Spellcasting
   if (klass && castsAtLevelOne(klass)) {

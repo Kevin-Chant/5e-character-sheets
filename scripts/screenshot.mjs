@@ -28,6 +28,15 @@
 //   {"press":"<key>"}               keyboard press (e.g. "Enter", "Escape")
 //   {"wait":300}                    wait N ms
 //   {"wait":"<selector>"}           wait until the selector is visible
+//
+// Long multi-run flows (e.g. walking the level-up wizard many times):
+//   --storage <file>   persist localStorage across runs: loaded before the page
+//                      opens (when the file exists) and written back after the
+//                      steps, so a flow can be driven in incremental batches.
+//                      Takes precedence over --fixture when the file exists.
+//   --dump <file>      after the steps, write the stored characters as JSON —
+//                      lets a test diff the actual saved character instead of
+//                      eyeballing pixels.
 
 import { chromium } from "@playwright/test";
 import { spawn } from "child_process";
@@ -121,8 +130,19 @@ async function ensureServer() {
     }, Number(seed));
   }
 
+  const storageFile = flag("storage");
   let character;
-  if (fixtureName) {
+  if (storageFile && fs.existsSync(path.resolve(storageFile))) {
+    // Resume a persisted session: restore every localStorage key verbatim.
+    const stored = JSON.parse(
+      fs.readFileSync(path.resolve(storageFile), "utf8"),
+    );
+    await ctx.addInitScript((entries) => {
+      for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, v);
+    }, stored);
+    const folder = stored["dndcharactersheets_characters"];
+    if (folder) character = Object.values(JSON.parse(folder))[0];
+  } else if (fixtureName) {
     const file = path.join(ROOT, "src/lib/fixtures", `${fixtureName}.json`);
     character = JSON.parse(fs.readFileSync(file, "utf8"));
     const folder = JSON.stringify({ [character.uuid]: character });
@@ -135,7 +155,7 @@ async function ensureServer() {
   const page = await ctx.newPage();
   await page.goto(base + route, { waitUntil: "networkidle" });
 
-  if (fixtureName && has("open")) {
+  if (character && has("open")) {
     await page.getByText(character.name, { exact: false }).first().click();
     await page.waitForLoadState("networkidle");
   }
@@ -154,6 +174,30 @@ async function ensureServer() {
   fs.mkdirSync(path.dirname(out), { recursive: true });
   await page.screenshot({ path: out, fullPage });
   console.log(`Saved ${out} (${page.url()})`);
+
+  if (storageFile) {
+    const entries = await page.evaluate(() => {
+      const all = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        all[k] = localStorage.getItem(k);
+      }
+      return all;
+    });
+    fs.writeFileSync(path.resolve(storageFile), JSON.stringify(entries));
+    console.log(`Storage saved to ${storageFile}`);
+  }
+  const dumpFile = flag("dump");
+  if (dumpFile) {
+    const folder = await page.evaluate(() =>
+      localStorage.getItem("dndcharactersheets_characters"),
+    );
+    fs.writeFileSync(
+      path.resolve(dumpFile),
+      JSON.stringify(JSON.parse(folder ?? "{}"), null, 2),
+    );
+    console.log(`Characters dumped to ${dumpFile}`);
+  }
 
   await browser.close();
   if (devProc) devProc.kill();

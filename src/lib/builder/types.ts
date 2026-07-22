@@ -216,6 +216,8 @@ export interface BuilderState {
   customHitDie: StandardDie;
   subclass?: string;
   classSkillChoices: SkillName[];
+  // Fighting style, for classes that pick one at level 1 (Fighter).
+  fightingStyle?: string;
 
   // Ability scores (base, before racial bonuses).
   scoreMethod: ScoreMethod;

@@ -29,18 +29,20 @@ Two conventions matter and are easy to get wrong:
 
 ## Flags
 
-| Flag               | Purpose                                                             |
-| ------------------ | ------------------------------------------------------------------- |
-| `--fixture <name>` | Seed `src/lib/fixtures/<name>.json` into localStorage (local store) |
-| `--open`           | After seeding, click the character to open its sheet                |
-| `--route <path>`   | Route to visit (default `/`)                                        |
-| `--out <file>`     | Output PNG path — point this at the scratchpad                      |
-| `--viewport WxH`   | Viewport size (default `1280x900`)                                  |
-| `--no-full`        | Capture only the viewport instead of the full scroll height         |
-| `--base <url>`     | Dev server URL (default `http://localhost:3000`)                    |
-| `--seed <int>`     | Make `Math.random` deterministic — reproducible dice rolls          |
-| `--steps <json>`   | Array of interaction steps run in order before capture (see below)  |
-| `--steps-file <p>` | Same as `--steps`, read from a JSON file                            |
+| Flag               | Purpose                                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--fixture <name>` | Seed `src/lib/fixtures/<name>.json` into localStorage (local store)                                                                                                            |
+| `--open`           | After seeding, click the character to open its sheet                                                                                                                           |
+| `--route <path>`   | Route to visit (default `/`)                                                                                                                                                   |
+| `--out <file>`     | Output PNG path — point this at the scratchpad                                                                                                                                 |
+| `--viewport WxH`   | Viewport size (default `1280x900`)                                                                                                                                             |
+| `--no-full`        | Capture only the viewport instead of the full scroll height                                                                                                                    |
+| `--base <url>`     | Dev server URL (default `http://localhost:3000`)                                                                                                                               |
+| `--seed <int>`     | Make `Math.random` deterministic — reproducible dice rolls                                                                                                                     |
+| `--steps <json>`   | Array of interaction steps run in order before capture (see below)                                                                                                             |
+| `--steps-file <p>` | Same as `--steps`, read from a JSON file                                                                                                                                       |
+| `--storage <file>` | Persist localStorage across runs (loaded before, saved after) — drive long flows like repeated level-ups in incremental batches. Wins over `--fixture`; `--open` works with it |
+| `--dump <file>`    | After the steps, dump the stored characters as JSON — diff real saved state instead of eyeballing pixels                                                                       |
 
 Available fixtures: `empty-level-1`, `full-caster-wizard`, `martial-fighter`,
 `multiclass`.

@@ -585,6 +585,123 @@ export interface PactSlots {
 // `ClassName = OfficialClass | string` convention.
 export type RechargeCriteria = RestType | string;
 
+// ---------------------------------------------------------------------------
+// Ability mechanics: serializable descriptions of what abilities *do* at the
+// table. Same design rule as `CustomFormula`: a closed set of interpretable
+// kinds, an open set of data compositions — no functions, so mechanics survive
+// Drive persistence, live-sync, and undo. The interpreters and the bundled
+// catalog live in `src/lib/mechanics/`; these types live here because the
+// character model (`LimitedUseAbility.mechanics`) embeds them.
+
+// What using an action costs at the table. `special` covers anything outside
+// the standard economy (part of a rest, a trigger on being hit, …) — pair it
+// with `costNote` so the UI can say what.
+export type ActionCost =
+  | "action"
+  | "bonusAction"
+  | "reaction"
+  | "free"
+  | "special";
+
+// How much an effect moves. `fixed` is a formula over the character (it may
+// contain dice — resolved with a real roll at execution time, never during
+// render); `plusLevelOf` adds `levelMultiplier` (default 1) × the character's
+// level in a named class, since authored formulas can't reference the sheet's
+// per-class UUIDs (Second Wind's fighter level, Wholeness of Body's 3× monk
+// level). `chosenAmount`/`chosenLevel` are the user's picks at execution time;
+// `byChosenLevel` is a lookup table keyed by the chosen slot level (Font of
+// Magic's creation costs).
+export type AmountExpr =
+  | { fixed: CustomFormula; plusLevelOf?: ClassName; levelMultiplier?: number }
+  | { chosenAmount: true }
+  // Roll the chosen number of these dice (Healing Light's "spend N, heal
+  // N d6"). Pairs naturally with a `spendUses` of `chosenAmount`.
+  | { chosenAmountDice: StandardDie }
+  | { chosenLevel: true }
+  | { byChosenLevel: Record<number, number> };
+
+// One described state change (or table prompt) — the closed set an
+// `AbilityAction` composes from. Interpreted by `mechanics/resolve.ts` into
+// ordinary whole-value reducer updates, so every effect syncs and undoes like
+// a manual edit. Costs and gains are both just effects — direction is in the
+// kind.
+export type Effect =
+  // Heal current HP, clamped to the max.
+  | { effect: "heal"; amount: AmountExpr }
+  // Grant temporary HP. Temp HP don't stack: applies only if higher.
+  | { effect: "gainTempHp"; amount: AmountExpr }
+  // Spend uses from the owning limited-use ability's pool.
+  | { effect: "spendUses"; amount: AmountExpr }
+  // Regain uses in the owning pool, clamped at its maximum.
+  | { effect: "restoreUses"; amount: AmountExpr }
+  // Expend a spell slot (the chosen level unless pinned).
+  | { effect: "expendSlot"; level?: LeveledSpellLevel }
+  // Restore an expended spell slot. The sheet tracks expended-vs-total, so
+  // "creating" a slot beyond the normal maximum has nowhere to live —
+  // restoration is the model.
+  | { effect: "restoreSlot"; level?: LeveledSpellLevel }
+  // Mark one hit die of this size expended.
+  | { effect: "spendHitDie"; die: StandardDie }
+  // Roll dice for display only (Stone's Endurance's reduction) — no write.
+  | { effect: "roll"; label: string; amount: AmountExpr }
+  // A table prompt for the parts the sheet can't adjudicate (reactions,
+  // effects on other creatures). Deliberately not automation.
+  | { effect: "remind"; note: string };
+
+// A clickable use of an ability: its action-economy cost, what the user picks
+// first, and the effects that fire. All effects must be payable/meaningful for
+// the action to be enabled.
+export interface AbilityAction {
+  id: string;
+  name: string;
+  cost: ActionCost;
+  // Shown beside the cost badge — timing/frequency prose ("during a short
+  // rest", "when you take damage").
+  costNote?: string;
+  choose?: {
+    // Offer a slot-level picker: levels with an expended slot to restore, or
+    // with an available slot to expend.
+    slotLevel?: "toRestore" | "toExpend";
+    // Cap the offered levels (slot creation and Arcane Recovery stop at 5th).
+    slotLevelMax?: number;
+    // Offer a free-typed amount, capped at the pool's remaining uses.
+    amount?: "uses";
+  };
+  effects: Effect[];
+}
+
+// What kind of roll is happening, as a tag the roll dialog supplies. `check`
+// covers every non-attack d20 (ability checks, saves, initiative).
+export type RollKind = "check" | "attack" | "damage" | "healing" | "hitDie";
+
+// A modifier a feature applies to matching rolls — the roll-side closed set.
+export type RollRider =
+  // The roll's total can't come out below this (Durable).
+  | { rider: "minimumTotal"; value: CustomFormula }
+  // Individual dice below this count as this (Reliable Talent's 10).
+  | { rider: "minimumDie"; value: number }
+  // Reroll dice at or below the threshold once, keeping the new roll
+  // (Great Weapon Fighting's 1s and 2s, Halfling Luck's natural 1s).
+  | { rider: "rerollBelow"; threshold: number }
+  // Flat addition to the total.
+  | { rider: "bonus"; value: CustomFormula }
+  // d20s at or above this crit (Improved Critical's 19).
+  | { rider: "critRange"; value: number }
+  // Advisory only — surfaced as a note, since advantage is situational.
+  | { rider: "advantage"; note: string };
+
+export interface FeatureRider {
+  appliesTo: RollKind[];
+  rider: RollRider;
+}
+
+// What a feature/ability can carry: riders keyed off it being on the sheet,
+// and actions attached to its limited-use pool.
+export interface FeatureMechanics {
+  riders?: FeatureRider[];
+  actions?: AbilityAction[];
+}
+
 // A feature with a finite, refreshing pool of uses: Sorcery Points, a racial
 // once-per-rest ability, a Channel Divinity, etc. `maxUses` is a formula so the
 // pool can scale off level/stats; `expended` is the current spend (tracked like
@@ -594,6 +711,10 @@ export interface LimitedUseAbility {
   maxUses: CustomFormula;
   recharge: RechargeCriteria;
   expended: number;
+  // Structured mechanics for this ability. When absent, the bundled catalog
+  // (`mechanics/catalog.ts`) is consulted by title; when present, this wins —
+  // which is how homebrew attaches actions/riders without a well-known name.
+  mechanics?: FeatureMechanics;
 }
 
 // The character's movement speeds, in feet. `walk` is always present; the others

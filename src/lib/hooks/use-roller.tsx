@@ -1,4 +1,5 @@
 import React, { useContext, useState } from "react";
+import { StandardDie } from "src/lib/data/data-definitions";
 import { CustomFormula, CustomFormulaWithDamage, Spell } from "src/lib/types";
 
 // What a roll button asks the roller to roll.
@@ -6,8 +7,13 @@ export type RollSpec =
   // A d20 + flat modifier check (skills, saves, ability checks, initiative).
   // Supports advantage/disadvantage.
   | { kind: "check"; modifier: number }
-  // A single dice formula rolled on its own (e.g. a hit die).
+  // A single dice formula rolled on its own.
   | { kind: "formula"; formula: CustomFormula }
+  // Spending a hit die: rolls 1d<die> + CON, then offers to apply the healing
+  // to current HP and mark the die expended. Declarative (rather than an
+  // afterRoll callback) so the modal can gate on the live character — remaining
+  // dice, max-HP clamp, Durable's minimum.
+  | { kind: "hitDie"; die: StandardDie }
   // Using a weapon or spell: an optional to-hit roll and its damage, handled
   // together in one dialog. `spell` carries the model so the modal can offer a
   // cast-level selector and expand scaling; otherwise `damage` is fixed.

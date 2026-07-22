@@ -6,6 +6,7 @@ import { FIELD } from "src/lib/data/data-definitions";
 import { isTextComponentWithDetail } from "src/lib/types";
 import { charPath, updateAt } from "src/lib/cursor";
 import { calculateCustomFormula } from "src/lib/formula";
+import AbilityActions from "./ability-actions";
 import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 import SlotPips from "./slot-pips";
@@ -146,6 +147,7 @@ export default function LimitedUseAbilitiesDisplay() {
                 onChange={(value) => setExpended(i, value)}
               />
             )}
+            {!editMode && <AbilityActions index={i} ability={ability} />}
           </div>
         );
       })}

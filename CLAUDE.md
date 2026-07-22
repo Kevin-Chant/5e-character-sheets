@@ -62,10 +62,12 @@ The computed-field system has its own deep dive: [`.claude/docs/formula-engine.m
 
 **Rolling dice in play** goes through a reusable `RollButton` + a roll dialog that is deliberately _separate_ from the edit modal (rolling is play-mode and read-only) — and a random `src/lib/roll.ts` evaluator kept apart from the deterministic engine. See [`.claude/docs/rolling.md`](.claude/docs/rolling.md).
 
+**Ability mechanics** — what features _do_ at the table — are serializable data in `src/lib/mechanics/`: roll **riders** (Durable's minimum, rerolls, crit range) and resource **actions** with action-economy costs (Second Wind, Font of Magic, Lay on Hands), interpreted into ordinary reducer updates so they sync/undo like edits. Adding mechanics for a known feature is a `catalog.ts` entry, not a component. See [`.claude/docs/ability-mechanics.md`](.claude/docs/ability-mechanics.md).
+
 **Races / classes / subclasses** for the guided builder are bundled catalog data under `src/lib/data/`, consumed via `src/lib/builder/srd-races.ts` / `srd-classes.ts` / `subclasses.ts`:
 
 - `srd-races.json` + `srd-classes.json` are **frozen** snapshots of the open-license 2014 SRD — edit the JSON directly (the old `generate-races`/`generate-classes` scripts were retired; only `generate-spells` remains, since the 319-spell set still benefits from regeneration).
-- Official content beyond the SRD is **hand-authored** in `nonsrd-races.ts`, `phb-subraces.ts` (extra subraces), `nonsrd-classes.ts` (Artificer), and `subclasses.ts`, then merged into the SRD lists at load time. Keep these files separate from the SRD JSON: SRD prose may be verbatim (open license) but **non-SRD content must store only mechanical facts with original paraphrased summaries** — never published prose. Subclass `grants` (level-1 mechanics) exist only for cleric/sorcerer/warlock, the classes that choose a subclass at level 1.
+- Official content beyond the SRD is **hand-authored** in `nonsrd-races.ts`, `phb-subraces.ts` (extra subraces), `nonsrd-classes.ts` (Artificer), and `subclasses.ts`, then merged into the SRD lists at load time. Keep these files separate from the SRD JSON: SRD prose may be verbatim (open license) but **non-SRD content must store only mechanical facts with original paraphrased summaries** — never published prose. Subclass `grants` apply when the subclass is _chosen_ — at level 1 for cleric/sorcerer/warlock, at the choice level (druid/wizard 2, the rest 3) via the level-up wizard for everyone else. Subclass _pools_ (superiority dice, Healing Light) live in `builder/class-pools.ts` `SUBCLASS_POOLS` instead, so sizes re-derive each level.
 
 ### State management
 

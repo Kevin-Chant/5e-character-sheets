@@ -5,13 +5,17 @@ import { SrdSubclass } from "src/lib/builder/types";
 // value stored on the character (matching the existing free-text field and the
 // edit-class-levels datalist), so no migration is needed.
 //
-// `grants` — the level-1 mechanics — is only attached to the three classes that
-// choose a subclass at level 1 (cleric, sorcerer, warlock), the only point the
-// level-1 builder applies them. Everyone else's subclasses are name + summary
-// only until multi-level support exists. As elsewhere, we store only mechanical
-// facts and write original short summaries, never published prose. `spellIndices`
-// reference the bundled SRD spell catalog; domain spells absent from the SRD are
-// named in a feature detail instead of auto-added.
+// `grants` carries the mechanics conferred when the subclass is *chosen* —
+// applied by the level-1 builder for the classes that pick at 1 (cleric,
+// sorcerer, warlock) and by the level-up wizard for everyone else at their
+// choice level (druid/wizard at 2, the rest at 3). Refreshing *pools* a
+// subclass carries (superiority dice, Healing Light) is not done here — those
+// live in `builder/class-pools.ts` `SUBCLASS_POOLS`, keyed by subclass name,
+// so their sizes re-derive on every level-up. Entries without grants are name
+// + summary only. As elsewhere, we store only mechanical facts and write
+// original short summaries, never published prose. `spellIndices` reference
+// the bundled SRD spell catalog; spells absent from the SRD are named in a
+// feature detail instead of auto-added.
 
 // Helper to keep entries terse. index is derived from class + name.
 const slug = (s: string) =>
@@ -63,6 +67,15 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Berserker",
       summary:
         "Give in to a bloody frenzy for extra attacks at the cost of exhaustion.",
+      grants: {
+        features: [
+          {
+            title: "Frenzy",
+            detail:
+              "While raging you can frenzy: make one melee weapon attack as a bonus action each turn, but suffer one level of exhaustion when the rage ends.",
+          },
+        ],
+      },
     },
     {
       name: "Giant",
@@ -110,6 +123,19 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Lore",
       summary:
         "A keeper of secrets with extra skills and Cutting Words to foil enemies.",
+      grants: {
+        features: [
+          {
+            title: "Bonus Proficiencies",
+            detail: "Gain proficiency in three skills of your choice.",
+          },
+          {
+            title: "Cutting Words",
+            detail:
+              "As a reaction, expend a Bardic Inspiration die to subtract its roll from a creature's attack roll, ability check, or damage roll within 60 ft.",
+          },
+        ],
+      },
     },
     {
       name: "Spirits",
@@ -379,9 +405,28 @@ export const SUBCLASSES: SrdSubclass[] = [
     },
   ]),
   // ------------------------------------------------------------------- Druid
+  ...forClass("druid", [
+    {
+      name: "Land",
+      summary:
+        "Draw on the magic of a chosen terrain for extra spells and recovery.",
+      grants: {
+        features: [
+          {
+            title: "Bonus Cantrip",
+            detail: "Learn one extra druid cantrip of your choice.",
+          },
+          {
+            title: "Circle Spells",
+            detail:
+              "Your chosen land grants always-prepared circle spells at 3rd, 5th, 7th, and 9th level.",
+          },
+        ],
+      },
+    },
+  ]),
   ...named("druid", [
     "Dreams",
-    "Land",
     "Moon",
     "Shepherd",
     "Spores",
@@ -403,6 +448,19 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Battle Master",
       summary:
         "A tactician wielding combat maneuvers powered by superiority dice.",
+      grants: {
+        features: [
+          {
+            title: "Combat Superiority",
+            detail:
+              "Learn three maneuvers fueled by superiority dice (d8s); one maneuver per attack. Maneuver save DC is 8 + PB + STR or DEX modifier.",
+          },
+          {
+            title: "Student of War",
+            detail: "Gain proficiency with one type of artisan's tools.",
+          },
+        ],
+      },
     },
     {
       name: "Cavalier",
@@ -413,6 +471,14 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Champion",
       summary:
         "A straightforward warrior with improved criticals and athletic prowess.",
+      grants: {
+        features: [
+          {
+            title: "Improved Critical",
+            detail: "Your weapon attacks score a critical hit on a 19 or 20.",
+          },
+        ],
+      },
     },
     {
       name: "Echo Knight",
@@ -436,6 +502,20 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Samurai",
       summary:
         "A resolute warrior whose fighting spirit grants bursts of relentless focus.",
+      grants: {
+        features: [
+          {
+            title: "Fighting Spirit",
+            detail:
+              "As a bonus action, gain advantage on weapon attack rolls until the end of the turn and temporary hit points (5, rising at higher levels).",
+          },
+          {
+            title: "Bonus Proficiency",
+            detail:
+              "Gain proficiency in History, Insight, Performance, or Persuasion — or learn a language.",
+          },
+        ],
+      },
     },
   ]),
   // -------------------------------------------------------------------- Monk
@@ -476,6 +556,15 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Open Hand",
       summary:
         "The classic martial artist with versatile Flurry-of-Blows techniques.",
+      grants: {
+        features: [
+          {
+            title: "Open Hand Technique",
+            detail:
+              "When you hit with a Flurry of Blows attack, you can knock the target prone (DEX save), push it 15 ft. (STR save), or deny its reactions until the end of your next turn.",
+          },
+        ],
+      },
     },
     {
       name: "Shadow",
@@ -488,14 +577,55 @@ export const SUBCLASSES: SrdSubclass[] = [
     },
   ]),
   // ----------------------------------------------------------------- Paladin
+  ...forClass("paladin", [
+    {
+      name: "Devotion",
+      summary:
+        "The archetypal knight's oath: honesty, courage, and radiant purity.",
+      grants: {
+        features: [
+          {
+            title: "Sacred Weapon (Channel Divinity)",
+            detail:
+              "As an action, add your CHA modifier to attack rolls with one weapon for 1 minute; it sheds bright light.",
+          },
+          {
+            title: "Turn the Unholy (Channel Divinity)",
+            detail:
+              "As an action, each fiend or undead within 30 ft. that fails a WIS save is turned for 1 minute.",
+          },
+        ],
+        spellIndices: ["protection-from-evil-and-good", "sanctuary"],
+      },
+    },
+  ]),
+  ...forClass("paladin", [
+    {
+      name: "Vengeance",
+      summary: "An avenger's oath: punish the wicked, whatever the cost.",
+      grants: {
+        features: [
+          {
+            title: "Abjure Enemy (Channel Divinity)",
+            detail:
+              "As an action, one creature within 60 ft. makes a WIS save or is frightened and halted for 1 minute (halved speed on a success).",
+          },
+          {
+            title: "Vow of Enmity (Channel Divinity)",
+            detail:
+              "As a bonus action, vow against one creature within 10 ft.: advantage on attack rolls against it for 1 minute.",
+          },
+        ],
+        spellIndices: ["bane", "hunters-mark"],
+      },
+    },
+  ]),
   ...named("paladin", [
     "Ancients",
     "Conquest",
     "Crown",
-    "Devotion",
     "Glory",
     "Redemption",
-    "Vengeance",
     "Watchers",
     "Oathbreaker",
   ]),
@@ -524,6 +654,15 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Hunter",
       summary:
         "A versatile monster-hunter with tactical options against many foes.",
+      grants: {
+        features: [
+          {
+            title: "Hunter's Prey",
+            detail:
+              "Choose one: Colossus Slayer (1d8 extra damage once per turn to a wounded creature), Giant Killer (reaction attack against a Large+ creature that misses you), or Horde Breaker (extra attack against a different adjacent creature).",
+          },
+        ],
+      },
     },
     {
       name: "Monster Slayer",
@@ -580,6 +719,20 @@ export const SUBCLASSES: SrdSubclass[] = [
     {
       name: "Thief",
       summary: "A nimble burglar with fast hands and second-story work.",
+      grants: {
+        features: [
+          {
+            title: "Fast Hands",
+            detail:
+              "Use Cunning Action's bonus action to make Sleight of Hand checks, use thieves' tools, or Use an Object.",
+          },
+          {
+            title: "Second-Story Work",
+            detail:
+              "Climbing costs no extra movement; running jump distance increases by your DEX modifier in feet.",
+          },
+        ],
+      },
     },
   ]),
   // --------------------------------------------------------------- Sorcerer
@@ -878,6 +1031,27 @@ export const SUBCLASSES: SrdSubclass[] = [
     },
   ]),
   // ------------------------------------------------------------------ Wizard
+  ...forClass("wizard", [
+    {
+      name: "Evocation",
+      summary:
+        "Sculpt destructive energies to spare allies caught in the blast.",
+      grants: {
+        features: [
+          {
+            title: "Evocation Savant",
+            detail:
+              "Copying an evocation spell into your spellbook takes half the usual gold and time.",
+          },
+          {
+            title: "Sculpt Spells",
+            detail:
+              "When you cast an evocation spell, choose up to 1 + the spell's level creatures to automatically succeed on their saves and take no damage from it.",
+          },
+        ],
+      },
+    },
+  ]),
   ...named("wizard", [
     "Abjuration",
     "Bladesinging",
@@ -885,7 +1059,6 @@ export const SUBCLASSES: SrdSubclass[] = [
     "Conjuration",
     "Divination",
     "Enchantment",
-    "Evocation",
     "Graviturgy",
     "Illusion",
     "Necromancy",

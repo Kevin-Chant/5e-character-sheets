@@ -11,6 +11,13 @@ import {
 import { Character, IClass, Spell, TextComponent } from "src/lib/types";
 import { randomUUID } from "src/lib/browser";
 import { averageDie, getHitDice, getHpFormula, modifier } from "src/lib/rules";
+import {
+  classFeaturesAt,
+  ELDRITCH_INVOCATIONS,
+  fightingStyleDueAt,
+  getFightingStyle,
+} from "src/lib/builder/class-features";
+import { syncClassPools } from "src/lib/builder/class-pools";
 import { getSubclassByName } from "src/lib/builder/subclasses";
 import { getFeat } from "src/lib/builder/feats";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
@@ -162,6 +169,10 @@ export interface LevelUpState {
   featSpellChoices: Record<number, string[]>;
   // Newly learned spells, by numeric level (0 = cantrips).
   newSpells: Record<number, string[]>;
+  // Fighting style chosen when the class grants one at this level.
+  fightingStyle?: string;
+  // Eldritch invocations picked when the warlock's known count grows.
+  invocations: string[];
   // Free-text features the player adds for content we don't model.
   addedFeatures: { title: string; detail: string }[];
 }
@@ -185,6 +196,7 @@ export function defaultLevelUpState(character: Character): LevelUpState {
     asi: {},
     ...emptyFeatChoices(),
     newSpells: {},
+    invocations: [],
     addedFeatures: [],
   };
 }
@@ -363,6 +375,42 @@ export function applyLevelUp(
       state.subclass,
     )?.grants;
     if (grant) applySubclassGrant(char, grant, state.className);
+  }
+
+  // 2.5. Class-feature pools: create/refresh this class's limited-use pools
+  //      (Rage count, Ki points, Channel Divinity uses, …) for the new level.
+  //      Titles match the mechanics catalog, so their actions light up.
+  syncClassPools(char, klass);
+
+  // 2.6. Feature prose for this class level (Extra Attack, Divine Smite, …).
+  for (const f of classFeaturesAt(state.className, klass.level))
+    char.features.push(text(f.title, f.detail));
+
+  // 2.7. Fighting style, when the class grants one at this level. The bare
+  //      style name is the feature title, so styles the mechanics catalog
+  //      knows (Great Weapon Fighting) light their riders up; Defense also
+  //      folds its +1 into the AC formula.
+  if (
+    state.fightingStyle &&
+    fightingStyleDueAt(state.className, klass.level)?.includes(
+      state.fightingStyle,
+    )
+  ) {
+    const style = getFightingStyle(state.fightingStyle);
+    if (style) {
+      char.features.push(text(style.name, style.summary));
+      if (style.acBonus)
+        char.acFormula = {
+          operation: Operation.addition,
+          operands: [char.acFormula, style.acBonus],
+        };
+    }
+  }
+
+  // 2.8. Eldritch invocations picked this level.
+  for (const name of state.invocations) {
+    const inv = ELDRITCH_INVOCATIONS.find((i) => i.name === name);
+    if (inv) char.features.push(text(inv.name, inv.summary));
   }
 
   // 3. Recompute derived numbers. HP/hit dice/PB/spell slots all read from the

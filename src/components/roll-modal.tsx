@@ -11,8 +11,21 @@ import {
   spellDamageAtLevel,
   spellHealingAtLevel,
 } from "src/lib/spells/spell-scaling";
-import { availableSpellSlots } from "src/lib/rules";
-import { LeveledSpellLevel } from "src/lib/data/data-definitions";
+import { availableSpellSlots, remainingHitDice } from "src/lib/rules";
+import {
+  advantageNotes,
+  critThreshold,
+  hitDieHealing,
+  ridersFor,
+} from "src/lib/mechanics/riders";
+import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
+import {
+  DieOperation,
+  LeveledSpellLevel,
+  Operation,
+  StandardDie,
+  StatKey,
+} from "src/lib/data/data-definitions";
 import {
   Character,
   CustomFormula,
@@ -39,14 +52,24 @@ export default function RollModal() {
   const { spec } = request;
   return (
     <Shell label={request.label} close={closeRoller}>
-      {spec.kind === "check" && <CheckControls modifier={spec.modifier} />}
+      {spec.kind === "check" && (
+        <CheckControls character={character} modifier={spec.modifier} />
+      )}
       {spec.kind === "formula" && (
         <FormulaControls character={character} formula={spec.formula} />
+      )}
+      {spec.kind === "hitDie" && (
+        <HitDieControls character={character} die={spec.die} />
       )}
       {spec.kind === "attack" && (
         <>
           {spec.toHit !== undefined && (
-            <CheckControls label="To Hit" modifier={spec.toHit} isAttack />
+            <CheckControls
+              character={character}
+              label="To Hit"
+              modifier={spec.toHit}
+              isAttack
+            />
           )}
           <EffectControls
             character={character}
@@ -61,27 +84,33 @@ export default function RollModal() {
 }
 
 // The crit callout for the kept d20, or undefined when none applies. Attack
-// to-hit rolls always show it (nat 20 = "Critical Hit", nat 1 = "Critical
-// Miss"); other checks only when the global setting is on, with a nat 20 =
-// "Critical Success" and a nat 1 = "Critical Fail".
+// to-hit rolls always show it (a die at/above the crit threshold — usually a
+// nat 20, wider with Improved Critical — is a "Critical Hit", nat 1 a
+// "Critical Miss"); other checks only when the global setting is on, with a
+// nat 20 = "Critical Success" and a nat 1 = "Critical Fail".
 function critLabelFor(
   kept: number,
   isAttack: boolean,
   onAllRolls: boolean,
+  threshold: number,
 ): string | undefined {
   if (!isAttack && !onAllRolls) return undefined;
-  if (kept === 20) return isAttack ? "Critical Hit" : "Critical Success";
+  if (kept >= (isAttack ? threshold : 20))
+    return isAttack ? "Critical Hit" : "Critical Success";
   if (kept === 1) return isAttack ? "Critical Miss" : "Critical Fail";
   return undefined;
 }
 
 // A d20 + modifier roll with advantage/disadvantage. Reused as a standalone
-// check and as the "To Hit" half of an attack.
+// check and as the "To Hit" half of an attack. Riders for the roll kind
+// (rerolls, minimum dice, crit range) come from the character's features.
 function CheckControls({
+  character,
   modifier,
   label,
   isAttack = false,
 }: {
+  character: Character;
   modifier: number;
   label?: string;
   isAttack?: boolean;
@@ -89,10 +118,15 @@ function CheckControls({
   const {
     settings: { criticalsOnAllRolls },
   } = useSettings();
+  const riders = useMemo(
+    () => ridersFor(character, isAttack ? "attack" : "check"),
+    [character, isAttack],
+  );
   const [result, setResult] = useState<ReturnType<typeof rollD20Check> | null>(
     null,
   );
-  const roll = (mode: CheckMode) => setResult(rollD20Check(modifier, mode));
+  const roll = (mode: CheckMode) =>
+    setResult(rollD20Check(modifier, mode, riders));
   return (
     <div className="column roll-section">
       {label && <p className="roll-section-title">{label}</p>}
@@ -118,11 +152,23 @@ function CheckControls({
           Adv.
         </button>
       </div>
+      {advantageNotes(riders).map((note) => (
+        <p key={note} className="muted font-small">
+          {note}
+        </p>
+      ))}
       {result &&
         (() => {
-          const crit = critLabelFor(result.kept, isAttack, criticalsOnAllRolls);
+          const crit = critLabelFor(
+            result.kept,
+            isAttack,
+            criticalsOnAllRolls,
+            critThreshold(riders),
+          );
           const critClass =
-            result.kept === 20 ? "roll-crit-success" : "roll-crit-fail";
+            result.kept >= critThreshold(riders) && result.kept > 1
+              ? "roll-crit-success"
+              : "roll-crit-fail";
           return (
             <div className="column roll-result">
               {crit ? (
@@ -210,12 +256,20 @@ function EffectControls({
 
   const hasDamage = Object.keys(map).length > 0;
   const rollDamageEffect = () => {
-    const parts = rollDamage(map, character);
+    const parts = rollDamage(map, character, ridersFor(character, "damage"));
     setDamageResult({ parts, total: parts.reduce((s, p) => s + p.total, 0) });
   };
   const rollHealEffect = () => {
     const dice: number[] = [];
-    setHealResult({ total: rollFormula(healing!, character, dice), dice });
+    setHealResult({
+      total: rollFormula(
+        healing!,
+        character,
+        dice,
+        ridersFor(character, "healing"),
+      ),
+      dice,
+    });
   };
 
   return (
@@ -300,7 +354,108 @@ function EffectControls({
   );
 }
 
-// Roll a single dice formula (e.g. a hit die).
+// Spend a hit die: roll 1d<die> + CON, then apply — heal current HP (clamped to
+// max HP, with any minimum-total rider like Durable) and mark one die expended.
+// The apply step goes through the mechanics resolver, so the writes are the
+// same effect data any catalog action produces — and they sync/undo like any
+// edit (play-mode dispatching is fine; the limited-use pips already do it).
+function HitDieControls({
+  character,
+  die,
+}: {
+  character: Character;
+  die: StandardDie;
+}) {
+  const { dispatch } = useCharacter();
+  const formula: CustomFormula = useMemo(
+    () => ({
+      operation: Operation.addition,
+      operands: [[1, die, DieOperation.roll], StatKey.con],
+    }),
+    [die],
+  );
+  const riders = useMemo(() => ridersFor(character, "hitDie"), [character]);
+  const remaining = remainingHitDice(character, die);
+  const [result, setResult] = useState<{
+    total: number;
+    dice: number[];
+    applied: number | null;
+  } | null>(null);
+
+  const roll = () => {
+    const dice: number[] = [];
+    setResult({
+      total: rollFormula(formula, character, dice, riders),
+      dice,
+      applied: null,
+    });
+  };
+
+  const healing = result ? hitDieHealing(character, result.total) : 0;
+  const gained = result
+    ? Math.min(maxHpValue(character), character.currHp + healing) -
+      character.currHp
+    : 0;
+
+  const apply = () => {
+    if (!result || result.applied !== null) return;
+    const { updates } = resolveEffects(
+      [
+        { effect: "heal", amount: { fixed: healing } },
+        { effect: "spendHitDie", die },
+      ],
+      { character },
+    );
+    updates.forEach((update) => dispatch(update));
+    setResult({ ...result, applied: gained });
+  };
+
+  return (
+    <div className="column roll-section">
+      <p className="roll-formula">
+        {formatCustomFormula(formula, character, false)}
+      </p>
+      {remaining > 0 ? (
+        <p className="muted">
+          {remaining} {die} remaining
+        </p>
+      ) : (
+        <p className="muted">No hit dice remaining.</p>
+      )}
+      <button
+        className="btn-primary roll-go"
+        disabled={remaining <= 0}
+        onClick={roll}
+      >
+        Roll
+      </button>
+      {result && (
+        <div className="column roll-result">
+          <span className="roll-total font-large">{healing}</span>
+          <span className="roll-part muted">
+            HP — dice: {result.dice.join(" + ")}
+            {healing > result.total && " (Durable minimum)"}
+          </span>
+          {result.applied !== null ? (
+            <span className="roll-part">Applied +{result.applied} HP</span>
+          ) : (
+            <button
+              onClick={apply}
+              disabled={gained <= 0}
+              title={gained <= 0 ? "Already at full HP" : undefined}
+            >
+              {gained < healing
+                ? `Heal +${gained} HP (max) & spend 1 ${die}`
+                : `Heal +${gained} HP & spend 1 ${die}`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Roll a single dice formula on its own.
 function FormulaControls({
   character,
   formula,

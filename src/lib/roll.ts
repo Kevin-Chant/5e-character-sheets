@@ -1,5 +1,7 @@
 import { DamageType } from "./data/data-definitions";
 import { OPERATORS, calculateAtomicVariable } from "./formula";
+import { adjustDieRoll } from "./mechanics/riders";
+import { ActiveRider } from "./mechanics/types";
 import {
   Character,
   CustomFormula,
@@ -35,19 +37,24 @@ const operandsOf = (formula: CustomFormula): CustomFormula[] => {
  * Evaluate a formula with dice actually rolled. Non-die leaves (stats, PB, class
  * levels, spellMod, constants) resolve against the character exactly as the
  * engine does; every rolled die is pushed onto `dice` when provided, so callers
- * can show the breakdown.
+ * can show the breakdown. Die-level riders (rerolls, minimum dice) adjust each
+ * die as it's rolled — the pushed value is the one that counted.
  */
 export function rollFormula(
   formula: CustomFormula,
   character: Character,
   dice?: number[],
+  riders?: ActiveRider[],
 ): number {
   // DieExpression is itself an AtomicVariable, so handle it before the general
   // atomic case (which would hit the deterministic stub).
   if (isDieExpression(formula)) {
     let sum = 0;
     for (let i = 0; i < formula[0]; i++) {
-      const result = rollOneDie(formula[1]);
+      const raw = rollOneDie(formula[1]);
+      const result = riders
+        ? adjustDieRoll(raw, riders, () => rollOneDie(formula[1]))
+        : raw;
       dice?.push(result);
       sum += result;
     }
@@ -58,7 +65,7 @@ export function rollFormula(
   if (isExpression(formula))
     return OPERATORS[formula.operation].calculator(
       operandsOf(formula).map((operand) =>
-        rollFormula(operand, character, dice),
+        rollFormula(operand, character, dice, riders),
       ),
     );
   return 0;
@@ -73,11 +80,12 @@ export interface DamageRollResult {
 export function rollDamage(
   formula: CustomFormulaWithDamage,
   character: Character,
+  riders?: ActiveRider[],
 ): DamageRollResult[] {
   return (Object.entries(formula) as Array<[DamageType, CustomFormula]>).map(
     ([damageType, componentFormula]) => {
       const dice: number[] = [];
-      const total = rollFormula(componentFormula, character, dice);
+      const total = rollFormula(componentFormula, character, dice, riders);
       return { damageType, total, dice };
     },
   );
@@ -95,16 +103,20 @@ export interface CheckRollResult {
 }
 
 // A d20 ability/skill/attack check: roll one d20 (or two, keeping the higher for
-// advantage / lower for disadvantage) and add the flat modifier.
+// advantage / lower for disadvantage) and add the flat modifier. Die-level
+// riders adjust each d20 as it's rolled (Halfling Luck rerolls 1s, Reliable
+// Talent floors at 10) before the keep decision.
 export function rollD20Check(
   modifier: number,
   mode: CheckMode = "normal",
+  riders?: ActiveRider[],
 ): CheckRollResult {
   const count = mode === "normal" ? 1 : 2;
-  const dice = Array.from(
-    { length: count },
-    () => Math.floor(Math.random() * 20) + 1,
-  );
+  const d20 = () => Math.floor(Math.random() * 20) + 1;
+  const dice = Array.from({ length: count }, () => {
+    const raw = d20();
+    return riders ? adjustDieRoll(raw, riders, d20) : raw;
+  });
   const kept = mode === "disadvantage" ? Math.min(...dice) : Math.max(...dice);
   return { dice, kept, modifier, total: kept + modifier };
 }

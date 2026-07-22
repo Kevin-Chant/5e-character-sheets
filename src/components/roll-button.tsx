@@ -1,4 +1,5 @@
 import { FaDiceD20 } from "react-icons/fa6";
+import { StandardDie } from "src/lib/data/data-definitions";
 import { CustomFormula, CustomFormulaWithDamage, Spell } from "src/lib/types";
 import { RollSpec, useRoller } from "src/lib/hooks/use-roller";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
@@ -8,8 +9,10 @@ interface RollButtonProps {
   label: string;
   // A d20 + flat modifier check (skills, saves, ability checks, initiative).
   check?: number;
-  // A single dice formula rolled on its own (e.g. a hit die).
+  // A single dice formula rolled on its own.
   formula?: CustomFormula;
+  // Spend a hit die of this size: roll it, apply healing, expend the die.
+  hitDie?: StandardDie;
   // An attack: a to-hit modifier and/or damage, resolved together. `spell`
   // supplies level-scaled damage; `damage` is a fixed map.
   toHit?: number;
@@ -23,6 +26,7 @@ export default function RollButton({
   label,
   check,
   formula,
+  hitDie,
   toHit,
   damage,
   spell,
@@ -39,9 +43,11 @@ export default function RollButton({
       ? { kind: "check", modifier: check }
       : formula
         ? { kind: "formula", formula }
-        : isAttack
-          ? { kind: "attack", toHit, damage, spell }
-          : undefined;
+        : hitDie
+          ? { kind: "hitDie", die: hitDie }
+          : isAttack
+            ? { kind: "attack", toHit, damage, spell }
+            : undefined;
   if (!spec) return <></>;
 
   return (

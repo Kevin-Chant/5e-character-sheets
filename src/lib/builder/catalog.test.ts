@@ -8,10 +8,23 @@ import { SRD_CLASSES } from "src/lib/builder/srd-classes";
 import { SRD_RACES, subracesForRace } from "src/lib/builder/srd-races";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
 
-// The classes that actually choose a subclass at level 1 — the only ones whose
-// subclasses may carry mechanical `grants` (the level-1 builder can't apply the
-// rest).
-const LEVEL_ONE_SUBCLASS_CLASSES = new Set(["cleric", "sorcerer", "warlock"]);
+// Every subclass grant is applied when the subclass is *chosen* — by the
+// level-1 builder for cleric/sorcerer/warlock and by the level-up wizard at
+// the choice level for everyone else — so any class's subclasses may carry
+// `grants`. The invariant worth keeping is that each class's classic SRD
+// subclass has mechanics attached.
+const EXPECTED_GRANTED: ReadonlyArray<readonly [string, string]> = [
+  ["barbarian", "Berserker"],
+  ["bard", "Lore"],
+  ["cleric", "Life"],
+  ["druid", "Land"],
+  ["fighter", "Champion"],
+  ["monk", "Open Hand"],
+  ["paladin", "Devotion"],
+  ["ranger", "Hunter"],
+  ["rogue", "Thief"],
+  ["wizard", "Evocation"],
+];
 
 describe("subclass catalog", () => {
   const classIndices = new Set(SRD_CLASSES.map((c) => c.index));
@@ -38,14 +51,12 @@ describe("subclass catalog", () => {
     }
   });
 
-  it("only level-1-choice classes carry mechanical grants", () => {
-    for (const s of SUBCLASSES) {
-      if (s.grants) {
-        expect(
-          LEVEL_ONE_SUBCLASS_CLASSES,
-          `${s.classIndex} / ${s.name} should not have grants`,
-        ).toContain(s.classIndex);
-      }
+  it("each class's classic SRD subclass carries mechanical grants", () => {
+    for (const [classIndex, name] of EXPECTED_GRANTED) {
+      expect(
+        getSubclassByName(classIndex, name)?.grants,
+        `${classIndex} / ${name}`,
+      ).toBeDefined();
     }
   });
 
