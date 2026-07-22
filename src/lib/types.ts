@@ -688,7 +688,56 @@ export type RollRider =
   // d20s at or above this crit (Improved Critical's 19).
   | { rider: "critRange"; value: number }
   // Advisory only — surfaced as a note, since advantage is situational.
-  | { rider: "advantage"; note: string };
+  | { rider: "advantage"; note: string }
+  // Extra damage folded into a weapon attack (Sneak Attack, Rage damage, Divine
+  // Smite, Divine Strike). Unlike the modifier riders above this carries a whole
+  // damage expression, and its application is *contextual* — gated to weapon
+  // attacks, declared at a specific step, optionally opt-in — so the roll dialog
+  // handles it directly rather than the silent `applyTotalRiders` fold. Catalog
+  // entries bake `amount`'s dice count from the character's class level at
+  // collection time (the engine's die count is a literal a formula can't drive);
+  // authored/homebrew instances store a concrete expression.
+  | {
+      rider: "extraDamage";
+      // Dice/flat expression for the extra damage. A `CustomFormula` (not a
+      // damage map) because the type is usually the weapon's, not the rider's.
+      amount: CustomFormula;
+      // Omit to mean "same type as the weapon" (Sneak Attack, Rage) — shown as
+      // its own line, untyped. Set it when the type is intrinsic to the feature
+      // (Divine Smite radiant, a domain's Divine Strike type).
+      damageType?: DamageType;
+      // When the player commits, which drives dialog sequencing and (later) crit
+      // doubling: before the attack roll (Great Weapon Master's flat +10), after
+      // the hit is known but before damage (Sneak Attack, Divine Smite — you may
+      // wait to learn it hit/crit), or after the damage roll (reroll effects).
+      declareAt: "before-attack" | "on-hit" | "after-damage";
+      // The player opts in per attack (Sneak Attack, Divine Smite) vs it always
+      // applies on a qualifying hit (Rage damage, Divine Strike). Default false.
+      optional?: boolean;
+      // Advisory: the sheet can't see turns, so this is a reminder only.
+      oncePerTurn?: boolean;
+      // Condition summary shown in the dialog (the eligibility the sheet can't
+      // verify — "finesse or ranged, with advantage or an ally adjacent").
+      note?: string;
+      // Present when the extra damage is powered by a spell slot the player
+      // chooses and expends (Divine Smite): the dice scale with the chosen slot
+      // level, and the slot is spent by an explicit button (not the re-rollable
+      // damage roll). When set, the modal computes the dice from the slot and
+      // `amount` is only a pre-choice placeholder.
+      slot?: {
+        // Lowest slot level that can power it (Divine Smite: 1).
+        minLevel: number;
+        // The scaling die (Divine Smite: d8).
+        die: DieDefinition;
+        // Dice at `minLevel` (2 → 2d8 at a 1st-level slot) …
+        diceAtMin: number;
+        // … growing +1 die per slot level above `minLevel`, capped here (5d8).
+        maxDice: number;
+        // An optional situational extra (Divine Smite's +1d8 vs undead/fiend),
+        // offered as a toggle. Same die as above.
+        bonus?: { dice: number; label: string };
+      };
+    };
 
 export interface FeatureRider {
   appliesTo: RollKind[];

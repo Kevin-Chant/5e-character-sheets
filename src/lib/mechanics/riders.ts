@@ -1,6 +1,7 @@
 import { calculateCustomFormula } from "src/lib/formula";
 import { Character } from "src/lib/types";
 import {
+  classDamageRiders,
   FEATURE_MECHANICS,
   mechanicsForAbility,
   normalizeTitle,
@@ -37,6 +38,28 @@ export function ridersFor(character: Character, kind: RollKind): ActiveRider[] {
         out.push({ source: character.race.name, rider: r.rider });
     });
   });
+  return out;
+}
+
+// The `extraDamage` riders in play for a weapon attack: authored ones on
+// features / limited-use abilities, plus the level-scaled class ones (Sneak
+// Attack, Rage damage) baked from the character's class levels. Kept apart from
+// `ridersFor` on purpose — extra damage isn't a silent total fold: the roll
+// dialog gates it to weapon attacks, sequences it by `declareAt`, and lets the
+// player opt in — so it must never leak into spell damage or standalone rolls.
+export function extraDamageRiders(character: Character): ActiveRider[] {
+  const out: ActiveRider[] = [];
+  const collect = (entry: FeatureMechanics | undefined, source: string) =>
+    entry?.riders?.forEach((r) => {
+      if (r.rider.rider === "extraDamage") out.push({ source, rider: r.rider });
+    });
+  character.features.forEach((f) =>
+    collect(FEATURE_MECHANICS[normalizeTitle(f.title)], f.title.trim()),
+  );
+  character.limitedUseAbilities.forEach((a) =>
+    collect(mechanicsForAbility(a), a.info.title.trim()),
+  );
+  out.push(...classDamageRiders(character));
   return out;
 }
 

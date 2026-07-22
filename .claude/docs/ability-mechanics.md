@@ -51,6 +51,50 @@ bridge — the same one Durable detection and the builder already use — and ca
 be replaced by a structured field on the character later without touching the
 interpreters.
 
+### `extraDamage`: the one contextual rider
+
+`extraDamage` (Sneak Attack, Rage damage, and later Divine Smite/Divine Strike)
+is the exception to "a rider is a silent fold." It carries a whole damage
+expression (`amount: CustomFormula` + optional `damageType` — omit to mean "the
+weapon's type", shown as its own untyped line), and its application depends on
+context the fold helpers don't have, so the **roll dialog interprets it
+directly** rather than `applyTotalRiders`. Three fields drive that:
+
+- **`declareAt`** (`before-attack` | `on-hit` | `after-damage`) — the step at
+  which the player commits. It's a field of its own, not folded into the
+  condition, because it drives dialog sequencing (and, later, crit doubling:
+  `on-hit` dice double on a crit, a `before-attack` flat bonus does not) while
+  the condition is advisory prose the sheet can't verify. Today all catalog
+  entries are `on-hit`, rendered in the damage section; `before-attack` ones are
+  excluded there (none exist yet) for a future to-hit-side prompt.
+- **`optional`** — opt-in (Sneak Attack: a checkbox, off by default) vs
+  always-on (Rage damage: applied on every qualifying hit). "Automatic" is this
+  flag, not a fourth `declareAt` value.
+- **`oncePerTurn`** / **`note`** — advisory only (the sheet can't see turns or
+  eligibility), surfaced as a reminder and a condition summary.
+
+Collection is separate too: `extraDamageRiders(character)` (not `ridersFor`)
+gathers authored `extraDamage` riders **plus** the level-scaled class ones from
+`classDamageRiders` in `catalog.ts` — Sneak Attack `ceil(rogue/2)` d6, Rage
+damage +2/+3/+4 — baked from class level at collection time (the die _count_ is
+a literal a formula can't scale, and the collector runs at roll time with the
+character in hand, so no storage is needed). Keeping it out of `ridersFor`
+guarantees it never leaks into spell damage or standalone rolls; the roll modal
+gates it to weapon attacks (a fixed `damage` map, no `spell`).
+
+**Divine Smite — the slot-powered variant.** An `extraDamage` rider whose
+`slot` block ({`minLevel`, `die`, `diceAtMin`, `maxDice`, optional situational
+`bonus`}) is present is Divine Smite's shape: it's _both_ extra damage and a
+spell-slot spend. The modal renders a slot-level `<select>` (only levels the
+character has unspent, `minLevel`+), bakes the dice from the chosen level
+(`diceAtMin` + one per level above, capped at `maxDice`, +`bonus.dice` when its
+toggle is on), rolls them as display dice with the rest of the damage, and — the
+key separation — expends the slot with an **explicit button**, not the
+re-rollable damage roll. That mirrors the hit-die spend: rolling stays pure and
+re-rollable, one button commits the state via `resolveEffects([{expendSlot}],
+{chosenLevel})` so it syncs/undoes like any edit. `amount` on a `slot` rider is
+just a pre-choice placeholder; the modal always recomputes from the slot.
+
 ## Effects and actions (the write side)
 
 An `Effect` is one described state change: `heal`, `gainTempHp`, `spendUses` /

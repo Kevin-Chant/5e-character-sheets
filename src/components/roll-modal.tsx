@@ -15,11 +15,13 @@ import { availableSpellSlots, remainingHitDice } from "src/lib/rules";
 import {
   advantageNotes,
   critThreshold,
+  extraDamageRiders,
   hitDieHealing,
   ridersFor,
 } from "src/lib/mechanics/riders";
 import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
 import {
+  DamageType,
   DieOperation,
   LeveledSpellLevel,
   Operation,
@@ -30,8 +32,23 @@ import {
   Character,
   CustomFormula,
   CustomFormulaWithDamage,
+  DieDefinition,
+  RollRider,
   Spell,
 } from "src/lib/types";
+
+// The one rider the roll dialog interprets directly (rather than folding via
+// `applyTotalRiders`): extra weapon-attack damage the player may opt into.
+type ExtraDamageRider = Extract<RollRider, { rider: "extraDamage" }>;
+type SlotScaling = NonNullable<ExtraDamageRider["slot"]>;
+
+const dieLabel = (die: DieDefinition) =>
+  typeof die === "string" ? die : `d${die.numFaces}`;
+
+// Divine Smite dice at a chosen slot level: `diceAtMin` at `minLevel`, +1 per
+// level above, capped at `maxDice`.
+const smiteDiceCount = (slot: SlotScaling, level: number) =>
+  Math.min(slot.diceAtMin + (level - slot.minLevel), slot.maxDice);
 
 const totalLevel = (levels: { level: number }[]) =>
   levels.reduce((sum, c) => sum + (c.level || 0), 0);
@@ -211,6 +228,48 @@ function EffectControls({
   const charLevel = totalLevel(character.class);
   const [slotLevel, setSlotLevel] = useState<number | undefined>(undefined);
 
+  // Extra-damage riders apply only to a weapon attack (a fixed `damage` map, no
+  // spell) — never to spell damage or healing. `before-attack` riders would be
+  // declared alongside the to-hit roll, so they're excluded here (none exist
+  // yet). The rest are declared on the hit, i.e. with the damage roll.
+  const isWeaponAttack = !spell && !!damage;
+  const extras = useMemo<{ source: string; rider: ExtraDamageRider }[]>(() => {
+    if (!isWeaponAttack) return [];
+    return extraDamageRiders(character).flatMap((r) =>
+      r.rider.rider === "extraDamage" && r.rider.declareAt !== "before-attack"
+        ? [{ source: r.source, rider: r.rider }]
+        : [],
+    );
+  }, [isWeaponAttack, character]);
+  // Opt-in extras (Sneak Attack, Divine Smite) start unchecked; always-on ones
+  // (Rage damage) apply unconditionally. Keyed by source.
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const { dispatch } = useCharacter();
+
+  // A slot-powered extra (Divine Smite): the player picks a slot level (which
+  // scales the dice) and may toggle a situational bonus, then expends the slot
+  // with an explicit button — kept off the re-rollable damage roll, like a hit
+  // die spend. At most one is expected, so its state is scalar.
+  const slotExtra = extras.find(({ rider }) => rider.slot);
+  const [smiteLevel, setSmiteLevel] = useState<number | undefined>(undefined);
+  const [smiteBonus, setSmiteBonus] = useState(false);
+  const [smiteSpent, setSmiteSpent] = useState(false);
+  const smiteLevels = useMemo(() => {
+    const slot = slotExtra?.rider.slot;
+    if (!slot) return [];
+    const out: number[] = [];
+    for (let lvl = slot.minLevel; lvl <= 9; lvl++)
+      if (availableSpellSlots(character, lvl as LeveledSpellLevel) > 0)
+        out.push(lvl);
+    return out;
+  }, [slotExtra, character]);
+  const effSmiteLevel =
+    smiteLevel !== undefined && smiteLevels.includes(smiteLevel)
+      ? smiteLevel
+      : smiteLevels[0];
+  const smiteActive =
+    !!slotExtra && chosen.has(slotExtra.source) && effSmiteLevel !== undefined;
+
   // Only offer slot levels the character actually has unspent (and at/above the
   // spell's base level). Cantrips use no slots, so this is empty for them.
   const availableLevels = useMemo(() => {
@@ -242,6 +301,12 @@ function EffectControls({
 
   const [damageResult, setDamageResult] = useState<{
     parts: ReturnType<typeof rollDamage>;
+    extras: {
+      source: string;
+      total: number;
+      dice: number[];
+      damageType?: DamageType;
+    }[];
     total: number;
   } | null>(null);
   const [healResult, setHealResult] = useState<{
@@ -257,7 +322,57 @@ function EffectControls({
   const hasDamage = Object.keys(map).length > 0;
   const rollDamageEffect = () => {
     const parts = rollDamage(map, character, ridersFor(character, "damage"));
-    setDamageResult({ parts, total: parts.reduce((s, p) => s + p.total, 0) });
+    // Fold in each active fixed extra: every always-on rider, plus opt-in ones
+    // the player checked. Rolled on its own line so the source and type show.
+    const extraResults = extras
+      .filter(
+        ({ source, rider }) =>
+          !rider.slot && (!rider.optional || chosen.has(source)),
+      )
+      .map(({ source, rider }) => {
+        const dice: number[] = [];
+        return {
+          source,
+          total: rollFormula(rider.amount, character, dice),
+          dice,
+          damageType: rider.damageType,
+        };
+      });
+    // The slot-powered extra rolls display dice here; the slot itself is spent
+    // by its own button (not this re-rollable roll).
+    if (smiteActive && slotExtra?.rider.slot) {
+      const slot = slotExtra.rider.slot;
+      const count =
+        smiteDiceCount(slot, effSmiteLevel!) +
+        (smiteBonus && slot.bonus ? slot.bonus.dice : 0);
+      const dice: number[] = [];
+      const total = rollFormula(
+        [count, slot.die, DieOperation.roll],
+        character,
+        dice,
+      );
+      extraResults.push({
+        source: slotExtra.source,
+        total,
+        dice,
+        damageType: slotExtra.rider.damageType,
+      });
+    }
+    const total =
+      parts.reduce((s, p) => s + p.total, 0) +
+      extraResults.reduce((s, e) => s + e.total, 0);
+    setDamageResult({ parts, extras: extraResults, total });
+  };
+  // Spend the chosen slot that powers the smite (an explicit, one-time commit,
+  // mirroring the hit-die apply — so it syncs/undoes like any edit).
+  const expendSmite = () => {
+    if (!smiteActive || smiteSpent || effSmiteLevel === undefined) return;
+    const { updates } = resolveEffects([{ effect: "expendSlot" }], {
+      character,
+      chosenLevel: effSmiteLevel as LeveledSpellLevel,
+    });
+    updates.forEach((u) => dispatch(u));
+    setSmiteSpent(true);
   };
   const rollHealEffect = () => {
     const dice: number[] = [];
@@ -328,6 +443,108 @@ function EffectControls({
               ? formatCustomFormulaWithDamage(map, character, false)
               : "No damage dice"}
           </p>
+          {extras.length > 0 && (
+            <div className="column roll-extras">
+              {extras.map(({ source, rider }) => {
+                const toggle = (checked: boolean) =>
+                  setChosen((prev) => {
+                    const next = new Set(prev);
+                    if (checked) next.add(source);
+                    else next.delete(source);
+                    return next;
+                  });
+                // Slot-powered extra (Divine Smite): checkbox → slot selector +
+                // situational-bonus toggle. Dice scale with the chosen level.
+                if (rider.slot) {
+                  const slot = rider.slot;
+                  const checked = chosen.has(source);
+                  const count =
+                    effSmiteLevel !== undefined
+                      ? smiteDiceCount(slot, effSmiteLevel) +
+                        (smiteBonus && slot.bonus ? slot.bonus.dice : 0)
+                      : slot.diceAtMin;
+                  return (
+                    <div key={source} className="column roll-extra">
+                      <label className="row roll-extra-toggle">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={smiteLevels.length === 0}
+                          onChange={(e) => toggle(e.target.checked)}
+                        />
+                        <span>
+                          {source} ({count}
+                          {dieLabel(slot.die)}
+                          {rider.damageType ? ` ${rider.damageType}` : ""})
+                        </span>
+                      </label>
+                      {smiteLevels.length === 0 ? (
+                        <p className="muted font-small">
+                          No spell slots available.
+                        </p>
+                      ) : (
+                        checked && (
+                          <>
+                            <label className="row roll-extra-toggle">
+                              Slot:{" "}
+                              <select
+                                value={effSmiteLevel}
+                                onChange={(e) =>
+                                  setSmiteLevel(Number(e.target.value))
+                                }
+                              >
+                                {smiteLevels.map((l) => (
+                                  <option key={l} value={l}>
+                                    {ordinalSlot(l)} level
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            {slot.bonus && (
+                              <label className="row roll-extra-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={smiteBonus}
+                                  onChange={(e) =>
+                                    setSmiteBonus(e.target.checked)
+                                  }
+                                />
+                                <span>{slot.bonus.label}</span>
+                              </label>
+                            )}
+                          </>
+                        )
+                      )}
+                      {rider.note && (
+                        <p className="muted font-small">{rider.note}</p>
+                      )}
+                    </div>
+                  );
+                }
+                const label = `${source} (+${formatCustomFormula(rider.amount, character, false)}${rider.oncePerTurn ? ", once/turn" : ""})`;
+                return rider.optional ? (
+                  <div key={source} className="column roll-extra">
+                    <label className="row roll-extra-toggle">
+                      <input
+                        type="checkbox"
+                        checked={chosen.has(source)}
+                        onChange={(e) => toggle(e.target.checked)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                    {rider.note && (
+                      <p className="muted font-small">{rider.note}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p key={source} className="muted font-small">
+                    {label}
+                    {rider.note ? ` — ${rider.note}` : ""}
+                  </p>
+                );
+              })}
+            </div>
+          )}
           <button
             className="btn-primary roll-go"
             disabled={!hasDamage || noSlots}
@@ -346,6 +563,22 @@ function EffectControls({
                   {p.dice.length > 1 ? ` (${p.dice.join(" + ")})` : ""}
                 </span>
               ))}
+              {damageResult.extras.map((e) => (
+                <span key={e.source} className="roll-part">
+                  +{e.total} {e.damageType ?? "(weapon type)"} — {e.source}
+                  {e.dice.length > 1 ? ` (${e.dice.join(" + ")})` : ""}
+                </span>
+              ))}
+              {smiteActive &&
+                (smiteSpent ? (
+                  <span className="roll-part muted">
+                    {ordinalSlot(effSmiteLevel!)}-level slot expended
+                  </span>
+                ) : (
+                  <button onClick={expendSmite}>
+                    Expend {ordinalSlot(effSmiteLevel!)}-level slot
+                  </button>
+                ))}
             </div>
           )}
         </>

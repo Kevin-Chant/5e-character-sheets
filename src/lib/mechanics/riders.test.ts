@@ -1,16 +1,25 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultCharacter } from "src/lib/data/default-data";
+import { DamageType, OfficialClass } from "src/lib/data/data-definitions";
 import { rollD20Check } from "src/lib/roll";
-import { Character } from "src/lib/types";
+import { Character, DieExpression } from "src/lib/types";
 import {
   adjustDieRoll,
   applyTotalRiders,
   critThreshold,
+  extraDamageRiders,
   hitDieHealing,
   riderMinimumTotal,
   ridersFor,
 } from "./riders";
 import { ActiveRider } from "./types";
+
+// A single-class character at a given level, for the level-scaled damage riders.
+const asClass = (name: OfficialClass, level: number): Character => {
+  const c = structuredClone(defaultCharacter);
+  c.class = [{ id: "00000000-0000-0000-0000-000000000001", name, level }];
+  return c;
+};
 
 const withFeatures = (...titles: string[]): Character => {
   const c = structuredClone(defaultCharacter);
@@ -171,5 +180,95 @@ describe("rollD20Check with riders", () => {
     vi.spyOn(Math, "random").mockReturnValueOnce(0.2); // → 5
     const result = rollD20Check(0, "normal", ridersFor(c, "check"));
     expect(result.kept).toBe(10);
+  });
+});
+
+describe("extraDamageRiders", () => {
+  // The dice count is the first element of the DieExpression tuple.
+  const diceCount = (r: ActiveRider): number =>
+    (r.rider as { amount: DieExpression }).amount[0];
+
+  it("has none for a character with no qualifying class", () => {
+    // A wizard has no Sneak Attack / Rage damage / Divine Smite.
+    expect(extraDamageRiders(asClass(OfficialClass.Wizard, 10))).toEqual([]);
+  });
+
+  it("scales Sneak Attack dice as ceil(rogue level / 2)", () => {
+    const sneak = (level: number) => {
+      const [r] = extraDamageRiders(asClass(OfficialClass.Rogue, level));
+      expect(r.source).toBe("Sneak Attack");
+      return diceCount(r);
+    };
+    expect(sneak(1)).toBe(1);
+    expect(sneak(5)).toBe(3);
+    expect(sneak(11)).toBe(6);
+    expect(sneak(20)).toBe(10);
+  });
+
+  it("marks Sneak Attack opt-in, once per turn, declared on hit", () => {
+    const [r] = extraDamageRiders(asClass(OfficialClass.Rogue, 3));
+    expect(r.rider).toMatchObject({
+      rider: "extraDamage",
+      declareAt: "on-hit",
+      optional: true,
+      oncePerTurn: true,
+    });
+  });
+
+  it("scales Rage damage +2/+3/+4 by barbarian level, always-on", () => {
+    const rage = (level: number) => {
+      const [r] = extraDamageRiders(asClass(OfficialClass.Barbarian, level));
+      expect(r.source).toBe("Rage");
+      expect(r.rider).toMatchObject({ declareAt: "on-hit" });
+      expect((r.rider as { optional?: boolean }).optional).toBeUndefined();
+      return (r.rider as { amount: number }).amount;
+    };
+    expect(rage(2)).toBe(2);
+    expect(rage(9)).toBe(3);
+    expect(rage(16)).toBe(4);
+  });
+
+  it("grants Divine Smite as a slot-powered rider at paladin 2, not 1", () => {
+    expect(extraDamageRiders(asClass(OfficialClass.Paladin, 1))).toEqual([]);
+    const [r] = extraDamageRiders(asClass(OfficialClass.Paladin, 2));
+    expect(r.source).toBe("Divine Smite");
+    expect(r.rider).toMatchObject({
+      rider: "extraDamage",
+      declareAt: "on-hit",
+      optional: true,
+      damageType: DamageType.Radiant,
+      slot: { minLevel: 1, diceAtMin: 2, maxDice: 5 },
+    });
+    // No oncePerTurn — you may smite on each hit, slots permitting.
+    expect((r.rider as { oncePerTurn?: boolean }).oncePerTurn).toBeUndefined();
+  });
+
+  it("collects authored extraDamage riders from a limited-use ability", () => {
+    const c = asClass(OfficialClass.Fighter, 5);
+    c.limitedUseAbilities = [
+      {
+        info: { title: "Homebrew Strike", titleFormulas: [] },
+        maxUses: 1,
+        expended: 0,
+        recharge: "shortRest",
+        mechanics: {
+          riders: [
+            {
+              appliesTo: ["attack"],
+              rider: {
+                rider: "extraDamage",
+                amount: [2, "d6", "roll"] as DieExpression,
+                declareAt: "on-hit",
+                damageType: DamageType.Fire,
+              },
+            },
+          ],
+        },
+      },
+    ] as Character["limitedUseAbilities"];
+    const riders = extraDamageRiders(c);
+    expect(riders).toHaveLength(1);
+    expect(riders[0].source).toBe("Homebrew Strike");
+    expect(diceCount(riders[0])).toBe(2);
   });
 });

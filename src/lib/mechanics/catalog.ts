@@ -1,4 +1,5 @@
 import {
+  DamageType,
   DieOperation,
   OfficialClass,
   Operation,
@@ -6,8 +7,19 @@ import {
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { DieDefinition, DieExpression, LimitedUseAbility } from "src/lib/types";
-import { AbilityAction, ActionCost, FeatureMechanics } from "./types";
+import {
+  Character,
+  CustomFormula,
+  DieDefinition,
+  DieExpression,
+  LimitedUseAbility,
+} from "src/lib/types";
+import {
+  AbilityAction,
+  ActionCost,
+  ActiveRider,
+  FeatureMechanics,
+} from "./types";
 
 // Mechanics for well-known features, keyed by normalized feature / ability
 // title (the same identity bridge the builder and Durable detection already
@@ -693,4 +705,82 @@ export function mechanicsForAbility(
   ability: LimitedUseAbility,
 ): FeatureMechanics | undefined {
   return ability.mechanics ?? mechanicsForTitle(ability.info.title);
+}
+
+// Level-scaled `extraDamage` riders derived from the character's class levels.
+// These can't live in the static title-keyed map above: the dice *count* scales
+// with class level, and the engine's die count is a literal a formula can't
+// drive — so it must be baked from an integer level. The collector runs at roll
+// time with the character in hand, so it bakes it here (no storage on the
+// character, re-derives every roll). Eligibility follows the class levels — the
+// same thing the builder keyed each feature's prose to. `extraDamageRiders` in
+// `riders.ts` merges these with any authored `extraDamage` riders.
+export function classDamageRiders(character: Character): ActiveRider[] {
+  const out: ActiveRider[] = [];
+  const levelOf = (name: OfficialClass) =>
+    character.class.find((k) => k.name === name)?.level ?? 0;
+  const d6 = (count: number): CustomFormula => [
+    count,
+    StandardDie.d6,
+    DieOperation.roll,
+  ];
+
+  // Sneak Attack (rogue): ceil(level/2) d6 of the weapon's damage type, once per
+  // turn. Opt-in because its conditions — a finesse or ranged weapon, and either
+  // advantage or an ally adjacent to the target — aren't visible to the sheet.
+  const rogue = levelOf(OfficialClass.Rogue);
+  if (rogue > 0)
+    out.push({
+      source: "Sneak Attack",
+      rider: {
+        rider: "extraDamage",
+        amount: d6(Math.ceil(rogue / 2)),
+        declareAt: "on-hit",
+        optional: true,
+        oncePerTurn: true,
+        note: "Finesse or ranged weapon, with advantage on the attack or an ally within 5 ft of the target (and not disadvantage).",
+      },
+    });
+
+  // Rage damage (barbarian): +2/+3/+4 by level, always applied on qualifying
+  // hits. Advisory note for the conditions the sheet can't see (raging, and a
+  // melee weapon attack using Strength).
+  const barb = levelOf(OfficialClass.Barbarian);
+  if (barb > 0)
+    out.push({
+      source: "Rage",
+      rider: {
+        rider: "extraDamage",
+        amount: barb >= 16 ? 4 : barb >= 9 ? 3 : 2,
+        declareAt: "on-hit",
+        note: "While raging, on melee weapon attacks using Strength.",
+      },
+    });
+
+  // Divine Smite (paladin 2+): expend a spell slot on a melee weapon hit for
+  // 2d8 radiant, +1d8 per slot level above 1st (max 5d8), +1d8 vs undead or
+  // fiends. Opt-in and slot-powered — the modal shows a slot selector, bakes
+  // the dice from the chosen level, and expends the slot on an explicit button.
+  const paladin = levelOf(OfficialClass.Paladin);
+  if (paladin >= 2)
+    out.push({
+      source: "Divine Smite",
+      rider: {
+        rider: "extraDamage",
+        amount: [2, StandardDie.d8, DieOperation.roll], // placeholder before a slot is chosen
+        damageType: DamageType.Radiant,
+        declareAt: "on-hit",
+        optional: true,
+        note: "On a melee weapon hit. Expends a spell slot.",
+        slot: {
+          minLevel: 1,
+          die: StandardDie.d8,
+          diceAtMin: 2,
+          maxDice: 5,
+          bonus: { dice: 1, label: "Target is an undead or fiend (+1d8)" },
+        },
+      },
+    });
+
+  return out;
 }
