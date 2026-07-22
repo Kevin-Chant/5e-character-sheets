@@ -567,6 +567,133 @@ p {
   text-align: left;
 }
 
+/* Structured Equipment list. */
+.equipment-section {
+  align-items: stretch;
+}
+
+.equipment-section .equipment-row {
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+
+.equipment-section .equipment-name {
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.equipment-section .equipment-name-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.equipment-section .equipment-name-edit svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+  font-size: 0.75em;
+}
+
+.equipment-section .equipment-controls {
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.equipment-section .equipment-quantity {
+  width: 3.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.equipment-section .equipment-quantity-display,
+.equipment-section .equipment-weight {
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* "equipped" pill after an item's name. */
+.equipment-section .equipment-tag {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted, #888);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0 0.35rem;
+}
+
+/* The attunement toggle: a checkbox with an "A" glyph. */
+.equipment-section .equipment-attune {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  cursor: pointer;
+}
+
+.equipment-section .equipment-attune-icon {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* Attunement / encumbrance summary line above the section label. */
+.equipment-section .equipment-summary {
+  align-items: center;
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 2px dotted var(--border);
+  font-size: 0.8rem;
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+}
+
+.equipment-section .equipment-attunement[role="button"] {
+  cursor: pointer;
+}
+
+.equipment-section .equipment-attunement.full,
+.equipment-section .equipment-encumbrance.over {
+  color: var(--danger, #c0392b);
+  font-weight: 600;
+}
+
+.equipment-section .equipment-encumbrance-tag {
+  margin-left: 0.2rem;
+  font-weight: 700;
+}
+
+/* Quantity + weight row in the equipment editor. */
+.edit-equipment .equipment-fields {
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+/* Armor / shield section in the equipment editor. */
+.edit-equipment .equipment-armor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+
+.edit-equipment .equipment-armor > legend {
+  padding: 0 0.35rem;
+}
+
+/* Inline label + select (e.g. the weight-unit picker in settings). */
+.settings-select-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 /* Linked-weapon checkboxes in the ammunition editor. */
 .edit-ammunition .ammo-weapons {
   display: flex;

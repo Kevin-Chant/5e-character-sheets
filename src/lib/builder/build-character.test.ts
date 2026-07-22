@@ -107,7 +107,7 @@ describe("buildCharacter — guided High Elf Wizard", () => {
 
   it("takes background equipment and starting gold", () => {
     expect(char.coins).toEqual({ GP: 10 });
-    expect(char.equipment.map((e) => e.title)).toContain("Spellbook");
+    expect(char.equipment.map((e) => e.text.title)).toContain("Spellbook");
   });
 });
 
@@ -175,7 +175,7 @@ describe("buildCharacter — class equipment choices, attacks & AC", () => {
       classEquipmentChoices: { 0: 1 },
       classWeaponChoices: { 0: ["Glaive"] },
     });
-    const items = char.equipment.map((e) => e.title);
+    const items = char.equipment.map((e) => e.text.title);
     expect(items).toContain("Glaive");
     expect(items).not.toContain("any martial melee weapon");
     // Option 1: "(a) two handaxes or (b) any simple weapon" defaults to (a).
@@ -186,18 +186,26 @@ describe("buildCharacter — class equipment choices, attacks & AC", () => {
     );
   });
 
-  it("derives the AC formula from chosen armor and a shield", () => {
+  it("tags chosen armor and shield as equipped so the AC leaf drives AC", () => {
     // Cleric: fixed Shield + a scale-mail option (default choice a).
     const char = buildCharacter({
       ...defaultBuilderState(),
       mode: "guided",
       classIndex: "cleric",
     });
-    // Scale mail (14 + min(DEX,2)) + shield (+2).
-    expect(char.acFormula).toEqual({
-      operation: "addition",
-      operands: [14, { operation: "minimum", operands: ["dex", 2] }, 2],
+    // AC comes from the equippedArmor leaf, not a baked formula.
+    expect(char.acFormula).toEqual({ equippedArmor: true });
+    const scaleMail = char.equipment.find((e) => e.text.title === "Scale Mail");
+    expect(scaleMail?.equipped).toBe(true);
+    expect(scaleMail?.armor).toEqual({
+      base: 14,
+      category: "medium",
+      dex: "capped",
+      dexCap: 2,
     });
+    const shield = char.equipment.find((e) => e.text.title === "Shield");
+    expect(shield?.equipped).toBe(true);
+    expect(shield?.shield).toEqual({ bonus: 2 });
   });
 });
 

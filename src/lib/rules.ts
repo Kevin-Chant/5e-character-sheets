@@ -4,8 +4,10 @@ import {
   Character,
   ClassName,
   CoinAmounts,
+  ArmorMechanics,
   CustomFormula,
   DieDefinition,
+  EquipmentItem,
   HitDice,
   IClass,
   isNonStandardDie,
@@ -195,6 +197,99 @@ export function getPassivePerceptionFormula(
   }
   if (bonus !== undefined) operands.push(bonus);
   return { operation: Operation.addition, operands };
+}
+
+// ---------------------------------------------------------------------------
+// Inventory: attunement + encumbrance
+// ---------------------------------------------------------------------------
+
+// The standard number of attunement slots. Overridable per-character via the
+// `attunementSlots` formula (e.g. Artificer's 4/5/6); this seeds that override.
+export const DEFAULT_ATTUNEMENT_SLOTS = 3;
+
+// How many items the character is currently attuned to (counts against the cap).
+export function countAttunedItems(equipment: EquipmentItem[]): number {
+  return equipment.filter((item) => item.attunement?.attuned).length;
+}
+
+// Total carried weight in POUNDS: Σ per-unit weight × quantity. Items without a
+// weight contribute nothing. Kept in lb because 5e carrying capacity is in lb;
+// display converts to kg when the `weightUnit` setting asks for it.
+export function totalEquipmentWeightLb(equipment: EquipmentItem[]): number {
+  return sum(
+    equipment.map((item) => (item.weight ?? 0) * (item.quantity ?? 1)),
+  );
+}
+
+// 5e carrying capacity is STR × 15 lb; the optional variant encumbrance
+// thresholds are STR × 5 (encumbered) and STR × 10 (heavily encumbered).
+export function carryingCapacityLb(strScore: number): number {
+  return strScore * 15;
+}
+export function encumberedThresholdLb(strScore: number): number {
+  return strScore * 5;
+}
+export function heavilyEncumberedThresholdLb(strScore: number): number {
+  return strScore * 10;
+}
+
+// Pounds → kilograms. Weights are always stored in lb; this is display-only.
+export const LB_PER_KG = 2.2046226218;
+export function lbToKg(lb: number): number {
+  return lb / LB_PER_KG;
+}
+export function kgToLb(kg: number): number {
+  return kg * LB_PER_KG;
+}
+
+// Round a lb weight to the chosen unit for display in an editable input (2 dp),
+// so a kg-unit user reads/edits kilograms even though pounds are what's stored.
+export function weightInUnit(lb: number, unit: "lb" | "kg"): number {
+  const value = unit === "kg" ? lbToKg(lb) : lb;
+  return Math.round(value * 100) / 100;
+}
+// Inverse of `weightInUnit`: the value typed in the chosen unit → stored pounds.
+export function weightToLb(value: number, unit: "lb" | "kg"): number {
+  return unit === "kg" ? kgToLb(value) : value;
+}
+
+// Render a lb-denominated weight in the chosen unit, trimming trailing zeros.
+export function formatWeight(lb: number, unit: "lb" | "kg"): string {
+  const value = unit === "kg" ? lbToKg(lb) : lb;
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded} ${unit}`;
+}
+
+// DEX contribution to AC for one armor, per its explicit `dex` mode: full DEX,
+// DEX capped at `dexCap` (2 by default — standard medium armor), or none (heavy).
+function armorDexBonus(armor: ArmorMechanics, dexMod: number): number {
+  switch (armor.dex) {
+    case "none":
+      return 0;
+    case "capped":
+      return Math.min(dexMod, armor.dexCap ?? 2);
+    default:
+      return dexMod;
+  }
+}
+
+// AC from the character's *equipped* armor and shields — the value behind the
+// `equippedArmor` formula leaf. Body armor sets the base (best AC wins if more
+// than one is somehow equipped); with none equipped it falls back to the
+// unarmored 10 + DEX. Every equipped shield's bonus is added on top. Custom
+// cases (unarmored defense, magic bonuses, cover) stay expressible because the
+// caller's `acFormula` merely *references* this leaf.
+export function equippedArmorAC(character: Character): number {
+  const equipped = character.equipment.filter((i) => i.equipped);
+  const dexMod = modifier(character.stats[StatKey.dex]);
+  const armorValues = equipped
+    .filter((i) => i.armor)
+    .map((i) => i.armor!.base + armorDexBonus(i.armor!, dexMod));
+  const shieldBonus = sum(
+    equipped.filter((i) => i.shield).map((i) => i.shield!.bonus),
+  );
+  const base = armorValues.length ? Math.max(...armorValues) : 10 + dexMod;
+  return base + shieldBonus;
 }
 
 export function getHpFormula(character: Character): CustomFormula {
@@ -457,6 +552,7 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
   maxHp: getHpFormula,
   initiativeFormula: () => StatKey.dex,
   passivePerception: getPassivePerceptionFormula,
+  attunementSlots: () => DEFAULT_ATTUNEMENT_SLOTS,
   expendedHitDice: () => 0,
   exp: () => 0,
   coins: () => 0,

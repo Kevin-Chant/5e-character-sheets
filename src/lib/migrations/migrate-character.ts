@@ -362,6 +362,33 @@ const migrations: Migration[] = [
       return filled;
     },
   },
+  {
+    // Equipment became a structured list (`EquipmentItem`) instead of free-text
+    // `TextComponent[]`, so the sheet can run attunement + encumbrance rules.
+    // Each legacy component is wrapped verbatim into an item's `text`, defaulting
+    // quantity to 1 and equipped to false; `weight` and `attunement` stay absent
+    // (both optional). The new `attunementSlots` override is optional too, so it
+    // needs no backfill.
+    to: 9,
+    migrate: (character) => {
+      if (!character || typeof character !== "object") return character;
+      const filled = { ...character };
+      if (Array.isArray(filled.equipment))
+        filled.equipment = filled.equipment.map((entry: any) =>
+          // Idempotency guard: a value already shaped like an item is left alone.
+          entry && typeof entry === "object" && "text" in entry && "id" in entry
+            ? entry
+            : {
+                id: randomUUID(),
+                text: entry,
+                quantity: 1,
+                equipped: false,
+              },
+        );
+      filled.schemaVersion = 9;
+      return filled;
+    },
+  },
 ];
 
 // Sorted, append-only safety: ensures we apply migrations in ascending order

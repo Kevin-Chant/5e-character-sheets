@@ -12,8 +12,8 @@ import {
   formatCustomFormulaWithDamage,
 } from "src/lib/formula";
 import { getHitDice, totalGP } from "src/lib/rules";
-import MultiLineTextDisplay from "./display/multi-line-text-display";
 import SingleValueDisplay from "./display/single-value-display";
+import EquipmentDisplay from "./display/equipment-display";
 import SpeedDisplay from "./display/speed-display";
 import AmmunitionDisplay from "./display/ammunition-display";
 import SlotPips from "./display/slot-pips";
@@ -306,10 +306,7 @@ export default function DefenceAndEquipmentPanel() {
               flipped
             />
           </div>
-          <MultiLineTextDisplay
-            title="Equipment"
-            cursor={charPath(FIELD.equipment)}
-          />
+          <EquipmentDisplay />
         </div>
         {trackAmmunition && <AmmunitionDisplay />}
       </div>

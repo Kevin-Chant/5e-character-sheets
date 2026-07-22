@@ -25,6 +25,8 @@ import {
   SpellLevelNum,
   LeveledSpellLevel,
   ArmorType,
+  ArmorCategory,
+  ArmorDexContribution,
   RestType,
   Size,
 } from "./data/data-definitions";
@@ -158,6 +160,12 @@ export function isClassLevel(data: any): data is ClassLevel {
   return isObject(data) && !isArray(data) && isUuid((data as any).classLevel);
 }
 
+export function isEquippedArmor(data: any): data is EquippedArmor {
+  return (
+    isObject(data) && !isArray(data) && (data as any).equippedArmor === true
+  );
+}
+
 export function isAtomicVariable(data: any): data is AtomicVariable {
   return (
     isNumber(data) ||
@@ -165,7 +173,8 @@ export function isAtomicVariable(data: any): data is AtomicVariable {
     isDieExpression(data) ||
     isPb(data) ||
     isSpellMod(data) ||
-    isClassLevel(data)
+    isClassLevel(data) ||
+    isEquippedArmor(data)
   );
 }
 
@@ -248,12 +257,22 @@ export interface ClassLevel {
   classLevel: UUID;
 }
 
+// A computed AC leaf: the AC from the character's *equipped* armor and shields,
+// resolved live (see `equippedArmorAC`) so equipping/unequipping updates AC with
+// no formula rewrite. Falls back to the unarmored 10 + DEX when no armor is worn.
+// A marker object (mirrors `ClassLevel`/`SpellMod`) rather than a bare string so
+// the engine's type guards can distinguish it structurally.
+export interface EquippedArmor {
+  equippedArmor: true;
+}
+
 export type AtomicVariable =
   | number
   | StatKey
   | DieExpression
   | ClassLevel
   | SpellMod
+  | EquippedArmor
   | typeof PB;
 
 interface SingleOperandOperation {
@@ -360,6 +379,58 @@ export interface Ammunition {
   name: string;
   count: number;
   weaponIds: UUID[];
+}
+
+// Armor mechanics attached to an equipment item. Only contributes to AC (via
+// the `equippedArmor` formula leaf) while the item is `equipped`.
+export interface ArmorMechanics {
+  // Base AC before DEX (e.g. 14 for scale mail, 16 for chain mail).
+  base: number;
+  // Tier — used for labels, proficiency, and seeding `dex` in the editor.
+  category: ArmorCategory;
+  // How DEX applies, stored explicitly (not inferred from `category`).
+  dex: ArmorDexContribution;
+  // The DEX cap when `dex === "capped"`; defaults to 2 (standard medium armor).
+  dexCap?: number;
+}
+
+// Shield mechanics. Adds `bonus` to AC (via the `equippedArmor` leaf) while
+// equipped. Normally +2.
+export interface ShieldMechanics {
+  bonus: number;
+}
+
+// One entry in the equipment list. Wraps the free-text `TextComponent` (name +
+// optional description, both with embedded formulas) rather than replacing it,
+// so legacy free-text equipment migrates losslessly and the existing rich-text
+// display/editor are reused. The structured fields around it are what let the
+// sheet run inventory rules: `attunement` drives the 3-slot attunement limit,
+// and `weight`/`quantity` feed the (opt-in) encumbrance readout.
+export interface EquipmentItem {
+  // Stable identity so edits/reorders never orphan a row — mirrors `Attack.id`.
+  id: UUID;
+  // Name (`title`) + optional description (`detail`), with positional formulas.
+  text: TextComponent;
+  // How many of this item are carried. Defaults to 1; multiplies `weight`.
+  quantity: number;
+  // Weight of a single unit, as a raw number in POUNDS (the unit 5e carrying
+  // capacity is defined in). The `weightUnit` setting only affects display —
+  // kg is converted at render time, never stored. Omit when unknown/negligible.
+  weight?: number;
+  // Worn/wielded vs. stowed. Structural only for now (surfaced as a toggle);
+  // reserved for later "only equipped armor contributes to AC"-style rules.
+  equipped: boolean;
+  // PRESENCE of this object marks the item as *requiring* attunement (mirrors
+  // how a `MaterialComponent.price` marks a component consumed). `attuned` is
+  // whether the character is currently attuned to it, counted against the cap.
+  attunement?: { attuned: boolean };
+  // Armor mechanics; presence marks the item as body armor. Contributes to AC
+  // (via the `equippedArmor` leaf) only while `equipped`. Mutually exclusive
+  // with `shield` — a single item is armor or a shield, not both.
+  armor?: ArmorMechanics;
+  // Shield mechanics; presence marks the item as a shield. Adds to AC while
+  // `equipped`. Mutually exclusive with `armor`.
+  shield?: ShieldMechanics;
 }
 
 export type CoinAmounts = { [key in CoinType]?: number };
@@ -604,7 +675,14 @@ export interface Character {
   // remaining count and which weapons it feeds — see `Ammunition`.
   ammunition: Ammunition[];
   coins: CoinAmounts;
-  equipment: TextComponent[];
+  // Structured inventory — see `EquipmentItem`. Each entry keeps its free-text
+  // name/description and adds quantity/weight/equipped/attunement so the sheet
+  // can derive attunement-slot usage and (opt-in) encumbrance.
+  equipment: EquipmentItem[];
+  // Optional override for the number of attunement slots. When unset the cap is
+  // the standard 3; set it to model Artificer's 4/5/6 progression. Seeded from 3
+  // when first edited — see `getAttunementSlots` / the OPTIONAL_FIELD_INITIALIZERS.
+  attunementSlots?: CustomFormula;
   personality: {
     traits: TextComponent[];
     ideals: TextComponent[];

@@ -34,6 +34,7 @@ import EditRace from "./edit-race";
 import EditSpeeds from "./edit-speeds";
 import EditSenses from "./edit-senses";
 import EditAmmunition from "./edit-ammunition";
+import EditEquipmentItem from "./edit-equipment-item";
 import PresenceBroadcaster from "./presence-broadcaster";
 import DriveLiveSessionBootstrap from "./drive-live-session-bootstrap";
 import SharePresenceWarning from "./share-presence-warning";
@@ -115,6 +116,12 @@ export default function CharSheet() {
         } else {
           setModalType("string");
         }
+      } else if (standardFieldType === "equipment") {
+        // Formula sub-paths (name/description {{}} formulas) open the formula
+        // builder; otherwise the item editor.
+        setModalType(
+          (subField || "").includes("Formulas") ? "formula" : "equipment",
+        );
       } else if (standardFieldType === "limitedUseAbility") {
         // Formula sub-paths (info title/detail formulas, and the maxUses
         // formula itself) open the formula builder; otherwise the ability editor.
@@ -218,6 +225,10 @@ export default function CharSheet() {
     case "ammunition":
       modalContents = <EditAmmunition />;
       modalTitle = subField === "new" ? "Add Ammunition" : "Edit Ammunition";
+      break;
+    case "equipment":
+      modalContents = <EditEquipmentItem />;
+      modalTitle = subField === "new" ? "Add Item" : "Edit Item";
       break;
     default:
       modalContents = (

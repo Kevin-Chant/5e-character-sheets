@@ -114,11 +114,12 @@ describe("resolveClassLoadout", () => {
     );
     expect(loadout.equipment).toEqual(["Shield", "Scale Mail", "Mace"]);
     expect(loadout.attacks.map((a) => a.name)).toEqual(["Mace"]);
-    // Scale mail (14 + min(DEX,2)) + shield (+2).
-    expect(loadout.acFormula).toEqual({
-      operation: "addition",
-      operands: [14, { operation: "minimum", operands: ["dex", 2] }, 2],
+    // Scale mail is medium armor (base 14, DEX capped at 2); a shield is granted.
+    expect(loadout.armor).toEqual({
+      label: "Scale Mail",
+      mechanics: { base: 14, category: "medium", dex: "capped", dexCap: 2 },
     });
+    expect(loadout.shield).toBe(true);
   });
 
   it("defaults a category slot to the first weapon, honouring picks", () => {
@@ -137,8 +138,9 @@ describe("resolveClassLoadout", () => {
     expect(picked.attacks.map((a) => a.name)).toEqual(["Greatsword"]);
   });
 
-  it("leaves AC undefined when no armor or shield is taken", () => {
+  it("grants no armor or shield when none is taken", () => {
     const loadout = resolveClassLoadout(["Spellbook"], [], {}, {});
-    expect(loadout.acFormula).toBeUndefined();
+    expect(loadout.armor).toBeUndefined();
+    expect(loadout.shield).toBe(false);
   });
 });

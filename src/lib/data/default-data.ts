@@ -133,10 +133,15 @@ export const defaultCharacter: Character = {
   coins: { GP: 5, SP: 3 },
   equipment: [
     {
-      title: "Starting gear",
-      titleFormulas: [],
-      detail: "What your character starts with",
-      detailFormulas: [],
+      id: randomUUID(),
+      text: {
+        title: "Starting gear",
+        titleFormulas: [],
+        detail: "What your character starts with",
+        detailFormulas: [],
+      },
+      quantity: 1,
+      equipped: false,
     },
   ],
   personality: {

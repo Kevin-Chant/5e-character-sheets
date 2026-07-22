@@ -62,6 +62,44 @@
             ],
             "type": "object"
         },
+        "ArmorCategory": {
+            "enum": [
+                "heavy",
+                "light",
+                "medium"
+            ],
+            "type": "string"
+        },
+        "ArmorDexContribution": {
+            "enum": [
+                "capped",
+                "full",
+                "none"
+            ],
+            "type": "string"
+        },
+        "ArmorMechanics": {
+            "properties": {
+                "base": {
+                    "type": "number"
+                },
+                "category": {
+                    "$ref": "#/definitions/ArmorCategory"
+                },
+                "dex": {
+                    "$ref": "#/definitions/ArmorDexContribution"
+                },
+                "dexCap": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "base",
+                "category",
+                "dex"
+            ],
+            "type": "object"
+        },
         "Attack": {
             "properties": {
                 "bonus": {
@@ -191,6 +229,9 @@
                 },
                 {
                     "$ref": "#/definitions/SpellMod"
+                },
+                {
+                    "$ref": "#/definitions/EquippedArmor"
                 },
                 {
                     "$ref": "#/definitions/Ceil"
@@ -368,6 +409,62 @@
                 "operand1",
                 "operand2",
                 "operation"
+            ],
+            "type": "object"
+        },
+        "EquipmentItem": {
+            "properties": {
+                "armor": {
+                    "$ref": "#/definitions/ArmorMechanics"
+                },
+                "attunement": {
+                    "properties": {
+                        "attuned": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "attuned"
+                    ],
+                    "type": "object"
+                },
+                "equipped": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number"
+                },
+                "shield": {
+                    "$ref": "#/definitions/ShieldMechanics"
+                },
+                "text": {
+                    "$ref": "#/definitions/TextComponent"
+                },
+                "weight": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "equipped",
+                "id",
+                "quantity",
+                "text"
+            ],
+            "type": "object"
+        },
+        "EquippedArmor": {
+            "properties": {
+                "equippedArmor": {
+                    "const": true,
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "equippedArmor"
             ],
             "type": "object"
         },
@@ -728,6 +825,17 @@
                     "type": "number"
                 }
             },
+            "type": "object"
+        },
+        "ShieldMechanics": {
+            "properties": {
+                "bonus": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "bonus"
+            ],
             "type": "object"
         },
         "Size": {
@@ -1387,6 +1495,9 @@
             },
             "type": "array"
         },
+        "attunementSlots": {
+            "$ref": "#/definitions/CustomFormula"
+        },
         "background": {
             "type": "string"
         },
@@ -1422,7 +1533,7 @@
         },
         "equipment": {
             "items": {
-                "$ref": "#/definitions/TextComponent"
+                "$ref": "#/definitions/EquipmentItem"
             },
             "type": "array"
         },

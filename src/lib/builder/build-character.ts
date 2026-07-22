@@ -14,6 +14,7 @@ import { UUID } from "crypto";
 import { modifier } from "src/lib/rules";
 import {
   Character,
+  EquipmentItem,
   HitDice,
   isTextComponentWithDetail,
   Spell,
@@ -74,6 +75,15 @@ const text = (title: string, detail?: string): TextComponent =>
     ? { title, titleFormulas: [], detail, detailFormulas: [] }
     : { title, titleFormulas: [] };
 
+// Wrap a free-text equipment line into a structured `EquipmentItem` (quantity 1,
+// unequipped, no attunement) — the builder only produces mundane starting gear.
+const equipmentItem = (title: string): EquipmentItem => ({
+  id: randomUUID(),
+  text: text(title),
+  quantity: 1,
+  equipped: false,
+});
+
 const emptySpells = (): Spells => {
   const spells: Spells = { 0: [] }; // key 0 = cantrips
   for (const lvl of LEVELED_SPELL_LEVELS) spells[lvl] = [];
@@ -122,7 +132,9 @@ function emptyScaffold(): Character {
       toolsAndOther: [],
     },
     damageModifiers: { resistances: [], immunities: [], vulnerabilities: [] },
-    acFormula: { operation: Operation.addition, operands: [10, StatKey.dex] },
+    // AC is driven by equipped armor/shields via the `equippedArmor` leaf, which
+    // falls back to 10 + DEX when nothing is equipped.
+    acFormula: { equippedArmor: true },
     speeds: { walk: 30 },
     senses: {},
     maxHp: undefined,
@@ -324,9 +336,11 @@ function guidedCharacter(state: BuilderState): Character {
     if (className === OfficialClass.Warlock) char.pactSlots = { expended: 0 };
   }
 
-  // Equipment & coin. The class loadout also derives weapon attacks and (when
-  // armor/shield is taken) the AC formula from the selected gear.
-  const equipmentLines: string[] = [];
+  // Equipment & coin. The class loadout also derives weapon attacks and any
+  // granted armor/shield. AC comes from the `equippedArmor` formula leaf (set on
+  // the scaffold), so we just tag the granted armor/shield items and mark them
+  // equipped — equipping/unequipping then drives AC with no formula rewrite.
+  const classItems: EquipmentItem[] = [];
   if (state.acceptClassEquipment && klass) {
     const loadout = resolveClassLoadout(
       klass.startingEquipment,
@@ -334,16 +348,25 @@ function guidedCharacter(state: BuilderState): Character {
       state.classEquipmentChoices,
       state.classWeaponChoices,
     );
-    equipmentLines.push(...loadout.equipment);
     char.attacks = loadout.attacks;
-    if (loadout.acFormula) char.acFormula = loadout.acFormula;
+    for (const line of loadout.equipment) {
+      const isArmor = loadout.armor?.label === line;
+      const isShield = loadout.shield && line === "Shield";
+      classItems.push({
+        ...equipmentItem(line),
+        equipped: isArmor || isShield,
+        ...(isArmor && loadout.armor ? { armor: loadout.armor.mechanics } : {}),
+        ...(isShield ? { shield: { bonus: 2 } } : {}),
+      });
+    }
   }
+  const otherLines: string[] = [];
   if (state.acceptBackgroundEquipment && background) {
-    equipmentLines.push(...background.equipment);
+    otherLines.push(...background.equipment);
     if (background.gold) char.coins = { GP: background.gold };
   }
-  equipmentLines.push(...state.extraEquipment.filter((l) => l.trim()));
-  char.equipment = equipmentLines.map((l) => text(l));
+  otherLines.push(...state.extraEquipment.filter((l) => l.trim()));
+  char.equipment = [...classItems, ...otherLines.map((l) => equipmentItem(l))];
 
   // Personality
   const p = state.personality;

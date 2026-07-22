@@ -271,6 +271,7 @@ export type FieldTypeNode =
   | "speeds"
   | "senses"
   | "ammunition"
+  | "equipment"
   | typeof Alignment
   | typeof StatKey;
 export type FieldTypeInfo = Record<string, FieldTypeNode>;
@@ -282,6 +283,10 @@ export const EDITABLE_FIELD_OPTIONAL_DATA: Record<
   pbOverride: {
     title: "Proficiency Bonus Override",
     hint: "For setting the proficiency bonus manually instead of using the standard table",
+  },
+  attunementSlots: {
+    title: "Attunement Slots",
+    hint: "How many items you can be attuned to at once. Defaults to 3; raise it for Artificer's Magic Item Adept/Savant/Master (4/5/6).",
   },
   "stats.str": {
     title: "Strength",
@@ -336,7 +341,8 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   exhaustion: "number",
   deathSaves: "number",
   coins: "number",
-  equipment: "textLine",
+  equipment: "equipment",
+  attunementSlots: "formula",
   personality: "textLine",
   features: "textLine",
   attacks: "attack",
@@ -405,6 +411,7 @@ export enum FIELD {
   ammunition = "ammunition",
   coins = "coins",
   equipment = "equipment",
+  attunementSlots = "attunementSlots",
   personality = "personality",
   features = "features",
   spellcastingClasses = "spellcastingClasses",
@@ -476,3 +483,14 @@ export enum ArmorType {
   Heavy = "Heavy Armor",
   Shields = "Shields",
 }
+
+// AC-relevant classification of body armor — the three wearable tiers only
+// (unlike `ArmorType`, which also covers Shields and drives proficiencies).
+export type ArmorCategory = "light" | "medium" | "heavy";
+
+// How a piece of armor lets DEX modify AC. Deliberately decoupled from
+// `ArmorCategory` so an armor that breaks its tier's default (e.g. a special
+// medium armor granting full DEX) is expressible: the editor defaults this from
+// the category but stores it explicitly. "capped" pairs with a numeric cap
+// (`ArmorMechanics.dexCap`, 2 for standard medium armor).
+export type ArmorDexContribution = "full" | "capped" | "none";

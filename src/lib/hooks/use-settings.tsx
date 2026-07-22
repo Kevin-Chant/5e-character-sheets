@@ -25,6 +25,12 @@ interface Settings {
   // Whether to track ammunition. Off hides the Ammunition section and the
   // per-weapon remaining-ammo count — many tables don't bother with it.
   trackAmmunition: boolean;
+  // Whether to track encumbrance. Off hides the per-item weight column and the
+  // carrying-capacity readout — many tables ignore encumbrance entirely.
+  trackEncumbrance: boolean;
+  // Display unit for weights. Values are always STORED in pounds (5e carrying
+  // capacity is defined in lb); "kg" only converts at render time.
+  weightUnit: "lb" | "kg";
   // Whether a natural 1/20 shows as "Critical Fail"/"Critical Success" on *every*
   // d20 check. Off (default), the crit callout only appears on attack to-hit
   // rolls (as "Critical Fail"/"Critical Hit").
@@ -65,6 +71,8 @@ const DEFAULT_SETTINGS: Settings = {
   openInEditMode: true,
   autoLiveSession: true,
   trackAmmunition: true,
+  trackEncumbrance: true,
+  weightUnit: "lb",
   criticalsOnAllRolls: false,
 };
 

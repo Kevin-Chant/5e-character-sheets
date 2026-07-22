@@ -9,6 +9,7 @@ import {
   isArbitraryOperandOperation,
   isAtomicVariable,
   isClassLevel,
+  isEquippedArmor,
   isDieExpression,
   isDoubleOperandOperation,
   isExpression,
@@ -22,6 +23,7 @@ import { UUID } from "crypto";
 import { DamageType, Operation } from "./data/data-definitions";
 import {
   classNameForId,
+  equippedArmorAC,
   getDieOperation,
   getPB,
   levelOfClassId,
@@ -228,6 +230,8 @@ export function calculateAtomicVariable(
   // A classLevel leaf pulls the character's level in the referenced class.
   if (isClassLevel(atomicVariable))
     return levelOfClassId(character, atomicVariable.classLevel);
+  // The equippedArmor leaf resolves to the AC from equipped armor + shields.
+  if (isEquippedArmor(atomicVariable)) return equippedArmorAC(character);
   throw new Error(
     "Reached unreachable code in calculateAtomicVariable due to" +
       JSON.stringify(atomicVariable),
@@ -279,6 +283,11 @@ function formatAtomicVariablePart(
           text: `${classNameForId(character, atomicVariable.classLevel) ?? "Class"} level`,
           precedence: PREC_ATOM,
         };
+  // The equippedArmor leaf resolves to its AC number, or "armor" symbolically.
+  if (isEquippedArmor(atomicVariable))
+    return evaluateReferences
+      ? numberPart(equippedArmorAC(character))
+      : { text: "armor", precedence: PREC_ATOM };
   throw new Error(
     "Reached unreachable code in formatAtomicVariable due to" +
       JSON.stringify(atomicVariable),

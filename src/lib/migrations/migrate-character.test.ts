@@ -163,6 +163,35 @@ describe("migrateCharacter", () => {
     const [valid] = validateCharacterData(migrated);
     expect(valid).toBe(true);
   });
+
+  it("v9 wraps free-text equipment into structured items", () => {
+    const legacy = {
+      ...structuredClone(defaultCharacter),
+      schemaVersion: 8,
+      equipment: [
+        { title: "Rope", titleFormulas: [] },
+        { title: "Torch", titleFormulas: [], detail: "10", detailFormulas: [] },
+      ],
+    };
+    const migrated = migrateCharacter(legacy);
+    expect(migrated.equipment).toHaveLength(2);
+    // The original TextComponent is preserved verbatim under `text`.
+    expect(migrated.equipment[0].text).toEqual({
+      title: "Rope",
+      titleFormulas: [],
+    });
+    expect(migrated.equipment[0]).toMatchObject({
+      quantity: 1,
+      equipped: false,
+    });
+    expect(typeof migrated.equipment[0].id).toBe("string");
+    expect(migrated.equipment[1].text.detail).toBe("10");
+    // Distinct ids per item; no attunement/weight added.
+    expect(migrated.equipment[0].id).not.toBe(migrated.equipment[1].id);
+    expect(migrated.equipment[0].attunement).toBeUndefined();
+    const [valid] = validateCharacterData(migrated);
+    expect(valid).toBe(true);
+  });
 });
 
 describe("hydrateCharacter", () => {

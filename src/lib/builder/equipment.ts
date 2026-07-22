@@ -1,5 +1,4 @@
-import { Attack, CustomFormula } from "src/lib/types";
-import { ArmorType, Operation, StatKey } from "src/lib/data/data-definitions";
+import { ArmorMechanics, Attack } from "src/lib/types";
 import {
   WEAPON_PRESETS,
   WeaponPreset,
@@ -94,40 +93,43 @@ function weaponByName(name: string): WeaponPreset | undefined {
 
 // ----------------------------------------------------------------- Armor data
 
-interface ArmorPreset {
+export interface ArmorPreset {
   label: string;
-  type: ArmorType;
-  formula: CustomFormula;
+  mechanics: ArmorMechanics;
 }
 
-const DEX = StatKey.dex;
-// Medium armor: base + min(DEX mod, 2).
-const medium = (base: number): CustomFormula => ({
-  operation: Operation.addition,
-  operands: [base, { operation: Operation.minimum, operands: [DEX, 2] }],
+// Light armor takes full DEX; medium caps it at +2; heavy takes none. Presets
+// carry the mechanics directly (base AC + tier + DEX mode) so both the builder
+// and the equipment editor's preset picker consume the same source of truth.
+const light = (base: number): ArmorMechanics => ({
+  base,
+  category: "light",
+  dex: "full",
 });
-const light = (base: number): CustomFormula => ({
-  operation: Operation.addition,
-  operands: [base, DEX],
+const medium = (base: number): ArmorMechanics => ({
+  base,
+  category: "medium",
+  dex: "capped",
+  dexCap: 2,
+});
+const heavy = (base: number): ArmorMechanics => ({
+  base,
+  category: "heavy",
+  dex: "none",
 });
 
 const ARMOR: Record<string, ArmorPreset> = {
-  "leather armor": { label: "Leather Armor", type: ArmorType.Light, formula: light(11) }, // prettier-ignore
-  "studded leather armor": { label: "Studded Leather Armor", type: ArmorType.Light, formula: light(12) }, // prettier-ignore
-  "hide armor": {
-    label: "Hide Armor",
-    type: ArmorType.Medium,
-    formula: medium(12),
-  },
-  "chain shirt": { label: "Chain Shirt", type: ArmorType.Medium, formula: medium(13) }, // prettier-ignore
-  "scale mail": {
-    label: "Scale Mail",
-    type: ArmorType.Medium,
-    formula: medium(14),
-  },
-  "ring mail": { label: "Ring Mail", type: ArmorType.Heavy, formula: 14 },
-  "chain mail": { label: "Chain Mail", type: ArmorType.Heavy, formula: 16 },
+  "leather armor": { label: "Leather Armor", mechanics: light(11) },
+  "studded leather armor": { label: "Studded Leather Armor", mechanics: light(12) }, // prettier-ignore
+  "hide armor": { label: "Hide Armor", mechanics: medium(12) },
+  "chain shirt": { label: "Chain Shirt", mechanics: medium(13) },
+  "scale mail": { label: "Scale Mail", mechanics: medium(14) },
+  "ring mail": { label: "Ring Mail", mechanics: heavy(14) },
+  "chain mail": { label: "Chain Mail", mechanics: heavy(16) },
 };
+
+// Preset list for the equipment editor's armor picker (name → mechanics).
+export const ARMOR_PRESETS: ArmorPreset[] = Object.values(ARMOR);
 
 // ------------------------------------------------------------------- Grants
 
@@ -230,31 +232,18 @@ export function weaponSlotsForText(text: string): WeaponCategory[] {
 export interface ClassLoadout {
   equipment: string[];
   attacks: Attack[];
-  // Set only when the loadout includes armor and/or a shield; otherwise the
-  // caller keeps the default 10 + DEX formula.
-  acFormula?: CustomFormula;
-}
-
-function acFormula(
-  armor: ArmorPreset | undefined,
-  shield: boolean,
-): CustomFormula {
-  const base: CustomFormula = armor ? armor.formula : light(10);
-  if (!shield) return base;
-  // Fold the shield's +2 into the base addition when possible.
-  if (
-    typeof base === "object" &&
-    "operation" in base &&
-    base.operation === Operation.addition
-  )
-    return { operation: Operation.addition, operands: [...base.operands, 2] };
-  return { operation: Operation.addition, operands: [base, 2] };
+  // The granted body armor (label + mechanics), if any — used by the builder to
+  // tag the matching equipment item and mark it equipped. AC itself comes from
+  // the `equippedArmor` formula leaf, not a baked formula.
+  armor?: ArmorPreset;
+  // Whether a shield is granted (the "Shield" equipment line is tagged equipped).
+  shield: boolean;
 }
 
 // Resolve a class's fixed items + selected option choices + the player's weapon
-// picks into concrete equipment lines, attacks, and (if armor/shield chosen) an
-// AC formula. `choiceSel` maps option index → chosen choice index; `weaponSel`
-// maps option index → the concrete weapon names filling that option's slots.
+// picks into concrete equipment lines, attacks, and any granted armor/shield.
+// `choiceSel` maps option index → chosen choice index; `weaponSel` maps option
+// index → the concrete weapon names filling that option's slots.
 export function resolveClassLoadout(
   fixed: string[],
   options: string[],
@@ -304,9 +293,5 @@ export function resolveClassLoadout(
     }
   });
 
-  return {
-    equipment,
-    attacks,
-    acFormula: armor || shield ? acFormula(armor, shield) : undefined,
-  };
+  return { equipment, attacks, armor, shield };
 }

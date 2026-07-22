@@ -15,12 +15,13 @@ import {
   CustomFormula,
   isClassLevel,
   isDieExpression,
+  isEquippedArmor,
   isNonStandardDie,
   isPb,
   isStandardDie,
   isStatKey,
 } from "src/lib/types";
-import { getPB } from "src/lib/rules";
+import { equippedArmorAC, getPB } from "src/lib/rules";
 import { FaRightLeft, FaTrash } from "react-icons/fa6";
 import OptionOrCustomValue from "../display/option-or-custom-value";
 
@@ -90,6 +91,13 @@ export function EditableAtomicVariable({
             }}
           >
             Proficiency Bonus
+          </button>
+          <button
+            onClick={(e) => {
+              chooseValue(e, { equippedArmor: true });
+            }}
+          >
+            Equipped Armor AC
           </button>
           <button
             onClick={(e) => {
@@ -173,6 +181,12 @@ export function EditableAtomicVariable({
     );
   } else if (isPb(atomicVar)) {
     inputElement = <p>Proficiency Bonus ({getPB(character)})</p>;
+  } else if (isEquippedArmor(atomicVar)) {
+    inputElement = (
+      <p>
+        Equipped Armor AC ({equippedArmorAC(character)}) — from equipped gear
+      </p>
+    );
   } else if (isClassLevel(atomicVar)) {
     inputElement = (
       <select

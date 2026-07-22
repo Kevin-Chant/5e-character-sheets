@@ -74,6 +74,35 @@ export default function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
+        title="Encumbrance tracking"
+        description="Track equipment weight against your carrying capacity (Strength × 15 lb), with per-item weights and a total shown in Equipment. Turn off if your table ignores encumbrance."
+      >
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={settings.trackEncumbrance}
+            onChange={(e) =>
+              updateSetting("trackEncumbrance", e.target.checked)
+            }
+          />
+          Track encumbrance
+        </label>
+        <label className="settings-select-inline">
+          Weight unit
+          <select
+            value={settings.weightUnit}
+            disabled={!settings.trackEncumbrance}
+            onChange={(e) =>
+              updateSetting("weightUnit", e.target.value as "lb" | "kg")
+            }
+          >
+            <option value="lb">Pounds (lb)</option>
+            <option value="kg">Kilograms (kg)</option>
+          </select>
+        </label>
+      </SettingsSection>
+
+      <SettingsSection
         title="Criticals on all rolls"
         description="Show a natural 1 or 20 as “Critical Fail”/“Critical Success” on every d20 check, not just attack rolls. Attack to-hit rolls always show criticals (as “Critical Fail”/“Critical Hit”) regardless of this setting."
       >
