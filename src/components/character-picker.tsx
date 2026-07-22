@@ -49,7 +49,7 @@ export default function CharacterPicker() {
                 {char.name}
               </h2>
               <p className="text-muted">
-                Level {totalLevel} · {char.race}
+                Level {totalLevel} · {char.race.name}
               </p>
               <p className="text-muted">{formatClass(char.class)}</p>
             </button>

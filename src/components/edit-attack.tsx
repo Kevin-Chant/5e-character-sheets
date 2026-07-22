@@ -46,6 +46,21 @@ export default function EditAttack() {
     pushCursor(attackCursor.k("formula"));
   };
 
+  // Range is optional. Editing normal/long rebuilds the whole WeaponRange (or
+  // clears it when normal is blank), keeping the "whole value per update" rule.
+  const setRange = (normal: string, long: string) => {
+    const normalNum = normal === "" ? undefined : Number(normal);
+    const longNum = long === "" ? undefined : Number(long);
+    const value =
+      normalNum === undefined
+        ? undefined
+        : {
+            normal: normalNum,
+            ...(longNum === undefined ? {} : { long: longNum }),
+          };
+    dispatch(updateAt(attackCursor.k("range"), value));
+  };
+
   const onSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     saveData();
@@ -60,6 +75,11 @@ export default function EditAttack() {
           value={attack.name}
           onChange={updateName}
           placeholder="e.g. Greatsword"
+          // Keep password managers off this free-text "Name" field.
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-form-type="other"
         />
       </label>
       <div className="formula-field-grid">
@@ -82,6 +102,32 @@ export default function EditAttack() {
           </button>
         </div>
       </div>
+      <fieldset className="attack-range">
+        <legend className="field-label">Range (ft, optional)</legend>
+        <label className="field">
+          <span className="field-label">Normal</span>
+          <input
+            type="number"
+            value={attack.range?.normal ?? ""}
+            placeholder="—"
+            onChange={(e) =>
+              setRange(e.target.value, String(attack.range?.long ?? ""))
+            }
+          />
+        </label>
+        <label className="field">
+          <span className="field-label">Long</span>
+          <input
+            type="number"
+            value={attack.range?.long ?? ""}
+            placeholder="—"
+            disabled={attack.range?.normal === undefined}
+            onChange={(e) =>
+              setRange(String(attack.range?.normal ?? ""), e.target.value)
+            }
+          />
+        </label>
+      </fieldset>
       <button className="btn-primary" onClick={onSubmit}>
         Save
       </button>

@@ -11,8 +11,8 @@ import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue, traverse } from "src/lib/fields";
 import {
   DEFAULT_BACKGROUNDS,
+  DEFAULT_DAMAGE_TYPES,
   DEFAULT_LANGUAGES,
-  DEFAULT_RACES,
   DEFAULT_WEAPONS,
   getOptionalInitializer,
 } from "src/lib/rules";
@@ -130,8 +130,8 @@ export default function UpdateField({
     else if (section === "languages") knownOptions = DEFAULT_LANGUAGES;
   } else if (targetedField === FIELD.background) {
     knownOptions = DEFAULT_BACKGROUNDS;
-  } else if (targetedField === FIELD.race) {
-    knownOptions = DEFAULT_RACES;
+  } else if (targetedField === FIELD.damageModifiers) {
+    knownOptions = DEFAULT_DAMAGE_TYPES;
   }
 
   return (

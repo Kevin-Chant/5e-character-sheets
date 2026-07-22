@@ -222,6 +222,17 @@ export const CoinValues: Record<CoinType, number> = {
   PP: 10,
 };
 
+// Creature size categories. PCs are almost always Small or Medium, but the full
+// set is modelled so Large/other homebrew and mount/wildshape notes have a home.
+export enum Size {
+  Tiny = "Tiny",
+  Small = "Small",
+  Medium = "Medium",
+  Large = "Large",
+  Huge = "Huge",
+  Gargantuan = "Gargantuan",
+}
+
 export enum Alignment {
   "Lawful Good" = "Lawful Good",
   "Neutral Good" = "Neutral Good",
@@ -255,6 +266,11 @@ export type FieldTypeNode =
   | "spell"
   | "selectSpell"
   | "limitedUseAbility"
+  | "editSkills"
+  | "race"
+  | "speeds"
+  | "senses"
+  | "ammunition"
   | typeof Alignment
   | typeof StatKey;
 export type FieldTypeInfo = Record<string, FieldTypeNode>;
@@ -298,7 +314,7 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   class: "multiClass",
   background: "string",
   playerName: "string",
-  race: "string",
+  race: "race",
   alignment: Alignment,
   exp: "number",
   stats: "number",
@@ -306,9 +322,12 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   pbOverride: "number",
   proficiencies: "boolean",
   otherProficiencies: "otherProficiencies",
+  damageModifiers: "string",
   acFormula: "formula",
   initiativeFormula: "formula",
-  speed: "number",
+  passivePerception: "formula",
+  speeds: "speeds",
+  senses: "senses",
   maxHp: "formula",
   currHp: "number",
   tempHp: "number",
@@ -321,6 +340,7 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   personality: "textLine",
   features: "textLine",
   attacks: "attack",
+  ammunition: "ammunition",
   spellcastingClasses: "spellcastingClass",
   spells: "spell",
   spellSlots: "number",
@@ -368,9 +388,12 @@ export enum FIELD {
   pbOverride = "pbOverride",
   proficiencies = "proficiencies",
   otherProficiencies = "otherProficiencies",
+  damageModifiers = "damageModifiers",
   acFormula = "acFormula",
   initiativeFormula = "initiativeFormula",
-  speed = "speed",
+  passivePerception = "passivePerception",
+  speeds = "speeds",
+  senses = "senses",
   maxHp = "maxHp",
   currHp = "currHp",
   tempHp = "tempHp",
@@ -379,6 +402,7 @@ export enum FIELD {
   exhaustion = "exhaustion",
   deathSaves = "deathSaves",
   attacks = "attacks",
+  ammunition = "ammunition",
   coins = "coins",
   equipment = "equipment",
   personality = "personality",
@@ -429,16 +453,21 @@ export enum CastingTime {
   Reaction = "1 reaction",
 }
 
-export enum SpellLevel {
-  First = "First",
-  Second = "Second",
-  Third = "Third",
-  Fourth = "Fourth",
-  Fifth = "Fifth",
-  Sixth = "Sixth",
-  Seventh = "Seventh",
-  Eighth = "Eighth",
-  Ninth = "Ninth",
+// Spell levels are plain numbers: 0 = cantrip, 1–9 = leveled spell/slot levels.
+// This matches `SpellMechanics.level` and `damageTable` keys, so there's a single
+// representation across the model (the former "First"…"Ninth" word enum is gone).
+export type SpellLevelNum = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type LeveledSpellLevel = Exclude<SpellLevelNum, 0>;
+export const LEVELED_SPELL_LEVELS: LeveledSpellLevel[] = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9,
+];
+
+// Human label for a spell level: cantrips read "Cantrip", leveled slots "1st"…
+// (levels only ever run 1–9, so no teen-suffix special case is needed).
+export function spellLevelLabel(level: number): string {
+  if (level === 0) return "Cantrip";
+  const suffix = ["th", "st", "nd", "rd"][level] ?? "th";
+  return `${level}${suffix}`;
 }
 
 export enum ArmorType {

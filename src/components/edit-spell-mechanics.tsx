@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DamageType, StatKey } from "src/lib/data/data-definitions";
-import { ClassName, SpellMechanics, SpellResolution } from "src/lib/types";
+import { SpellMechanics, SpellResolution } from "src/lib/types";
+import { UUID } from "crypto";
 import {
   MechForm,
   ScalingForm,
@@ -18,8 +19,8 @@ interface Props {
   mechanics?: SpellMechanics;
   // Base spell level, derived from where the spell sits (0 = cantrip).
   level: number;
-  // The spell's current spellcasting class — stamped into any "+ spell mod".
-  spellcastingClass: ClassName;
+  // The spell's current spellcasting class id — stamped into any "+ spell mod".
+  spellcastingClass: UUID;
   onChange: (mechanics: SpellMechanics | undefined) => void;
 }
 

@@ -13,6 +13,10 @@ interface ModalProps {
 
 const SaveContext = React.createContext({
   saveData: (_e?: React.MouseEvent<HTMLButtonElement>, _a?: Action) => {},
+  // Persist an action to the real character immediately, without closing the
+  // modal — for save-on-change editors (e.g. the skills editor) rather than the
+  // draft-then-save-button flow. See `commit` below.
+  commit: (_a: Action) => {},
 });
 export function useSave() {
   return useContext(SaveContext);
@@ -40,6 +44,17 @@ export default function ModalContainer({
     );
     popTargetedField();
   };
+
+  // Save-on-change: apply an action to the real character now, and mirror it
+  // into the local draft so the modal keeps reflecting the saved state. Unlike
+  // saveData it does not pop, so the modal stays open for further edits.
+  const commit = useCallback(
+    (a: Action) => {
+      dispatchOuterCharacter(a);
+      dispatch(a);
+    },
+    [dispatchOuterCharacter],
+  );
 
   const keypressListener = useCallback(
     (ev: KeyboardEvent) => {
@@ -86,7 +101,7 @@ export default function ModalContainer({
     closeSharingSession: () => {},
   };
   return (
-    <SaveContext.Provider value={{ saveData }}>
+    <SaveContext.Provider value={{ saveData, commit }}>
       <CharacterContext.Provider value={providerData}>
         <div className="modal-container">
           <div className="modal-background" onClick={close} />

@@ -7,6 +7,11 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 import { CustomFormula, DieExpression, SpellMechanics } from "src/lib/types";
+import { randomUUID } from "src/lib/browser";
+import { UUID } from "crypto";
+
+const WIZARD_ID = randomUUID();
+const CLERIC_ID = randomUUID();
 import {
   defaultMechanics,
   diceInputToFormula,
@@ -48,15 +53,15 @@ describe("formula <-> simple dice input", () => {
     const f = roll(2, StandardDie.d8);
     expect(formulaToDiceInput(f)).toEqual({ dice: "2d8", addSpellMod: false });
     expect(
-      diceInputToFormula({ dice: "2d8", addSpellMod: false }, "Wizard"),
+      diceInputToFormula({ dice: "2d8", addSpellMod: false }, WIZARD_ID),
     ).toEqual(f);
   });
 
   it("round-trips dice + spell mod", () => {
-    const f = add(roll(1, StandardDie.d8), { spellMod: "Cleric" });
+    const f = add(roll(1, StandardDie.d8), { spellMod: CLERIC_ID });
     expect(formulaToDiceInput(f)).toEqual({ dice: "1d8", addSpellMod: true });
     expect(
-      diceInputToFormula({ dice: "1d8", addSpellMod: true }, "Cleric"),
+      diceInputToFormula({ dice: "1d8", addSpellMod: true }, CLERIC_ID),
     ).toEqual(f);
   });
 
@@ -67,8 +72,8 @@ describe("formula <-> simple dice input", () => {
 });
 
 describe("mechanics <-> form round-trip", () => {
-  const roundTrips = (m: SpellMechanics, className: string) =>
-    expect(formToMechanics(mechanicsToForm(m), m.level, className)).toEqual(m);
+  const roundTrips = (m: SpellMechanics, classId: UUID) =>
+    expect(formToMechanics(mechanicsToForm(m), m.level, classId)).toEqual(m);
 
   it("preserves a save spell with slot damage scaling (Fireball)", () => {
     roundTrips(
@@ -86,7 +91,7 @@ describe("mechanics <-> form round-trip", () => {
           ],
         },
       },
-      "Wizard",
+      WIZARD_ID,
     );
   });
 
@@ -95,14 +100,14 @@ describe("mechanics <-> form round-trip", () => {
       {
         level: 1,
         resolution: { kind: "auto" },
-        healing: add(roll(1, StandardDie.d8), { spellMod: "Cleric" }),
+        healing: add(roll(1, StandardDie.d8), { spellMod: CLERIC_ID }),
         scaling: {
           driver: "slot",
           perLevels: 1,
           healing: roll(1, StandardDie.d8),
         },
       },
-      "Cleric",
+      CLERIC_ID,
     );
   });
 
@@ -120,7 +125,7 @@ describe("mechanics <-> form round-trip", () => {
         ],
         scaling: { driver: "slot", perLevels: 1, instances: 1 },
       },
-      "Wizard",
+      WIZARD_ID,
     );
   });
 
@@ -141,7 +146,7 @@ describe("mechanics <-> form round-trip", () => {
           ],
         },
       },
-      "Sorcerer",
+      randomUUID(),
     );
   });
 });

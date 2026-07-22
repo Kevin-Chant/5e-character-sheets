@@ -60,6 +60,36 @@ export default function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
+        title="Ammunition tracking"
+        description="Track ammunition (arrows, bolts, …) as counted pools in Equipment, with a remaining count shown next to each ranged weapon. Turn off if your table doesn't bother counting ammo."
+      >
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={settings.trackAmmunition}
+            onChange={(e) => updateSetting("trackAmmunition", e.target.checked)}
+          />
+          Track ammunition
+        </label>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Criticals on all rolls"
+        description="Show a natural 1 or 20 as “Critical Fail”/“Critical Success” on every d20 check, not just attack rolls. Attack to-hit rolls always show criticals (as “Critical Fail”/“Critical Hit”) regardless of this setting."
+      >
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={settings.criticalsOnAllRolls}
+            onChange={(e) =>
+              updateSetting("criticalsOnAllRolls", e.target.checked)
+            }
+          />
+          Show criticals on all d20 checks
+        </label>
+      </SettingsSection>
+
+      <SettingsSection
         title="Sharing host"
         description={
           <>

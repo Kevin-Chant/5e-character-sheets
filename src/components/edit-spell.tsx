@@ -1,10 +1,7 @@
 import React, { useEffect } from "react";
-import {
-  CastingTime,
-  FIELD,
-  OfficialClass,
-  SpellLevel,
-} from "src/lib/data/data-definitions";
+import { CastingTime, FIELD } from "src/lib/data/data-definitions";
+import { randomUUID } from "src/lib/browser";
+import { UUID } from "crypto";
 import { useCharacter } from "src/lib/hooks/use-character";
 import {
   CustomFormula,
@@ -24,9 +21,6 @@ import OptionOrCustomValue from "./display/option-or-custom-value";
 import { DEFAULT_SPELL_DURATIONS, DEFAULT_SPELL_RANGES } from "src/lib/rules";
 import EditSpellMechanics from "./edit-spell-mechanics";
 
-// SpellLevel buckets in numeric order, so a spell's storage bucket → base level.
-const SPELL_LEVEL_BUCKETS = Object.values(SpellLevel) as string[];
-
 const CASTING_TIME_PRESETS = Object.values(CastingTime) as string[];
 
 export default function EditSpell() {
@@ -37,9 +31,9 @@ export default function EditSpell() {
   const isSpellTarget =
     !!character && targetedField === FIELD.spells && !!subField;
   // Cantrips are always available and never prepared. The storage bucket also
-  // drives the base spell level (cantrip = 0, "First" = 1…).
+  // drives the base spell level (numeric: cantrip = "0", 1st = "1"…).
   const bucketKey = subField?.split(".")[0] ?? "";
-  const isCantrip = bucketKey === "cantrips";
+  const isCantrip = bucketKey === "0";
 
   const spell: Spell | undefined = isSpellTarget
     ? traverse(subField!, getFieldValue(FIELD.spells, character!))
@@ -54,9 +48,9 @@ export default function EditSpell() {
   useEffect(() => {
     if (!isSpellTarget || spell) return;
     const defaultSpellClass =
-      character!.spellcastingClasses[0]?.class ??
-      character!.class[0]?.name ??
-      OfficialClass.Wizard;
+      character!.spellcastingClasses[0]?.classId ??
+      character!.class[0]?.id ??
+      randomUUID();
     const bucket = fromStack<Spell[]>(FIELD.spells, bucketKey);
     const list: Spell[] = getFieldValue(bucket.toString(), character!) ?? [];
     dispatch(
@@ -79,7 +73,7 @@ export default function EditSpell() {
   const textComponent = spell.info;
   if (!isTextComponent(textComponent)) return <></>;
 
-  const spellLevel = isCantrip ? 0 : SPELL_LEVEL_BUCKETS.indexOf(bucketKey) + 1;
+  const spellLevel = Number(bucketKey);
 
   const spellCursor = fromStack<Spell>(targetedField, subField);
   // `detailFormulas` lives only on the with-details TextComponent variant;
@@ -96,7 +90,7 @@ export default function EditSpell() {
     dispatch(updateAt(spellCursor.k(key), value));
 
   const updateCastingClass = (e: React.ChangeEvent<HTMLSelectElement>) =>
-    updateSpellField("spellcastingClass", e.target.value);
+    updateSpellField("spellcastingClass", e.target.value as UUID);
 
   // --- Components ---
   const components: SpellComponents = spell.components ?? {};
@@ -152,9 +146,13 @@ export default function EditSpell() {
     saveData();
   };
 
-  const spellcastingClasses = character.spellcastingClasses.map(
-    (klass) => klass.class,
-  );
+  // Class options as {id, name}: the spell stores the id, the dropdown shows the
+  // name. Sourced from the character's classes so a spell can only be tagged to a
+  // class it actually has.
+  const classOptions = character.class.map((klass) => ({
+    id: klass.id,
+    name: klass.name,
+  }));
 
   return (
     <form className="edit-spell">
@@ -162,9 +160,9 @@ export default function EditSpell() {
         <label>
           Spellcasting class
           <select value={spell.spellcastingClass} onChange={updateCastingClass}>
-            {spellcastingClasses.map((className) => (
-              <option value={className} key={className}>
-                {className}
+            {classOptions.map((c) => (
+              <option value={c.id} key={c.id}>
+                {c.name}
               </option>
             ))}
           </select>

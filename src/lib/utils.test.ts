@@ -7,7 +7,8 @@ import {
 import { averageDie, getPB, levelInClass, modifier, totalGP } from "./rules";
 import { traverse } from "./fields";
 import { ordinal } from "./utils";
-import { Character, DieExpression } from "./types";
+import { Character, DieExpression, IClass } from "./types";
+import { randomUUID } from "src/lib/browser";
 import {
   DieOperation,
   OfficialClass,
@@ -16,11 +17,23 @@ import {
   StatKey,
 } from "./data/data-definitions";
 
+// Class fixture with a stable id (classes are now referenced by id).
+const cls = (name: string, level: number, subclass?: string): IClass => ({
+  id: randomUUID(),
+  name,
+  level,
+  ...(subclass ? { subclass } : {}),
+});
+
+// The default character's Wizard class id, exposed so a `classLevel` formula
+// leaf below can reference it.
+const WIZARD_ID = randomUUID();
+
 // A minimal character stub for the pure helpers that only read a few fields.
 function makeCharacter(overrides: Partial<Character> = {}): Character {
   return {
     stats: { str: 16, dex: 10, con: 14, int: 8, wis: 12, cha: 20 },
-    class: [{ name: OfficialClass.Wizard, level: 5 }],
+    class: [{ id: WIZARD_ID, name: OfficialClass.Wizard, level: 5 }],
     ...overrides,
   } as Character;
 }
@@ -41,28 +54,19 @@ describe("getPB", () => {
 
   it("derives proficiency bonus from total level", () => {
     expect(
-      getPB(
-        makeCharacter({ class: [{ name: OfficialClass.Wizard, level: 1 }] }),
-      ),
+      getPB(makeCharacter({ class: [cls(OfficialClass.Wizard, 1)] })),
     ).toBe(2);
     expect(
-      getPB(
-        makeCharacter({ class: [{ name: OfficialClass.Wizard, level: 5 }] }),
-      ),
+      getPB(makeCharacter({ class: [cls(OfficialClass.Wizard, 5)] })),
     ).toBe(3);
     expect(
-      getPB(
-        makeCharacter({ class: [{ name: OfficialClass.Wizard, level: 20 }] }),
-      ),
+      getPB(makeCharacter({ class: [cls(OfficialClass.Wizard, 20)] })),
     ).toBe(6);
   });
 
   it("sums levels across multiclass", () => {
     const character = makeCharacter({
-      class: [
-        { name: OfficialClass.Wizard, level: 3 },
-        { name: OfficialClass.Cleric, level: 2 },
-      ],
+      class: [cls(OfficialClass.Wizard, 3), cls(OfficialClass.Cleric, 2)],
     });
     expect(getPB(character)).toBe(3);
   });
@@ -123,10 +127,7 @@ describe("traverse", () => {
 
 describe("levelInClass", () => {
   const character = makeCharacter({
-    class: [
-      { name: OfficialClass.Wizard, level: 3 },
-      { name: OfficialClass.Cleric, level: 2 },
-    ],
+    class: [cls(OfficialClass.Wizard, 3), cls(OfficialClass.Cleric, 2)],
   });
 
   it("returns the level for a class the character has", () => {
@@ -147,7 +148,7 @@ describe("calculateCustomFormula", () => {
 
   it("evaluates a stat reference to its modifier", () => {
     // str 16 -> +3
-    expect(calculateCustomFormula("str", character)).toBe(3);
+    expect(calculateCustomFormula(StatKey.str, character)).toBe(3);
   });
 
   it("evaluates arithmetic expressions", () => {
@@ -181,7 +182,7 @@ describe("calculateCustomFormula", () => {
     // (str mod + proficiencyBonus) -> 3 + 3 = 6
     expect(
       calculateCustomFormula(
-        { operation: "addition", operands: ["str", "proficiencyBonus"] },
+        { operation: "addition", operands: [StatKey.str, PB] },
         character,
       ),
     ).toBe(6);
@@ -270,7 +271,7 @@ describe("formatCustomFormula", () => {
           operation: "floor",
           operand1: {
             operation: "division",
-            operand1: OfficialClass.Wizard,
+            operand1: { classLevel: WIZARD_ID },
             operand2: 2,
           },
         },

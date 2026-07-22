@@ -1,4 +1,5 @@
 import { sum } from "lodash";
+import { UUID } from "crypto";
 import {
   Character,
   ClassName,
@@ -20,9 +21,10 @@ import {
   HIT_DICE,
   OfficialClass,
   Operation,
+  PB,
   SPELLCASTING_ABILITIES,
   SkillName,
-  SpellLevel,
+  LeveledSpellLevel,
   StandardDie,
   StatKey,
 } from "./data/data-definitions";
@@ -126,6 +128,21 @@ export function levelInClass(className: ClassName, character: Character) {
   return character.class.find((klass) => klass.name === className)?.level || 0;
 }
 
+// Class-identity resolution by stable id (the form spells / spellcasting entries
+// / `spellMod` / `classLevel` leaves reference).
+export function classById(character: Character, id: UUID): IClass | undefined {
+  return character.class.find((klass) => klass.id === id);
+}
+export function classNameForId(
+  character: Character,
+  id: UUID,
+): ClassName | undefined {
+  return classById(character, id)?.name;
+}
+export function levelOfClassId(character: Character, id: UUID): number {
+  return classById(character, id)?.level ?? 0;
+}
+
 function getHitDie(className: ClassName): StandardDie {
   return isOfficialClass(className)
     ? HIT_DICE[className]
@@ -141,6 +158,43 @@ export function getHitDice(character: Character): HitDice {
         (hitDice[getHitDie(klass.name)] || 0) + klass.level),
   );
   return hitDice;
+}
+
+// Jack of All Trades applies half proficiency to non-proficient ability checks:
+// Bard level 2+, or the manual override.
+export function hasJackOfAllTrades(character: Character): boolean {
+  const bardLevel =
+    character.class.find((klass) => klass.name === "Bard")?.level || 0;
+  return bardLevel > 1 || character.proficiencies.isJackOfAllTradesOverride;
+}
+
+// The default Passive Perception formula: 10 + WIS modifier + the proficiency
+// contribution for Perception (expertise / proficiency / Jack of All Trades) +
+// any per-skill Perception bonus. Seeds the editable `passivePerception`
+// override so a player can tweak it (e.g. Observant's passive-only +5) starting
+// from the computed value.
+export function getPassivePerceptionFormula(
+  character: Character,
+): CustomFormula {
+  const proficient = !!character.proficiencies.skills.Perception;
+  const expert = !!character.proficiencies.expertise.Perception;
+  const bonus = character.proficiencies.skillBonuses.Perception;
+  const operands: CustomFormula[] = [10, StatKey.wis];
+  // Proficiency contribution as a PB-referencing formula (not a frozen number),
+  // so a saved override keeps scaling with level: PB when proficient, 2×PB with
+  // expertise, and floor(PB/2) for Jack of All Trades.
+  if (expert) {
+    operands.push({ operation: Operation.multiplication, operands: [2, PB] });
+  } else if (proficient) {
+    operands.push(PB);
+  } else if (hasJackOfAllTrades(character)) {
+    operands.push({
+      operation: Operation.floor,
+      operand1: { operation: Operation.division, operand1: PB, operand2: 2 },
+    });
+  }
+  if (bonus !== undefined) operands.push(bonus);
+  return { operation: Operation.addition, operands };
 }
 
 export function getHpFormula(character: Character): CustomFormula {
@@ -175,7 +229,7 @@ export function getHpFormula(character: Character): CustomFormula {
                 },
                 {
                   operation: Operation.subtraction,
-                  operand1: firstClass.name,
+                  operand1: { classLevel: firstClass.id },
                   operand2: 1,
                 },
               ],
@@ -192,7 +246,7 @@ export function getHpFormula(character: Character): CustomFormula {
         return {
           operation: Operation.multiplication,
           operands: [
-            classDef.name,
+            { classLevel: classDef.id },
             {
               operation: Operation.addition,
               operands: [
@@ -222,28 +276,15 @@ export function getSpellcastingAbility(className: ClassName) {
 // resolve `spellMod` formula leaves live.
 export function spellcastingAbilityFor(
   character: Character,
-  className: ClassName,
+  classId: UUID,
 ): StatKey {
   const entry = character.spellcastingClasses.find(
-    (c) => c.class === className,
+    (c) => c.classId === classId,
   );
-  return entry?.abilityOverride ?? getSpellcastingAbility(className);
-}
-
-const NUMERIC_SPELL_SLOT_LEVEL: Record<SpellLevel, number> = {
-  [SpellLevel.First]: 1,
-  [SpellLevel.Second]: 2,
-  [SpellLevel.Third]: 3,
-  [SpellLevel.Fourth]: 4,
-  [SpellLevel.Fifth]: 5,
-  [SpellLevel.Sixth]: 6,
-  [SpellLevel.Seventh]: 7,
-  [SpellLevel.Eighth]: 8,
-  [SpellLevel.Ninth]: 9,
-};
-
-export function getNumericSpellSlotLevel(level: SpellLevel) {
-  return NUMERIC_SPELL_SLOT_LEVEL[level];
+  return (
+    entry?.abilityOverride ??
+    getSpellcastingAbility(classNameForId(character, classId) ?? "")
+  );
 }
 
 export function getPactSlotInfo(character: Character) {
@@ -292,12 +333,12 @@ const SPELL_SLOTS_BY_CASTER_LEVEL: number[][] = [
 ];
 
 export function getSpellSlotsByLevelAndSpellcasterLevel(
-  slotLevel: SpellLevel,
+  slotLevel: LeveledSpellLevel,
   spellcastingLevel: number,
 ) {
   const row =
     SPELL_SLOTS_BY_CASTER_LEVEL[Math.min(Math.max(spellcastingLevel, 0), 20)];
-  return row[getNumericSpellSlotLevel(slotLevel) - 1] ?? 0;
+  return row[slotLevel - 1] ?? 0;
 }
 
 /**
@@ -360,7 +401,7 @@ export function isSpellcastingClass(klass: IClass): boolean {
 
 export function getDefaultSpellSlots(
   character: Character,
-  slotLevel: SpellLevel,
+  slotLevel: LeveledSpellLevel,
 ): number {
   return getSpellSlotsByLevelAndSpellcasterLevel(
     slotLevel,
@@ -372,7 +413,7 @@ export function getDefaultSpellSlots(
 // expended). Used to offer only castable levels in the roll dialog.
 export function availableSpellSlots(
   character: Character,
-  slotLevel: SpellLevel,
+  slotLevel: LeveledSpellLevel,
 ): number {
   const total =
     character.spellSlots[slotLevel]?.totalOverride ??
@@ -402,7 +443,7 @@ export function officialSpellcastingClasses(
   character: Character,
 ): OfficialClass[] {
   return character.spellcastingClasses
-    .map((c) => c.class)
+    .map((c) => classNameForId(character, c.classId))
     .filter(isOfficialClass);
 }
 
@@ -415,6 +456,7 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
   pbOverride: getPB,
   maxHp: getHpFormula,
   initiativeFormula: () => StatKey.dex,
+  passivePerception: getPassivePerceptionFormula,
   expendedHitDice: () => 0,
   exp: () => 0,
   coins: () => 0,
@@ -426,7 +468,10 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
     const [index, subSubField] = subField.split(".");
     if (subSubField === "abilityOverride") {
       return getSpellcastingAbility(
-        character.spellcastingClasses[parseInt(index)].class,
+        classNameForId(
+          character,
+          character.spellcastingClasses[parseInt(index)].classId,
+        ) ?? "",
       );
     }
     if (subSubField === "saveDcOverride") {
@@ -437,7 +482,10 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
           "proficiencyBonus",
           character.spellcastingClasses[parseInt(index)].abilityOverride ||
             getSpellcastingAbility(
-              character.spellcastingClasses[parseInt(index)].class,
+              classNameForId(
+                character,
+                character.spellcastingClasses[parseInt(index)].classId,
+              ) ?? "",
             ),
         ],
       };
@@ -448,7 +496,10 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
           "proficiencyBonus",
           character.spellcastingClasses[parseInt(index)].abilityOverride ||
             getSpellcastingAbility(
-              character.spellcastingClasses[parseInt(index)].class,
+              classNameForId(
+                character,
+                character.spellcastingClasses[parseInt(index)].classId,
+              ) ?? "",
             ),
         ],
       };
@@ -457,7 +508,10 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
   },
   spellSlots: (character, subField) =>
     subField?.split(".")[1] === "totalOverride"
-      ? getDefaultSpellSlots(character, subField?.split(".")[0] as SpellLevel)
+      ? getDefaultSpellSlots(
+          character,
+          Number(subField?.split(".")[0]) as LeveledSpellLevel,
+        )
       : undefined,
   pactSlots: (character, subField) =>
     subField === "totalOverride"
@@ -493,6 +547,7 @@ export {
 export type { WeaponAbility, WeaponPreset } from "./data/weapon-presets";
 export {
   DEFAULT_BACKGROUNDS,
+  DEFAULT_DAMAGE_TYPES,
   DEFAULT_LANGUAGES,
   DEFAULT_RACES,
   DEFAULT_SPELL_DURATIONS,

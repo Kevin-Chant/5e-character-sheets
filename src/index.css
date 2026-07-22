@@ -3,24 +3,54 @@
    ============================================================ */
 :root {
   /* palette */
-  --bg: #f7f8fa;
+  --bg: #f5f6f4;
   --surface: #ffffff;
-  --surface-2: #eef0f3;
-  --border: #d7dbe0;
+  --surface-2: #edeeec;
+  --border: #d6d8d4;
+  /* Hairline used for the many secondary boxes, so their repeated frames read as
+     quiet structure rather than competing 2px outlines. */
+  --border-soft: #e2e4e0;
   --text: #1a1c1f;
   --text-muted: #6b7280;
-  --accent: #3992ff;
-  --accent-hover: #2b7ef0;
+  /* Ink-sapphire primary: still blue-family (not a drastic shift from the old
+     #3992ff) but deeper and less generic-SaaS. */
+  --accent: #33518a;
+  --accent-hover: #294273;
   --accent-contrast: #ffffff;
+  /* Semantic hues, each used only on its home region so the eye gets a map:
+     crimson = life, amethyst = magic. */
+  --health: #b23a48;
+  --health-soft: #fbecee;
+  --arcane: #7a5bbd;
+  --arcane-soft: #f0ebfa;
   --danger: #e5484d;
   --danger-contrast: #ffffff;
+  --success: #1a9e5f;
   --editable: #ece3fb;
-  --display-value-bg: #e3e3e3;
+  --display-value-bg: #e6e7e4;
+  /* Amber, kept for the "someone else is editing" warning banner only. */
   --popover-bg: #fff8c5;
+  /* Info tooltips/popovers + insert menus: a light lavender that harmonises with
+     the arcane accent instead of clashing with it. */
+  --tooltip-bg: #f3eefc;
+
+  /* type */
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-body:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+
+  /* spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
 
   /* scale */
   --radius: 8px;
-  --radius-lg: 16px;
+  --radius-lg: 14px;
   --shadow-1: 0 1px 2px hsla(0, 0%, 0%, 0.08), 0 1px 3px hsla(0, 0%, 0%, 0.06);
   --shadow-2: 0 2px 6px hsla(0, 0%, 0%, 0.12), 0 1px 2px hsla(0, 0%, 0%, 0.08);
 }
@@ -33,12 +63,25 @@
     --surface: #1f2227;
     --surface-2: #272b31;
     --border: #363b42;
+    --border-soft: #2b2f36;
     --text: #e8eaed;
     --text-muted: #9aa0a8;
-    --accent-contrast: #ffffff;
+    /* Lift the accent/semantic hues on dark so they keep contrast on the slate
+       surfaces (the deep light-mode inks would go muddy). */
+    --accent: #6f97e8;
+    --accent-hover: #85a9ef;
+    --accent-contrast: #16181c;
+    --health: #e07a86;
+    /* Barely-there crimson wash — a full-saturation fill reads as an alarm on
+       the dark surfaces. */
+    --health-soft: #221c1e;
+    --arcane: #a488e0;
+    --arcane-soft: #2e2740;
+    --success: #46c98a;
     --editable: #3a3350;
     --display-value-bg: #2c3036;
     --popover-bg: #4a4322;
+    --tooltip-bg: #302b40;
   }
 }
 
@@ -47,12 +90,21 @@
   --surface: #1f2227;
   --surface-2: #272b31;
   --border: #363b42;
+  --border-soft: #2b2f36;
   --text: #e8eaed;
   --text-muted: #9aa0a8;
-  --accent-contrast: #ffffff;
+  --accent: #6f97e8;
+  --accent-hover: #85a9ef;
+  --accent-contrast: #16181c;
+  --health: #e07a86;
+  --health-soft: #221c1e;
+  --arcane: #a488e0;
+  --arcane-soft: #2e2740;
+  --success: #46c98a;
   --editable: #3a3350;
   --display-value-bg: #2c3036;
   --popover-bg: #4a4322;
+  --tooltip-bg: #302b40;
 }
 
 /* ============================================================
@@ -472,13 +524,68 @@ p {
    from a values column, one row per category, with a heading underneath. */
 /* Override the `.column` parent's centering so every row spans the full width
    and the label edges line up regardless of how wide each row's values are. */
+/* Ranged-weapon name carries a range tooltip; hint it with a help cursor and a
+   dotted underline so players know to hover. */
+.attack-name.has-range {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* Remaining-ammo count shown after a linked weapon's name. */
+.ammo-badge {
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ammunition sub-section of the Equipment box. */
+.ammunition-section {
+  align-items: stretch;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 2px dotted var(--border);
+}
+
+.ammunition-section .ammo-row {
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+
+.ammunition-section .ammo-controls {
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ammunition-section .ammo-count {
+  width: 4.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ammunition-section .ammo-name-edit {
+  text-align: left;
+}
+
+/* Linked-weapon checkboxes in the ammunition editor. */
+.edit-ammunition .ammo-weapons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.75rem;
+}
+
 .other-proficiencies {
   align-items: stretch;
 }
 
 .other-proficiencies .prof-row {
   display: grid;
-  grid-template-columns: 6rem 1fr;
+  /* Wide enough that the longest label ("Vulnerabilities") fits on one line in
+     the display face without spilling into the values column. */
+  grid-template-columns: 8rem 1fr;
   align-items: stretch;
   border-bottom: 2px solid var(--border);
 }
@@ -490,6 +597,9 @@ p {
   justify-content: center;
   text-align: left;
   font-weight: 700;
+  /* Small-caps sizing so the engraved-cap labels stay within the fixed column. */
+  font-size: 0.72rem;
+  white-space: nowrap;
   padding: 0.4rem 0.5rem;
   border-right: 2px dotted var(--border);
 }
@@ -542,15 +652,40 @@ p {
   color: var(--accent);
   cursor: pointer;
   line-height: 1;
-  padding: 0.1rem 0.3rem;
+  /* Uniform square affordance shared by every add "+" in these boxes (languages,
+     senses, damage modifiers) so they read as one control, not three. */
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.other-proficiencies .prof-add:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 
 .other-proficiencies .prof-title {
   text-align: center;
   font-weight: 700;
   padding: 0.4rem;
+}
+
+/* Senses box reuses the Other-Proficiencies look; its box-level add "+" sits in
+   the title, matching the Limited-Use Abilities / Features boxes. */
+.other-proficiencies .senses-title {
+  position: relative;
+}
+.senses-add {
+  position: absolute;
+  right: 0.4rem;
+  /* Centre with a negative margin (half the 1.5rem button height) rather than a
+     transform: the global `button:active` sets `transform: translateY(1px)`,
+     which would replace a centring transform and make the button jump down on
+     press — so the click lands off-target and never opens the editor. */
+  top: 50%;
+  margin-top: -0.75rem;
 }
 
 /* Typeahead combobox: free-text input with a filtered, optionally grouped list
@@ -609,6 +744,59 @@ p {
 .display-text {
   white-space: nowrap;
   margin: 0;
+}
+
+/* Skill / saving-throw proficiency toggle: a small box that cycles none → ✓
+   (proficient) → e (expertise). Saving throws only reach the first two states. */
+.prof-toggle {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+.prof-toggle.editable {
+  cursor: pointer;
+}
+.prof-toggle--proficient {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.prof-toggle--expert {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  /* Stylized serif italic "e" so expertise reads distinctly from a checkmark. */
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+}
+
+/* Per-skill bonus editor (pencil), shown in edit mode; brightens when a bonus
+   is set. */
+.prof-bonus-edit {
+  background: transparent;
+  border: none;
+  padding: 0 0.2rem;
+  cursor: pointer;
+  opacity: 0.4;
+  display: inline-flex;
+  align-items: center;
+}
+.prof-bonus-edit:hover {
+  opacity: 0.9;
+}
+.prof-bonus-edit.active {
+  opacity: 1;
+  color: var(--accent);
 }
 
 /* Classic character-sheet look: the value sits on an underline rather than in a
@@ -686,9 +874,7 @@ html {
 }
 
 body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
-    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg);
@@ -2411,6 +2597,19 @@ button.slot-pip:hover:not(:disabled) {
   color: var(--accent);
   line-height: 1;
 }
+/* Crit callouts replace the total on a natural 1/20; sized down since they're
+   text, and color-coded (green success, red fail) via theme-aware vars. */
+.roll-total.roll-crit-success,
+.roll-total.roll-crit-fail {
+  font-size: 1.6rem;
+  text-align: center;
+}
+.roll-total.roll-crit-success {
+  color: var(--success);
+}
+.roll-total.roll-crit-fail {
+  color: var(--danger);
+}
 .roll-part {
   font-size: 0.9rem;
 }
@@ -2969,4 +3168,339 @@ button.slot-pip:hover:not(:disabled) {
   .stat-display-container {
     width: 100%;
   }
+}
+
+/* ============================================================
+   UI refresh (design pass)
+   - Cinzel display face on the sheet's uppercase labels/titles + name hero
+   - a visual hierarchy that lifts the play-critical regions
+   - a restrained semantic colour map (crimson = life, amethyst = magic)
+   Layout and markup are unchanged; this section only restyles.
+   ============================================================ */
+
+/* ---- Typography: engraved caps on the labels that are already uppercase ---- */
+.display-title,
+.display-label,
+.section-heading,
+.prof-title,
+.prof-label,
+.senses-title,
+.roll-section-title,
+.typeahead-group-label,
+b.pos-relative.margin-large {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+/* Cinzel runs visually large for its point size; ease the small captions down a
+   touch and give section headings a hair more weight so they still anchor. */
+.display-label {
+  font-size: 0.72rem;
+}
+.section-heading,
+b.pos-relative.margin-large {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* Headings across the app share the display face. */
+#main-nav h1,
+.home-hero h1,
+.character-picker-header h1,
+.builder-title,
+.modal-titlebar > .title,
+.spell-banner .title,
+.settings-section-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+/* Numbers line up in columns and don't jitter as they change. */
+.display-value,
+.stat-modifier,
+.stat-score,
+.roll-total,
+.roll-part,
+.spell-level-number,
+.ammo-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Softer frames: trim the boxy 2px outlines back to a quieter hairline ---- */
+.rounded-border-box {
+  border-width: 1.5px;
+}
+
+/* ---- Stat block: modifier is the hero, score is a small reference chip ---- */
+.stat-modifier {
+  margin: 0.1rem 0 0.15rem;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  margin: 0 auto 0.15rem;
+  padding: 0.05rem 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: var(--surface-2);
+  border-radius: 999px;
+  cursor: default;
+}
+.stat-score.editable {
+  cursor: pointer;
+  color: var(--text);
+  background-color: var(--editable);
+  transition:
+    background-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.stat-score.editable:hover {
+  box-shadow: var(--shadow-1);
+}
+
+/* ---- Hierarchy: lift the regions you reference mid-combat ---- */
+/* AC / Initiative / Speed — a faint raised strip so it reads as the vitals bar. */
+.defence-vitals .rounded-border-box {
+  background-color: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-1);
+}
+.defence-vitals .display-value.large {
+  color: var(--accent);
+}
+
+/* ---- Semantic colour: HP + death saves = crimson (life) ---- */
+.hp-box {
+  /* Muted crimson frame (mixed toward the neutral border) so it reads as "this
+     is the life region" without shouting — especially on dark. */
+  border-color: color-mix(in srgb, var(--health) 55%, var(--border));
+  background-color: var(--health-soft);
+}
+/* Current HP is the number that actually moves in a fight — make it the loud one. */
+.hp-box .display-value {
+  border-bottom-color: color-mix(in srgb, var(--health) 45%, var(--border));
+}
+.death-save-row .slot-pip {
+  color: var(--health);
+}
+.death-save-row .slot-pip:hover:not(:disabled) {
+  color: var(--health);
+}
+
+/* ---- Semantic colour: spellcasting = amethyst (magic) ---- */
+.spell-banner {
+  border-color: var(--arcane);
+  background-color: var(--arcane-soft);
+}
+.spell-level-number {
+  color: var(--arcane);
+}
+.spell-slot-tracker .slot-pip {
+  color: var(--arcane);
+}
+.spell-slot-tracker .slot-pip:hover:not(:disabled) {
+  color: var(--arcane);
+}
+/* The "prepared" checkbox and spell-level headers pick up the magic hue too. */
+.spell-level-card .prepared-toggle:checked {
+  border-color: var(--arcane);
+}
+.spell-level-card .prepared-toggle:checked::before {
+  background-color: var(--arcane);
+}
+
+/* ---- Identity header: the character name is the hero ---- */
+.character-info-header > .row > .rounded-border-box .display-value.large {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.1rem;
+  line-height: 1.1;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+.character-info-header > .row > .rounded-border-box .display-label {
+  color: var(--accent);
+}
+
+/* ---- Home: give the landing title the display face + a hairline flourish ---- */
+.home-hero h1 {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 0.6rem;
+}
+.home-hero h1::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 3rem;
+  height: 2px;
+  transform: translateX(-50%);
+  background-color: var(--accent);
+}
+
+/* ---- Motion: respect a reduced-motion preference ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Keep the name hero from dominating a phone viewport (more specific than the
+     generic mobile shrink above, so it needs its own clamp). */
+  .character-info-header > .row > .rounded-border-box .display-value.large {
+    font-size: 1.6rem;
+  }
+}
+
+/* ---- Spacing: give the three columns internal rhythm ---- */
+/* Stats column and skills column were touching — separate them. */
+.stat-and-skill-panel > .row {
+  gap: 1.25rem;
+}
+/* The middle (defence/equipment) and right (personality/features) columns stack
+   their boxes flush; a consistent gap lets each box read as its own card. */
+.page-container > .row > .column {
+  gap: 0.85rem;
+}
+
+/* ---- Info popovers / insert menus: lavender, not amber ---- */
+.popover-container,
+.insert-value-menu {
+  background: var(--tooltip-bg);
+}
+
+/* ---- Editable section heading (e.g. "Skills") ---- */
+/* Looks like the plain section heading but is a button that opens an editor;
+   the pencil only appears in edit mode where this variant is rendered. */
+.section-heading-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 auto;
+  padding: 0.15rem 0.5rem;
+  background: none;
+  border: none;
+  box-shadow: none;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  cursor: pointer;
+}
+.section-heading-edit svg {
+  font-size: 0.75em;
+  color: var(--text-muted);
+}
+.section-heading-edit:hover:not(:disabled) {
+  color: var(--accent);
+  box-shadow: none;
+}
+.section-heading-edit:hover:not(:disabled) svg {
+  color: var(--accent);
+}
+
+/* ---- Skills editor modal ---- */
+.edit-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: min(520px, 82vw);
+}
+.skill-edit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.skill-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.skill-edit-row:last-child {
+  border-bottom: none;
+}
+.skill-edit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.skill-edit-name {
+  font-weight: 600;
+}
+.skill-edit-meta {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.skill-edit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+/* Segmented None / Proficient / Expertise control. */
+.skill-prof-group {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.skill-prof-btn {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.7rem;
+}
+.skill-prof-btn + .skill-prof-btn {
+  border-left: 1px solid var(--border);
+}
+.skill-prof-btn:hover:not(:disabled) {
+  box-shadow: none;
+  background: var(--surface-2);
+}
+.skill-prof-btn.selected {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.skill-bonus-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.skill-bonus-cell .formula-edit-button {
+  flex: 1 1 auto;
+}
+.skill-bonus-clear {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.55rem;
+  line-height: 1;
 }

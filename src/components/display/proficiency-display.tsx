@@ -4,6 +4,7 @@ import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { Character } from "src/lib/types";
 import { Cursor } from "src/lib/cursor";
 import { getFieldValue, traverse } from "src/lib/fields";
+import { FaPencil } from "react-icons/fa6";
 import RollButton from "../roll-button";
 
 interface ProficiencyDisplayProps {
@@ -19,7 +20,14 @@ interface ProficiencyDisplayProps {
   // When set, show a d20 roll button that rolls (this row's value) + d20 — used
   // for skills and saving throws, whose transformed value is the modifier.
   rollLabel?: string;
-  updateProficiency: (data: boolean) => void;
+  // Advance the proficiency state on click. Saving throws cycle none↔proficient;
+  // skills cycle none→proficient→expert→none (see the parent). The control shows
+  // a ✓ for proficiency and a stylized "e" for expertise.
+  onToggle: () => void;
+  // Skills only: open the per-skill bonus formula editor. Shown in edit mode;
+  // `hasBonus` styles it as active when a bonus is set.
+  onEditBonus?: () => void;
+  hasBonus?: boolean;
 }
 
 export default function ProficiencyDisplay({
@@ -33,7 +41,9 @@ export default function ProficiencyDisplay({
   transform,
   readOnly,
   rollLabel,
-  updateProficiency,
+  onToggle,
+  onEditBonus,
+  hasBonus,
 }: ProficiencyDisplayProps) {
   const { character } = useCharacter();
   const { editMode } = useEditMode();
@@ -44,13 +54,7 @@ export default function ProficiencyDisplay({
   const subField = cursor.subpath();
 
   const locked = readOnly || !editMode;
-  const onClick = locked
-    ? () => {
-        return;
-      }
-    : () => {
-        updateProficiency(!proficient);
-      };
+  const state = expert ? "expert" : proficient ? "proficient" : "none";
 
   let value = getFieldValue(field, character);
   if (subField) value = traverse(subField, value);
@@ -60,14 +64,18 @@ export default function ProficiencyDisplay({
   return (
     <div className="proficiency-display">
       <div className="row">
-        <input
-          className={classNames({ editable: !locked })}
-          type="checkbox"
+        <button
+          type="button"
           id={id}
-          checked={proficient}
-          readOnly={true}
-          onClick={onClick}
-        />
+          className={classNames("prof-toggle", `prof-toggle--${state}`, {
+            editable: !locked,
+          })}
+          aria-label={`${text}: ${state}`}
+          aria-disabled={locked}
+          onClick={locked ? undefined : onToggle}
+        >
+          {state === "expert" ? "e" : state === "proficient" ? "✓" : ""}
+        </button>
         <TextComponent className="display-value margin-small tiny">
           {value}
         </TextComponent>
@@ -76,6 +84,20 @@ export default function ProficiencyDisplay({
         </TextComponent>
         {rollLabel && typeof value === "number" && (
           <RollButton label={rollLabel} check={value} />
+        )}
+        {editMode && onEditBonus && (
+          <button
+            type="button"
+            className={classNames("prof-bonus-edit", { active: hasBonus })}
+            aria-label={`Edit ${text} bonus`}
+            title={hasBonus ? `${text} bonus set` : `Add a ${text} bonus`}
+            onClick={(e) => {
+              e.preventDefault();
+              onEditBonus();
+            }}
+          >
+            <FaPencil />
+          </button>
         )}
       </div>
     </div>

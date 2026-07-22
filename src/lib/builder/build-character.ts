@@ -2,17 +2,20 @@ import { uniq, uniqBy } from "lodash";
 import {
   Alignment,
   ArmorType,
+  LEVELED_SPELL_LEVELS,
   Operation,
-  SpellLevel,
+  Size,
   StandardDie,
   StatKey,
   OfficialClass,
 } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
+import { UUID } from "crypto";
 import { modifier } from "src/lib/rules";
 import {
   Character,
   HitDice,
+  isTextComponentWithDetail,
   Spell,
   Spells,
   SpellSlots,
@@ -38,6 +41,28 @@ const DIE_BY_FACES: Record<number, StandardDie> = {
   12: StandardDie.d12,
 };
 
+// Map an SRD race's free-text size label ("Medium", "Small") onto the Size enum,
+// defaulting to Medium for anything unrecognized (homebrew, missing data).
+const sizeFromLabel = (label?: string): Size =>
+  (Object.values(Size) as string[]).includes(label ?? "")
+    ? (label as Size)
+    : Size.Medium;
+
+// Pull a darkvision range out of a race's traits. SRD traits title the feature
+// "Darkvision" and put the range in the detail prose ("…within 60 feet…"), so
+// scan both; a darkvision trait with no explicit number defaults to 60 (the
+// standard range). Undefined when the race grants no darkvision at all.
+const darkvisionFromTraits = (traits: TextComponent[]): number | undefined => {
+  for (const t of traits) {
+    const text = `${t.title} ${isTextComponentWithDetail(t) ? t.detail : ""}`;
+    if (!/darkvision/i.test(text)) continue;
+    const m =
+      /(\d+)\s*(?:ft|feet)/i.exec(text) ?? /darkvision[^0-9]*(\d+)/i.exec(text);
+    return m ? Number(m[1]) : 60;
+  }
+  return undefined;
+};
+
 const splitLines = (value: string): string[] =>
   value
     .split(/[\n,]/)
@@ -49,20 +74,17 @@ const text = (title: string, detail?: string): TextComponent =>
     ? { title, titleFormulas: [], detail, detailFormulas: [] }
     : { title, titleFormulas: [] };
 
-const emptySpells = (): Spells =>
-  Object.values(SpellLevel).reduce<Spells>(
-    (acc, lvl) => {
-      acc[lvl] = [];
-      return acc;
-    },
-    { cantrips: [] },
-  );
+const emptySpells = (): Spells => {
+  const spells: Spells = { 0: [] }; // key 0 = cantrips
+  for (const lvl of LEVELED_SPELL_LEVELS) spells[lvl] = [];
+  return spells;
+};
 
-const emptySpellSlots = (): SpellSlots =>
-  Object.values(SpellLevel).reduce((acc, lvl) => {
-    acc[lvl] = { expended: 0 };
-    return acc;
-  }, {} as SpellSlots);
+const emptySpellSlots = (): SpellSlots => {
+  const slots = {} as SpellSlots;
+  for (const lvl of LEVELED_SPELL_LEVELS) slots[lvl] = { expended: 0 };
+  return slots;
+};
 
 const emptyArmor = (): Record<ArmorType, boolean> => ({
   [ArmorType.Light]: false,
@@ -82,7 +104,7 @@ function emptyScaffold(): Character {
     class: [],
     background: "",
     playerName: "",
-    race: "",
+    race: { name: "", size: Size.Medium },
     alignment: Alignment["True Neutral"],
     stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     inspiration: 0,
@@ -91,6 +113,7 @@ function emptyScaffold(): Character {
       skills: {},
       expertise: {},
       isJackOfAllTradesOverride: false,
+      skillBonuses: {},
     },
     otherProficiencies: {
       languages: [],
@@ -98,8 +121,10 @@ function emptyScaffold(): Character {
       weapons: [],
       toolsAndOther: [],
     },
+    damageModifiers: { resistances: [], immunities: [], vulnerabilities: [] },
     acFormula: { operation: Operation.addition, operands: [10, StatKey.dex] },
-    speed: 30,
+    speeds: { walk: 30 },
+    senses: {},
     maxHp: undefined,
     currHp: 0,
     tempHp: 0,
@@ -108,6 +133,7 @@ function emptyScaffold(): Character {
     exhaustion: 0,
     deathSaves: { successes: 0, failures: 0 },
     attacks: [],
+    ammunition: [],
     coins: {},
     equipment: [],
     personality: { traits: [], ideals: [], bonds: [], flaws: [] },
@@ -140,7 +166,7 @@ function armorFromGrants(grants: string[]): Record<ArmorType, boolean> {
 
 function buildSpells(
   state: BuilderState,
-  className: string,
+  classId: UUID,
   // Always-prepared extras a subclass grants (e.g. cleric domain spells),
   // added on top of the player's own selections.
   grantedIndices: string[] = [],
@@ -149,9 +175,9 @@ function buildSpells(
   const add = (index: string) => {
     const srd = getSrdSpell(index);
     if (!srd) return;
-    const spell: Spell = buildSpellFromSrd(srd, className);
-    if (srd.level === 0) spells.cantrips!.push(spell);
-    else if (srd.level === 1) spells[SpellLevel.First]!.push(spell);
+    const spell: Spell = buildSpellFromSrd(srd, classId);
+    if (srd.level === 0) spells[0]!.push(spell);
+    else if (srd.level === 1) spells[1]!.push(spell);
   };
   state.cantripIndices.forEach(add);
   state.levelOneSpellIndices.forEach(add);
@@ -178,14 +204,20 @@ function guidedCharacter(state: BuilderState): Character {
     state.subraceIndex === CUSTOM_SUBRACE
       ? state.customSubraceName.trim()
       : subrace?.name;
-  char.race = subraceName ? `${baseRaceName} (${subraceName})` : baseRaceName;
+  // Racial traits as TextComponents — reused for both the structured race source
+  // and the flattened `features` aggregate below.
+  const raceTraits = [...(race?.traits ?? []), ...(subrace?.traits ?? [])].map(
+    (f) => text(f.title, f.detail),
+  );
 
   const className = klass?.name ?? (state.customClassName.trim() || "Custom");
   // Level-1 subclass mechanics, if the chosen subclass carries any (only the
   // classes that pick a subclass at level 1 — cleric/sorcerer/warlock — do).
   const subclassGrant = getSubclassByName(klass?.index, state.subclass)?.grants;
+  const classId = randomUUID();
   char.class = [
     {
+      id: classId,
       name: className,
       level: 1,
       ...(state.subclass && { subclass: state.subclass }),
@@ -208,8 +240,18 @@ function guidedCharacter(state: BuilderState): Character {
     };
     char.currHp = hitDieFaces + conMod;
   }
-  // Subrace can raise the base speed (e.g. Wood Elf's Fleet of Foot → 35).
-  char.speed = subrace?.speed ?? race?.speed ?? 30;
+  // Seed the character's walking speed and darkvision from the race/subrace
+  // (e.g. Wood Elf's Fleet of Foot → 35); both are fully editable afterward. The
+  // race object keeps only identity — languages/traits are seeded into their own
+  // homes (below) rather than mirrored here.
+  char.speeds = { walk: subrace?.speed ?? race?.speed ?? 30 };
+  const darkvision = darkvisionFromTraits(raceTraits);
+  char.senses = darkvision !== undefined ? { darkvision } : {};
+  char.race = {
+    name: baseRaceName,
+    ...(subraceName && { subrace: subraceName }),
+    size: sizeFromLabel(race?.size),
+  };
 
   // Proficiencies — saving throws (class) and skills (class + race + background)
   for (const stat of klass?.savingThrows ?? [])
@@ -261,11 +303,11 @@ function guidedCharacter(state: BuilderState): Character {
   // Features — racial traits, class level-1 features, subclass level-1
   // features, background feature
   char.features = [
-    ...(race?.traits ?? []),
-    ...(subrace?.traits ?? []),
-    ...(klass?.features ?? []),
-    ...(subclassGrant?.features ?? []),
-  ].map((f) => text(f.title, f.detail));
+    ...raceTraits,
+    ...[...(klass?.features ?? []), ...(subclassGrant?.features ?? [])].map(
+      (f) => text(f.title, f.detail),
+    ),
+  ];
   const bgFeature = background?.feature ?? {
     title: state.customBackgroundFeatureTitle.trim(),
     detail: state.customBackgroundFeatureDetail.trim(),
@@ -275,10 +317,10 @@ function guidedCharacter(state: BuilderState): Character {
 
   // Spellcasting
   if (klass && castsAtLevelOne(klass)) {
-    char.spellcastingClasses = [{ class: className }];
+    char.spellcastingClasses = [{ classId }];
     // Subclass-granted always-prepared spells (e.g. cleric domain spells) are
     // folded in alongside the player's own picks.
-    char.spells = buildSpells(state, className, subclassGrant?.spellIndices);
+    char.spells = buildSpells(state, classId, subclassGrant?.spellIndices);
     if (className === OfficialClass.Warlock) char.pactSlots = { expended: 0 };
   }
 

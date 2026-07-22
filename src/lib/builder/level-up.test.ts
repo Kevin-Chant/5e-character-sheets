@@ -73,7 +73,9 @@ describe("applyLevelUp — advancing a single class", () => {
 
   it("bumps the class level and recomputes hit dice + PB", () => {
     expect(targetClassLevel(char, state)).toBe(2);
-    expect(leveled.class).toEqual([{ name: "Fighter", level: 2 }]);
+    expect(leveled.class).toEqual([
+      expect.objectContaining({ name: "Fighter", level: 2 }),
+    ]);
     expect(leveled.totalHitDice).toEqual({ d10: 2 });
     expect(getPB(leveled)).toBe(2); // still 2 at level 2
   });
@@ -84,7 +86,9 @@ describe("applyLevelUp — advancing a single class", () => {
   });
 
   it("does not mutate the source character", () => {
-    expect(char.class).toEqual([{ name: "Fighter", level: 1 }]);
+    expect(char.class).toEqual([
+      expect.objectContaining({ name: "Fighter", level: 1 }),
+    ]);
   });
 });
 
@@ -99,7 +103,7 @@ describe("applyLevelUp — subclass choice with grants", () => {
     });
     expect(leveled.class[0].subclass).toBe("Life");
     expect(leveled.otherProficiencies.armor[ArmorType.Heavy]).toBe(true);
-    const first = leveled.spells.First?.map((s) => s.info.title) ?? [];
+    const first = leveled.spells[1]?.map((s) => s.info.title) ?? [];
     expect(first).toEqual(expect.arrayContaining(["Bless", "Cure Wounds"]));
     expect(leveled.features.map((f) => f.title)).toContain("Disciple of Life");
   });
@@ -113,11 +117,16 @@ describe("applyLevelUp — multiclassing", () => {
       className: "Wizard",
       isNewMulticlass: true,
     });
-    expect(leveled.class).toEqual([
-      { name: "Fighter", level: 1 },
-      { name: "Wizard", level: 1 },
+    expect(
+      leveled.class.map((c) => ({ name: c.name, level: c.level })),
+    ).toEqual([
+      expect.objectContaining({ name: "Fighter", level: 1 }),
+      expect.objectContaining({ name: "Wizard", level: 1 }),
     ]);
-    expect(leveled.spellcastingClasses.map((c) => c.class)).toContain("Wizard");
+    const wizardId = leveled.class.find((c) => c.name === "Wizard")!.id;
+    expect(leveled.spellcastingClasses.map((c) => c.classId)).toContain(
+      wizardId,
+    );
     // Multiclass hit dice: one d10 + one d6.
     expect(leveled.totalHitDice).toEqual({ d10: 1, d6: 1 });
   });
@@ -167,9 +176,9 @@ describe("applyLevelUp — feat grants", () => {
     ).toBe(true);
   });
 
-  it("Mobile increases speed by 10", () => {
-    const base = level1("fighter").speed;
-    expect(withFeat("mobile").speed).toBe(base + 10);
+  it("Mobile increases walking speed by 10", () => {
+    const base = level1("fighter").speeds.walk;
+    expect(withFeat("mobile").speeds.walk).toBe(base + 10);
   });
 
   it("Alert adds a +5 initiative formula", () => {
@@ -202,7 +211,7 @@ describe("applyLevelUp — feat grants", () => {
 
   it("Telekinetic grants the Mage Hand cantrip", () => {
     expect(
-      withFeat("telekinetic").spells.cantrips?.map((s) => s.info.title),
+      withFeat("telekinetic").spells[0]?.map((s) => s.info.title),
     ).toContain("Mage Hand");
   });
 
@@ -210,10 +219,8 @@ describe("applyLevelUp — feat grants", () => {
     const leveled = withFeat("fey-touched", {
       featSpellChoices: { 1: ["bless"] },
     });
-    expect(leveled.spells.Second?.map((s) => s.info.title)).toContain(
-      "Misty Step",
-    );
-    expect(leveled.spells.First?.map((s) => s.info.title)).toContain("Bless");
+    expect(leveled.spells[2]?.map((s) => s.info.title)).toContain("Misty Step");
+    expect(leveled.spells[1]?.map((s) => s.info.title)).toContain("Bless");
   });
 
   it("Skill Expert applies chosen proficiency and expertise", () => {

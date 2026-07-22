@@ -2,14 +2,13 @@ import { isNumber } from "lodash";
 import {
   AtomicVariable,
   Character,
-  ClassName,
   CustomFormula,
   CustomFormulaWithDamage,
   Expression,
   ExpressionCalculator,
   isArbitraryOperandOperation,
   isAtomicVariable,
-  isClassName,
+  isClassLevel,
   isDieExpression,
   isDoubleOperandOperation,
   isExpression,
@@ -19,11 +18,13 @@ import {
   isStandardDie,
   isStatKey,
 } from "src/lib/types";
+import { UUID } from "crypto";
 import { DamageType, Operation } from "./data/data-definitions";
 import {
+  classNameForId,
   getDieOperation,
   getPB,
-  levelInClass,
+  levelOfClassId,
   modifier,
   spellcastingAbilityFor,
 } from "./rules";
@@ -33,16 +34,16 @@ import {
 // Mirrors the default the spellcasting card shows (see OPTIONAL_FIELD_INITIALIZERS).
 export function getSpellAttackBonus(
   character: Character,
-  className: ClassName,
+  classId: UUID,
 ): number {
   const entry = character.spellcastingClasses.find(
-    (c) => c.class === className,
+    (c) => c.classId === classId,
   );
   if (entry?.attackBonusOverride)
     return calculateCustomFormula(entry.attackBonusOverride, character);
   return (
     getPB(character) +
-    modifier(character.stats[spellcastingAbilityFor(character, className)])
+    modifier(character.stats[spellcastingAbilityFor(character, classId)])
   );
 }
 
@@ -224,9 +225,9 @@ export function calculateAtomicVariable(
         spellcastingAbilityFor(character, atomicVariable.spellMod)
       ],
     );
-  // Classnames pull the level for the character in the specified class
-  if (isClassName(atomicVariable))
-    return levelInClass(atomicVariable, character);
+  // A classLevel leaf pulls the character's level in the referenced class.
+  if (isClassLevel(atomicVariable))
+    return levelOfClassId(character, atomicVariable.classLevel);
   throw new Error(
     "Reached unreachable code in calculateAtomicVariable due to" +
       JSON.stringify(atomicVariable),
@@ -270,11 +271,14 @@ function formatAtomicVariablePart(
           ),
         )
       : { text: "spellcasting mod", precedence: PREC_ATOM };
-  // Classnames pull the level for the character in the specified class.
-  if (isClassName(atomicVariable))
+  // A classLevel leaf resolves to the class level, or renders "<Class> level".
+  if (isClassLevel(atomicVariable))
     return evaluateReferences
-      ? numberPart(levelInClass(atomicVariable, character))
-      : { text: `${atomicVariable} level`, precedence: PREC_ATOM };
+      ? numberPart(levelOfClassId(character, atomicVariable.classLevel))
+      : {
+          text: `${classNameForId(character, atomicVariable.classLevel) ?? "Class"} level`,
+          precedence: PREC_ATOM,
+        };
   throw new Error(
     "Reached unreachable code in formatAtomicVariable due to" +
       JSON.stringify(atomicVariable),

@@ -5,14 +5,14 @@ import SingleValueDisplay from "./display/single-value-display";
 import SlotPips from "./display/slot-pips";
 import {
   FIELD,
-  OfficialClass,
-  SpellLevel,
+  LeveledSpellLevel,
+  LEVELED_SPELL_LEVELS,
 } from "src/lib/data/data-definitions";
 import { upperFirst } from "lodash";
 import { calculateCustomFormula } from "src/lib/formula";
 import {
+  classNameForId,
   getDefaultSpellSlots,
-  getNumericSpellSlotLevel,
   getPactSlotInfo,
   isSpellcastingClass,
 } from "src/lib/rules";
@@ -72,12 +72,12 @@ function SpellsTable({ character }: SpellsTableProps) {
   // Levels the user has manually revealed (e.g. to record a spell granted by a
   // feat or background at a level they have no slots for). Session-only — once a
   // spell is added the level stays visible on its own via `hasSpells`.
-  const [revealedLevels, setRevealedLevels] = useState<Set<SpellLevel>>(
+  const [revealedLevels, setRevealedLevels] = useState<Set<LeveledSpellLevel>>(
     new Set(),
   );
 
   const spellcastingClasses = character.spellcastingClasses.map(
-    (klass) => klass.class,
+    (klass) => klass.classId,
   );
   // Show each spell's class only when multiclassing, where it's ambiguous.
   const showClassBadge = spellcastingClasses.length > 1;
@@ -91,23 +91,24 @@ function SpellsTable({ character }: SpellsTableProps) {
     ? (character.pactSlots?.levelOverride ?? pactInfo.level)
     : 0;
 
-  const standardSlots = (level: SpellLevel) =>
+  const standardSlots = (level: LeveledSpellLevel) =>
     character.spellSlots[level]?.totalOverride ??
     getDefaultSpellSlots(character, level);
 
   // A level card is shown when it has standard slots, holds spells, is covered
   // by pact magic, or was manually revealed.
-  const allLevels = Object.values(SpellLevel) as SpellLevel[];
-  const visibleLevels = allLevels.filter((level) => {
+  const visibleLevels = LEVELED_SPELL_LEVELS.filter((level) => {
     const hasSpells = (character.spells[level]?.length ?? 0) > 0;
     return (
       standardSlots(level) > 0 ||
       hasSpells ||
-      getNumericSpellSlotLevel(level) <= pactLevel ||
+      level <= pactLevel ||
       revealedLevels.has(level)
     );
   });
-  const hiddenLevels = allLevels.filter((l) => !visibleLevels.includes(l));
+  const hiddenLevels = LEVELED_SPELL_LEVELS.filter(
+    (l) => !visibleLevels.includes(l),
+  );
 
   return (
     <div className="spell-area">
@@ -118,7 +119,7 @@ function SpellsTable({ character }: SpellsTableProps) {
             <p className="title">Cantrips</p>
           </div>
           <SpellList
-            bucket={charPath(FIELD.spells).k("cantrips")}
+            bucket={charPath(FIELD.spells).k(0)}
             preparable={false}
             showClassBadge={showClassBadge}
           />
@@ -129,9 +130,7 @@ function SpellsTable({ character }: SpellsTableProps) {
           return (
             <div key={level} className="spell-level-card">
               <div className="spell-level-header">
-                <span className="spell-level-number">
-                  Level {getNumericSpellSlotLevel(level)}
-                </span>
+                <span className="spell-level-number">Level {level}</span>
                 {total > 0 && (
                   <div className="spell-slot-tracker">
                     <SingleValueDisplay
@@ -173,14 +172,14 @@ function SpellsTable({ character }: SpellsTableProps) {
           <select
             value=""
             onChange={(e) => {
-              const level = e.target.value as SpellLevel;
+              const level = Number(e.target.value) as LeveledSpellLevel;
               if (level) setRevealedLevels((prev) => new Set(prev).add(level));
             }}
           >
             <option value="">Select…</option>
             {hiddenLevels.map((level) => (
               <option value={level} key={level}>
-                Level {getNumericSpellSlotLevel(level)}
+                Level {level}
               </option>
             ))}
           </select>
@@ -199,34 +198,37 @@ export default function Spellcasting() {
   // entries and overrides are preserved, and removals are never undone — a
   // class dropped from the class list keeps its spellcasting entry until the
   // user deletes it.
-  const existingClasses = new Set(
-    character?.spellcastingClasses.map((s) => s.class),
+  const existingClassIds = new Set(
+    character?.spellcastingClasses.map((s) => s.classId),
   );
-  const missingClasses = [
-    ...new Set(
-      (character?.class ?? [])
-        .filter(isSpellcastingClass)
-        .map((klass) => klass.name),
-    ),
-  ].filter((name) => !existingClasses.has(name));
+  // Character classes that cast but have no spellcasting entry yet, by id.
+  const missingClassIds = (character?.class ?? [])
+    .filter(isSpellcastingClass)
+    .map((klass) => klass.id)
+    .filter((id) => !existingClassIds.has(id));
 
   useEffect(() => {
-    if (character && missingClasses.length > 0) {
+    if (character && missingClassIds.length > 0) {
       dispatch(
         updateAt(charPath(FIELD.spellcastingClasses), [
           ...character.spellcastingClasses,
-          ...missingClasses.map((name) => ({ class: name })),
+          ...missingClassIds.map((classId) => ({ classId })),
         ]),
       );
     }
-  }, [missingClasses.join("|")]);
+  }, [missingClassIds.join("|")]);
 
   if (!character) return <></>;
 
   const addSpellcastingClass = () => {
-    const newSpellcastingClass: SpellCastingClass = {
-      class: OfficialClass.Wizard,
-    };
+    // Default to a character class that has no spellcasting entry yet, else the
+    // first class. (A classless sheet can't form a valid reference, so bail.)
+    const target =
+      character.class.find(
+        (k) => !character.spellcastingClasses.some((s) => s.classId === k.id),
+      ) ?? character.class[0];
+    if (!target) return;
+    const newSpellcastingClass: SpellCastingClass = { classId: target.id };
     dispatch(
       updateAt(charPath(FIELD.spellcastingClasses), [
         ...character.spellcastingClasses,
@@ -250,10 +252,12 @@ export default function Spellcasting() {
             key={index}
           >
             <SingleValueDisplay
-              cursor={charPath(FIELD.spellcastingClasses).at(index).k("class")}
+              cursor={charPath(FIELD.spellcastingClasses)
+                .at(index)
+                .k("classId")}
+              transform={(id) => classNameForId(character, id) ?? "Unknown"}
               name={"Spellcasting Class"}
               vertical
-              editable
               removeBorder
             />
             <SingleValueDisplay

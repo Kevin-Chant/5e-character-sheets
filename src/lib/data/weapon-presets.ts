@@ -1,4 +1,10 @@
-import { Attack, CustomFormula, GroupedOptionsList } from "src/lib/types";
+import { randomUUID } from "src/lib/browser";
+import {
+  Attack,
+  CustomFormula,
+  GroupedOptionsList,
+  WeaponRange,
+} from "src/lib/types";
 import {
   DamageType,
   DieOperation,
@@ -24,6 +30,9 @@ export interface WeaponPreset {
     // offers a separate two-handed attack alongside the one-handed default.
     versatileDie?: StandardDie;
   };
+  // Normal / long range in feet, for ranged and thrown weapons. Omitted for
+  // pure-melee weapons.
+  range?: WeaponRange;
 }
 
 const D = (
@@ -32,6 +41,8 @@ const D = (
   type: DamageType,
   versatileDie?: StandardDie,
 ) => ({ count, die, type, versatileDie });
+
+const R = (normal: number, long?: number): WeaponRange => ({ normal, long });
 
 export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
   {
@@ -46,6 +57,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
         name: "Dagger",
         ability: "finesse",
         damage: D(1, StandardDie.d4, DamageType.Piercing),
+        range: R(20, 60),
       },
       {
         name: "Greatclub",
@@ -56,16 +68,19 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
         name: "Handaxe",
         ability: StatKey.str,
         damage: D(1, StandardDie.d6, DamageType.Slashing),
+        range: R(20, 60),
       },
       {
         name: "Javelin",
         ability: StatKey.str,
         damage: D(1, StandardDie.d6, DamageType.Piercing),
+        range: R(30, 120),
       },
       {
         name: "Light Hammer",
         ability: StatKey.str,
         damage: D(1, StandardDie.d4, DamageType.Bludgeoning),
+        range: R(20, 60),
       },
       {
         name: "Mace",
@@ -86,6 +101,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
         name: "Spear",
         ability: StatKey.str,
         damage: D(1, StandardDie.d6, DamageType.Piercing, StandardDie.d8),
+        range: R(20, 60),
       },
     ],
   },
@@ -96,21 +112,25 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
         name: "Light Crossbow",
         ability: StatKey.dex,
         damage: D(1, StandardDie.d8, DamageType.Piercing),
+        range: R(80, 320),
       },
       {
         name: "Dart",
         ability: "finesse",
         damage: D(1, StandardDie.d4, DamageType.Piercing),
+        range: R(20, 60),
       },
       {
         name: "Shortbow",
         ability: StatKey.dex,
         damage: D(1, StandardDie.d6, DamageType.Piercing),
+        range: R(80, 320),
       },
       {
         name: "Sling",
         ability: StatKey.dex,
         damage: D(1, StandardDie.d4, DamageType.Bludgeoning),
+        range: R(30, 120),
       },
     ],
   },
@@ -191,6 +211,7 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
         name: "Trident",
         ability: StatKey.str,
         damage: D(1, StandardDie.d6, DamageType.Piercing, StandardDie.d8),
+        range: R(20, 60),
       },
       {
         name: "War Pick",
@@ -216,23 +237,27 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
         name: "Blowgun",
         ability: StatKey.dex,
         damage: D(1, undefined, DamageType.Piercing),
+        range: R(25, 100),
       },
       {
         name: "Hand Crossbow",
         ability: StatKey.dex,
         damage: D(1, StandardDie.d6, DamageType.Piercing),
+        range: R(30, 120),
       },
       {
         name: "Heavy Crossbow",
         ability: StatKey.dex,
         damage: D(1, StandardDie.d10, DamageType.Piercing),
+        range: R(100, 400),
       },
       {
         name: "Longbow",
         ability: StatKey.dex,
         damage: D(1, StandardDie.d8, DamageType.Piercing),
+        range: R(150, 600),
       },
-      { name: "Net", ability: StatKey.dex },
+      { name: "Net", ability: StatKey.dex, range: R(5, 15) },
     ],
   },
 ];
@@ -261,9 +286,11 @@ export function buildAttackFromPreset(
   const ability = abilityOperand(weapon.ability);
   const twoHandedDie = twoHanded ? weapon.damage?.versatileDie : undefined;
   const attack: Attack = {
+    id: randomUUID(),
     name: twoHandedDie ? `${weapon.name} (2H)` : weapon.name,
     bonus: { operation: Operation.addition, operands: [ability, PB] },
     formula: {},
+    ...(weapon.range ? { range: weapon.range } : {}),
   };
   if (weapon.damage) {
     const die = twoHandedDie ?? weapon.damage.die;

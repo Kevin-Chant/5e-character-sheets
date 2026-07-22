@@ -35,9 +35,12 @@ describe("buildCharacter — guided High Elf Wizard", () => {
   it("sets identity fields with no placeholder junk", () => {
     expect(char.name).toBe("Maelina");
     expect(char.playerName).toBe("Kevin");
-    expect(char.race).toBe("Elf (High Elf)");
+    expect(char.race.name).toBe("Elf");
+    expect(char.race.subrace).toBe("High Elf");
     expect(char.background).toBe("Sage");
-    expect(char.class).toEqual([{ name: "Wizard", level: 1 }]);
+    expect(char.class).toEqual([
+      expect.objectContaining({ name: "Wizard", level: 1 }),
+    ]);
     expect(char.alignment).toBe(Alignment["Chaotic Good"]);
   });
 
@@ -71,17 +74,23 @@ describe("buildCharacter — guided High Elf Wizard", () => {
   });
 
   it("adds the chosen spells with roll-ready mechanics", () => {
-    expect(char.spellcastingClasses).toEqual([{ class: "Wizard" }]);
-    expect(char.spells.cantrips?.map((s) => s.info.title)).toEqual([
+    // The spellcasting entry references the Wizard class by its id, and the
+    // spells are tagged to that same id.
+    const wizardId = char.class.find((c) => c.name === "Wizard")!.id;
+    expect(char.spellcastingClasses).toEqual([{ classId: wizardId }]);
+    expect(char.spells[0]?.every((s) => s.spellcastingClass === wizardId)).toBe(
+      true,
+    );
+    expect(char.spells[0]?.map((s) => s.info.title)).toEqual([
       "Fire Bolt",
       "Mage Hand",
     ]);
-    expect(char.spells.First?.map((s) => s.info.title)).toEqual([
+    expect(char.spells[1]?.map((s) => s.info.title)).toEqual([
       "Magic Missile",
       "Shield",
     ]);
     // Fire Bolt deals damage → should carry structured mechanics (roll button).
-    expect(char.spells.cantrips?.[0].mechanics).toBeDefined();
+    expect(char.spells[0]?.[0].mechanics).toBeDefined();
   });
 
   it("collects features from race, subrace, class, and background", () => {
@@ -89,6 +98,11 @@ describe("buildCharacter — guided High Elf Wizard", () => {
     expect(titles).toContain("Darkvision"); // elf trait
     expect(titles).toContain("Elf Weapon Training"); // high-elf trait
     expect(titles).toContain("Researcher"); // Sage feature
+  });
+
+  it("seeds darkvision into senses from the race's Darkvision trait", () => {
+    // The elf's "Darkvision" trait puts the 60ft range in the detail prose.
+    expect(char.senses.darkvision).toBe(60);
   });
 
   it("takes background equipment and starting gold", () => {
@@ -111,8 +125,10 @@ describe("buildCharacter — custom race & class", () => {
   });
 
   it("uses the custom names and hit die, with no SRD casting", () => {
-    expect(char.race).toBe("Aarakocra");
-    expect(char.class).toEqual([{ name: "Blood Hunter", level: 1 }]);
+    expect(char.race.name).toBe("Aarakocra");
+    expect(char.class).toEqual([
+      expect.objectContaining({ name: "Blood Hunter", level: 1 }),
+    ]);
     expect(char.totalHitDice).toEqual({ [StandardDie.d10]: 1 });
     expect(char.currHp).toBe(12); // d10 max (10) + CON mod (+2)
     expect(char.spellcastingClasses).toEqual([]);
@@ -133,7 +149,7 @@ describe("buildCharacter — subrace speed & tool dedup", () => {
   });
 
   it("applies the subrace speed override", () => {
-    expect(char.speed).toBe(35);
+    expect(char.speeds.walk).toBe(35);
   });
 
   it("de-duplicates tool proficiencies case-insensitively", () => {
@@ -194,13 +210,13 @@ describe("buildCharacter — level-1 subclass mechanics", () => {
       subclass: "Life",
     });
     expect(char.class).toEqual([
-      { name: "Cleric", level: 1, subclass: "Life" },
+      expect.objectContaining({ name: "Cleric", level: 1, subclass: "Life" }),
     ]);
     // Life Domain grants heavy armor on top of the cleric's light + medium.
     expect(char.otherProficiencies.armor[ArmorType.Heavy]).toBe(true);
     // Domain spells (bless, cure wounds) are always prepared and land as
     // 1st-level spells even though the player didn't pick them.
-    const first = char.spells.First?.map((s) => s.info.title) ?? [];
+    const first = char.spells[1]?.map((s) => s.info.title) ?? [];
     expect(first).toEqual(expect.arrayContaining(["Bless", "Cure Wounds"]));
     // The subclass's level-1 feature is merged into the sheet.
     expect(char.features.map((f) => f.title)).toContain("Disciple of Life");
@@ -237,7 +253,11 @@ describe("buildCharacter — level-1 subclass mechanics", () => {
       subclass: "Champion",
     });
     expect(char.class).toEqual([
-      { name: "Fighter", level: 1, subclass: "Champion" },
+      expect.objectContaining({
+        name: "Fighter",
+        level: 1,
+        subclass: "Champion",
+      }),
     ]);
     // No spurious subclass feature is added for a name-only subclass.
     expect(char.features.map((f) => f.title)).not.toContain("Champion");
@@ -254,7 +274,7 @@ describe("buildCharacter — non-SRD race", () => {
       scoreMethod: "manual",
       baseStats: { str: 15, dex: 12, con: 13, int: 10, wis: 10, cha: 8 },
     });
-    expect(char.race).toBe("Goliath");
+    expect(char.race.name).toBe("Goliath");
     expect(char.stats.str).toBe(17); // 15 + 2
     expect(char.stats.con).toBe(14); // 13 + 1
     expect(char.proficiencies.skills).toMatchObject({ Athletics: true });

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   DamageType,
   DieOperation,
-  OfficialClass,
   StandardDie,
 } from "src/lib/data/data-definitions";
+import { randomUUID } from "src/lib/browser";
+
+const WIZARD_ID = randomUUID();
+const CLERIC_ID = randomUUID();
 import { isTextComponentWithDetail } from "src/lib/types";
 import { buildSpellFromSrd, parseDamageRoll } from "./srd-spell-adapter";
 import { getSrdSpell, SrdSpell } from "./srd-spells";
@@ -72,8 +75,8 @@ describe("parseDamageRoll", () => {
 
 describe("buildSpellFromSrd", () => {
   it("maps core fields and attributes the class", () => {
-    const spell = buildSpellFromSrd(fireball, OfficialClass.Wizard);
-    expect(spell.spellcastingClass).toBe(OfficialClass.Wizard);
+    const spell = buildSpellFromSrd(fireball, WIZARD_ID);
+    expect(spell.spellcastingClass).toBe(WIZARD_ID);
     expect(spell.info.title).toBe("Fireball");
     expect(spell.castingTime).toBe("1 action");
     expect(spell.range).toBe("150 feet");
@@ -85,7 +88,7 @@ describe("buildSpellFromSrd", () => {
   });
 
   it("turns base damage into a live formula slot", () => {
-    const spell = buildSpellFromSrd(fireball, OfficialClass.Wizard);
+    const spell = buildSpellFromSrd(fireball, WIZARD_ID);
     expect(isTextComponentWithDetail(spell.info)).toBe(true);
     if (!isTextComponentWithDetail(spell.info)) return;
     expect(spell.info.detailFormulas).toEqual([
@@ -98,7 +101,7 @@ describe("buildSpellFromSrd", () => {
   });
 
   it("omits the damage slot for non-damaging spells and keeps slots balanced", () => {
-    const spell = buildSpellFromSrd(cantrip, OfficialClass.Cleric);
+    const spell = buildSpellFromSrd(cantrip, CLERIC_ID);
     expect(isTextComponentWithDetail(spell.info)).toBe(true);
     if (!isTextComponentWithDetail(spell.info)) return;
     expect(spell.info.detailFormulas).toEqual([]);
@@ -112,13 +115,13 @@ describe("buildSpellFromSrd", () => {
     // with a placeholder class that the adapter must replace.
     const srd = getSrdSpell("cure-wounds");
     expect(srd?.mechanics?.healing).toBeDefined();
-    const spell = buildSpellFromSrd(srd!, OfficialClass.Cleric);
+    const spell = buildSpellFromSrd(srd!, CLERIC_ID);
     const healing = spell.mechanics?.healing as {
       operands: Array<{ spellMod?: string }>;
     };
     // The spellMod leaf now carries the real class, not "@caster".
     const modLeaf = healing.operands.find((o) => o.spellMod);
-    expect(modLeaf?.spellMod).toBe(OfficialClass.Cleric);
+    expect(modLeaf?.spellMod).toBe(CLERIC_ID);
     expect(JSON.stringify(spell.mechanics)).not.toContain("@caster");
   });
 
@@ -126,7 +129,7 @@ describe("buildSpellFromSrd", () => {
     // End-to-end: the real bundled Fireball → mechanics → expanded damage.
     const srd = getSrdSpell("fireball");
     expect(srd).toBeDefined();
-    const spell = buildSpellFromSrd(srd!, OfficialClass.Wizard);
+    const spell = buildSpellFromSrd(srd!, WIZARD_ID);
     expect(spell.mechanics?.scaling?.driver).toBe("slot");
     // Cast at slot 5 collapses to 10d6.
     expect(spellDamageAtLevel(spell.mechanics!, 5)).toEqual({

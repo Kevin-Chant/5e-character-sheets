@@ -7,7 +7,7 @@ import {
   Operation,
   PB,
   RestType,
-  SpellLevel,
+  Size,
   StandardDie,
   StatKey,
 } from "./data-definitions";
@@ -23,17 +23,30 @@ const defaultStats = {
   cha: 18,
 };
 
+// Stable class ids, referenced by the spellcasting entry, the demo spell, and
+// the class-level-scaled limited-use pool below.
+const fighterId = randomUUID();
+const warlockId = randomUUID();
+
 export const defaultCharacter: Character = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   uuid: randomUUID(),
   name: "Character name here",
   class: [
-    { name: OfficialClass.Fighter, level: 2 },
-    { name: OfficialClass.Warlock, level: 3, subclass: "Hexblade" },
+    { id: fighterId, name: OfficialClass.Fighter, level: 2 },
+    {
+      id: warlockId,
+      name: OfficialClass.Warlock,
+      level: 3,
+      subclass: "Hexblade",
+    },
   ],
   background: "Soldier",
   playerName: "Your Name Here",
-  race: "Custom Lineage",
+  race: {
+    name: "Custom Lineage",
+    size: Size.Medium,
+  },
   alignment: Alignment["Lawful Neutral"],
   exp: undefined,
   stats: defaultStats,
@@ -49,6 +62,7 @@ export const defaultCharacter: Character = {
     },
     expertise: {},
     isJackOfAllTradesOverride: false,
+    skillBonuses: {},
   },
   otherProficiencies: {
     languages: ["Common", "Infernal"],
@@ -68,8 +82,10 @@ export const defaultCharacter: Character = {
       },
     ],
   },
+  damageModifiers: { resistances: [], immunities: [], vulnerabilities: [] },
   acFormula: { operation: Operation.addition, operands: [14, StatKey.dex] },
-  speed: 30,
+  speeds: { walk: 30 },
+  senses: { darkvision: 60 },
   maxHp: undefined,
   currHp: 10,
   tempHp: 0,
@@ -79,6 +95,7 @@ export const defaultCharacter: Character = {
   deathSaves: { successes: 0, failures: 0 },
   attacks: [
     {
+      id: randomUUID(),
       name: "Longsword",
       bonus: { operation: Operation.addition, operands: [PB, StatKey.str] },
       formula: {
@@ -89,6 +106,7 @@ export const defaultCharacter: Character = {
       },
     },
     {
+      id: randomUUID(),
       name: "Bullshit McHomebrew",
       bonus: {
         operation: Operation.addition,
@@ -111,6 +129,7 @@ export const defaultCharacter: Character = {
       },
     },
   ],
+  ammunition: [],
   coins: { GP: 5, SP: 3 },
   equipment: [
     {
@@ -155,7 +174,6 @@ export const defaultCharacter: Character = {
     ],
   },
   features: [
-    { title: "Darkvision: {{}}ft", titleFormulas: [30] },
     {
       title: "Example ability",
       titleFormulas: [],
@@ -168,11 +186,12 @@ export const defaultCharacter: Character = {
       ],
     },
   ],
-  spellcastingClasses: [{ class: OfficialClass.Warlock }],
+  spellcastingClasses: [{ classId: warlockId }],
   spells: {
-    cantrips: [
+    // key 0 = cantrips; 1–9 = leveled spells.
+    0: [
       {
-        spellcastingClass: OfficialClass.Warlock,
+        spellcastingClass: warlockId,
         castingTime: "1 action",
         range: "120 feet",
         duration: "Instantaneous",
@@ -186,38 +205,39 @@ export const defaultCharacter: Character = {
         },
       },
     ],
-    [SpellLevel.First]: [],
-    [SpellLevel.Second]: [],
-    [SpellLevel.Third]: [],
-    [SpellLevel.Fourth]: [],
-    [SpellLevel.Fifth]: [],
-    [SpellLevel.Sixth]: [],
-    [SpellLevel.Seventh]: [],
-    [SpellLevel.Eighth]: [],
-    [SpellLevel.Ninth]: [],
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+    5: [],
+    6: [],
+    7: [],
+    8: [],
+    9: [],
   },
   spellSlots: {
-    [SpellLevel.First]: { expended: 0 },
-    [SpellLevel.Second]: { expended: 0 },
-    [SpellLevel.Third]: { expended: 0 },
-    [SpellLevel.Fourth]: { expended: 0 },
-    [SpellLevel.Fifth]: { expended: 0 },
-    [SpellLevel.Sixth]: { expended: 0 },
-    [SpellLevel.Seventh]: { expended: 0 },
-    [SpellLevel.Eighth]: { expended: 0 },
-    [SpellLevel.Ninth]: { expended: 0 },
+    1: { expended: 0 },
+    2: { expended: 0 },
+    3: { expended: 0 },
+    4: { expended: 0 },
+    5: { expended: 0 },
+    6: { expended: 0 },
+    7: { expended: 0 },
+    8: { expended: 0 },
+    9: { expended: 0 },
   },
   pactSlots: { expended: 0 },
   limitedUseAbilities: [
     {
-      // A scaling pool: max uses equals the character's Sorcerer level.
+      // A scaling pool whose max uses equal the character's level in a class
+      // (here the Warlock entry) — demonstrates a `classLevel` formula leaf.
       info: {
         title: "Sorcery Points",
         titleFormulas: [],
         detail: "Spend to create spell slots or fuel Metamagic.",
         detailFormulas: [],
       },
-      maxUses: OfficialClass.Sorcerer,
+      maxUses: { classLevel: warlockId },
       recharge: RestType.longRest,
       expended: 0,
     },

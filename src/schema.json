@@ -34,6 +34,34 @@
             ],
             "type": "string"
         },
+        "Ammunition": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "id": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "weaponIds": {
+                    "items": {
+                        "pattern": "^.*-.*-.*-.*-.*$",
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "count",
+                "id",
+                "name",
+                "weaponIds"
+            ],
+            "type": "object"
+        },
         "Attack": {
             "properties": {
                 "bonus": {
@@ -42,13 +70,21 @@
                 "formula": {
                     "$ref": "#/definitions/CustomFormulaWithDamage"
                 },
+                "id": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
+                },
+                "range": {
+                    "$ref": "#/definitions/WeaponRange"
                 }
             },
             "required": [
                 "bonus",
                 "formula",
+                "id",
                 "name"
             ],
             "type": "object"
@@ -100,6 +136,18 @@
             ],
             "type": "object"
         },
+        "ClassLevel": {
+            "properties": {
+                "classLevel": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "classLevel"
+            ],
+            "type": "object"
+        },
         "CoinAmounts": {
             "properties": {
                 "CP": {
@@ -139,6 +187,9 @@
                     "type": "array"
                 },
                 {
+                    "$ref": "#/definitions/ClassLevel"
+                },
+                {
                     "$ref": "#/definitions/SpellMod"
                 },
                 {
@@ -166,10 +217,19 @@
                     "$ref": "#/definitions/Minimum"
                 },
                 {
-                    "type": [
-                        "string",
-                        "number"
-                    ]
+                    "enum": [
+                        "cha",
+                        "con",
+                        "dex",
+                        "int",
+                        "proficiencyBonus",
+                        "str",
+                        "wis"
+                    ],
+                    "type": "string"
+                },
+                {
+                    "type": "number"
                 }
             ]
         },
@@ -215,6 +275,34 @@
                     "$ref": "#/definitions/CustomFormula"
                 }
             },
+            "type": "object"
+        },
+        "DamageModifiers": {
+            "properties": {
+                "immunities": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "resistances": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "vulnerabilities": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "immunities",
+                "resistances",
+                "vulnerabilities"
+            ],
             "type": "object"
         },
         "DamageType": {
@@ -324,6 +412,10 @@
         },
         "IClass": {
             "properties": {
+                "id": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
+                },
                 "level": {
                     "type": "number"
                 },
@@ -335,6 +427,7 @@
                 }
             },
             "required": [
+                "id",
                 "level",
                 "name"
             ],
@@ -579,6 +672,24 @@
             },
             "type": "object"
         },
+        "RaceSelection": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "$ref": "#/definitions/Size"
+                },
+                "subrace": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "size"
+            ],
+            "type": "object"
+        },
         "Record<ArmorType,boolean>": {
             "properties": {
                 "Heavy Armor": {
@@ -599,6 +710,57 @@
                 "Light Armor",
                 "Medium Armor",
                 "Shields"
+            ],
+            "type": "object"
+        },
+        "Senses": {
+            "properties": {
+                "blindsight": {
+                    "type": "number"
+                },
+                "darkvision": {
+                    "type": "number"
+                },
+                "tremorsense": {
+                    "type": "number"
+                },
+                "truesight": {
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        },
+        "Size": {
+            "enum": [
+                "Tiny",
+                "Small",
+                "Medium",
+                "Large",
+                "Huge",
+                "Gargantuan"
+            ],
+            "type": "string"
+        },
+        "Speeds": {
+            "properties": {
+                "burrow": {
+                    "type": "number"
+                },
+                "climb": {
+                    "type": "number"
+                },
+                "fly": {
+                    "type": "number"
+                },
+                "swim": {
+                    "type": "number"
+                },
+                "walk": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "walk"
             ],
             "type": "object"
         },
@@ -632,6 +794,7 @@
                     "type": "boolean"
                 },
                 "spellcastingClass": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
                     "type": "string"
                 }
             },
@@ -649,7 +812,8 @@
                 "attackBonusOverride": {
                     "$ref": "#/definitions/CustomFormula"
                 },
-                "class": {
+                "classId": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
                     "type": "string"
                 },
                 "saveDcOverride": {
@@ -657,7 +821,7 @@
                 }
             },
             "required": [
-                "class"
+                "classId"
             ],
             "type": "object"
         },
@@ -738,6 +902,7 @@
         "SpellMod": {
             "properties": {
                 "spellMod": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
                     "type": "string"
                 }
             },
@@ -833,7 +998,7 @@
         },
         "SpellSlots": {
             "properties": {
-                "Eighth": {
+                "1": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -847,7 +1012,7 @@
                     ],
                     "type": "object"
                 },
-                "Fifth": {
+                "2": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -861,7 +1026,7 @@
                     ],
                     "type": "object"
                 },
-                "First": {
+                "3": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -875,7 +1040,7 @@
                     ],
                     "type": "object"
                 },
-                "Fourth": {
+                "4": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -889,7 +1054,7 @@
                     ],
                     "type": "object"
                 },
-                "Ninth": {
+                "5": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -903,7 +1068,7 @@
                     ],
                     "type": "object"
                 },
-                "Second": {
+                "6": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -917,7 +1082,7 @@
                     ],
                     "type": "object"
                 },
-                "Seventh": {
+                "7": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -931,7 +1096,7 @@
                     ],
                     "type": "object"
                 },
-                "Sixth": {
+                "8": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -945,7 +1110,7 @@
                     ],
                     "type": "object"
                 },
-                "Third": {
+                "9": {
                     "properties": {
                         "expended": {
                             "type": "number"
@@ -961,35 +1126,82 @@
                 }
             },
             "required": [
-                "Eighth",
-                "Fifth",
-                "First",
-                "Fourth",
-                "Ninth",
-                "Second",
-                "Seventh",
-                "Sixth",
-                "Third"
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9"
             ],
             "type": "object"
         },
         "Spells": {
-            "allOf": [
-                {
-                    "properties": {
-                        "cantrips": {
-                            "items": {
-                                "$ref": "#/definitions/Spell"
-                            },
-                            "type": "array"
-                        }
+            "properties": {
+                "0": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
                     },
-                    "type": "object"
+                    "type": "array"
                 },
-                {
-                    "$ref": "#/definitions/{First?:Spell[];Second?:Spell[];Third?:Spell[];Fourth?:Spell[];Fifth?:Spell[];Sixth?:Spell[];Seventh?:Spell[];Eighth?:Spell[];Ninth?:Spell[];}"
+                "1": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "2": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "3": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "4": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "5": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "6": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "7": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "8": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
+                },
+                "9": {
+                    "items": {
+                        "$ref": "#/definitions/Spell"
+                    },
+                    "type": "array"
                 }
-            ]
+            },
+            "type": "object"
         },
         "StatKey": {
             "enum": [
@@ -1079,61 +1291,78 @@
             ],
             "type": "object"
         },
-        "{First?:Spell[];Second?:Spell[];Third?:Spell[];Fourth?:Spell[];Fifth?:Spell[];Sixth?:Spell[];Seventh?:Spell[];Eighth?:Spell[];Ninth?:Spell[];}": {
+        "WeaponRange": {
             "properties": {
-                "Eighth": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "long": {
+                    "type": "number"
                 },
-                "Fifth": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "normal": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "normal"
+            ],
+            "type": "object"
+        },
+        "{Acrobatics?:CustomFormula;\"AnimalHandling\"?:CustomFormula;Arcana?:CustomFormula;Athletics?:CustomFormula;Deception?:CustomFormula;History?:CustomFormula;Insight?:CustomFormula;Intimidation?:CustomFormula;Investigation?:CustomFormula;Medicine?:CustomFormula;Nature?:CustomFormula;Perception?:CustomFormula;Performance?:CustomFormula;Persuasion?:CustomFormula;Religion?:CustomFormula;\"SleightofHand\"?:CustomFormula;Stealth?:CustomFormula;Survival?:CustomFormula;\"ThievesTools\"?:CustomFormula;}": {
+            "properties": {
+                "Acrobatics": {
+                    "$ref": "#/definitions/CustomFormula"
                 },
-                "First": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "Animal Handling": {
+                    "$ref": "#/definitions/CustomFormula"
                 },
-                "Fourth": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "Arcana": {
+                    "$ref": "#/definitions/CustomFormula"
                 },
-                "Ninth": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "Athletics": {
+                    "$ref": "#/definitions/CustomFormula"
                 },
-                "Second": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "Deception": {
+                    "$ref": "#/definitions/CustomFormula"
                 },
-                "Seventh": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "History": {
+                    "$ref": "#/definitions/CustomFormula"
                 },
-                "Sixth": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "Insight": {
+                    "$ref": "#/definitions/CustomFormula"
                 },
-                "Third": {
-                    "items": {
-                        "$ref": "#/definitions/Spell"
-                    },
-                    "type": "array"
+                "Intimidation": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Investigation": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Medicine": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Nature": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Perception": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Performance": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Persuasion": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Religion": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Sleight of Hand": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Stealth": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Survival": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "Thieves Tools": {
+                    "$ref": "#/definitions/CustomFormula"
                 }
             },
             "type": "object"
@@ -1145,6 +1374,12 @@
         },
         "alignment": {
             "$ref": "#/definitions/Alignment"
+        },
+        "ammunition": {
+            "items": {
+                "$ref": "#/definitions/Ammunition"
+            },
+            "type": "array"
         },
         "attacks": {
             "items": {
@@ -1166,6 +1401,9 @@
         },
         "currHp": {
             "type": "number"
+        },
+        "damageModifiers": {
+            "$ref": "#/definitions/DamageModifiers"
         },
         "deathSaves": {
             "properties": {
@@ -1227,6 +1465,9 @@
         "pactSlots": {
             "$ref": "#/definitions/PactSlots"
         },
+        "passivePerception": {
+            "$ref": "#/definitions/CustomFormula"
+        },
         "pbOverride": {
             "type": "number"
         },
@@ -1279,6 +1520,9 @@
                 "savingThrows": {
                     "$ref": "#/definitions/Proficiencies<StatKey>"
                 },
+                "skillBonuses": {
+                    "$ref": "#/definitions/{Acrobatics?:CustomFormula;\"AnimalHandling\"?:CustomFormula;Arcana?:CustomFormula;Athletics?:CustomFormula;Deception?:CustomFormula;History?:CustomFormula;Insight?:CustomFormula;Intimidation?:CustomFormula;Investigation?:CustomFormula;Medicine?:CustomFormula;Nature?:CustomFormula;Perception?:CustomFormula;Performance?:CustomFormula;Persuasion?:CustomFormula;Religion?:CustomFormula;\"SleightofHand\"?:CustomFormula;Stealth?:CustomFormula;Survival?:CustomFormula;\"ThievesTools\"?:CustomFormula;}"
+                },
                 "skills": {
                     "$ref": "#/definitions/Proficiencies<SkillName>"
                 }
@@ -1287,18 +1531,22 @@
                 "expertise",
                 "isJackOfAllTradesOverride",
                 "savingThrows",
+                "skillBonuses",
                 "skills"
             ],
             "type": "object"
         },
         "race": {
-            "type": "string"
+            "$ref": "#/definitions/RaceSelection"
         },
         "schemaVersion": {
             "type": "number"
         },
-        "speed": {
-            "type": "number"
+        "senses": {
+            "$ref": "#/definitions/Senses"
+        },
+        "speeds": {
+            "$ref": "#/definitions/Speeds"
         },
         "spellSlots": {
             "$ref": "#/definitions/SpellSlots"
@@ -1329,11 +1577,13 @@
     "required": [
         "acFormula",
         "alignment",
+        "ammunition",
         "attacks",
         "background",
         "class",
         "coins",
         "currHp",
+        "damageModifiers",
         "deathSaves",
         "equipment",
         "exhaustion",
@@ -1348,7 +1598,8 @@
         "proficiencies",
         "race",
         "schemaVersion",
-        "speed",
+        "senses",
+        "speeds",
         "spellSlots",
         "spellcastingClasses",
         "spells",

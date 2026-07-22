@@ -29,7 +29,10 @@ export class Cursor<T> {
   // The `this` guard cuts the recursion at `CustomFormula`: formula slots are
   // reached (`titleFormulas.2`) but never descended *into* (formulas swap
   // whole), so `.k()` on a `Cursor<CustomFormula>` is a compile error.
-  k<K extends keyof NonNullable<T> & string>(
+  // Keys may be strings or numbers — the numeric spell-level buckets (`Spells`,
+  // `SpellSlots`) are keyed by number, and a number serializes into the dot-path
+  // identically (`spellSlots.1.expended`) and indexes the object at runtime.
+  k<K extends keyof NonNullable<T> & (string | number)>(
     this: NonNullable<T> extends CustomFormula ? never : Cursor<T>,
     key: K,
   ): Cursor<NonNullable<T>[K]> {

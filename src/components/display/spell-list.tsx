@@ -9,7 +9,7 @@ import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 import RollButton from "../roll-button";
 import { getSpellAttackBonus } from "src/lib/formula";
-import { isPreparedCaster } from "src/lib/rules";
+import { classNameForId, isPreparedCaster } from "src/lib/rules";
 
 interface SpellListProps {
   // Cursor to this bucket within `character.spells` (the "cantrips" or a
@@ -89,20 +89,24 @@ export default function SpellList({
         return (
           <div key={i} className="row space-between spell-row">
             <div className="row spell-row-main">
-              {preparable && isPreparedCaster(spell.spellcastingClass) && (
-                <input
-                  type="checkbox"
-                  className="prepared-toggle"
-                  title="Prepared"
-                  aria-label="Prepared"
-                  checked={!!spell.prepared}
-                  onChange={(e) => togglePrepared(i, e.target.checked)}
-                />
-              )}
+              {preparable &&
+                isPreparedCaster(
+                  classNameForId(character, spell.spellcastingClass) ?? "",
+                ) && (
+                  <input
+                    type="checkbox"
+                    className="prepared-toggle"
+                    title="Prepared"
+                    aria-label="Prepared"
+                    checked={!!spell.prepared}
+                    onChange={(e) => togglePrepared(i, e.target.checked)}
+                  />
+                )}
               {title}
               {showClassBadge && (
                 <span className="spell-badge class-badge">
-                  {spell.spellcastingClass}
+                  {classNameForId(character, spell.spellcastingClass) ??
+                    "Unknown"}
                 </span>
               )}
               {spell.ritual && (

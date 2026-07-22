@@ -1,20 +1,21 @@
-import { isNumber, isString } from "lodash";
+import { isNumber } from "lodash";
 import { useState } from "react";
 import {
   DieOperation,
-  OfficialClass,
   Operation,
   PB,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { randomUUID } from "src/lib/browser";
+import { UUID } from "crypto";
 import {
   AtomicVariable,
   CustomFormula,
+  isClassLevel,
   isDieExpression,
   isNonStandardDie,
-  isOfficialClass,
   isPb,
   isStandardDie,
   isStatKey,
@@ -76,7 +77,9 @@ export function EditableAtomicVariable({
           </button>
           <button
             onClick={(e) => {
-              chooseValue(e, OfficialClass.Fighter);
+              chooseValue(e, {
+                classLevel: character.class[0]?.id ?? randomUUID(),
+              });
             }}
           >
             Level in a Class
@@ -113,7 +116,10 @@ export function EditableAtomicVariable({
     );
   } else if (isStatKey(atomicVar)) {
     inputElement = (
-      <select value={atomicVar} onChange={(e) => setVar(e.target.value)}>
+      <select
+        value={atomicVar}
+        onChange={(e) => setVar(e.target.value as StatKey)}
+      >
         {Object.keys(StatKey).map((statKey) => (
           <option key={statKey} value={statKey}>
             {statKey}
@@ -167,18 +173,18 @@ export function EditableAtomicVariable({
     );
   } else if (isPb(atomicVar)) {
     inputElement = <p>Proficiency Bonus ({getPB(character)})</p>;
-  } else if (isString(atomicVar) || isOfficialClass(atomicVar)) {
+  } else if (isClassLevel(atomicVar)) {
     inputElement = (
-      <OptionOrCustomValue
-        value={atomicVar}
-        setValue={(newValue: string) => {
-          setVar(newValue);
-        }}
-        options={Object.keys(OfficialClass)}
-        customDefaultValue="My homebrew class"
-        customValueHelpText="Class name:"
-        customInputType="text"
-      />
+      <select
+        value={atomicVar.classLevel}
+        onChange={(e) => setVar({ classLevel: e.target.value as UUID })}
+      >
+        {character.class.map((klass) => (
+          <option key={klass.id} value={klass.id}>
+            {klass.name}
+          </option>
+        ))}
+      </select>
     );
   }
 

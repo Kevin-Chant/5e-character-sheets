@@ -3,15 +3,10 @@ import { Character } from "src/lib/types";
 import {
   OfficialClass,
   SkillName,
-  SpellLevel,
+  LEVELED_SPELL_LEVELS,
   StatKey,
 } from "src/lib/data/data-definitions";
-import {
-  getDefaultSpellSlots,
-  getNumericSpellSlotLevel,
-  getPactSlotInfo,
-  getPB,
-} from "src/lib/rules";
+import { getDefaultSpellSlots, getPactSlotInfo, getPB } from "src/lib/rules";
 import { WEAPON_PRESETS } from "src/lib/data/weapon-presets";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
 import {
@@ -428,9 +423,9 @@ export function LevelUpSpellsStep({
   // which that table reports as zero, so fold in their pact-slot level too.
   const standardMax = Math.max(
     0,
-    ...Object.values(SpellLevel)
-      .filter((sl) => getDefaultSpellSlots(preview, sl) > 0)
-      .map((sl) => getNumericSpellSlotLevel(sl)),
+    ...LEVELED_SPELL_LEVELS.filter(
+      (sl) => getDefaultSpellSlots(preview, sl) > 0,
+    ),
   );
   const pactMax = preview.class.some((c) => c.name === OfficialClass.Warlock)
     ? getPactSlotInfo(preview).level

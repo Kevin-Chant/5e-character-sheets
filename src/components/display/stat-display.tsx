@@ -33,8 +33,11 @@ export default function StatDisplay(props: {
     <div className="stat-display rounded-border-box margin-large">
       <div className="column">
         <p className="display-title">{props.name}</p>
+        {/* Modifier is the hero — it's the number you actually add to a d20 roll.
+            The raw score is kept as a small reference chip you edit in place. */}
+        <p className="stat-modifier readOnly">{modifier(props.value)}</p>
         <p
-          className={classNames("display-value margin-small large", {
+          className={classNames("stat-score", {
             editable: isEditable,
             readOnly: !isEditable,
           })}
@@ -43,7 +46,6 @@ export default function StatDisplay(props: {
         >
           {props.value}
         </p>
-        <p className="display-value small readOnly">{modifier(props.value)}</p>
         <RollButton
           label={`${props.name} Check`}
           check={modifier(props.value)}

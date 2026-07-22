@@ -22,9 +22,11 @@ import {
   StandardDie,
   StatKey,
   FIELD,
-  SpellLevel,
+  SpellLevelNum,
+  LeveledSpellLevel,
   ArmorType,
   RestType,
+  Size,
 } from "./data/data-definitions";
 import { UUID } from "crypto";
 import { Action } from "./hooks/reducers/actions";
@@ -144,12 +146,16 @@ export function isCustomFormulaWithDamage(
   return isMap<DamageType, CustomFormula>(data, isDamageType, isCustomFormula);
 }
 
-// A `spellMod` leaf must be a tagged object, not a bare string: `isClassName`
-// accepts *any* string, so a string sentinel would be misread as a class name.
+// Both class-referencing formula leaves are tagged objects carrying a class
+// *id* (a UUID), never a bare string — so a class rename can't orphan them and
+// they're unambiguous among atomic variables (a bare string used to be misread
+// as a class name, which made *any* string a valid atomic).
 export function isSpellMod(data: any): data is SpellMod {
-  return (
-    isObject(data) && !isArray(data) && isClassName((data as any).spellMod)
-  );
+  return isObject(data) && !isArray(data) && isUuid((data as any).spellMod);
+}
+
+export function isClassLevel(data: any): data is ClassLevel {
+  return isObject(data) && !isArray(data) && isUuid((data as any).classLevel);
 }
 
 export function isAtomicVariable(data: any): data is AtomicVariable {
@@ -159,7 +165,7 @@ export function isAtomicVariable(data: any): data is AtomicVariable {
     isDieExpression(data) ||
     isPb(data) ||
     isSpellMod(data) ||
-    isClassName(data)
+    isClassLevel(data)
   );
 }
 
@@ -230,16 +236,23 @@ export function isLimitedUseAbility(data: any): data is LimitedUseAbility {
 // The spellcasting-ability modifier of a specific spellcasting class. Resolved
 // live against the character (honoring any `abilityOverride`), so a spell like
 // Cure Wounds — `1d8 + spellMod` — tracks the class's current ability. Carries
-// the class because a multiclassed character has more than one.
+// the class *id* because a multiclassed character has more than one (and so a
+// class rename never breaks the reference).
 export interface SpellMod {
-  spellMod: ClassName;
+  spellMod: UUID;
+}
+
+// The character's level in a specific class, as a formula leaf (e.g. Sorcery
+// Points = Sorcerer level). References the class by stable `id`.
+export interface ClassLevel {
+  classLevel: UUID;
 }
 
 export type AtomicVariable =
   | number
   | StatKey
   | DieExpression
-  | ClassName
+  | ClassLevel
   | SpellMod
   | typeof PB;
 
@@ -318,10 +331,35 @@ export type HitDice = {
   [key in StandardDie]?: number;
 };
 
+// A weapon's normal / long range in feet (5e "80/320"). `long` is omitted for
+// weapons with a single range (e.g. Net "5").
+export interface WeaponRange {
+  normal: number;
+  long?: number;
+}
+
 export interface Attack {
+  // Stable identity so ammunition entries can reference the weapons they feed
+  // by id (a rename never orphans the link) — mirrors `IClass.id`.
+  id: UUID;
   name: string;
   bonus: CustomFormula;
   formula: CustomFormulaWithDamage;
+  // Optional weapon range; when present, shown as a tooltip on the attack name.
+  range?: WeaponRange;
+}
+
+// A pool of ammunition (arrows, bolts, …). The entry owns which weapons it
+// feeds (`weaponIds`, referencing `Attack.id`) rather than the weapon owning its
+// ammo, so each table picks its own taxonomy — one shared "Arrows" pool, or
+// distinct bolt types per crossbow. A weapon's remaining-ammo quick-reference
+// sums the counts of every entry linked to it. `count` is the single source of
+// truth for how much is left. See the `trackAmmunition` setting.
+export interface Ammunition {
+  id: UUID;
+  name: string;
+  count: number;
+  weaponIds: UUID[];
 }
 
 export type CoinAmounts = { [key in CoinType]?: number };
@@ -344,6 +382,18 @@ export type TextComponent =
   | TextComponentWithDetails
   | TextComponentWithoutDetails;
 
+// A creature's intrinsic damage modifiers — printed on every stat block, so a
+// true property of the character (transient combat state like active conditions
+// and concentration belongs in a separate game-running layer, not here). Each is
+// a free-text list (damage types are offered as a typeahead), so qualified
+// entries like "Bludgeoning, Piercing, and Slashing from nonmagical attacks" are
+// expressible.
+export interface DamageModifiers {
+  resistances: string[];
+  immunities: string[];
+  vulnerabilities: string[];
+}
+
 export interface OtherProficiencies {
   languages: string[];
   armor: Record<ArmorType, boolean>;
@@ -352,7 +402,8 @@ export interface OtherProficiencies {
 }
 
 export interface SpellCastingClass {
-  class: ClassName;
+  // The character class this spellcasting config belongs to, by stable id.
+  classId: UUID;
   abilityOverride?: StatKey;
   saveDcOverride?: CustomFormula;
   attackBonusOverride?: CustomFormula;
@@ -420,7 +471,9 @@ export interface SpellMechanics {
 }
 
 export interface Spell {
-  spellcastingClass: ClassName;
+  // The character class this spell is cast with, by stable id (drives which
+  // class's spellMod / attack bonus / save DC applies).
+  spellcastingClass: UUID;
   info: TextComponent;
   prepared?: boolean;
   ritual?: boolean;
@@ -432,14 +485,14 @@ export interface Spell {
   mechanics?: SpellMechanics;
 }
 
+// Spells bucketed by numeric level: key 0 holds cantrips, keys 1–9 the leveled
+// spells. (Replaces the former `cantrips` key + "First"…"Ninth" word-enum keys.)
 export type Spells = {
-  cantrips?: Spell[];
-} & {
-  [key in SpellLevel]?: Spell[];
+  [key in SpellLevelNum]?: Spell[];
 };
 
 export type SpellSlots = {
-  [key in SpellLevel]: { totalOverride?: number; expended: number };
+  [key in LeveledSpellLevel]: { totalOverride?: number; expended: number };
 };
 
 export interface PactSlots {
@@ -465,6 +518,39 @@ export interface LimitedUseAbility {
   expended: number;
 }
 
+// The character's movement speeds, in feet. `walk` is always present; the others
+// are extra movement modes (fly, swim, climb, burrow). Seeded from the chosen
+// race at creation, then owned and editable on the character — a race grant is
+// just one of several ways to gain a speed (items, spells, class features).
+export interface Speeds {
+  walk: number;
+  fly?: number;
+  swim?: number;
+  climb?: number;
+  burrow?: number;
+}
+
+// The character's senses, in feet. Seeded from the chosen race at creation
+// (races most often grant darkvision), then owned and editable on the character —
+// items, spells, and class features grant senses too. Absent = the character
+// lacks that sense.
+export interface Senses {
+  darkvision?: number;
+  blindsight?: number;
+  tremorsense?: number;
+  truesight?: number;
+}
+
+// Pure racial identity. The mechanical grants a race confers are seeded into
+// their natural homes at creation and owned there afterward — languages into
+// `otherProficiencies.languages`, traits into `features`, speeds into `speeds`,
+// darkvision into `senses` — rather than mirrored back onto the race.
+export interface RaceSelection {
+  name: string;
+  subrace?: string;
+  size: Size;
+}
+
 export interface Character {
   // Monotonic schema version, bumped whenever a breaking change to this type
   // needs a migration. See src/lib/migrations/.
@@ -474,7 +560,7 @@ export interface Character {
   class: IClass[];
   background: string;
   playerName: string;
-  race: string;
+  race: RaceSelection;
   alignment: Alignment;
   exp?: number;
   stats: CharacterStats;
@@ -485,11 +571,27 @@ export interface Character {
     skills: Proficiencies<SkillName>;
     expertise: Proficiencies<SkillName>;
     isJackOfAllTradesOverride: boolean;
+    // Optional per-skill bonus formulas added on top of the ability + proficiency
+    // modifier — a home for Remarkable Athlete, Stone of Good Luck, Observant,
+    // etc. (a formula so half-proficiency scales with level). Absent = no bonus.
+    skillBonuses: { [key in SkillName]?: CustomFormula };
   };
   otherProficiencies: OtherProficiencies;
+  // Damage resistances / immunities / vulnerabilities — see `DamageModifiers`.
+  damageModifiers: DamageModifiers;
   acFormula: CustomFormula;
   initiativeFormula?: CustomFormula;
-  speed: number;
+  // Optional Passive Perception override formula. When unset, the value is
+  // computed (10 + WIS mod + Perception proficiency + bonus); set it to model a
+  // passive-only adjustment like Observant's +5 without touching active checks.
+  // Seeded from the computed default when first edited — see
+  // `getPassivePerceptionFormula`.
+  passivePerception?: CustomFormula;
+  // Movement speeds (walk + optional fly/swim/climb/burrow). Seeded from the race
+  // at creation, then editable — see `Speeds`.
+  speeds: Speeds;
+  // Senses (darkvision, etc.), seeded from the race then editable — see `Senses`.
+  senses: Senses;
   maxHp?: CustomFormula;
   currHp: number;
   tempHp: number;
@@ -498,6 +600,9 @@ export interface Character {
   exhaustion: number;
   deathSaves: { successes: number; failures: number };
   attacks: Attack[];
+  // Ammunition pools, shown as a sub-section of Equipment. Each entry tracks a
+  // remaining count and which weapons it feeds — see `Ammunition`.
+  ammunition: Ammunition[];
   coins: CoinAmounts;
   equipment: TextComponent[];
   personality: {
@@ -527,6 +632,10 @@ const _fieldsCovered: _AssertFieldsAreCharacterKeys = true;
 void _fieldsCovered;
 
 export interface IClass {
+  // Stable identity, independent of the (renameable) display name. Spells,
+  // spellcasting entries, and `spellMod`/`classLevel` formula leaves reference a
+  // class by this id so a rename never orphans them.
+  id: UUID;
   name: string;
   level: number;
   subclass?: string;

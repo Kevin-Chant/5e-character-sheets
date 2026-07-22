@@ -3,12 +3,8 @@ import {
   DieOperation,
   StandardDie,
 } from "src/lib/data/data-definitions";
-import {
-  ClassName,
-  DieExpression,
-  Spell,
-  SpellComponents,
-} from "src/lib/types";
+import { DieExpression, Spell, SpellComponents } from "src/lib/types";
+import { UUID } from "crypto";
 import { SrdSpell } from "./srd-spells";
 
 // Map a die's face count to the `StandardDie` enum. Every SRD damage die is
@@ -40,14 +36,14 @@ export function parseDamageRoll(roll: string): DieExpression | undefined {
 // only known when the spell is added, so we stamp it in here.
 const CASTER_PLACEHOLDER = "@caster";
 
-function stampCaster<T>(value: T, className: ClassName): T {
+function stampCaster<T>(value: T, classId: UUID): T {
   if (Array.isArray(value))
-    return value.map((v) => stampCaster(v, className)) as T;
+    return value.map((v) => stampCaster(v, classId)) as T;
   if (value && typeof value === "object") {
     if ((value as { spellMod?: string }).spellMod === CASTER_PLACEHOLDER)
-      return { spellMod: className } as T;
+      return { spellMod: classId } as T;
     return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, stampCaster(v, className)]),
+      Object.entries(value).map(([k, v]) => [k, stampCaster(v, classId)]),
     ) as T;
   }
   return value;
@@ -103,7 +99,7 @@ function buildDetail(srd: SrdSpell): {
 // everything stays editable so a player can tweak or homebrew from there.
 export function buildSpellFromSrd(
   srd: SrdSpell,
-  spellcastingClass: ClassName,
+  spellcastingClass: UUID,
 ): Spell {
   const { detail, detailFormulas } = buildDetail(srd);
   const spell: Spell = {
