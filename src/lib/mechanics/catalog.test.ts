@@ -72,6 +72,21 @@ describe("catalog integrity", () => {
     }
   });
 
+  it("Ki carries a Stunning Strike action", () => {
+    const ki = mechanicsForTitle("Ki");
+    expect(ki?.actions?.map((a) => a.name)).toContain("Stunning Strike");
+  });
+
+  it("Stroke of Luck and the new barbarian riders are catalogued", () => {
+    expect(mechanicsForTitle("Stroke of Luck")?.actions).toHaveLength(1);
+    expect(mechanicsForTitle("Reckless Attack")?.riders?.[0].appliesTo).toEqual(
+      ["attack"],
+    );
+    expect(mechanicsForTitle("Danger Sense")?.riders?.[0].appliesTo).toEqual([
+      "check",
+    ]);
+  });
+
   it("every action carries an action-economy cost and unique id per entry", () => {
     for (const [key, entry] of Object.entries(FEATURE_MECHANICS)) {
       const ids = new Set<string>();

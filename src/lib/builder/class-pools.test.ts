@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { OfficialClass, RestType } from "src/lib/data/data-definitions";
+import {
+  OfficialClass,
+  RestType,
+  StandardDie,
+} from "src/lib/data/data-definitions";
 import { defaultCharacter } from "src/lib/data/default-data";
 import { buildCharacter } from "src/lib/builder/build-character";
 import { applyLevelUp, defaultLevelUpState } from "src/lib/builder/level-up";
@@ -82,13 +86,92 @@ describe("syncClassPools", () => {
       [OfficialClass.Fighter, 20],
       [OfficialClass.Monk, 20],
       [OfficialClass.Paladin, 20],
+      [OfficialClass.Rogue, 20],
       [OfficialClass.Sorcerer, 20],
+      [OfficialClass.Warlock, 20],
       [OfficialClass.Wizard, 20],
     ] as const)
       syncClassPools(c, klass(name, level));
     expect(c.limitedUseAbilities.length).toBeGreaterThanOrEqual(12);
     for (const ability of c.limitedUseAbilities)
       expect(mechanicsForAbility(ability), ability.info.title).toBeDefined();
+  });
+
+  // The die lives at index 1 of a `fixed` [count, die, roll] tuple.
+  const scalingDie = (ability: LimitedUseAbility): StandardDie => {
+    const roll = mechanicsForAbility(ability)?.actions?.[0].effects.find(
+      (e) => e.effect === "roll",
+    );
+    return (roll as unknown as { amount: { fixed: [number, StandardDie] } })
+      .amount.fixed[1];
+  };
+
+  it("Bardic Inspiration's die scales d6 → d12 with bard level", () => {
+    const dieOf = (level: number) => {
+      const c = blank();
+      syncClassPools(c, klass(OfficialClass.Bard, level));
+      return scalingDie(pool(c, "Bardic Inspiration"));
+    };
+    expect([dieOf(1), dieOf(5), dieOf(10), dieOf(15)]).toEqual([
+      StandardDie.d6,
+      StandardDie.d8,
+      StandardDie.d10,
+      StandardDie.d12,
+    ]);
+  });
+
+  it("Superiority Dice scale d8 → d12 with fighter level", () => {
+    const dieOf = (level: number) => {
+      const c = blank();
+      syncClassPools(c, {
+        ...klass(OfficialClass.Fighter, level),
+        subclass: "Battle Master",
+      });
+      return scalingDie(pool(c, "Superiority Dice"));
+    };
+    expect([dieOf(3), dieOf(10), dieOf(18)]).toEqual([
+      StandardDie.d8,
+      StandardDie.d10,
+      StandardDie.d12,
+    ]);
+  });
+
+  it("Fighting Spirit temp HP scales 5 → 15 with samurai level", () => {
+    const tempHpOf = (level: number) => {
+      const c = blank();
+      syncClassPools(c, {
+        ...klass(OfficialClass.Fighter, level),
+        subclass: "Samurai",
+      });
+      const temp = mechanicsForAbility(
+        pool(c, "Fighting Spirit"),
+      )?.actions?.[0].effects.find((e) => e.effect === "gainTempHp");
+      return (temp as { amount: { fixed: number } }).amount.fixed;
+    };
+    expect([tempHpOf(3), tempHpOf(10), tempHpOf(15)]).toEqual([5, 10, 15]);
+  });
+
+  it("a rogue reaching 20 gets a Stroke of Luck pool with an action", () => {
+    const c = blank();
+    syncClassPools(c, klass(OfficialClass.Rogue, 19));
+    expect(titles(c)).not.toContain("Stroke of Luck");
+    syncClassPools(c, klass(OfficialClass.Rogue, 20));
+    expect(
+      mechanicsForAbility(pool(c, "Stroke of Luck"))?.actions,
+    ).toHaveLength(1);
+  });
+
+  it("a warlock gets a Mystic Arcanum pool per spell level at 11/13/15/17", () => {
+    const c = blank();
+    syncClassPools(c, klass(OfficialClass.Warlock, 10));
+    expect(titles(c).some((t) => t.startsWith("Mystic Arcanum"))).toBe(false);
+    syncClassPools(c, klass(OfficialClass.Warlock, 17));
+    expect(
+      titles(c).filter((t) => t.startsWith("Mystic Arcanum")),
+    ).toHaveLength(4);
+    expect(
+      mechanicsForAbility(pool(c, "Mystic Arcanum (9th Level)"))?.actions,
+    ).toHaveLength(1);
   });
 });
 
@@ -100,6 +183,39 @@ describe("syncRacePools", () => {
     expect(pool(c, "Breath Weapon").recharge).toBe(RestType.shortRest);
     syncRacePools(c, ["Breath Weapon"]); // idempotent
     expect(c.limitedUseAbilities).toHaveLength(1);
+  });
+
+  // The dice count lives at index 0 of the roll effect's `fixed` tuple.
+  const breathDice = (c: Character): number => {
+    const roll = mechanicsForAbility(
+      pool(c, "Breath Weapon"),
+    )?.actions?.[0].effects.find((e) => e.effect === "roll");
+    return (roll as unknown as { amount: { fixed: [number, StandardDie] } })
+      .amount.fixed[0];
+  };
+
+  it("Breath Weapon dice scale 2d6 → 5d6 with total character level", () => {
+    const countOf = (level: number) => {
+      const c = blank();
+      c.class = [klass(OfficialClass.Fighter, level)];
+      syncRacePools(c, ["Breath Weapon"]);
+      return breathDice(c);
+    };
+    expect([countOf(1), countOf(6), countOf(11), countOf(16)]).toEqual([
+      2, 3, 4, 5,
+    ]);
+  });
+
+  it("re-derives an existing Breath Weapon's dice on level-up without duplicating", () => {
+    const c = blank();
+    c.class = [klass(OfficialClass.Fighter, 1)];
+    syncRacePools(c, ["Breath Weapon"]);
+    expect(breathDice(c)).toBe(2);
+    // Level up, then refresh the way applyLevelUp does — by existing titles.
+    c.class[0].level = 11;
+    syncRacePools(c, titles(c));
+    expect(c.limitedUseAbilities).toHaveLength(1);
+    expect(breathDice(c)).toBe(4);
   });
 });
 
@@ -168,6 +284,36 @@ describe("builder integration", () => {
     expect(c.class[0].level).toBe(3);
     expect(c.features.map((f) => f.title)).toContain("Improved Critical");
     expect(critThreshold(ridersFor(c, "attack"))).toBe(19);
+  });
+
+  it("a barbarian at level 2 gains Reckless Attack / Danger Sense riders", () => {
+    let c = level1("barbarian");
+    c = applyLevelUp(c, {
+      ...defaultLevelUpState(c),
+      className: OfficialClass.Barbarian as string,
+    });
+    expect(c.features.map((f) => f.title)).toEqual(
+      expect.arrayContaining(["Reckless Attack", "Danger Sense"]),
+    );
+    const attack = ridersFor(c, "attack");
+    const check = ridersFor(c, "check");
+    expect(attack.some((r) => r.source === "Reckless Attack")).toBe(true);
+    expect(check.some((r) => r.source === "Danger Sense")).toBe(true);
+    // Rage's Strength-check advantage is advisory and always present.
+    expect(check.some((r) => r.source === "Rage")).toBe(true);
+  });
+
+  it("a barbarian at level 7 gains the Feral Instinct initiative rider", () => {
+    let c = level1("barbarian");
+    for (let i = 0; i < 6; i++)
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Barbarian as string,
+      });
+    expect(c.class[0].level).toBe(7);
+    expect(
+      ridersFor(c, "check").some((r) => r.source === "Feral Instinct"),
+    ).toBe(true);
   });
 
   it("Battle Master gets scaling superiority dice", () => {

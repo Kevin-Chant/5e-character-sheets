@@ -562,13 +562,7 @@ export const CLASS_FEATURES: Partial<
           "No attack roll has advantage against you while you aren't incapacitated.",
       },
     ],
-    20: [
-      {
-        title: "Stroke of Luck",
-        detail:
-          "Once per rest, turn a miss into a hit or a failed ability check into a 20.",
-      },
-    ],
+    // Stroke of Luck (20) is a pool-backed feature — see class-pools.ts.
   },
   [OfficialClass.Sorcerer]: {
     3: [
@@ -593,13 +587,7 @@ export const CLASS_FEATURES: Partial<
           "Choose your patron's gift: Pact of the Chain (improved familiar), Pact of the Blade (summonable pact weapon), or Pact of the Tome (Book of Shadows with three any-list cantrips).",
       },
     ],
-    11: [
-      {
-        title: "Mystic Arcanum",
-        detail:
-          "Learn one 6th-level spell castable once per long rest without a slot (a 7th at 13th, 8th at 15th, and 9th at 17th level).",
-      },
-    ],
+    // Mystic Arcanum (11/13/15/17) is pool-backed — see class-pools.ts.
     20: [
       {
         title: "Eldritch Master",

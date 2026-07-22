@@ -101,14 +101,31 @@ hand-edited maximum on a _class_ pool is re-derived on the next level-up of
 that class). `SUBCLASS_POOLS` (same file, keyed by subclass name) does the same for
 subclass pools — Battle Master superiority dice (4→5→6), Samurai Fighting
 Spirit, Land druid Natural Recovery, Celestial Healing Light — synced whenever
-the owning class levels. Subclass feature/spell `grants` in
+the owning class levels. A pool def can also carry a level-computed
+`mechanics(klass)` that is attached to the granted ability and re-derived like
+`maxUses` — this is how anything that **scales with level** (a growing die or
+amount the static title-keyed catalog can't see) is handled: Bardic Inspiration
+d6→d12, Battle Master superiority die d8→d12, Samurai Fighting Spirit temp HP
+5→15. Because `mechanicsForAbility` prefers the ability's own `mechanics`, the
+attached block wins over the catalog fallback. Subclass feature/spell `grants` in
 `data/subclasses.ts` apply once at the choice level via the level-up wizard
 (druid/wizard 2, most classes 3, cleric/sorcerer/warlock 1 in the builder).
 `syncRacePools` creates trait-keyed racial pools (Breath Weapon,
-Relentless Endurance, Stone's Endurance) at build. Pool titles deliberately
+Relentless Endurance, Stone's Endurance) at build. Racial features scale on
+**total character level** rather than a class level, so their `mechanics` is a
+function of that total (Breath Weapon 2d6→5d6); the use count is still created
+once, but `syncRacePools` re-derives the `mechanics` block, and the level-up
+wizard calls it (with the sheet's existing pool titles, which refresh without
+creating anything new) so the dice stay current. Pool titles deliberately
 match the catalog keys, so granted pools arrive with their actions attached —
 `class-pools.test.ts` asserts every granted title resolves to catalog
 mechanics.
+
+Why level-baked and not a formula: the engine's `DieExpression` is
+`[number, DieDefinition, DieOperation]` — the dice _count_ is a literal, so a
+`CustomFormula` can scale a modifier but never a dice count. Structural scaling
+(count, die size, tiers) must be baked from an integer level here; a `+CON`
+kind of modifier stays a formula resolved against the character at roll time.
 
 ## The UI is generic
 

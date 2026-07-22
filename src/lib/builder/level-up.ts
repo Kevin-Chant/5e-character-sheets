@@ -17,7 +17,7 @@ import {
   fightingStyleDueAt,
   getFightingStyle,
 } from "src/lib/builder/class-features";
-import { syncClassPools } from "src/lib/builder/class-pools";
+import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
 import { getSubclassByName } from "src/lib/builder/subclasses";
 import { getFeat } from "src/lib/builder/feats";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
@@ -381,6 +381,14 @@ export function applyLevelUp(
   //      (Rage count, Ki points, Channel Divinity uses, …) for the new level.
   //      Titles match the mechanics catalog, so their actions light up.
   syncClassPools(char, klass);
+
+  // 2.5b. Refresh racial pools whose mechanics scale on total character level
+  //       (Breath Weapon's dice). Passing the existing pool titles refreshes
+  //       the matching racial ones without creating anything new.
+  syncRacePools(
+    char,
+    char.limitedUseAbilities.map((a) => a.info.title),
+  );
 
   // 2.6. Feature prose for this class level (Extra Attack, Divine Smite, …).
   for (const f of classFeaturesAt(state.className, klass.level))
