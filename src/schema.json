@@ -428,6 +428,9 @@
                     ],
                     "type": "object"
                 },
+                "equippable": {
+                    "type": "boolean"
+                },
                 "equipped": {
                     "type": "boolean"
                 },

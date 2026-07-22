@@ -187,19 +187,25 @@ export default function Root() {
   }, [fileSelected, dispatch]);
 
   const saveIndicator = saveError ? (
-    <Tooltip label="Couldn't save your latest changes. Check your connection; your edits are kept in this tab for now.">
+    <Tooltip
+      className="tooltip-align-end"
+      label="Couldn't save your latest changes. Check your connection; your edits are kept in this tab for now."
+    >
       <FaTriangleExclamation className="save-indicator-error" />
     </Tooltip>
   ) : saving ? (
-    <Tooltip label="Saving...">
+    <Tooltip className="tooltip-align-end" label="Saving...">
       <Spinner />
     </Tooltip>
   ) : unsavedChanges ? (
-    <Tooltip label="Unsaved changes, your edits haven't been saved yet">
+    <Tooltip
+      className="tooltip-align-end"
+      label="Unsaved changes, your edits haven't been saved yet"
+    >
       <FaCircle className="save-indicator-unsaved" />
     </Tooltip>
   ) : (
-    <Tooltip label="Changes saved!">
+    <Tooltip className="tooltip-align-end" label="Changes saved!">
       <FaCheck />
     </Tooltip>
   );

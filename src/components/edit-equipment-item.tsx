@@ -16,6 +16,7 @@ import { fromStack, updateAt } from "src/lib/cursor";
 import { weightInUnit, weightToLb } from "src/lib/rules";
 import { ARMOR_PRESETS } from "src/lib/builder/equipment";
 import { ControlledEditTextLine } from "./edit-text-line";
+import StepperInput from "./stepper-input";
 
 // Default DEX contribution for a freshly-picked category — decoupled from the
 // stored `dex` so a special armor can override it after selection.
@@ -119,8 +120,13 @@ export default function EditEquipmentItem() {
         required ? { attuned: item.attunement?.attuned ?? false } : undefined,
       ),
     );
+  const setEquippable = (value: boolean) =>
+    dispatch(updateAt(itemCursor.k("equippable"), value || undefined));
 
   // --- armor / shield mechanics (mutually exclusive) ---
+  // Armor/shield items are inherently equippable (they only affect AC while
+  // equipped), so the "can be equipped" flag is forced on and locked for them.
+  const isGear = !!item.armor || !!item.shield;
   const gearType = item.shield
     ? "shield"
     : item.armor
@@ -192,11 +198,11 @@ export default function EditEquipmentItem() {
       <div className="row equipment-fields">
         <label className="field">
           <span className="field-label">Quantity</span>
-          <input
-            type="number"
+          <StepperInput
             value={item.quantity}
             min={0}
-            onChange={(e) => setQuantity(Number(e.target.value))}
+            ariaLabel="Quantity"
+            onChange={setQuantity}
           />
         </label>
         {trackEncumbrance && (
@@ -204,6 +210,7 @@ export default function EditEquipmentItem() {
             <span className="field-label">Weight ({weightUnit}, each)</span>
             <input
               type="number"
+              className="no-spin weight-input"
               value={
                 item.weight === undefined
                   ? ""
@@ -259,11 +266,11 @@ export default function EditEquipmentItem() {
           <div className="row equipment-fields">
             <label className="field">
               <span className="field-label">Base AC</span>
-              <input
-                type="number"
+              <StepperInput
                 value={item.armor.base}
                 min={0}
-                onChange={(e) => updateArmor({ base: Number(e.target.value) })}
+                ariaLabel="Base AC"
+                onChange={(value) => updateArmor({ base: value })}
               />
             </label>
             <label className="field">
@@ -287,13 +294,11 @@ export default function EditEquipmentItem() {
             {item.armor.dex === "capped" && (
               <label className="field">
                 <span className="field-label">Max DEX</span>
-                <input
-                  type="number"
+                <StepperInput
                   value={item.armor.dexCap ?? 2}
                   min={0}
-                  onChange={(e) =>
-                    updateArmor({ dexCap: Number(e.target.value) })
-                  }
+                  ariaLabel="Max DEX"
+                  onChange={(value) => updateArmor({ dexCap: value })}
                 />
               </label>
             )}
@@ -303,19 +308,36 @@ export default function EditEquipmentItem() {
         {item.shield && (
           <label className="field">
             <span className="field-label">Shield AC bonus</span>
-            <input
-              type="number"
+            <StepperInput
               value={item.shield.bonus}
               min={0}
-              onChange={(e) => setShieldBonus(Number(e.target.value))}
+              ariaLabel="Shield AC bonus"
+              onChange={setShieldBonus}
             />
           </label>
         )}
       </fieldset>
 
-      {/* Whether the item is currently equipped (worn/wielded) is a direct state
-          toggle on the sheet row, not item setup — only "requires attunement"
-          (a capability of the item) is configured here. */}
+      {/* Capabilities of the item (not its live state). Whether it's *currently*
+          equipped or attuned is a direct toggle on the sheet row; here we set
+          only whether those toggles apply. Armor and shields are always
+          equippable, so the flag is forced on and locked for them. */}
+      <label
+        className="settings-checkbox"
+        title={
+          isGear
+            ? "Armor and shields are always equippable."
+            : "Show an equip toggle for this item on the sheet."
+        }
+      >
+        <input
+          type="checkbox"
+          checked={isGear || !!item.equippable}
+          disabled={isGear}
+          onChange={(e) => setEquippable(e.target.checked)}
+        />
+        Can be equipped (worn or wielded)
+      </label>
       <label className="settings-checkbox">
         <input
           type="checkbox"
@@ -326,7 +348,7 @@ export default function EditEquipmentItem() {
       </label>
 
       <button
-        className="btn-primary margin-small"
+        className="btn-primary edit-save"
         onClick={(e) => {
           e.preventDefault();
           saveData();

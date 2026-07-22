@@ -110,21 +110,22 @@ export default function EditLimitedUseAbility() {
           clearDetails,
         }}
       />
-      <div className="row space-between limited-use-ability-meta">
-        <label className="column">
-          Maximum uses
+      <div className="row limited-use-ability-meta">
+        <label className="field">
+          <span className="field-label">Maximum uses</span>
           <button
             type="button"
+            className="uses-formula-btn"
             onClick={(e) => {
               e.preventDefault();
               pushCursor(abilityCursor.k("maxUses"));
             }}
           >
-            {maxUses} (edit formula)
+            {maxUses} <span className="uses-formula-hint">(edit formula)</span>
           </button>
         </label>
-        <label className="column">
-          Recharges per
+        <label className="field">
+          <span className="field-label">Recharges per</span>
           <OptionOrCustomValue
             value={ability.recharge}
             setValue={(v: string) =>
@@ -138,7 +139,7 @@ export default function EditLimitedUseAbility() {
         </label>
       </div>
       <button
-        className="margin-small"
+        className="btn-primary edit-save"
         onClick={(e) => {
           e.preventDefault();
           saveData();

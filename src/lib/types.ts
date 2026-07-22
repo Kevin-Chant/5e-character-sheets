@@ -417,8 +417,15 @@ export interface EquipmentItem {
   // capacity is defined in). The `weightUnit` setting only affects display —
   // kg is converted at render time, never stored. Omit when unknown/negligible.
   weight?: number;
-  // Worn/wielded vs. stowed. Structural only for now (surfaced as a toggle);
-  // reserved for later "only equipped armor contributes to AC"-style rules.
+  // PRESENCE of `equippable: true` marks the item as something you wear or wield
+  // (armor, a weapon, a worn wondrous item) — only then does the sheet surface an
+  // equip toggle. Potions, ammo bundles, a bag of holding, etc. are carried but
+  // not "equipped", so they leave it unset. Items with `armor`/`shield` mechanics
+  // are always equippable (see `isEquippable`), regardless of this flag.
+  equippable?: boolean;
+  // Whether the item is currently worn/wielded. Meaningful only for equippable
+  // items; drives which armor/shield contributes to AC (via the `equippedArmor`
+  // leaf).
   equipped: boolean;
   // PRESENCE of this object marks the item as *requiring* attunement (mirrors
   // how a `MaterialComponent.price` marks a component consumed). `attuned` is

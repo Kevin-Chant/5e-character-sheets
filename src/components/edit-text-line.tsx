@@ -46,10 +46,10 @@ export function ControlledEditTextLine({
   return (
     <form>
       <div className="column edit-text-line">
-        {title && <b className="title font-large">{title}</b>}
+        {title && <b className="title edit-group-title">{title}</b>}
         <div className="column edit-text-line-fields">
-          <div className="column">
-            <span>Name/title</span>
+          <div className="field">
+            <span className="field-label">Name / title</span>
             <EditTextWithFormulas
               text={textComponent.title}
               formulas={textComponent.titleFormulas}
@@ -60,10 +60,11 @@ export function ControlledEditTextLine({
             />
           </div>
           {isTextComponentWithDetail(textComponent) ? (
-            <div className="column">
-              <div className="row space-between">
-                <span>Details</span>
+            <div className="field">
+              <div className="row space-between field-label-row">
+                <span className="field-label">Details</span>
                 <button
+                  className="btn-text"
                   onClick={(e) => {
                     e.preventDefault();
                     clearDetails();
@@ -84,17 +85,18 @@ export function ControlledEditTextLine({
             </div>
           ) : (
             <button
+              className="btn-text add-detail-btn"
               onClick={(e) => {
                 e.preventDefault();
                 addDetail();
               }}
             >
-              Add Details (hover to show)
+              + Add details
             </button>
           )}
         </div>
         {saveData && (
-          <button className="margin-small" onClick={saveData}>
+          <button className="btn-primary edit-save" onClick={saveData}>
             Save
           </button>
         )}

@@ -212,6 +212,13 @@ export function countAttunedItems(equipment: EquipmentItem[]): number {
   return equipment.filter((item) => item.attunement?.attuned).length;
 }
 
+// Whether an item can be worn/wielded, and so should show an equip toggle. Armor
+// and shields are inherently equippable (they only affect AC while equipped);
+// anything else opts in via the `equippable` flag.
+export function isEquippable(item: EquipmentItem): boolean {
+  return !!item.equippable || !!item.armor || !!item.shield;
+}
+
 // Total carried weight in POUNDS: Σ per-unit weight × quantity. Items without a
 // weight contribute nothing. Kept in lb because 5e carrying capacity is in lb;
 // display converts to kg when the `weightUnit` setting asks for it.

@@ -10,6 +10,7 @@ import {
   encumberedThresholdLb,
   formatWeight,
   heavilyEncumberedThresholdLb,
+  isEquippable,
   totalEquipmentWeightLb,
 } from "src/lib/rules";
 import { EquipmentItem, isTextComponentWithDetail } from "src/lib/types";
@@ -69,7 +70,7 @@ export default function EquipmentDisplay() {
       {equipment.map((item, index) => {
         const name = isTextComponentWithDetail(item.text) ? (
           <ComponentWithPopover
-            componentClass="equipment-name-detail"
+            componentClass="detail-hint"
             componentChildren={
               <TextWithFormulasDisplay
                 templateString={item.text.title}
@@ -93,27 +94,31 @@ export default function EquipmentDisplay() {
         return (
           <div className="row space-between equipment-row" key={item.id}>
             <span className="flex equipment-name">
-              <button
-                type="button"
-                className={classNames("equip-toggle", {
-                  on: item.equipped,
-                })}
-                aria-pressed={item.equipped}
-                aria-label={
-                  item.equipped
-                    ? `${item.text.title} — equipped`
-                    : `${item.text.title} — not equipped`
-                }
-                title={
-                  item.equipped
-                    ? "Equipped (worn or wielded)"
-                    : "Not equipped — click to equip"
-                }
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEquipped(index, !item.equipped);
-                }}
-              />
+              {isEquippable(item) ? (
+                <button
+                  type="button"
+                  className={classNames("equip-toggle", {
+                    on: item.equipped,
+                  })}
+                  aria-pressed={item.equipped}
+                  aria-label={
+                    item.equipped
+                      ? `${item.text.title} — equipped`
+                      : `${item.text.title} — not equipped`
+                  }
+                  title={
+                    item.equipped
+                      ? "Equipped (worn or wielded)"
+                      : "Not equipped — click to equip"
+                  }
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEquipped(index, !item.equipped);
+                  }}
+                />
+              ) : (
+                <span className="equip-spacer" aria-hidden="true" />
+              )}
               {editMode ? (
                 <button
                   className="equipment-name-edit"
@@ -129,7 +134,7 @@ export default function EquipmentDisplay() {
               ) : (
                 <span
                   className={classNames("equipment-name-text", {
-                    unequipped: !item.equipped,
+                    unequipped: isEquippable(item) && !item.equipped,
                   })}
                 >
                   {name}

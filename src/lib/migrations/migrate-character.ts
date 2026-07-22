@@ -389,6 +389,28 @@ const migrations: Migration[] = [
       return filled;
     },
   },
+  {
+    // Equipment items gained an `equippable` flag: only equippable items show an
+    // equip toggle on the sheet (potions, ammo bundles, etc. are carried, not
+    // worn). Backfill it for anything a legacy save treated as equippable —
+    // items currently equipped, or with armor/shield mechanics — so their toggle
+    // (and any equipped state) survives. `equipped` stays required; the flag is
+    // omitted when false (it's optional).
+    to: 10,
+    migrate: (character) => {
+      if (!character || typeof character !== "object") return character;
+      const filled = { ...character };
+      if (Array.isArray(filled.equipment))
+        filled.equipment = filled.equipment.map((item: any) => {
+          if (!item || typeof item !== "object") return item;
+          if (item.equippable !== undefined) return item; // idempotent
+          const equippable = !!item.equipped || !!item.armor || !!item.shield;
+          return equippable ? { ...item, equippable: true } : item;
+        });
+      filled.schemaVersion = 10;
+      return filled;
+    },
+  },
 ];
 
 // Sorted, append-only safety: ensures we apply migrations in ascending order

@@ -233,7 +233,9 @@ p {
   position: absolute;
   top: 0.15rem;
   right: 0.15rem;
-  z-index: 1;
+  /* No z-index: being absolutely positioned already lifts it above the box's
+     in-flow content. A positive z-index here would promote it into the root
+     stacking context and let it paint over modals (which sit at z-index 1). */
 }
 .level-up-btn {
   opacity: 0.65;
@@ -669,6 +671,12 @@ p {
   box-shadow: none;
 }
 
+/* Keeps names aligned in rows for items that can't be equipped (no toggle). */
+.equip-spacer {
+  flex: none;
+  width: 0.95rem;
+}
+
 .equipment-name-edit,
 .ammo-name-edit {
   display: inline-flex;
@@ -703,9 +711,11 @@ p {
   color: var(--text-muted);
 }
 
-/* Items with a description read as plain text with a dotted underline hinting
-   the hover popover — no per-row box. */
-.equipment-name-detail {
+/* A row whose entry carries a description reads as plain text with a dotted
+   underline hinting the hover popover — no per-row box, so it sits beside its
+   plain siblings as the same kind of object. Shared by equipment items and the
+   personality/feature lists. */
+.detail-hint {
   cursor: help;
   text-decoration: underline dotted;
   text-decoration-color: var(--text-muted);
@@ -728,7 +738,9 @@ p {
   text-align: right;
 }
 
-/* A subtle inline remove control that only warms to danger on hover. */
+/* Subtle inline row controls: quiet by default, warming to accent (edit) or
+   danger (remove) on hover, in place of the old boxed icon buttons. */
+.row-edit,
 .row-remove {
   display: inline-flex;
   align-items: center;
@@ -739,9 +751,35 @@ p {
   box-shadow: none;
   color: var(--text-muted);
 }
+.row-edit svg {
+  font-size: 0.85em;
+}
+.row-edit:hover:not(:disabled) {
+  color: var(--accent);
+  box-shadow: none;
+}
 .row-remove:hover:not(:disabled) {
   color: var(--danger);
   box-shadow: none;
+}
+
+/* Personality / ideals / features lists: pad the frame and give each entry its
+   own vertical rhythm so plain and description-carrying rows read as one kind of
+   object (the popover pill is gone — both are text, one dotted-underlined). */
+.multi-line-text {
+  align-items: stretch;
+  gap: 0.1rem;
+  padding: 0.55rem 0.85rem 0;
+}
+.text-line-row {
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+}
+.text-line-controls {
+  flex: none;
+  align-items: center;
+  gap: 0.15rem;
 }
 
 .equipment-encumbrance {
@@ -861,9 +899,50 @@ p {
 }
 
 /* Quantity + weight row in the equipment editor. */
+/* Editor forms share a left-aligned, evenly-spaced column rhythm rather than the
+   centred default a bare `.column` would impose. */
+.edit-equipment,
+.edit-limited-use-ability {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.9rem;
+}
+
 .edit-equipment .equipment-fields {
-  gap: 0.75rem;
+  gap: 1rem;
   align-items: flex-end;
+  justify-content: flex-start;
+}
+
+/* A number field read better typed than spun (e.g. decimal weights); the themed
+   StepperInput covers ±1 integer fields elsewhere in the form. */
+.no-spin {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.no-spin::-webkit-outer-spin-button,
+.no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.field > .weight-input {
+  width: 7rem;
+}
+
+/* Limited-use meta: two labelled controls side by side, left-aligned. */
+.limited-use-ability-meta {
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.uses-formula-btn {
+  width: 100%;
+  text-align: left;
+}
+.uses-formula-hint {
+  color: var(--text-muted);
+  font-size: 0.85em;
 }
 
 /* Armor / shield section in the equipment editor. */
@@ -1651,9 +1730,20 @@ button:active:not(:disabled) {
   margin: 0;
 }
 
+/* Quiet group heading inside an editor (e.g. "Name & description"): the sheet's
+   engraved caption style, not a loud sans-serif banner. */
+.edit-group-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
 .edit-text-line-fields {
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.75rem;
   width: 100%;
 }
 
@@ -1661,6 +1751,33 @@ button:active:not(:disabled) {
   justify-content: flex-start;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.field-label-row {
+  align-items: baseline;
+}
+
+/* Borderless text button for secondary in-form actions (Clear, Add details). */
+.btn-text {
+  padding: 0.15rem 0.25rem;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  font-weight: 500;
+}
+.btn-text:hover:not(:disabled) {
+  box-shadow: none;
+  text-decoration: underline;
+}
+.add-detail-btn {
+  align-self: flex-start;
+}
+
+/* Primary save action: aligned under the fields, not stretched full width. */
+.edit-save {
+  align-self: flex-start;
+  margin-top: 0.25rem;
 }
 
 /* ---- Inline text-with-formulas editor ---- */

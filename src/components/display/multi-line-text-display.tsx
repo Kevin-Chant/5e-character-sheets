@@ -9,7 +9,7 @@ import {
 import { getFieldValue, traverse } from "src/lib/fields";
 import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
-import { FaPencil } from "react-icons/fa6";
+import { FaPencil, FaXmark } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
@@ -68,10 +68,11 @@ export default function MultiLineTextDisplay({
   const addTextComponent = () => editTextComponent(textComponents.length);
 
   return (
-    <div className="column rounded-border-box">
+    <div className="column rounded-border-box multi-line-text">
       {renderedTextComponents.map((textComponent, i) => {
         const titleComponent = isTextComponentWithDetail(textComponent) ? (
           <ComponentWithPopover
+            componentClass="detail-hint"
             componentChildren={
               <TextWithFormulasDisplay
                 templateString={textComponent.title}
@@ -92,11 +93,13 @@ export default function MultiLineTextDisplay({
           />
         );
         return (
-          <div key={i} className="row space-between">
+          <div key={i} className="row space-between text-line-row">
             {titleComponent}
             {editMode && (
-              <div className="flex">
+              <div className="flex text-line-controls">
                 <button
+                  className="row-edit"
+                  aria-label="Edit"
                   onClick={(e) => {
                     e.preventDefault();
                     editTextComponent(i);
@@ -105,12 +108,14 @@ export default function MultiLineTextDisplay({
                   <FaPencil />
                 </button>
                 <button
+                  className="row-remove"
+                  aria-label="Remove"
                   onClick={(e) => {
                     e.preventDefault();
                     removeTextComponent(i);
                   }}
                 >
-                  x
+                  <FaXmark />
                 </button>
               </div>
             )}
