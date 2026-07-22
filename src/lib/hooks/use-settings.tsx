@@ -25,6 +25,10 @@ interface Settings {
   // Whether to track ammunition. Off hides the Ammunition section and the
   // per-weapon remaining-ammo count — many tables don't bother with it.
   trackAmmunition: boolean;
+  // Whether a natural 1/20 shows as "Critical Fail"/"Critical Success" on *every*
+  // d20 check. Off (default), the crit callout only appears on attack to-hit
+  // rolls (as "Critical Fail"/"Critical Hit").
+  criticalsOnAllRolls: boolean;
 }
 
 function sanitizeSettingValue<K extends keyof Settings>(
@@ -61,6 +65,7 @@ const DEFAULT_SETTINGS: Settings = {
   openInEditMode: true,
   autoLiveSession: true,
   trackAmmunition: true,
+  criticalsOnAllRolls: false,
 };
 
 export const SettingsContext = React.createContext<SettingsContextData>({

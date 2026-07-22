@@ -5,6 +5,7 @@ import {
 } from "src/lib/formula";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRoller } from "src/lib/hooks/use-roller";
+import { useSettings } from "src/lib/hooks/use-settings";
 import { CheckMode, rollD20Check, rollDamage, rollFormula } from "src/lib/roll";
 import {
   spellDamageAtLevel,
@@ -45,7 +46,7 @@ export default function RollModal() {
       {spec.kind === "attack" && (
         <>
           {spec.toHit !== undefined && (
-            <CheckControls label="To Hit" modifier={spec.toHit} />
+            <CheckControls label="To Hit" modifier={spec.toHit} isAttack />
           )}
           <EffectControls
             character={character}
@@ -59,15 +60,35 @@ export default function RollModal() {
   );
 }
 
+// The crit callout for the kept d20, or undefined when none applies. Attack
+// to-hit rolls always show it (nat 20 = "Critical Hit", nat 1 = "Critical
+// Miss"); other checks only when the global setting is on, with a nat 20 =
+// "Critical Success" and a nat 1 = "Critical Fail".
+function critLabelFor(
+  kept: number,
+  isAttack: boolean,
+  onAllRolls: boolean,
+): string | undefined {
+  if (!isAttack && !onAllRolls) return undefined;
+  if (kept === 20) return isAttack ? "Critical Hit" : "Critical Success";
+  if (kept === 1) return isAttack ? "Critical Miss" : "Critical Fail";
+  return undefined;
+}
+
 // A d20 + modifier roll with advantage/disadvantage. Reused as a standalone
 // check and as the "To Hit" half of an attack.
 function CheckControls({
   modifier,
   label,
+  isAttack = false,
 }: {
   modifier: number;
   label?: string;
+  isAttack?: boolean;
 }) {
+  const {
+    settings: { criticalsOnAllRolls },
+  } = useSettings();
   const [result, setResult] = useState<ReturnType<typeof rollD20Check> | null>(
     null,
   );
@@ -97,18 +118,30 @@ function CheckControls({
           Adv.
         </button>
       </div>
-      {result && (
-        <div className="column roll-result">
-          <span className="roll-total font-large">{result.total}</span>
-          <span className="roll-part muted">
-            d20{" "}
-            {result.dice.length > 1
-              ? `(${result.dice.join(", ")} → ${result.kept})`
-              : `(${result.kept})`}{" "}
-            {signed(result.modifier)}
-          </span>
-        </div>
-      )}
+      {result &&
+        (() => {
+          const crit = critLabelFor(result.kept, isAttack, criticalsOnAllRolls);
+          const critClass =
+            result.kept === 20 ? "roll-crit-success" : "roll-crit-fail";
+          return (
+            <div className="column roll-result">
+              {crit ? (
+                <span className={`roll-total font-large ${critClass}`}>
+                  {crit}
+                </span>
+              ) : (
+                <span className="roll-total font-large">{result.total}</span>
+              )}
+              <span className="roll-part muted">
+                d20{" "}
+                {result.dice.length > 1
+                  ? `(${result.dice.join(", ")} → ${result.kept})`
+                  : `(${result.kept})`}{" "}
+                {signed(result.modifier)}
+              </span>
+            </div>
+          );
+        })()}
     </div>
   );
 }
