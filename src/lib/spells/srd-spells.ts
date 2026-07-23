@@ -67,8 +67,3 @@ export function searchSrdSpells(query: string, className?: string): SrdSpell[] {
       );
     });
 }
-
-// The `character.spells` sub-path a spell of this numeric level belongs in:
-// the level number itself (0 for cantrips, 1–9 for leveled), as a string since
-// field sub-paths are strings.
-export const spellSubFieldForLevel = (level: number): string => String(level);

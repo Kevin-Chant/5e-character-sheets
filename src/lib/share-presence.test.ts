@@ -78,3 +78,56 @@ describe("computePresenceUpdate", () => {
     expect(others).toEqual([{ clientId: "noname", name: "Someone", at: NOW }]);
   });
 });
+
+describe("computePresenceUpdate — window boundaries", () => {
+  // The freshness and TTL edges decide whether a peer flickers out of the
+  // roster or a heartbeat gets pruned out from under a peer that just wrote it,
+  // so pin them rather than leaving the comparison operators to inference.
+  const peerAt = (at: number) => ({ [key("them")]: `${at}|Them` });
+
+  it("counts a peer seen exactly at the freshness edge as present", () => {
+    const { others } = computePresenceUpdate(
+      peerAt(NOW - PRESENCE_FRESH_MS),
+      self,
+      NOW,
+    );
+    expect(others.map((o) => o.clientId)).toEqual(["them"]);
+  });
+
+  it("drops a peer one millisecond past it", () => {
+    const { others } = computePresenceUpdate(
+      peerAt(NOW - PRESENCE_FRESH_MS - 1),
+      self,
+      NOW,
+    );
+    expect(others).toEqual([]);
+  });
+
+  it("keeps a heartbeat sitting exactly on the TTL", () => {
+    const { patch } = computePresenceUpdate(
+      peerAt(NOW - PRESENCE_TTL_MS),
+      self,
+      NOW,
+    );
+    expect(patch).not.toHaveProperty(key("them"));
+  });
+
+  it("prunes one millisecond past the TTL", () => {
+    const { patch } = computePresenceUpdate(
+      peerAt(NOW - PRESENCE_TTL_MS - 1),
+      self,
+      NOW,
+    );
+    expect(patch[key("them")]).toBeNull();
+  });
+
+  it("tolerates a clock-skewed peer heartbeat from the future", () => {
+    const { patch, others } = computePresenceUpdate(
+      peerAt(NOW + 60_000),
+      self,
+      NOW,
+    );
+    expect(others.map((o) => o.clientId)).toEqual(["them"]);
+    expect(patch).not.toHaveProperty(key("them"));
+  });
+});

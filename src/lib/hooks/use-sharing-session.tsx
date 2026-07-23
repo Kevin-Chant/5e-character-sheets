@@ -440,7 +440,20 @@ export function useSharingSessions() {
 // Applies an incoming edit unless it is an echo of one we sent ourselves.
 // Incoming edits are dispatched with suppressBroadcast so they are not
 // re-published, which prevents echo loops.
-function makeDispatchHandler(dispatch: Dispatch, clientId: string) {
+/**
+ * The handler for an incoming edit.
+ *
+ * Two invariants live here, both easy to get wrong and both load-bearing:
+ * nightlife-rabbit doesn't honour WAMP's `exclude_me`, so a publisher receives
+ * its own events and has to drop them by comparing `senderId` to this tab's
+ * `clientId`; and an edit that *is* applied must be replayed with
+ * `suppressBroadcast` (the third argument) or it would be re-published,
+ * ping-ponging between peers.
+ *
+ * Exported for tests — the surrounding provider needs a live WAMP connection,
+ * but this decision doesn't.
+ */
+export function makeDispatchHandler(dispatch: Dispatch, clientId: string) {
   return (payload: DispatchPayload) => {
     const { action, dirtyAction, senderId } = payload;
     if (senderId === clientId) return;
