@@ -1,6 +1,7 @@
 import { Ref, useEffect, useRef, useState } from "react";
 import { countBy, uniq } from "lodash";
 import {
+  REAL_SKILLS,
   Alignment,
   SkillName,
   StandardDie,
@@ -59,21 +60,19 @@ import {
   ChipMultiSelect,
   Choice,
   ChoiceGrid,
-  ChosenOptionPicker,
-  FeatPicker,
   Field,
   FilterSearch,
-  LanguagePicker,
   LinesInput,
   STAT_LABEL,
-  SpellChecklist,
   StepProps,
   patchPersonality,
 } from "src/components/builder/builder-common";
-
-const ALL_SKILLS = Object.values(SkillName).filter(
-  (s) => s !== SkillName["Thieves Tools"],
-) as SkillName[];
+import {
+  ChosenOptionPicker,
+  FeatPicker,
+  LanguagePicker,
+  SpellChecklist,
+} from "./builder-pickers";
 
 const STAT_KEYS = Object.values(StatKey);
 const fmtMod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
@@ -950,7 +949,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
           <>
             <Field label="Background skill proficiencies" hint="Choose 2">
               <ChipMultiSelect<SkillName>
-                options={ALL_SKILLS}
+                options={REAL_SKILLS}
                 selected={state.customBackgroundSkills}
                 max={2}
                 onChange={(customBackgroundSkills) =>

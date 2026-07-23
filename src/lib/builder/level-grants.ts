@@ -12,7 +12,9 @@ import {
   expertiseDueAt,
   fightingStyleDueAt,
   getFightingStyle,
+  isAsiLevel,
   newInvocationsAt,
+  subclassDueAt,
   syncMartialArts,
   toolChoicesFor,
 } from "src/lib/builder/class-features";
@@ -20,6 +22,7 @@ import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
 import {
   newOptionPicksAt,
   optionGroup,
+  OptionGroup,
   resistancesFromOptions,
 } from "src/lib/builder/chosen-options";
 import { getSubclassByName } from "src/lib/builder/subclasses";
@@ -256,3 +259,57 @@ export function applyClassLevel(
     ]);
   }
 }
+
+// ---------------------------------------------------------------------------
+// What a class level *offers* — the read side of the same tables `applyClassLevel`
+// applies from.
+//
+// The wizard used to ask these questions twice: once in a step's `visible`
+// predicate to decide whether to show it, and again inside the step to render
+// the pickers. Adding a choice meant editing both, with nothing to catch a
+// missed one. `grantsAt` answers once and both consume it.
+// ---------------------------------------------------------------------------
+
+export interface LevelGrants {
+  // A subclass is chosen at this level.
+  subclassDue: boolean;
+  // An Ability Score Improvement / feat is due.
+  asiDue: boolean;
+  // Fighting styles to choose from, when the class offers one here.
+  fightingStyles?: string[];
+  // How many expertise picks, tool picks, and invocations this level grants.
+  expertise: number;
+  invocations: number;
+  toolChoices?: { choose: number; from: string[] };
+  // Closed option lists with how many *new* picks this level allows.
+  optionPicks: { group: OptionGroup; count: number }[];
+}
+
+// Everything reaching `level` in `className` offers the player. `subclass` is
+// passed separately because it may be chosen in the very same step — a fighter
+// taking Battle Master at 3rd is owed their first maneuvers immediately.
+export function grantsAt(
+  className: string,
+  level: number,
+  subclass?: string,
+): LevelGrants {
+  return {
+    subclassDue: subclassDueAt(className, level),
+    asiDue: isAsiLevel(className, level),
+    fightingStyles: fightingStyleDueAt(className, level),
+    expertise: expertiseDueAt(className, level),
+    invocations:
+      className === OfficialClass.Warlock ? newInvocationsAt(level) : 0,
+    toolChoices: toolChoicesFor(className, level),
+    optionPicks: newOptionPicksAt(className, level, subclass),
+  };
+}
+
+// Whether this level asks the player for anything on the "class features" step
+// — the one predicate that step's visibility needs.
+export const hasFeatureChoices = (g: LevelGrants): boolean =>
+  !!g.fightingStyles ||
+  g.invocations > 0 ||
+  g.expertise > 0 ||
+  !!g.toolChoices ||
+  g.optionPicks.length > 0;

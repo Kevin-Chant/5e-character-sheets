@@ -1,10 +1,5 @@
-import { SkillName, StatKey } from "src/lib/data/data-definitions";
+import { REAL_SKILLS, StatKey } from "src/lib/data/data-definitions";
 import { SrdSubrace } from "src/lib/builder/types";
-
-// Every real skill (the SkillName enum also carries Thieves' Tools, a tool).
-const ALL_SKILLS = Object.values(SkillName).filter(
-  (s) => s !== SkillName["Thieves Tools"],
-) as SkillName[];
 
 // Player's Handbook subraces that the open-license SRD omits (the SRD ships
 // exactly one subrace per race). Keyed by race index and merged with the SRD
@@ -233,7 +228,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
         { stat: StatKey.str, bonus: 1 },
         { stat: StatKey.dex, bonus: 1 },
       ],
-      skillChoices: { choose: 1, from: ALL_SKILLS },
+      skillChoices: { choose: 1, from: REAL_SKILLS },
       grantsFeat: true,
       proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
       traits: [

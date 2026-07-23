@@ -794,3 +794,48 @@ export function expertiseDueAt(className: string, level: number): number {
   const oc = Object.values(OfficialClass).find((c) => c === className);
   return (oc && EXPERTISE_GRANTS[oc]?.[level]) ?? 0;
 }
+
+// ---------------------------------------------------------------------------
+// Class progression tables
+//
+// These moved here from the level-up wizard: they're per-class level data, the
+// same shape as everything else in this file, and `level-grants.ts` needs to
+// read them without importing the wizard (which imports it).
+
+// The class level at which each class chooses its subclass.
+const SUBCLASS_LEVEL: Record<OfficialClass, number> = {
+  Artificer: 3,
+  Barbarian: 3,
+  Bard: 3,
+  Cleric: 1,
+  Druid: 2,
+  Fighter: 3,
+  Monk: 3,
+  Paladin: 3,
+  Ranger: 3,
+  Rogue: 3,
+  Sorcerer: 1,
+  Warlock: 1,
+  Wizard: 2,
+};
+
+// Levels (in a single class) that grant an Ability Score Improvement / feat.
+// Everyone gets 4/8/12/16/19; Fighter and Rogue get extras.
+const BASE_ASI_LEVELS = [4, 8, 12, 16, 19];
+const EXTRA_ASI_LEVELS: Partial<Record<OfficialClass, number[]>> = {
+  Fighter: [6, 14],
+  Rogue: [10],
+};
+
+// Does reaching `level` in `className` grant a subclass choice?
+export const subclassDueAt = (className: string, level: number): boolean => {
+  const oc = Object.values(OfficialClass).find((c) => c === className);
+  return oc ? SUBCLASS_LEVEL[oc] === level : false;
+};
+
+// Does reaching `level` in `className` grant an ASI / feat?
+export const isAsiLevel = (className: string, level: number): boolean => {
+  const oc = Object.values(OfficialClass).find((c) => c === className);
+  const extra = (oc && EXTRA_ASI_LEVELS[oc]) || [];
+  return BASE_ASI_LEVELS.includes(level) || extra.includes(level);
+};

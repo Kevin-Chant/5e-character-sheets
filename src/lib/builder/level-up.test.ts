@@ -12,12 +12,11 @@ import {
   applyLevelUp,
   classHasCantrips,
   defaultLevelUpState,
-  isAsiLevel,
   isCasterClass,
   spellListFilterFor,
-  subclassDueAt,
   targetClassLevel,
 } from "src/lib/builder/level-up";
+import { isAsiLevel, subclassDueAt } from "src/lib/builder/class-features";
 import { chosenIn, newOptionPicksAt } from "src/lib/builder/chosen-options";
 import { expertiseDueAt } from "src/lib/builder/class-features";
 import { getPB } from "src/lib/rules";
@@ -324,31 +323,6 @@ describe("applyLevelUp — chosen options", () => {
       chosenOptions: { notARealCategory: ["Whatever"] },
     });
     expect(leveled.chosenOptions ?? []).toEqual([]);
-  });
-});
-
-describe("buildCharacter — level-1 chosen options", () => {
-  it("applies a ranger's level-1 favored enemy and terrain", () => {
-    const char = level1("ranger", {
-      chosenOptions: {
-        favoredEnemy: ["Dragons"],
-        naturalExplorer: ["Forest"],
-      },
-    });
-    expect(chosenIn(char, "favoredEnemy").map((o) => o.name)).toEqual([
-      "Dragons",
-    ]);
-    expect(chosenIn(char, "naturalExplorer").map((o) => o.name)).toEqual([
-      "Forest",
-    ]);
-  });
-
-  it("drops picks the chosen class doesn't grant at level 1", () => {
-    // Switching class mid-wizard can leave a stale pick in the working state.
-    const char = level1("fighter", {
-      chosenOptions: { favoredEnemy: ["Dragons"] },
-    });
-    expect(char.chosenOptions ?? []).toEqual([]);
   });
 });
 

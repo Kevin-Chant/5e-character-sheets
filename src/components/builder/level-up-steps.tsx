@@ -1,5 +1,6 @@
 import { Character } from "src/lib/types";
 import {
+  REAL_SKILLS,
   OfficialClass,
   SkillName,
   StatKey,
@@ -8,10 +9,7 @@ import {
 import { getPB, isPreparedCaster, maxSpellLevelForClass } from "src/lib/rules";
 import {
   ELDRITCH_INVOCATIONS,
-  expertiseDueAt,
-  fightingStyleDueAt,
   getFightingStyle,
-  newInvocationsAt,
 } from "src/lib/builder/class-features";
 import {
   LevelUpState,
@@ -24,23 +22,21 @@ import {
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import { subclassesForClass } from "src/lib/builder/subclasses";
-import { chosenIn, newOptionPicksAt } from "src/lib/builder/chosen-options";
+import { chosenIn } from "src/lib/builder/chosen-options";
+import { grantsForLevelUp } from "./level-up-wizard";
 import { FEATS } from "src/lib/builder/feats";
 import {
   ChipMultiSelect,
   Choice,
   ChoiceGrid,
-  ChosenOptionPicker,
-  FeatPicker,
   Field,
   STAT_LABEL,
-  SpellChecklist,
 } from "./builder-common";
-
-// Real skills (the SkillName enum also carries "Thieves Tools", a tool).
-const SKILL_OPTIONS = Object.values(SkillName).filter(
-  (s) => s !== SkillName["Thieves Tools"],
-);
+import {
+  ChosenOptionPicker,
+  FeatPicker,
+  SpellChecklist,
+} from "./builder-pickers";
 
 export interface LevelUpStepProps {
   character: Character;
@@ -149,21 +145,17 @@ export function LevelUpFeatureChoicesStep({
   state,
   patch,
 }: LevelUpStepProps) {
-  const level = targetClassLevel(character, state);
-  const styleNames = fightingStyleDueAt(state.className, level);
-  const newInvocations =
-    state.className === OfficialClass.Warlock ? newInvocationsAt(level) : 0;
+  // One description of what this level offers, shared with the wizard's
+  // step-visibility predicate — so a new kind of choice can't appear in one
+  // place and not the other.
+  const grants = grantsForLevelUp(character, state);
+  const styleNames = grants.fightingStyles;
+  const newInvocations = grants.invocations;
+  const newPicks = grants.optionPicks;
+  const newExpertise = grants.expertise;
   const known = new Set(character.features.map((f) => f.title.trim()));
-  // The subclass may be chosen in this same level-up (a fighter taking Battle
-  // Master at 3rd gets their first maneuvers now), so prefer the pending
-  // choice over what's already on the sheet.
-  const subclass =
-    state.subclass ??
-    character.class.find((k) => k.name === state.className)?.subclass;
-  const newPicks = newOptionPicksAt(state.className, level, subclass);
   // Expertise doubles an existing proficiency, so the options are the skills
   // the character already has — minus the ones already doubled.
-  const newExpertise = expertiseDueAt(state.className, level);
   const expertiseOptions = (
     Object.keys(character.proficiencies.skills) as SkillName[]
   ).filter(
@@ -346,10 +338,10 @@ export function LevelUpAdvancementStep(props: LevelUpStepProps) {
         <FeatPicker
           state={props.state}
           patch={props.patch}
-          proficientSkills={SKILL_OPTIONS.filter(
+          proficientSkills={REAL_SKILLS.filter(
             (s) => props.character.proficiencies.skills[s],
           )}
-          expertSkills={SKILL_OPTIONS.filter(
+          expertSkills={REAL_SKILLS.filter(
             (s) => props.character.proficiencies.expertise[s],
           )}
           knownWeapons={props.character.otherProficiencies.weapons}

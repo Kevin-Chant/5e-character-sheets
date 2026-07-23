@@ -383,6 +383,13 @@ export enum RestType {
   longRest = "Long Rest",
 }
 
+// Every *real* skill. The `SkillName` enum also carries "Thieves Tools" — a
+// tool the sheet models as a pseudo-skill so it can be proficient/expert — so
+// anything offering "pick a skill" wants this list, not the raw enum.
+export const REAL_SKILLS = Object.values(SkillName).filter(
+  (s) => s !== SkillName["Thieves Tools"],
+) as SkillName[];
+
 export enum FIELD {
   name = "name",
   class = "class",

@@ -1,9 +1,7 @@
-import { cloneDeep, uniq } from "lodash";
+import { cloneDeep } from "lodash";
 import {
   HIT_DICE,
-  Operation,
   OfficialClass,
-  RestType,
   SkillName,
   SpellLevelNum,
   StatKey,
@@ -15,43 +13,16 @@ import { averageDie, getHitDice, getHpFormula, modifier } from "src/lib/rules";
 import {
   applyClassLevel,
   emptyLevelChoices,
-  grantArmor,
   LevelChoices,
 } from "src/lib/builder/level-grants";
 import { addSrdSpell } from "src/lib/builder/grant-spells";
-import { getFeat } from "src/lib/builder/feats";
-import { Feat } from "src/lib/builder/types";
+import { applyFeat, getFeat } from "src/lib/builder/feats";
 
 // ---------------------------------------------------------------------------
 // 5e progression tables the level-up wizard needs but that aren't derivable
 // from the class list (unlike HP / hit dice / PB / spell slots, which rules.ts
 // already computes from `char.class[]`).
 // ---------------------------------------------------------------------------
-
-// The class level at which each class chooses its subclass.
-const SUBCLASS_LEVEL: Record<OfficialClass, number> = {
-  Artificer: 3,
-  Barbarian: 3,
-  Bard: 3,
-  Cleric: 1,
-  Druid: 2,
-  Fighter: 3,
-  Monk: 3,
-  Paladin: 3,
-  Ranger: 3,
-  Rogue: 3,
-  Sorcerer: 1,
-  Warlock: 1,
-  Wizard: 2,
-};
-
-// Levels (in a single class) that grant an Ability Score Improvement / feat.
-// Everyone gets 4/8/12/16/19; Fighter and Rogue get extras.
-const BASE_ASI_LEVELS = [4, 8, 12, 16, 19];
-const EXTRA_ASI_LEVELS: Partial<Record<OfficialClass, number[]>> = {
-  Fighter: [6, 14],
-  Rogue: [10],
-};
 
 // Minimum ability scores to multiclass into / out of a class (non-blocking
 // warning only — homebrew and variant rules are common).
@@ -90,19 +61,6 @@ const asOfficialClass = (name: string): OfficialClass | undefined =>
   (Object.values(OfficialClass) as string[]).includes(name)
     ? (name as OfficialClass)
     : undefined;
-
-// Does reaching `level` in `className` grant a subclass choice?
-export const subclassDueAt = (className: string, level: number): boolean => {
-  const oc = asOfficialClass(className);
-  return oc ? SUBCLASS_LEVEL[oc] === level : false;
-};
-
-// Does reaching `level` in `className` grant an ASI / feat?
-export const isAsiLevel = (className: string, level: number): boolean => {
-  const oc = asOfficialClass(className);
-  const extra = (oc && EXTRA_ASI_LEVELS[oc]) || [];
-  return BASE_ASI_LEVELS.includes(level) || extra.includes(level);
-};
 
 export const isCasterClass = (className: string): boolean => {
   const oc = asOfficialClass(className);
@@ -216,91 +174,6 @@ const text = (title: string, detail?: string): TextComponent =>
   detail
     ? { title, titleFormulas: [], detail, detailFormulas: [] }
     : { title, titleFormulas: [] };
-
-// The subset of wizard state a feat needs. Narrowed to an interface (rather
-// than taking `LevelUpState`) so the *creation* wizard can apply a level-1 feat
-// — Variant Human, Custom Lineage — through exactly the same code path.
-// `LevelUpState` satisfies it structurally.
-export interface FeatChoices {
-  featAbilityChoice?: StatKey;
-  featSkillChoices: SkillName[];
-  featExpertiseChoices: SkillName[];
-  featWeaponChoices: string[];
-  featSpellChoices: Record<number, string[]>;
-  // Which class any feat-granted spells are tagged to. Optional because the
-  // creation wizard derives it from `classIndex`; `addSpell` already falls back
-  // to the character's first class when the name doesn't match one.
-  className?: string;
-}
-
-// Apply a chosen feat to the character: its ability increase, its `effect` as a
-// feature, its automatic `grants`, and any player choices made in the wizard.
-// Feat-granted spells are tagged to the class being advanced (a sensible,
-// editable default — the sheet lets the player retag or adjust the ability).
-export function applyFeat(
-  char: Character,
-  feat: Feat,
-  state: FeatChoices,
-): void {
-  char.features.push(text(feat.name, feat.effect));
-
-  const raisedStat = feat.abilityIncrease
-    ? (state.featAbilityChoice ?? feat.abilityIncrease.from[0])
-    : undefined;
-  if (feat.abilityIncrease && raisedStat)
-    char.stats[raisedStat] += feat.abilityIncrease.by;
-
-  const g = feat.grants;
-  if (!g) return;
-
-  if (g.savingThrowFromAbility && raisedStat)
-    char.proficiencies.savingThrows[raisedStat] = true;
-  if (g.armor) grantArmor(char.otherProficiencies.armor, g.armor);
-  if (g.weapons)
-    char.otherProficiencies.weapons = uniq([
-      ...char.otherProficiencies.weapons,
-      ...g.weapons,
-    ]);
-  if (g.tools)
-    char.otherProficiencies.toolsAndOther = [
-      ...char.otherProficiencies.toolsAndOther,
-      ...g.tools.map((t) => text(t)),
-    ];
-  if (g.speedBonus) char.speeds.walk += g.speedBonus;
-  if (g.initiativeBonus)
-    char.initiativeFormula = {
-      operation: Operation.addition,
-      operands: [char.initiativeFormula ?? StatKey.dex, g.initiativeBonus],
-    };
-  for (const index of g.fixedCantrips ?? [])
-    addSrdSpell(char, index, state.className ?? "");
-  for (const index of g.fixedSpells ?? [])
-    addSrdSpell(char, index, state.className ?? "");
-  if (g.limitedUse)
-    char.limitedUseAbilities.push({
-      info: text(g.limitedUse.name, g.limitedUse.detail),
-      maxUses: g.limitedUse.maxUses,
-      recharge:
-        g.limitedUse.recharge === "long"
-          ? RestType.longRest
-          : RestType.shortRest,
-      expended: 0,
-    });
-
-  // Player choices.
-  for (const skill of state.featSkillChoices)
-    char.proficiencies.skills[skill] = true;
-  for (const skill of state.featExpertiseChoices)
-    char.proficiencies.expertise[skill] = true;
-  if (state.featWeaponChoices.length)
-    char.otherProficiencies.weapons = uniq([
-      ...char.otherProficiencies.weapons,
-      ...state.featWeaponChoices,
-    ]);
-  for (const indices of Object.values(state.featSpellChoices))
-    for (const index of indices)
-      addSrdSpell(char, index, state.className ?? "");
-}
 
 export function applyLevelUp(
   character: Character,

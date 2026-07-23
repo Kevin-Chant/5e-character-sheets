@@ -5,18 +5,11 @@ import {
   LevelUpState,
   applyLevelUp,
   defaultLevelUpState,
-  isAsiLevel,
   isCasterClass,
-  subclassDueAt,
   targetClassLevel,
 } from "src/lib/builder/level-up";
-import {
-  fightingStyleDueAt,
-  newInvocationsAt,
-} from "src/lib/builder/class-features";
-import { OfficialClass } from "src/lib/data/data-definitions";
-import { newOptionPicksAt } from "src/lib/builder/chosen-options";
-import { expertiseDueAt } from "src/lib/builder/class-features";
+import { grantsAt, hasFeatureChoices } from "src/lib/builder/level-grants";
+
 import {
   LevelUpAdvancementStep,
   LevelUpClassStep,
@@ -34,10 +27,20 @@ interface StepDef {
   visible?: (character: Character, state: LevelUpState) => boolean;
 }
 
+// The grants for the level this wizard run is reaching. The subclass may be
+// chosen in this very run (Battle Master at 3rd owes maneuvers immediately), so
+// the pending choice wins over what's on the sheet.
+export const grantsForLevelUp = (character: Character, state: LevelUpState) =>
+  grantsAt(
+    state.className,
+    targetClassLevel(character, state),
+    state.subclass ??
+      character.class.find((k) => k.name === state.className)?.subclass,
+  );
+
 // Whether the target class still needs a subclass at the level being reached.
 const subclassStepVisible = (character: Character, state: LevelUpState) => {
-  if (!subclassDueAt(state.className, targetClassLevel(character, state)))
-    return false;
+  if (!grantsForLevelUp(character, state).subclassDue) return false;
   const existing = character.class.find((c) => c.name === state.className);
   return !existing?.subclass;
 };
@@ -54,28 +57,16 @@ const STEPS: StepDef[] = [
     key: "featureChoices",
     title: "Class features",
     Component: LevelUpFeatureChoicesStep,
-    visible: (character, state) => {
-      const level = targetClassLevel(character, state);
-      // A subclass picked in this same level-up counts (Battle Master at 3rd
-      // grants maneuvers immediately), so prefer the pending choice.
-      const subclass =
-        state.subclass ??
-        character.class.find((k) => k.name === state.className)?.subclass;
-      return (
-        !!fightingStyleDueAt(state.className, level) ||
-        (state.className === OfficialClass.Warlock &&
-          newInvocationsAt(level) > 0) ||
-        newOptionPicksAt(state.className, level, subclass).length > 0 ||
-        expertiseDueAt(state.className, level) > 0
-      );
-    },
+    // Asks `grantsAt` the same question the step itself does, so a new kind of
+    // choice shows up in both without a second edit.
+    visible: (character, state) =>
+      hasFeatureChoices(grantsForLevelUp(character, state)),
   },
   {
     key: "advancement",
     title: "Ability score improvement",
     Component: LevelUpAdvancementStep,
-    visible: (character, state) =>
-      isAsiLevel(state.className, targetClassLevel(character, state)),
+    visible: (character, state) => grantsForLevelUp(character, state).asiDue,
   },
   {
     key: "spells",

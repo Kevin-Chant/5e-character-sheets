@@ -35,8 +35,8 @@ import {
   getSubrace,
   raceGrantsFeat,
 } from "src/lib/builder/srd-races";
-import { getFeat } from "src/lib/builder/feats";
-import { applyFeat } from "src/lib/builder/level-up";
+import { applyFeat, getFeat } from "src/lib/builder/feats";
+
 import { resolveFinalStats } from "src/lib/builder/resolve";
 import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
 import { getBackground } from "src/lib/builder/backgrounds";

@@ -1,4 +1,4 @@
-import { SkillName, StatKey } from "src/lib/data/data-definitions";
+import { REAL_SKILLS, SkillName, StatKey } from "src/lib/data/data-definitions";
 import { SrdRace } from "src/lib/builder/types";
 
 // Official 5e races that live outside the open-license SRD (Volo's Guide,
@@ -16,11 +16,6 @@ import { SrdRace } from "src/lib/builder/types";
 // "floating" ability increases. We seed a thematic default here; the builder's
 // ability step lets the player reassign racial bonuses freely (modern
 // floating-bonus rules), so nothing is lost.
-
-// Every real skill (the SkillName enum also carries Thieves' Tools, a tool).
-const ALL_SKILLS = Object.values(SkillName).filter(
-  (s) => s !== SkillName["Thieves Tools"],
-) as SkillName[];
 
 const noProf = () => ({
   armor: [] as string[],
@@ -1301,7 +1296,7 @@ export const NONSRD_RACES: SrdRace[] = [
     // RAW this is "darkvision 60 ft OR one skill proficiency". The sheet offers
     // the skill and names darkvision in the trait text — set it under Senses if
     // that's the pick instead.
-    skillChoices: { choose: 1, from: ALL_SKILLS },
+    skillChoices: { choose: 1, from: REAL_SKILLS },
     grantsFeat: true,
     proficiencies: noProf(),
     traits: [

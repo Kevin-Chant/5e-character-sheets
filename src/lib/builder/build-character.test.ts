@@ -9,6 +9,7 @@ import {
 import { buildCharacter } from "src/lib/builder/build-character";
 import { BuilderState, defaultBuilderState } from "src/lib/builder/types";
 import { defaultCharacter } from "src/lib/data/default-data";
+import { chosenIn } from "src/lib/builder/chosen-options";
 
 // A High Elf Wizard with a Sage background — exercises racial ASIs (race +
 // subrace), class saving throws / skill choices, level-1 spellcasting, and a
@@ -375,5 +376,56 @@ describe("wizard choices added by the coverage audit", () => {
       chosenOptions: { draconicAncestry: ["Blue (lightning)"] },
     });
     expect(c.damageModifiers.resistances).toContain(DamageType.Lightning);
+  });
+});
+
+describe("level-1 chosen options", () => {
+  it("applies a ranger's level-1 favored enemy and terrain", () => {
+    const char = level1("ranger", {
+      chosenOptions: {
+        favoredEnemy: ["Dragons"],
+        naturalExplorer: ["Forest"],
+      },
+    });
+    expect(chosenIn(char, "favoredEnemy").map((o) => o.name)).toEqual([
+      "Dragons",
+    ]);
+    expect(chosenIn(char, "naturalExplorer").map((o) => o.name)).toEqual([
+      "Forest",
+    ]);
+  });
+
+  it("drops picks the chosen class doesn't grant at level 1", () => {
+    // Switching class mid-wizard can leave a stale pick in the working state.
+    const char = level1("fighter", {
+      chosenOptions: { favoredEnemy: ["Dragons"] },
+    });
+    expect(char.chosenOptions ?? []).toEqual([]);
+  });
+});
+
+describe("the unified grant path", () => {
+  it("doesn't list a pool-backed feature twice", () => {
+    const c = level1("barbarian");
+    // Rage is a limited-use pool with its own description; before the two
+    // wizards shared a grant path, creation also pushed it into Features.
+    expect(c.limitedUseAbilities.map((a) => a.info.title)).toContain("Rage");
+    expect(c.features.map((f) => f.title)).not.toContain("Rage");
+  });
+
+  it("still grants the class's non-pooled level-1 features", () => {
+    const c = level1("rogue");
+    const titles = c.features.map((f) => f.title);
+    expect(titles).toEqual(
+      expect.arrayContaining(["Sneak Attack", "Thieves' Cant"]),
+    );
+  });
+
+  it("applies a level-1 subclass's grants through the shared path", () => {
+    const c = level1("cleric", { subclass: "Life" });
+    expect(c.features.map((f) => f.title)).toContain("Disciple of Life");
+    // Domain spells land in the spell buckets, which buildSpells fills first.
+    const first = (c.spells[1] ?? []).map((s) => s.info.title);
+    expect(first).toEqual(expect.arrayContaining(["Bless", "Cure Wounds"]));
   });
 });
