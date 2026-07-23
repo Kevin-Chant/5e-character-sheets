@@ -29,6 +29,7 @@ import EditClassLevels from "./edit-class-levels";
 import Spellcasting from "./spellcasting";
 import EditSpell from "./edit-spell";
 import EditLimitedUseAbility from "./edit-limited-use-ability";
+import EditChosenOptions from "./edit-chosen-options";
 import EditSkills from "./edit-skills";
 import EditRace from "./edit-race";
 import EditSpeeds from "./edit-speeds";
@@ -123,10 +124,15 @@ export default function CharSheet() {
           (subField || "").includes("Formulas") ? "formula" : "equipment",
         );
       } else if (standardFieldType === "limitedUseAbility") {
-        // Formula sub-paths (info title/detail formulas, and the maxUses
-        // formula itself) open the formula builder; otherwise the ability editor.
+        // Formula sub-paths (info title/detail formulas, the maxUses formula,
+        // and the save DC) open the formula builder; otherwise the ability
+        // editor.
         const sf = subField || "";
-        if (sf.includes("Formulas") || sf.endsWith("maxUses")) {
+        if (
+          sf.includes("Formulas") ||
+          sf.endsWith("maxUses") ||
+          sf.endsWith("save.dc")
+        ) {
           setModalType("formula");
         } else {
           setModalType("limitedUseAbility");
@@ -205,6 +211,10 @@ export default function CharSheet() {
     case "limitedUseAbility":
       modalContents = <EditLimitedUseAbility />;
       modalTitle = "Edit Ability";
+      break;
+    case "chosenOptions":
+      modalContents = <EditChosenOptions />;
+      modalTitle = "Class Options";
       break;
     case "editSkills":
       modalContents = <EditSkills />;

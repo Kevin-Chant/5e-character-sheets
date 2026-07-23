@@ -8,7 +8,9 @@ import {
   applyTotalRiders,
   critThreshold,
   extraDamageRiders,
+  flatBonusRiders,
   hitDieHealing,
+  riderFlatBonus,
   riderMinimumTotal,
   ridersFor,
 } from "./riders";
@@ -121,6 +123,52 @@ describe("total riders", () => {
     expect(applyTotalRiders(1, riders, structuredClone(defaultCharacter))).toBe(
       7,
     );
+  });
+
+  it("an opt-in bonus never folds silently", () => {
+    const riders: ActiveRider[] = [
+      { source: "always", rider: { rider: "bonus", value: 2 } },
+      {
+        source: "conditional",
+        rider: { rider: "bonus", value: 5, optional: true, note: "if…" },
+      },
+    ];
+    const c = structuredClone(defaultCharacter);
+    // Only the unconditional one lands in the fold …
+    expect(applyTotalRiders(10, riders, c)).toBe(12);
+    // … while the split hands the other to the dialog to offer.
+    const { always, optional } = flatBonusRiders(riders);
+    expect(always.map((r) => r.source)).toEqual(["always"]);
+    expect(optional.map((r) => r.source)).toEqual(["conditional"]);
+    // Summing an explicitly-chosen set does include it.
+    expect(riderFlatBonus([...always, ...optional], c)).toBe(7);
+  });
+});
+
+describe("fighting style numerics", () => {
+  it("Archery offers an opt-in +2 on attack rolls only", () => {
+    const c = withFeatures("Archery");
+    const { always, optional } = flatBonusRiders(ridersFor(c, "attack"));
+    expect(always).toHaveLength(0);
+    expect(optional).toHaveLength(1);
+    expect(optional[0].rider.value).toBe(2);
+    expect(optional[0].rider.note).toBe("ranged weapons only");
+    // Not a damage or check rider.
+    expect(flatBonusRiders(ridersFor(c, "damage")).optional).toHaveLength(0);
+    expect(flatBonusRiders(ridersFor(c, "check")).optional).toHaveLength(0);
+  });
+
+  it("Dueling is an opt-in flat +2 of extra damage", () => {
+    const c = withFeatures("Dueling");
+    const extras = extraDamageRiders(c).filter((r) => r.source === "Dueling");
+    expect(extras).toHaveLength(1);
+    const rider = extras[0].rider as Extract<
+      (typeof extras)[0]["rider"],
+      { rider: "extraDamage" }
+    >;
+    expect(rider.amount).toBe(2);
+    expect(rider.optional).toBe(true);
+    expect(rider.declareAt).toBe("on-hit");
   });
 });
 

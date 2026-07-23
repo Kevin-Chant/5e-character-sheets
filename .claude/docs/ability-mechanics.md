@@ -32,6 +32,30 @@ effects on every edit. Amounts round-trip through the `SimpleAmount` codec
 per-level tables, `plusLevelOf`) render read-only as "(formula)" rather than
 being mangled. Rider authoring is data-only for now (no UI).
 
+## Chosen options (`ChosenOption`)
+
+`Character.chosenOptions?: ChosenOption[]` (`{category, name, detail?}`) holds
+picks from a class's **closed** option lists — Metamagic, Battle Master
+maneuvers, Pact Boon. What makes these their own model rather than `features` is
+the pairing of a closed list with a **known count**, which is what lets the sheet
+show "3 / 5 known" and offer only the unpicked rest. The catalog lives in
+`src/lib/builder/chosen-options.ts`; `availableOptionGroups(character)` returns
+the groups a character qualifies for (class, subclass, and level threshold all
+gate it) with their current allowance.
+
+**Fighting styles and eldritch invocations deliberately stay in `features`.**
+Rider matching keys off feature titles, so moving them would silently unhook
+Great Weapon Fighting, Archery, and Dueling. `ridersFor` _does_ also scan chosen
+options by name against the same title-keyed catalog, so an option that later
+gains mechanics works without being moved — and the field isn't inert.
+
+Licensing note: Metamagic and Pact Boon are SRD (base-class features); the Battle
+Master is **not**, so its maneuver summaries are original paraphrases of
+mechanical facts only, per the rule in `nonsrd-classes.ts`.
+
+Not yet wired: the level-up wizard doesn't prompt for these, so a new pick shows
+as an unfilled "2 / 3 known" on the sheet until the player opens the picker.
+
 ## Save DCs (`SaveEffect`)
 
 Non-spell DCs live in one shared shape, `SaveEffect` in `src/lib/types.ts`,
@@ -85,6 +109,33 @@ whose title would collide with the Lucky feat). Title matching is the identity
 bridge — the same one Durable detection and the builder already use — and can
 be replaced by a structured field on the character later without touching the
 interpreters.
+
+### Flat `bonus` riders and the two conditional shapes
+
+A `bonus` rider is a flat addition. Where it lands depends on the roll kind, and
+the split matters:
+
+- **d20 rolls fold it into the _modifier_, not the total.** `applyTotalRiders`
+  floors at 0 (correct for damage/healing/hit dice), which would be wrong for a
+  check — so `CheckControls` adds the bonus to the modifier before rolling, and
+  the displayed `d20 +N` reflects it.
+- **Damage/healing totals** go through `applyTotalRiders`, which folds only the
+  **unconditional** bonuses. An `optional` one needs the player to say yes,
+  which is a dialog decision, so it's excluded from the silent fold —
+  `flatBonusRiders` splits them for exactly this.
+
+The two numeric fighting styles show the two shapes a conditional bonus takes,
+and which to reach for:
+
+| Style   | Modelled as               | Why                                                                                     |
+| ------- | ------------------------- | --------------------------------------------------------------------------------------- |
+| Archery | `bonus`, `optional`       | It's a to-hit bonus, and the sheet can't tell a ranged weapon from a thrown melee one   |
+| Dueling | `extraDamage`, `optional` | It's damage; that section already offers opt-in, and a flat amount stays flat on a crit |
+
+Both are opt-in rather than always-on for the same reason Sneak Attack is: the
+eligibility is a weapon property the sheet doesn't model. (Defense and Great
+Weapon Fighting stay auto-applied — the former folds +1 into `acFormula` at
+grant time, the latter is an unconditional reroll rider.)
 
 ### `extraDamage`: the one contextual rider
 

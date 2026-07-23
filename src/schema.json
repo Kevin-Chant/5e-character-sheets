@@ -307,6 +307,24 @@
             ],
             "type": "object"
         },
+        "ChosenOption": {
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "category",
+                "name"
+            ],
+            "type": "object"
+        },
         "ClassLevel": {
             "properties": {
                 "classLevel": {
@@ -1213,6 +1231,12 @@
                 },
                 {
                     "properties": {
+                        "note": {
+                            "type": "string"
+                        },
+                        "optional": {
+                            "type": "boolean"
+                        },
                         "rider": {
                             "const": "bonus",
                             "type": "string"
@@ -2061,6 +2085,12 @@
         },
         "background": {
             "type": "string"
+        },
+        "chosenOptions": {
+            "items": {
+                "$ref": "#/definitions/ChosenOption"
+            },
+            "type": "array"
         },
         "class": {
             "items": {

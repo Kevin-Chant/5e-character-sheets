@@ -717,7 +717,17 @@ export type RollRider =
   // (Great Weapon Fighting's 1s and 2s, Halfling Luck's natural 1s).
   | { rider: "rerollBelow"; threshold: number }
   // Flat addition to the total.
-  | { rider: "bonus"; value: CustomFormula }
+  | {
+      rider: "bonus";
+      value: CustomFormula;
+      // Conditional bonuses — Archery's "ranged weapons only" — depend on
+      // weapon properties the sheet doesn't model, so they're offered as an
+      // opt-in checkbox on the roll rather than folded silently. Omit for an
+      // unconditional bonus, which folds into the modifier with no prompt.
+      optional?: boolean;
+      // The condition, shown alongside the checkbox.
+      note?: string;
+    }
   // d20s at or above this crit (Improved Critical's 19).
   | { rider: "critRange"; value: number }
   // Advisory only — surfaced as a note, since advantage is situational.
@@ -782,6 +792,29 @@ export interface FeatureRider {
 export interface FeatureMechanics {
   riders?: FeatureRider[];
   actions?: AbilityAction[];
+}
+
+// One option picked from a list a class offers a fixed number of choices from:
+// a Metamagic option, a Battle Master maneuver, a warlock's Pact Boon. These
+// differ from `features` in that they come from a *closed* list with a known
+// "how many you know" count, which is what lets the sheet show "3 / 5 known"
+// and offer the remaining options as a picker.
+//
+// Fighting styles and eldritch invocations deliberately stay in `features`
+// instead: rider matching keys off feature titles (see `ridersFor`), so moving
+// them would silently unhook Great Weapon Fighting and friends. `ridersFor` does
+// also scan chosen options by name, so an option that later gains mechanics
+// works without moving it.
+export interface ChosenOption {
+  // Which list it came from, matching an `OptionGroup.category` — the sheet
+  // groups by this and uses it to find the group's rules.
+  category: string;
+  // The option's name, e.g. "Twinned Spell". The identity key: catalog lookups
+  // and rider matching both go through it.
+  name: string;
+  // An original paraphrase of what it does, copied from the catalog at pick
+  // time so the sheet reads standalone. Editable, and free-text for homebrew.
+  detail?: string;
 }
 
 // A feature with a finite, refreshing pool of uses: Sorcery Points, a racial
@@ -909,6 +942,9 @@ export interface Character {
   spellSlots: SpellSlots;
   pactSlots?: PactSlots;
   limitedUseAbilities: LimitedUseAbility[];
+  // Named options picked from a fixed list a class offers — Metamagic, Battle
+  // Master maneuvers, a warlock's Pact Boon. Optional so old saves validate.
+  chosenOptions?: ChosenOption[];
 }
 
 export type CharacterField = keyof Character;

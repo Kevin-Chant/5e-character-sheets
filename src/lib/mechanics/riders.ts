@@ -1,5 +1,5 @@
 import { calculateCustomFormula } from "src/lib/formula";
-import { Character } from "src/lib/types";
+import { Character, RollRider } from "src/lib/types";
 import {
   classDamageRiders,
   FEATURE_MECHANICS,
@@ -29,6 +29,13 @@ export function ridersFor(character: Character, kind: RollKind): ActiveRider[] {
   );
   character.limitedUseAbilities.forEach((a) =>
     collectEntry(mechanicsForAbility(a), a.info.title.trim()),
+  );
+  // Chosen options (Metamagic, maneuvers, Pact Boon) match by name on the same
+  // title-keyed catalog — none carry riders today, but this is what keeps the
+  // field from being inert, and lets an option gain mechanics without moving it
+  // into `features`.
+  character.chosenOptions?.forEach((o) =>
+    collectEntry(FEATURE_MECHANICS[normalizeTitle(o.name)], o.name.trim()),
   );
   const race = normalizeTitle(character.race.name);
   Object.entries(RACE_MECHANICS).forEach(([key, entry]) => {
@@ -102,7 +109,34 @@ export function riderMinimumTotal(
   );
 }
 
-// Flat additions to the total.
+// A `bonus` rider with its source, narrowed out of the `RollRider` union.
+export interface FlatBonusRider {
+  source: string;
+  rider: Extract<RollRider, { rider: "bonus" }>;
+}
+
+// The `bonus` riders in play, split by whether the sheet can apply them on its
+// own. Unconditional ones fold silently; `optional` ones name a condition the
+// sheet can't verify (Archery's ranged-weapons-only) and are offered as a
+// checkbox, in the same spirit as an opt-in `extraDamage`.
+export function flatBonusRiders(riders: ActiveRider[]): {
+  always: FlatBonusRider[];
+  optional: FlatBonusRider[];
+} {
+  const always: FlatBonusRider[] = [];
+  const optional: FlatBonusRider[] = [];
+  for (const r of riders) {
+    if (r.rider.rider !== "bonus") continue;
+    // Narrowed here so the dialog can read `value`/`note` without re-casting.
+    const entry = { source: r.source, rider: r.rider };
+    (r.rider.optional ? optional : always).push(entry);
+  }
+  return { always, optional };
+}
+
+// Flat additions to the total. Sums every `bonus` rider it's handed — callers
+// decide which are in play (see `flatBonusRiders`), so an opt-in bonus never
+// applies just by existing.
 export function riderFlatBonus(
   riders: ActiveRider[],
   character: Character,
@@ -116,10 +150,12 @@ export function riderFlatBonus(
   );
 }
 
-// Fold the total-level riders into a finished roll. Note the implicit floor
-// at 0 (riderMinimumTotal's base) — correct for the damage/healing/hit-die
+// Fold the total-level riders into a finished roll: raise to any minimum, then
+// add the unconditional flat bonuses (an `optional` one needs the player to opt
+// in, which is a dialog decision, so it's excluded here). Note the implicit
+// floor at 0 (riderMinimumTotal's base) — correct for the damage/healing/hit-die
 // totals this is meant for, so don't use it on d20 checks, whose totals can
-// legitimately be negative and whose riders are all die-level.
+// legitimately be negative and whose bonuses fold into the modifier instead.
 export function applyTotalRiders(
   total: number,
   riders: ActiveRider[],
@@ -127,7 +163,7 @@ export function applyTotalRiders(
 ): number {
   return (
     Math.max(total, riderMinimumTotal(riders, character)) +
-    riderFlatBonus(riders, character)
+    riderFlatBonus(flatBonusRiders(riders).always, character)
   );
 }
 

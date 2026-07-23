@@ -272,6 +272,7 @@ export type FieldTypeNode =
   | "senses"
   | "ammunition"
   | "equipment"
+  | "chosenOptions"
   | typeof Alignment
   | typeof StatKey;
 export type FieldTypeInfo = Record<string, FieldTypeNode>;
@@ -352,6 +353,7 @@ export const STANDARD_EDITABLE_FIELD_TYPES: FieldTypeInfo = {
   spellSlots: "number",
   pactSlots: "number",
   limitedUseAbilities: "limitedUseAbility",
+  chosenOptions: "chosenOptions",
 };
 
 export enum Operation {
@@ -419,6 +421,7 @@ export enum FIELD {
   spellSlots = "spellSlots",
   pactSlots = "pactSlots",
   limitedUseAbilities = "limitedUseAbilities",
+  chosenOptions = "chosenOptions",
 }
 
 export const HIT_DICE: Record<OfficialClass, StandardDie> = {

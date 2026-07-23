@@ -3170,6 +3170,56 @@ button.slot-pip:hover:not(:disabled) {
 .limited-use-save-dc {
   color: var(--accent);
 }
+
+/* Class options (Metamagic, maneuvers, Pact Boon): a group per category, each a
+   header row plus a wrapping row of picked-option chips. */
+.chosen-options {
+  gap: 0.75rem;
+}
+.chosen-option-group {
+  gap: 0.35rem;
+  align-items: center;
+}
+.chosen-option-header {
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+}
+/* An incomplete pick is worth noticing — you're owed a choice. */
+.chosen-option-pending {
+  color: var(--danger);
+}
+.chosen-option-list {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+.chosen-option {
+  cursor: default;
+}
+/* The picker: one checkbox row per option, name + summary on a single line. */
+.edit-chosen-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  min-width: min(560px, 80vw);
+}
+.chosen-option-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.chosen-option-choice {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.chosen-option-choice input:disabled + span {
+  opacity: 0.5;
+}
 .roll-part {
   font-size: 0.9rem;
 }

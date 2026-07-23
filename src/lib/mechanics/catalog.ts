@@ -186,6 +186,42 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
+  // Archery style: +2 to attack rolls with ranged weapons. Opt-in rather than
+  // folded silently — the sheet doesn't model whether a given attack is with a
+  // ranged weapon (a thrown melee weapon has a range too), so the player says.
+  archery: {
+    riders: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "bonus",
+          value: 2,
+          optional: true,
+          note: "ranged weapons only",
+        },
+      },
+    ],
+  },
+
+  // Dueling style: +2 damage with a one-handed melee weapon while no other
+  // weapon is held. An `extraDamage` rider rather than a `bonus` one because
+  // that's the shape the damage section already offers opt-in — and a flat
+  // amount correctly stays flat on a crit (only dice double).
+  dueling: {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "extraDamage",
+          amount: 2,
+          declareAt: "on-hit",
+          optional: true,
+          note: "one-handed melee weapon, no other weapon held",
+        },
+      },
+    ],
+  },
+
   // Champion fighter's expanded crit ranges.
   "improved critical": {
     riders: [

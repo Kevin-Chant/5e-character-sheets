@@ -23,9 +23,12 @@ import {
 import { availableSpellSlots, remainingHitDice } from "src/lib/rules";
 import {
   advantageNotes,
+  applyTotalRiders,
   critThreshold,
   extraDamageRiders,
+  flatBonusRiders,
   hitDieHealing,
+  riderFlatBonus,
   ridersFor,
 } from "src/lib/mechanics/riders";
 import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
@@ -220,10 +223,21 @@ function CheckControls({
   const [result, setResult] = useState<ReturnType<typeof rollD20Check> | null>(
     null,
   );
+  // Flat `bonus` riders fold into the modifier rather than the total — a d20
+  // check's total can legitimately be negative, so `applyTotalRiders` (which
+  // floors at 0) is the wrong tool here. Unconditional ones always apply;
+  // conditional ones (Archery) wait for the player to tick them.
+  const { always, optional } = useMemo(() => flatBonusRiders(riders), [riders]);
+  const [chosenBonuses, setChosenBonuses] = useState<Set<string>>(new Set());
+  const activeBonus = riderFlatBonus(
+    [...always, ...optional.filter((r) => chosenBonuses.has(r.source))],
+    character,
+  );
+  const effectiveModifier = modifier + activeBonus;
   const threshold = critThreshold(riders);
   const roll = (mode: CheckMode) => {
     const rolled = rollD20Check(
-      modifier,
+      effectiveModifier,
       mode,
       riders,
       // Only an attack's crit stacks damage, and only when the table opted in.
@@ -235,7 +249,28 @@ function CheckControls({
   return (
     <div className="column roll-section">
       {label && <p className="roll-section-title">{label}</p>}
-      <p className="roll-formula">d20 {signed(modifier)}</p>
+      <p className="roll-formula">d20 {signed(effectiveModifier)}</p>
+      {optional.map((r) => (
+        <label key={r.source} className="row roll-extra-toggle">
+          <input
+            type="checkbox"
+            checked={chosenBonuses.has(r.source)}
+            onChange={(e) =>
+              setChosenBonuses((prev) => {
+                const next = new Set(prev);
+                if (e.target.checked) next.add(r.source);
+                else next.delete(r.source);
+                return next;
+              })
+            }
+          />
+          <span>
+            {r.source} (+
+            {formatCustomFormula(r.rider.value, character, false)})
+            {r.rider.note ? ` — ${r.rider.note}` : ""}
+          </span>
+        </label>
+      ))}
       <div className="row roll-modes">
         <button
           aria-label="Roll with disadvantage"
@@ -442,12 +477,8 @@ function EffectControls({
       ? { mode: criticalDamageMode, extraSets }
       : undefined;
   const rollDamageEffect = () => {
-    const parts = rollDamage(
-      map,
-      character,
-      ridersFor(character, "damage"),
-      crit,
-    );
+    const damageRiders = ridersFor(character, "damage");
+    const parts = rollDamage(map, character, damageRiders, crit);
     // Fold in each active fixed extra: every always-on rider, plus opt-in ones
     // the player checked. Rolled on its own line so the source and type show.
     const extraResults = extras
@@ -486,9 +517,14 @@ function EffectControls({
         damageType: slotExtra.rider.damageType,
       });
     }
-    const total =
+    // Total-level riders (a minimum, an unconditional flat bonus) fold last,
+    // over the weapon/spell dice and every extra alike.
+    const total = applyTotalRiders(
       parts.reduce((s, p) => s + p.total, 0) +
-      extraResults.reduce((s, e) => s + e.total, 0);
+        extraResults.reduce((s, e) => s + e.total, 0),
+      damageRiders,
+      character,
+    );
     setDamageResult({ parts, extras: extraResults, total, critical: crit });
   };
   // Spend the chosen slot that powers the smite (an explicit, one-time commit,
@@ -504,12 +540,12 @@ function EffectControls({
   };
   const rollHealEffect = () => {
     const dice: number[] = [];
+    const healingRiders = ridersFor(character, "healing");
     setHealResult({
-      total: rollFormula(
-        healing!,
+      total: applyTotalRiders(
+        rollFormula(healing!, character, dice, healingRiders),
+        healingRiders,
         character,
-        dice,
-        ridersFor(character, "healing"),
       ),
       dice,
     });
