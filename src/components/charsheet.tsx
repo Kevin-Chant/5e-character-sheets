@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import StatAndSkillPanel from "src/components/stat-and-skill-panel";
-import {
-  FIELD,
-  STANDARD_EDITABLE_FIELD_TYPES,
-  FieldTypeNode,
-  StatKey,
-} from "src/lib/data/data-definitions";
+import { FIELD, FieldTypeNode } from "src/lib/data/data-definitions";
+import { resolveModalType } from "src/lib/modal-routing";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { formatClass } from "src/lib/utils";
@@ -55,106 +51,15 @@ export default function CharSheet() {
   const [modalType, setModalType] = useState<FieldTypeNode>();
 
   useEffect(() => {
-    if (targetedField) {
-      setModalIsOpen(true);
-      const standardFieldType = STANDARD_EDITABLE_FIELD_TYPES[targetedField];
-      if (!standardFieldType) throw new Error("Unsupported field type!");
-      if (standardFieldType === "attack" && subField === "new") {
-        setModalType("selectWeapon");
-      } else if (
-        standardFieldType === "attack" &&
-        (subField?.split(".")?.length || 0) > 1
-      ) {
-        if (
-          subField?.split(".")[1] === "formula" &&
-          subField?.split(".").length == 2
-        ) {
-          setModalType("formulaWithDamage");
-        } else {
-          setModalType("formula");
-        }
-      } else if (standardFieldType === "spellcastingClass") {
-        switch (subField?.split(".")[1]) {
-          case "class":
-            setModalType("singleClass");
-            return;
-          case "abilityOverride":
-            setModalType(StatKey);
-            return;
-          case "saveDcOverride":
-          case "attackBonusOverride":
-            setModalType("formula");
-            return;
-          default:
-            throw new Error(
-              "Unexpected subfield for spellcasting class" + subField,
-            );
-        }
-      } else if (
-        targetedField === FIELD.proficiencies &&
-        (subField || "").startsWith("skillBonuses")
-      ) {
-        // Per-skill bonus is a formula living under the (otherwise boolean)
-        // proficiencies field — route it to the formula builder.
-        setModalType("formula");
-      } else if (
-        targetedField === FIELD.proficiencies &&
-        subField === "skills"
-      ) {
-        // The "Skills" heading opens the consolidated skills editor.
-        setModalType("editSkills");
-      } else if (standardFieldType === "otherProficiencies") {
-        // languages/weapons are plain strings; armor is a checkbox set;
-        // toolsAndOther are textLines (with formula sub-paths handled like
-        // other textLine fields).
-        const section = subField?.split(".")[0];
-        if (section === "armor") {
-          setModalType("armorProficiencies");
-        } else if (section === "toolsAndOther") {
-          setModalType(
-            (subField || "").includes("Formulas") ? "formula" : "textLine",
-          );
-        } else {
-          setModalType("string");
-        }
-      } else if (standardFieldType === "equipment") {
-        // Formula sub-paths (name/description {{}} formulas) open the formula
-        // builder; otherwise the item editor.
-        setModalType(
-          (subField || "").includes("Formulas") ? "formula" : "equipment",
-        );
-      } else if (standardFieldType === "limitedUseAbility") {
-        // Formula sub-paths (info title/detail formulas, the maxUses formula,
-        // and the save DC) open the formula builder; otherwise the ability
-        // editor.
-        const sf = subField || "";
-        if (
-          sf.includes("Formulas") ||
-          sf.endsWith("maxUses") ||
-          sf.endsWith("save.dc")
-        ) {
-          setModalType("formula");
-        } else {
-          setModalType("limitedUseAbility");
-        }
-      } else if (
-        standardFieldType === "spell" &&
-        (subField || "").endsWith(".new")
-      ) {
-        // e.g. "cantrips.new" / "First.new": open the SRD spell browser rather
-        // than an empty editor (mirrors the "attacks/new" → selectWeapon path).
-        setModalType("selectSpell");
-      } else if (
-        (standardFieldType === "textLine" || standardFieldType === "spell") &&
-        (subField || "").includes("Formulas")
-      ) {
-        setModalType("formula");
-      } else {
-        setModalType(standardFieldType);
-      }
-    } else {
+    if (!targetedField) {
       setModalIsOpen(false);
+      return;
     }
+    setModalIsOpen(true);
+    // Which editor a field + sub-path opens is a pure decision, and lives in
+    // `modal-routing.ts` with a test per rule. This effect only has to open the
+    // modal; the switch below maps the answer to a component.
+    setModalType(resolveModalType(targetedField, subField));
   }, [targetedField, subField]);
 
   const { character } = useCharacter();
