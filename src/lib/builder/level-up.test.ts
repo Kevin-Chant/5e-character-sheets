@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ArmorType,
+  DamageType,
   OfficialClass,
   SkillName,
   StatKey,
@@ -18,6 +19,7 @@ import {
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import { chosenIn, newOptionPicksAt } from "src/lib/builder/chosen-options";
+import { expertiseDueAt } from "src/lib/builder/class-features";
 import { getPB } from "src/lib/rules";
 import { calculateCustomFormula } from "src/lib/formula";
 import { PB } from "src/lib/data/data-definitions";
@@ -350,5 +352,62 @@ describe("buildCharacter — level-1 chosen options", () => {
       chosenOptions: { favoredEnemy: ["Dragons"] },
     });
     expect(char.chosenOptions ?? []).toEqual([]);
+  });
+});
+
+describe("level-up choices added by the coverage audit", () => {
+  it("grants expertise at the levels the class allows, and only then", () => {
+    expect(expertiseDueAt("Rogue", 1)).toBe(2);
+    expect(expertiseDueAt("Rogue", 6)).toBe(2);
+    expect(expertiseDueAt("Bard", 3)).toBe(2);
+    expect(expertiseDueAt("Rogue", 2)).toBe(0);
+    expect(expertiseDueAt("Fighter", 6)).toBe(0);
+
+    let char = level1("rogue");
+    // 1st → 6th; only the 6th-level step should take the picks.
+    for (const _ of [2, 3, 4, 5]) {
+      void _;
+      char = applyLevelUp(char, {
+        ...defaultLevelUpState(char),
+        className: "Rogue",
+        expertiseChoices: [SkillName.Perception],
+      });
+      expect(char.proficiencies.expertise[SkillName.Perception]).toBeFalsy();
+    }
+    char = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Rogue",
+      expertiseChoices: [SkillName.Perception],
+    });
+    expect(char.proficiencies.expertise[SkillName.Perception]).toBe(true);
+  });
+
+  it("swaps out a known spell, leaving the rest in place", () => {
+    const char = level1("bard", {
+      levelOneSpellIndices: ["cure-wounds", "healing-word"],
+    });
+    const before = (char.spells[1] ?? []).map((s) => s.info.title);
+    expect(before.length).toBeGreaterThan(1);
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Bard",
+      swapSpell: "1.0",
+    });
+    const after = (leveled.spells[1] ?? []).map((s) => s.info.title);
+    expect(after).not.toContain(before[0]);
+    expect(after).toContain(before[1]);
+    expect(after).toHaveLength(before.length - 1);
+  });
+
+  it("a draconic ancestry picked at level-up confers its resistance", () => {
+    const char = level1("fighter");
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Sorcerer",
+      isNewMulticlass: true,
+      subclass: "Draconic Bloodline",
+      chosenOptions: { draconicAncestry: ["White (cold)"] },
+    });
+    expect(leveled.damageModifiers.resistances).toContain(DamageType.Cold);
   });
 });

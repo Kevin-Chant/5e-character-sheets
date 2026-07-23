@@ -1,19 +1,18 @@
-import { uniq } from "lodash";
 import { Character } from "src/lib/types";
 import {
   OfficialClass,
   SkillName,
   StatKey,
+  spellLevelLabel,
 } from "src/lib/data/data-definitions";
-import { getPB, maxSpellLevelForClass } from "src/lib/rules";
+import { getPB, isPreparedCaster, maxSpellLevelForClass } from "src/lib/rules";
 import {
   ELDRITCH_INVOCATIONS,
+  expertiseDueAt,
   fightingStyleDueAt,
   getFightingStyle,
   newInvocationsAt,
 } from "src/lib/builder/class-features";
-import { WEAPON_PRESETS } from "src/lib/data/weapon-presets";
-import { getSrdSpell } from "src/lib/spells/srd-spells";
 import {
   LevelUpState,
   MULTICLASS_PREREQS,
@@ -32,17 +31,15 @@ import {
   Choice,
   ChoiceGrid,
   ChosenOptionPicker,
+  FeatPicker,
   Field,
   STAT_LABEL,
+  SpellChecklist,
 } from "./builder-common";
-import { SpellChecklist } from "./builder-steps";
 
 // Real skills (the SkillName enum also carries "Thieves Tools", a tool).
 const SKILL_OPTIONS = Object.values(SkillName).filter(
   (s) => s !== SkillName["Thieves Tools"],
-);
-const WEAPON_OPTIONS = WEAPON_PRESETS.flatMap((g) =>
-  g.options.map((w) => w.name),
 );
 
 export interface LevelUpStepProps {
@@ -164,6 +161,16 @@ export function LevelUpFeatureChoicesStep({
     state.subclass ??
     character.class.find((k) => k.name === state.className)?.subclass;
   const newPicks = newOptionPicksAt(state.className, level, subclass);
+  // Expertise doubles an existing proficiency, so the options are the skills
+  // the character already has — minus the ones already doubled.
+  const newExpertise = expertiseDueAt(state.className, level);
+  const expertiseOptions = (
+    Object.keys(character.proficiencies.skills) as SkillName[]
+  ).filter(
+    (s) =>
+      character.proficiencies.skills[s] &&
+      !character.proficiencies.expertise[s],
+  );
 
   return (
     <div className="builder-step">
@@ -223,6 +230,19 @@ export function LevelUpFeatureChoicesStep({
               ),
             )}
           </div>
+        </Field>
+      )}
+      {newExpertise > 0 && (
+        <Field
+          label={`Expertise (choose ${newExpertise})`}
+          hint="Double your proficiency bonus for these. Only skills you're already proficient in."
+        >
+          <ChipMultiSelect<SkillName>
+            options={expertiseOptions}
+            selected={state.expertiseChoices}
+            max={newExpertise}
+            onChange={(expertiseChoices) => patch({ expertiseChoices })}
+          />
         </Field>
       )}
       {newPicks.map(({ group, count }) => (
@@ -292,201 +312,6 @@ function AsiPicker({ state, patch }: LevelUpStepProps) {
   );
 }
 
-// Skills the character is already proficient in / already has expertise in.
-const proficientSkillsOf = (character: Character): SkillName[] =>
-  SKILL_OPTIONS.filter((s) => character.proficiencies.skills[s]);
-const expertiseSkillsOf = (character: Character): SkillName[] =>
-  SKILL_OPTIONS.filter((s) => character.proficiencies.expertise[s]);
-
-function FeatPicker({ character, state, patch }: LevelUpStepProps) {
-  const feat = FEATS.find((f) => f.index === state.featIndex);
-  const grants = feat?.grants;
-  // The names of any always-granted spells, for an informational line.
-  const fixedSpellNames = [
-    ...(grants?.fixedCantrips ?? []),
-    ...(grants?.fixedSpells ?? []),
-  ]
-    .map((i) => getSrdSpell(i)?.name)
-    .filter(Boolean);
-
-  // A new skill proficiency must be one you don't already have. Expertise can
-  // only apply to a skill you're proficient in — your existing proficiencies
-  // plus any skill you're gaining from this same feat — and not one you already
-  // have expertise in.
-  const alreadyProficient = proficientSkillsOf(character);
-  const alreadyExpert = expertiseSkillsOf(character);
-  const skillOptions = SKILL_OPTIONS.filter(
-    (s) => !alreadyProficient.includes(s),
-  );
-  const expertiseOptions = uniq([
-    ...alreadyProficient,
-    ...state.featSkillChoices,
-  ]).filter((s) => !alreadyExpert.includes(s));
-
-  // When the chosen skill changes, drop any expertise pick that's no longer a
-  // valid target (e.g. it was the skill just deselected).
-  const setSkillChoices = (featSkillChoices: SkillName[]) => {
-    const valid = new Set<SkillName>([
-      ...alreadyProficient,
-      ...featSkillChoices,
-    ]);
-    patch({
-      featSkillChoices,
-      featExpertiseChoices: state.featExpertiseChoices.filter((s) =>
-        valid.has(s),
-      ),
-    });
-  };
-
-  return (
-    <>
-      <Field label="Feat">
-        <select
-          className="builder-input"
-          value={state.featIndex ?? ""}
-          onChange={(e) =>
-            patch({
-              featIndex: e.target.value || undefined,
-              featAbilityChoice: undefined,
-              ...emptyFeatChoices(),
-            })
-          }
-        >
-          <option value="">Choose a feat…</option>
-          {FEATS.map((f) => (
-            <option key={f.index} value={f.index}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      {feat && (
-        <>
-          {feat.prerequisite && (
-            <p className="text-muted builder-hint">
-              Prerequisite: {feat.prerequisite}
-            </p>
-          )}
-          <p className="builder-hint">{feat.effect}</p>
-
-          {/* Half-feat ability increase. A single fixed stat is shown as a
-              static line so the +1 is never invisible; a choice of stats gets a
-              picker. */}
-          {feat.abilityIncrease &&
-            (feat.abilityIncrease.from.length > 1 ? (
-              <Field
-                label={`Ability score increase (+${feat.abilityIncrease.by})`}
-              >
-                <select
-                  className="builder-input"
-                  value={
-                    state.featAbilityChoice ?? feat.abilityIncrease.from[0]
-                  }
-                  onChange={(e) =>
-                    patch({ featAbilityChoice: e.target.value as StatKey })
-                  }
-                >
-                  {feat.abilityIncrease.from.map((s) => (
-                    <option key={s} value={s}>
-                      {STAT_LABEL[s]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : (
-              <Field label="Ability score increase">
-                <p className="builder-hint">
-                  +{feat.abilityIncrease.by}{" "}
-                  {STAT_LABEL[feat.abilityIncrease.from[0]]}
-                </p>
-              </Field>
-            ))}
-
-          {grants?.chooseSkills && (
-            <Field
-              label={`Skill proficiency (choose ${grants.chooseSkills})`}
-              hint="Skills you're already proficient in are hidden."
-            >
-              <ChipMultiSelect
-                options={skillOptions}
-                selected={state.featSkillChoices}
-                max={grants.chooseSkills}
-                onChange={setSkillChoices}
-              />
-            </Field>
-          )}
-
-          {grants?.chooseExpertise && (
-            <Field
-              label={`Expertise (choose ${grants.chooseExpertise})`}
-              hint={
-                expertiseOptions.length
-                  ? "Only skills you're proficient in (including any chosen above) can gain expertise."
-                  : "Choose a skill proficiency above first — expertise applies to a skill you're proficient in."
-              }
-            >
-              <ChipMultiSelect
-                options={expertiseOptions}
-                selected={state.featExpertiseChoices}
-                max={grants.chooseExpertise}
-                onChange={(featExpertiseChoices) =>
-                  patch({ featExpertiseChoices })
-                }
-              />
-            </Field>
-          )}
-
-          {grants?.chooseWeapons && (
-            <Field
-              label={`Weapon proficiencies (choose ${grants.chooseWeapons})`}
-            >
-              <ChipMultiSelect
-                options={WEAPON_OPTIONS.filter(
-                  (w) => !character.otherProficiencies.weapons.includes(w),
-                )}
-                selected={state.featWeaponChoices}
-                max={grants.chooseWeapons}
-                onChange={(featWeaponChoices) => patch({ featWeaponChoices })}
-              />
-            </Field>
-          )}
-
-          {fixedSpellNames.length > 0 && (
-            <p className="text-muted builder-hint">
-              You also learn: {fixedSpellNames.join(", ")}.
-            </p>
-          )}
-
-          {grants?.chooseSpells?.map(({ level, count }) => (
-            <Field
-              key={level}
-              label={
-                level === 0
-                  ? `Cantrips (choose ${count})`
-                  : `Level ${level} spells (choose ${count})`
-              }
-            >
-              <SpellChecklist
-                level={level}
-                selected={state.featSpellChoices[level] ?? []}
-                max={count}
-                onChange={(indices) =>
-                  patch({
-                    featSpellChoices: {
-                      ...state.featSpellChoices,
-                      [level]: indices,
-                    },
-                  })
-                }
-              />
-            </Field>
-          ))}
-        </>
-      )}
-    </>
-  );
-}
-
 export function LevelUpAdvancementStep(props: LevelUpStepProps) {
   const { state, patch } = props;
   return (
@@ -518,7 +343,17 @@ export function LevelUpAdvancementStep(props: LevelUpStepProps) {
           <AsiPicker {...props} />
         </>
       ) : (
-        <FeatPicker {...props} />
+        <FeatPicker
+          state={props.state}
+          patch={props.patch}
+          proficientSkills={SKILL_OPTIONS.filter(
+            (s) => props.character.proficiencies.skills[s],
+          )}
+          expertSkills={SKILL_OPTIONS.filter(
+            (s) => props.character.proficiencies.expertise[s],
+          )}
+          knownWeapons={props.character.otherProficiencies.weapons}
+        />
       )}
     </div>
   );
@@ -547,6 +382,24 @@ export function LevelUpSpellsStep({
   const setLevel = (numeric: number, indices: string[]) =>
     patch({ newSpells: { ...state.newSpells, [numeric]: indices } });
 
+  // Known casters may replace one spell they know each level; prepared casters
+  // (cleric, druid, wizard, paladin, artificer) re-prepare daily instead, so
+  // there's nothing to swap.
+  const canSwap = !isPreparedCaster(state.className);
+  const knownSpells = canSwap
+    ? Object.entries(character.spells).flatMap(([bucket, list]) =>
+        (list ?? [])
+          .map((spell, i) => ({
+            key: `${bucket}.${i}`,
+            label: `${spell.info.title} (${spellLevelLabel(Number(bucket))})`,
+            classId: spell.spellcastingClass,
+          }))
+          // Only this class's spells — you can't trade a wizard spell away on a
+          // bard level-up.
+          .filter((e) => e.classId === targetKlass?.id),
+      )
+    : [];
+
   return (
     <div className="builder-step">
       <p className="text-muted builder-hint">
@@ -555,6 +408,25 @@ export function LevelUpSpellsStep({
         SRD spells are searchable here; add spells from other books or homebrew
         manually from the sheet afterward.
       </p>
+      {knownSpells.length > 0 && (
+        <Field
+          label="Swap a known spell (optional)"
+          hint="Known casters may replace one spell they know each level."
+        >
+          <select
+            className="builder-input"
+            value={state.swapSpell ?? ""}
+            onChange={(e) => patch({ swapSpell: e.target.value || undefined })}
+          >
+            <option value="">Keep everything</option>
+            {knownSpells.map((e) => (
+              <option key={e.key} value={e.key}>
+                {e.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       {classHasCantrips(state.className) && (
         <Field label="Cantrips">
           <SpellChecklist

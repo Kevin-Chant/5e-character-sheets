@@ -27,13 +27,23 @@ import { CURRENT_SCHEMA_VERSION } from "src/lib/migrations/version";
 import { defaultCharacter } from "src/lib/data/default-data";
 import { BuilderState, CUSTOM_SUBRACE } from "src/lib/builder/types";
 import {
+  expertiseDueAt,
   fightingStyleDueAt,
   getFightingStyle,
   syncMartialArts,
 } from "src/lib/builder/class-features";
-import { newOptionPicksAt } from "src/lib/builder/chosen-options";
+import {
+  newOptionPicksAt,
+  resistancesFromOptions,
+} from "src/lib/builder/chosen-options";
 import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
-import { getSrdRace, getSubrace } from "src/lib/builder/srd-races";
+import {
+  getSrdRace,
+  getSubrace,
+  raceGrantsFeat,
+} from "src/lib/builder/srd-races";
+import { getFeat } from "src/lib/builder/feats";
+import { applyFeat } from "src/lib/builder/level-up";
 import { resolveFinalStats } from "src/lib/builder/resolve";
 import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
 import { getSubclassByName } from "src/lib/builder/subclasses";
@@ -307,6 +317,14 @@ function guidedCharacter(state: BuilderState): Character {
   ]);
   for (const skill of skills) char.proficiencies.skills[skill] = true;
 
+  // Expertise the class grants at level 1 (Rogue's two). Filtered to skills the
+  // character actually ended up proficient in, so reshuffling skill picks can't
+  // leave expertise stranded on a skill they don't have.
+  if (expertiseDueAt(className, 1) > 0)
+    for (const skill of state.classExpertiseChoices)
+      if (char.proficiencies.skills[skill])
+        char.proficiencies.expertise[skill] = true;
+
   // Other proficiencies
   char.otherProficiencies.languages = uniq([
     ...(race?.languages ?? []),
@@ -328,6 +346,13 @@ function guidedCharacter(state: BuilderState): Character {
   const toolLabels = uniqBy(
     [
       ...(klass?.proficiencies.tools ?? []),
+      // Only the picks the class actually offers, so a stale choice left over
+      // from switching class mid-wizard can't leak through.
+      ...(klass?.toolChoices
+        ? state.classToolChoices.filter((t) =>
+            klass.toolChoices!.from.includes(t),
+          )
+        : []),
       ...(race?.proficiencies.tools ?? []),
       ...(subrace?.proficiencies.tools ?? []),
       ...(subclassGrant?.proficiencies?.tools ?? []),
@@ -400,6 +425,13 @@ function guidedCharacter(state: BuilderState): Character {
     }
   }
 
+  // A chosen option can confer a damage resistance (a draconic sorcerer's
+  // ancestry). Merged with the racial ones rather than replacing them.
+  char.damageModifiers.resistances = uniq([
+    ...char.damageModifiers.resistances,
+    ...resistancesFromOptions(char.chosenOptions ?? []),
+  ]);
+
   // Spellcasting
   if (klass && castsAtLevelOne(klass)) {
     char.spellcastingClasses = [{ classId }];
@@ -440,6 +472,14 @@ function guidedCharacter(state: BuilderState): Character {
   }
   otherLines.push(...state.extraEquipment.filter((l) => l.trim()));
   char.equipment = [...classItems, ...otherLines.map((l) => equipmentItem(l))];
+
+  // A level-1 feat, for the two races that grant one. Applied through the same
+  // `applyFeat` the level-up wizard uses, and last of all so its grants layer
+  // over the class/race/background proficiencies rather than being overwritten.
+  if (raceGrantsFeat(race, subrace) && state.featIndex) {
+    const feat = getFeat(state.featIndex);
+    if (feat) applyFeat(char, feat, { ...state, className });
+  }
 
   // The monk's Unarmed Strike, whose damage die is the Martial Arts die. After
   // the loadout, since that's what populates `char.attacks`.

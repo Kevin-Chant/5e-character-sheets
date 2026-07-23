@@ -1,5 +1,5 @@
-import { Ref, useEffect, useMemo, useRef, useState } from "react";
-import { countBy } from "lodash";
+import { Ref, useEffect, useRef, useState } from "react";
+import { countBy, uniq } from "lodash";
 import {
   Alignment,
   SkillName,
@@ -11,6 +11,7 @@ import {
   SRD_RACES,
   getSrdRace,
   getSubrace,
+  raceGrantsFeat,
   subracesForRace,
 } from "src/lib/builder/srd-races";
 import {
@@ -19,6 +20,7 @@ import {
   getSrdClass,
 } from "src/lib/builder/srd-classes";
 import {
+  expertiseDueAt,
   fightingStyleDueAt,
   getFightingStyle,
 } from "src/lib/builder/class-features";
@@ -32,7 +34,6 @@ import {
 import { buildCharacter } from "src/lib/builder/build-character";
 import { newOptionPicksAt } from "src/lib/builder/chosen-options";
 import { calculateCustomFormula } from "src/lib/formula";
-import { searchSrdSpells } from "src/lib/spells/srd-spells";
 import {
   POINT_BUY_BUDGET,
   STAT_ORDER,
@@ -59,11 +60,13 @@ import {
   Choice,
   ChoiceGrid,
   ChosenOptionPicker,
+  FeatPicker,
   Field,
   FilterSearch,
   LanguagePicker,
   LinesInput,
   STAT_LABEL,
+  SpellChecklist,
   StepProps,
   patchPersonality,
 } from "src/components/builder/builder-common";
@@ -312,13 +315,39 @@ export function RaceStep({ state, patch }: StepProps) {
 
       <RaceBonusEditor state={state} patch={patch} innerRef={bonusRef} />
 
-      {race?.skillChoices && (
-        <Field label="Skill proficiencies (from your race)">
-          <ChipMultiSelect<SkillName>
-            options={race.skillChoices.from}
-            selected={state.raceSkillChoices}
-            max={race.skillChoices.choose}
-            onChange={(raceSkillChoices) => patch({ raceSkillChoices })}
+      {(() => {
+        // The skill choice can come from either level — Half-Elf's is on the
+        // race, Variant Human's on the subrace.
+        const subrace = getSubrace(race, state.subraceIndex);
+        const skillChoices = race?.skillChoices ?? subrace?.skillChoices;
+        if (!skillChoices) return null;
+        return (
+          <Field label="Skill proficiencies (from your race)">
+            <ChipMultiSelect<SkillName>
+              options={skillChoices.from}
+              selected={state.raceSkillChoices}
+              max={skillChoices.choose}
+              onChange={(raceSkillChoices) => patch({ raceSkillChoices })}
+            />
+          </Field>
+        );
+      })()}
+
+      {/* Variant Human and Custom Lineage are the only ways a level-1
+          character starts with a feat. Same picker the level-up wizard uses. */}
+      {raceGrantsFeat(race, getSubrace(race, state.subraceIndex)) && (
+        <Field
+          label="Feat"
+          hint="Your race grants a feat at 1st level. Prerequisites are advisory."
+        >
+          <FeatPicker
+            state={state}
+            patch={patch}
+            // Nothing is chosen yet at this point in the wizard, so the feat's
+            // own pickers offer the full lists.
+            proficientSkills={[]}
+            expertSkills={[]}
+            knownWeapons={[]}
           />
         </Field>
       )}
@@ -893,6 +922,16 @@ export function BackgroundStep({ state, patch }: StepProps) {
   const classSelected = state.classSkillChoices.filter((s) =>
     classSkillOptions.includes(s),
   );
+  // Everything the character will be proficient in — granted plus chosen. A
+  // rogue's Thieves' Tools proficiency comes through the class's `tools`, which
+  // the sheet models as a pseudo-skill, so it shows up here too.
+  const expertiseOptions = uniq([
+    ...grantedSkills,
+    ...classSelected,
+    ...((klass?.proficiencies.tools ?? []).includes("Thieves' Tools")
+      ? [SkillName["Thieves Tools"]]
+      : []),
+  ]);
 
   return (
     <div className="builder-step">
@@ -985,79 +1024,53 @@ export function BackgroundStep({ state, patch }: StepProps) {
             />
           </Field>
         )}
+
+        {klass?.toolChoices && (
+          <Field
+            label={`Tool proficiencies (${klass.name})`}
+            hint={`Choose ${klass.toolChoices.choose}`}
+          >
+            <ChipMultiSelect
+              options={klass.toolChoices.from}
+              selected={state.classToolChoices.filter((t) =>
+                klass.toolChoices!.from.includes(t),
+              )}
+              max={klass.toolChoices.choose}
+              onChange={(classToolChoices) => patch({ classToolChoices })}
+            />
+          </Field>
+        )}
+
+        {/* Expertise (Rogue at level 1). Deliberately after the skill pickers —
+            you can only double a proficiency you have, so the options are
+            everything the character ends up proficient in. */}
+        {klass && expertiseDueAt(klass.name, 1) > 0 && (
+          <Field
+            label={`Expertise (choose ${expertiseDueAt(klass.name, 1)})`}
+            hint={
+              expertiseOptions.length
+                ? "Double your proficiency bonus for these. Thieves' Tools counts."
+                : "Choose your skill proficiencies above first."
+            }
+          >
+            <ChipMultiSelect<SkillName>
+              options={expertiseOptions}
+              selected={state.classExpertiseChoices.filter((s) =>
+                expertiseOptions.includes(s),
+              )}
+              max={expertiseDueAt(klass.name, 1)}
+              onChange={(classExpertiseChoices) =>
+                patch({ classExpertiseChoices })
+              }
+            />
+          </Field>
+        )}
       </div>
     </div>
   );
 }
 
 // ------------------------------------------------------------------- Spells
-
-export function SpellChecklist({
-  className,
-  level,
-  selected,
-  max,
-  onChange,
-}: {
-  // Undefined shows every SRD spell (used for classes the catalog doesn't tag,
-  // e.g. Artificer); a class name filters to that class's spell list.
-  className?: string;
-  level: number;
-  selected: string[];
-  max: number | null;
-  onChange: (next: string[]) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const spells = useMemo(
-    () => searchSrdSpells(query, className).filter((s) => s.level === level),
-    [query, className, level],
-  );
-  const toggle = (index: string) => {
-    if (selected.includes(index)) onChange(selected.filter((i) => i !== index));
-    else if (max === null || selected.length < max)
-      onChange([...selected, index]);
-  };
-  const atCap = max !== null && selected.length >= max;
-  return (
-    <div className="builder-spell-block">
-      <input
-        className="builder-input"
-        placeholder="Search spells…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      <div className="builder-spell-list">
-        {spells.length === 0 ? (
-          <p className="builder-spell-empty text-muted">
-            {query.trim()
-              ? `No SRD spells match "${query.trim()}". Only SRD spells are searchable here — add spells from other books or homebrew manually from the sheet.`
-              : "No SRD spells at this level. Add spells from other books or homebrew manually from the sheet."}
-          </p>
-        ) : (
-          spells.map((s) => {
-            const on = selected.includes(s.index);
-            return (
-              <label
-                key={s.index}
-                className={
-                  on ? "builder-spell-row selected" : "builder-spell-row"
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={on}
-                  disabled={!on && atCap}
-                  onChange={() => toggle(s.index)}
-                />
-                {s.name}
-              </label>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
 
 export function SpellsStep({ state, patch }: StepProps) {
   const klass = getSrdClass(state.classIndex);

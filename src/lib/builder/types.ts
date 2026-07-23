@@ -38,6 +38,11 @@ export interface SrdSubrace {
   name: string;
   abilityBonuses: AbilityBonus[];
   languageChoices?: number;
+  // Skill proficiency choices the subrace grants (Variant Human's one skill).
+  skillChoices?: { choose: number; from: SkillName[] };
+  // The subrace grants a feat at level 1 (Variant Human, Custom Lineage) — the
+  // one path by which a brand-new character starts with one.
+  grantsFeat?: boolean;
   // Overrides the race's base walking speed when set (e.g. Wood Elf → 35).
   speed?: number;
   proficiencies: ProficiencyGrants;
@@ -56,6 +61,9 @@ export interface SrdRace {
   languageChoices?: number;
   // Race-granted skill proficiency choices (Half-Elf Skill Versatility).
   skillChoices?: { choose: number; from: SkillName[] };
+  // The race grants a feat at level 1 (Custom Lineage). See the same flag on
+  // `SrdSubrace` for the Variant Human path.
+  grantsFeat?: boolean;
   proficiencies: ProficiencyGrants;
   traits: RaceTrait[];
   subraces: SrdSubrace[];
@@ -75,6 +83,10 @@ export interface SrdClass {
   hitDie: number;
   savingThrows: StatKey[];
   skillChoices?: { choose: number; from: SkillName[] };
+  // "Choose N tool proficiencies from this list" — the bard's three musical
+  // instruments, the monk's one artisan's tool or instrument. Distinct from
+  // `proficiencies.tools`, which is granted outright (a rogue's Thieves' Tools).
+  toolChoices?: { choose: number; from: string[] };
   proficiencies: ProficiencyGrants;
   startingEquipment: string[];
   startingEquipmentOptions: string[];
@@ -216,6 +228,22 @@ export interface BuilderState {
   customHitDie: StandardDie;
   subclass?: string;
   classSkillChoices: SkillName[];
+  // Expertise picks for classes that grant it at level 1 (Rogue). Chosen from
+  // the skills the character ends up proficient in, so this step comes after
+  // the class/background skill choices.
+  classExpertiseChoices: SkillName[];
+  // Tool proficiencies chosen from the class's `toolChoices` list (bard's three
+  // instruments, monk's one artisan tool or instrument).
+  classToolChoices: string[];
+
+  // Level-1 feat, for races that grant one (Variant Human, Custom Lineage).
+  // Field names match `LevelUpState` so both wizards feed the same `applyFeat`.
+  featIndex?: string;
+  featAbilityChoice?: StatKey;
+  featSkillChoices: SkillName[];
+  featExpertiseChoices: SkillName[];
+  featWeaponChoices: string[];
+  featSpellChoices: Record<number, string[]>;
   // Fighting style, for classes that pick one at level 1 (Fighter).
   fightingStyle?: string;
   // Picks from the class's closed option lists, keyed by `OptionGroup.category`.
@@ -290,6 +318,12 @@ export function defaultBuilderState(): BuilderState {
     customClassName: "",
     customHitDie: StandardDie.d8,
     classSkillChoices: [],
+    classExpertiseChoices: [],
+    classToolChoices: [],
+    featSkillChoices: [],
+    featExpertiseChoices: [],
+    featWeaponChoices: [],
+    featSpellChoices: {},
     chosenOptions: {},
     scoreMethod: "pointbuy",
     baseStats: { ...POINT_BUY_FLOOR },

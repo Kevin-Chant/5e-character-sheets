@@ -1,5 +1,10 @@
-import { StatKey } from "src/lib/data/data-definitions";
+import { SkillName, StatKey } from "src/lib/data/data-definitions";
 import { SrdSubrace } from "src/lib/builder/types";
+
+// Every real skill (the SkillName enum also carries Thieves' Tools, a tool).
+const ALL_SKILLS = Object.values(SkillName).filter(
+  (s) => s !== SkillName["Thieves Tools"],
+) as SkillName[];
 
 // Player's Handbook subraces that the open-license SRD omits (the SRD ships
 // exactly one subrace per race). Keyed by race index and merged with the SRD
@@ -213,6 +218,29 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
           title: "Stone Camouflage",
           detail:
             "You have advantage on Dexterity (Stealth) checks to hide in rocky terrain.",
+        },
+      ],
+    },
+  ],
+  human: [
+    {
+      index: "variant-human",
+      name: "Variant Human",
+      // Two +1s in different abilities. Seeded onto STR/DEX and freely
+      // reassignable in the builder's race-bonus editor, which is how every
+      // other racial bonus already works.
+      abilityBonuses: [
+        { stat: StatKey.str, bonus: 1 },
+        { stat: StatKey.dex, bonus: 1 },
+      ],
+      skillChoices: { choose: 1, from: ALL_SKILLS },
+      grantsFeat: true,
+      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
+      traits: [
+        {
+          title: "Variant Human Traits",
+          detail:
+            "Two different ability scores increase by 1, you gain one skill proficiency of your choice, and you gain one feat.",
         },
       ],
     },

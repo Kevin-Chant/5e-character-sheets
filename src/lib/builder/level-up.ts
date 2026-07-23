@@ -6,6 +6,7 @@ import {
   OfficialClass,
   RestType,
   SkillName,
+  SpellLevelNum,
   StatKey,
 } from "src/lib/data/data-definitions";
 import { Character, IClass, Spell, TextComponent } from "src/lib/types";
@@ -14,12 +15,16 @@ import { averageDie, getHitDice, getHpFormula, modifier } from "src/lib/rules";
 import {
   classFeaturesAt,
   ELDRITCH_INVOCATIONS,
+  expertiseDueAt,
   fightingStyleDueAt,
   getFightingStyle,
   syncMartialArts,
 } from "src/lib/builder/class-features";
 import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
-import { optionGroup } from "src/lib/builder/chosen-options";
+import {
+  optionGroup,
+  resistancesFromOptions,
+} from "src/lib/builder/chosen-options";
 import { getSubclassByName } from "src/lib/builder/subclasses";
 import { getFeat } from "src/lib/builder/feats";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
@@ -175,6 +180,12 @@ export interface LevelUpState {
   fightingStyle?: string;
   // Eldritch invocations picked when the warlock's known count grows.
   invocations: string[];
+  // Skills gaining expertise this level (rogue 1/6, bard 3/10).
+  expertiseChoices: SkillName[];
+  // A known spell being swapped out this level. Known casters (bard, sorcerer,
+  // warlock, ranger) may replace one spell they know each time they level.
+  // `"<bucketLevel>.<index>"` addresses the spell in `character.spells`.
+  swapSpell?: string;
   // Picks from the class's closed option lists (Metamagic, maneuvers, Pact
   // Boon, a ranger's favored enemy), keyed by `OptionGroup.category`. Only the
   // *new* picks this level grants live here — earlier ones stay on the sheet.
@@ -203,6 +214,7 @@ export function defaultLevelUpState(character: Character): LevelUpState {
     ...emptyFeatChoices(),
     newSpells: {},
     invocations: [],
+    expertiseChoices: [],
     chosenOptions: {},
     addedFeatures: [],
   };
@@ -286,11 +298,31 @@ function addSpell(char: Character, index: string, className: string): void {
   bucket.push(spell);
 }
 
+// The subset of wizard state a feat needs. Narrowed to an interface (rather
+// than taking `LevelUpState`) so the *creation* wizard can apply a level-1 feat
+// — Variant Human, Custom Lineage — through exactly the same code path.
+// `LevelUpState` satisfies it structurally.
+export interface FeatChoices {
+  featAbilityChoice?: StatKey;
+  featSkillChoices: SkillName[];
+  featExpertiseChoices: SkillName[];
+  featWeaponChoices: string[];
+  featSpellChoices: Record<number, string[]>;
+  // Which class any feat-granted spells are tagged to. Optional because the
+  // creation wizard derives it from `classIndex`; `addSpell` already falls back
+  // to the character's first class when the name doesn't match one.
+  className?: string;
+}
+
 // Apply a chosen feat to the character: its ability increase, its `effect` as a
 // feature, its automatic `grants`, and any player choices made in the wizard.
 // Feat-granted spells are tagged to the class being advanced (a sensible,
 // editable default — the sheet lets the player retag or adjust the ability).
-function applyFeat(char: Character, feat: Feat, state: LevelUpState): void {
+export function applyFeat(
+  char: Character,
+  feat: Feat,
+  state: FeatChoices,
+): void {
   char.features.push(text(feat.name, feat.effect));
 
   const raisedStat = feat.abilityIncrease
@@ -322,9 +354,9 @@ function applyFeat(char: Character, feat: Feat, state: LevelUpState): void {
       operands: [char.initiativeFormula ?? StatKey.dex, g.initiativeBonus],
     };
   for (const index of g.fixedCantrips ?? [])
-    addSpell(char, index, state.className);
+    addSpell(char, index, state.className ?? "");
   for (const index of g.fixedSpells ?? [])
-    addSpell(char, index, state.className);
+    addSpell(char, index, state.className ?? "");
   if (g.limitedUse)
     char.limitedUseAbilities.push({
       info: text(g.limitedUse.name, g.limitedUse.detail),
@@ -347,7 +379,7 @@ function applyFeat(char: Character, feat: Feat, state: LevelUpState): void {
       ...state.featWeaponChoices,
     ]);
   for (const indices of Object.values(state.featSpellChoices))
-    for (const index of indices) addSpell(char, index, state.className);
+    for (const index of indices) addSpell(char, index, state.className ?? "");
 }
 
 export function applyLevelUp(
@@ -426,6 +458,13 @@ export function applyLevelUp(
     }
   }
 
+  // 2.75. Expertise picked this level (rogue 1/6, bard 3/10). Guarded by the
+  //       same grant table the wizard prompts from, so a stale pick left in the
+  //       state after switching class can't apply.
+  if (expertiseDueAt(state.className, klass.level) > 0)
+    for (const skill of state.expertiseChoices)
+      char.proficiencies.expertise[skill] = true;
+
   // 2.8. Eldritch invocations picked this level.
   for (const name of state.invocations) {
     const inv = ELDRITCH_INVOCATIONS.find((i) => i.name === name);
@@ -450,6 +489,23 @@ export function applyLevelUp(
         ...(detail ? { detail } : {}),
       });
     }
+  }
+
+  // 2.95. Damage resistances a chosen option confers (draconic ancestry).
+  //       Pre-migration saves may lack `damageModifiers` entirely (level-up
+  //       runs on raw characters in tests and legacy flows), so build it up
+  //       rather than assuming it's there.
+  const gainedResistances = resistancesFromOptions(char.chosenOptions ?? []);
+  if (gainedResistances.length) {
+    char.damageModifiers ??= {
+      resistances: [],
+      immunities: [],
+      vulnerabilities: [],
+    };
+    char.damageModifiers.resistances = uniq([
+      ...(char.damageModifiers.resistances ?? []),
+      ...gainedResistances,
+    ]);
   }
 
   // 3. Recompute derived numbers. HP/hit dice/PB/spell slots all read from the
@@ -479,6 +535,14 @@ export function applyLevelUp(
   } else if (state.featIndex) {
     const feat = getFeat(state.featIndex);
     if (feat) applyFeat(char, feat, state);
+  }
+
+  // 5.5. A swapped-out known spell, removed before the new ones land so a
+  //      replace-then-learn in the same level reads naturally on the sheet.
+  if (state.swapSpell) {
+    const [bucket, index] = state.swapSpell.split(".");
+    const list = char.spells[Number(bucket) as SpellLevelNum];
+    if (list) list.splice(Number(index), 1);
   }
 
   // 6. Newly learned spells.

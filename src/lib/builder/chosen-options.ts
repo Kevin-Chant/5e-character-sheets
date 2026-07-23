@@ -1,4 +1,4 @@
-import { OfficialClass } from "src/lib/data/data-definitions";
+import { DamageType, OfficialClass } from "src/lib/data/data-definitions";
 import { Character, ChosenOption } from "src/lib/types";
 
 // The closed option lists a class lets you pick a fixed number of things from:
@@ -36,6 +36,20 @@ export interface OptionGroup {
   // `[level, count]` pairs, ascending.
   known: [number, number][];
   options: OptionDef[];
+  // A damage resistance the pick confers, keyed by option name. Draconic
+  // Bloodline is the only case: the ancestry dragon sets the sorcerer's
+  // resistance. Applied by both wizards when the pick lands.
+  resistances?: Record<string, DamageType>;
+}
+
+// The damage resistances a set of picks confers, via `OptionGroup.resistances`.
+export function resistancesFromOptions(picks: ChosenOption[]): DamageType[] {
+  const out: DamageType[] = [];
+  for (const pick of picks) {
+    const dt = optionGroup(pick.category)?.resistances?.[pick.name];
+    if (dt && !out.includes(dt)) out.push(dt);
+  }
+  return out;
 }
 
 // The count from a step table at a level: the last entry the level has reached,
@@ -101,6 +115,39 @@ export const OPTION_GROUPS: OptionGroup[] = [
       { name: "Grassland" },
       { name: "Mountain" },
       { name: "Swamp" },
+    ],
+  },
+  {
+    category: "draconicAncestry",
+    label: "Draconic Ancestry",
+    summary:
+      "Your dragon ancestor sets the damage type of your Dragon Ancestor and Elemental Affinity features, and you gain resistance to that type at 6th level.",
+    className: OfficialClass.Sorcerer,
+    subclass: "Draconic Bloodline",
+    known: [[1, 1]],
+    resistances: {
+      "Black (acid)": DamageType.Acid,
+      "Blue (lightning)": DamageType.Lightning,
+      "Brass (fire)": DamageType.Fire,
+      "Bronze (lightning)": DamageType.Lightning,
+      "Copper (acid)": DamageType.Acid,
+      "Gold (fire)": DamageType.Fire,
+      "Green (poison)": DamageType.Poison,
+      "Red (fire)": DamageType.Fire,
+      "Silver (cold)": DamageType.Cold,
+      "White (cold)": DamageType.Cold,
+    },
+    options: [
+      { name: "Black (acid)" },
+      { name: "Blue (lightning)" },
+      { name: "Brass (fire)" },
+      { name: "Bronze (lightning)" },
+      { name: "Copper (acid)" },
+      { name: "Gold (fire)" },
+      { name: "Green (poison)" },
+      { name: "Red (fire)" },
+      { name: "Silver (cold)" },
+      { name: "White (cold)" },
     ],
   },
   {

@@ -79,7 +79,7 @@
     "startingEquipment": ["Leather Armor", "Dagger"],
     "startingEquipmentOptions": [
       "(a) a rapier, (b) a longsword, or (c) any simple weapon",
-      "(a) a diplomat’s pack or (b) an entertainer’s pack",
+      "(a) a diplomat\u2019s pack or (b) an entertainer\u2019s pack",
       "(a) a lute or (b) any other musical instrument"
     ],
     "spellcasting": {
@@ -98,7 +98,22 @@
         "title": "Bardic Inspiration (d6)",
         "detail": "You can inspire others through stirring words or music. To do so, you use a bonus action on your turn to choose one creature other than yourself within 60 feet of you who can hear you. That creature gains one Bardic Inspiration die, a d6. Once within the next 10 minutes, the creature can roll the die and add the number rolled to one ability check, attack roll, or saving throw it makes. The creature can wait until after it rolls the d20 before deciding to use the Bardic Inspiration die, but must decide before the GM says whether the roll succeeds or fails. Once the Bardic Inspiration die is rolled, it is lost. A creature can have only one Bardic Inspiration die at a time.\n\nYou can use this feature a number of times equal to your Charisma modifier (a minimum of once). You regain any expended uses when you finish a long rest. \n\nYour Bardic Inspiration die changes when you reach certain levels in this class. The die becomes a d8 at 5th level, a d10 at 10th level, and a d12 at 15th level."
       }
-    ]
+    ],
+    "toolChoices": {
+      "choose": 3,
+      "from": [
+        "Bagpipes",
+        "Drum",
+        "Dulcimer",
+        "Flute",
+        "Horn",
+        "Lute",
+        "Lyre",
+        "Pan flute",
+        "Shawm",
+        "Viol"
+      ]
+    }
   },
   {
     "index": "cleric",
@@ -119,7 +134,7 @@
       "(a) a mace or (b) a warhammer (if proficient)",
       "(a) scale mail, (b) leather armor, or (c) chain mail (if proficient)",
       "(a) a light crossbow and 20 bolts or (b) any simple weapon",
-      "(a) a priest’s pack or (b) an explorer’s pack",
+      "(a) a priest\u2019s pack or (b) an explorer\u2019s pack",
       "holy symbol"
     ],
     "spellcasting": {
@@ -230,7 +245,7 @@
       "(a) chain mail or (b) leather armor, longbow, and 20 arrows",
       "(a) a martial weapon and a shield or (b) two martial weapons",
       "(a) a light crossbow and 20 bolts or (b) two handaxes",
-      "(a) a dungeoneer’s pack or (b) an explorer’s pack"
+      "(a) a dungeoneer\u2019s pack or (b) an explorer\u2019s pack"
     ],
     "subclassAtLevel1": false,
     "features": [
@@ -268,7 +283,7 @@
     "startingEquipment": ["Dart (10)"],
     "startingEquipmentOptions": [
       "(a) a shortsword or (b) any simple weapon",
-      "(a) a dungeoneer’s pack or (b) an explorer’s pack"
+      "(a) a dungeoneer\u2019s pack or (b) an explorer\u2019s pack"
     ],
     "subclassAtLevel1": false,
     "features": [
@@ -280,7 +295,39 @@
         "title": "Martial Arts",
         "detail": "At 1st level, your practice of martial arts gives you mastery of combat styles that use unarmed strikes and monk weapons, which are shortswords and any simple melee weapons that don't have the two- handed or heavy property.\n\nYou gain the following benefits while you are unarmed or wielding only monk weapons and you aren't wearing armor or wielding a shield:\n\n- You can use Dexterity instead of Strength for the attack and damage rolls of your unarmed strikes and monk weapons.\n\n- You can roll a d4 in place of the normal damage of your unarmed strike or monk weapon. This die changes as you gain monk levels, as shown in the Martial Arts column of Table: The Monk.\n\n- When you use the Attack action with an unarmed strike or a monk weapon on your turn, you can make one unarmed strike as a bonus action. For example, if you take the Attack action and attack with a quarterstaff, you can also make an unarmed strike as a bonus action, assuming you haven't already taken a bonus action this turn.\n\nCertain monasteries use specialized forms of the monk weapons. For example, you might use a club that is two lengths of wood connected by a short chain (called a nunchaku) or a sickle with a shorter, straighter blade (called a kama). Whatever name you use for a monk weapon, you can use the game statistics provided for the weapon."
       }
-    ]
+    ],
+    "toolChoices": {
+      "choose": 1,
+      "from": [
+        "Alchemist's supplies",
+        "Brewer's supplies",
+        "Calligrapher's supplies",
+        "Carpenter's tools",
+        "Cartographer's tools",
+        "Cobbler's tools",
+        "Cook's utensils",
+        "Glassblower's tools",
+        "Jeweler's tools",
+        "Leatherworker's tools",
+        "Mason's tools",
+        "Painter's supplies",
+        "Potter's tools",
+        "Smith's tools",
+        "Tinker's tools",
+        "Weaver's tools",
+        "Woodcarver's tools",
+        "Bagpipes",
+        "Drum",
+        "Dulcimer",
+        "Flute",
+        "Horn",
+        "Lute",
+        "Lyre",
+        "Pan flute",
+        "Shawm",
+        "Viol"
+      ]
+    }
   },
   {
     "index": "paladin",
@@ -307,7 +354,7 @@
     "startingEquipmentOptions": [
       "(a) a martial weapon and a shield or (b) two martial weapons",
       "(a) five javelins or (b) any simple melee weapon",
-      "(a) a priest’s pack or (b) an explorer’s pack",
+      "(a) a priest\u2019s pack or (b) an explorer\u2019s pack",
       "holy symbol"
     ],
     "spellcasting": {
@@ -355,7 +402,7 @@
     "startingEquipmentOptions": [
       "(a) scale mail or (b) leather armor",
       "(a) two shortswords or (b) two simple melee weapons",
-      "(a) a dungeoneer’s pack or (b) an explorer’s pack"
+      "(a) a dungeoneer\u2019s pack or (b) an explorer\u2019s pack"
     ],
     "spellcasting": {
       "ability": "wis",
@@ -411,7 +458,7 @@
     "startingEquipmentOptions": [
       "(a) a rapier or (b) a shortsword",
       "(a) a shortbow and quiver of 20 arrows or (b) a shortsword",
-      "(a) a burglar’s pack, (b) a dungeoneer’s pack, or (c) an explorer’s pack"
+      "(a) a burglar\u2019s pack, (b) a dungeoneer\u2019s pack, or (c) an explorer\u2019s pack"
     ],
     "subclassAtLevel1": false,
     "features": [
@@ -460,7 +507,7 @@
     "startingEquipmentOptions": [
       "(a) a light crossbow and 20 bolts or (b) any simple weapon",
       "(a) a component pouch or (b) an arcane focus",
-      "(a) a dungeoneer’s pack or (b) an explorer’s pack"
+      "(a) a dungeoneer\u2019s pack or (b) an explorer\u2019s pack"
     ],
     "spellcasting": {
       "ability": "cha",
@@ -506,7 +553,7 @@
     "startingEquipmentOptions": [
       "(a) a light crossbow and 20 bolts or (b) any simple weapon",
       "(a) a component pouch or (b) an arcane focus",
-      "(a) a scholar’s pack or (b) a dungeoneer’s pack",
+      "(a) a scholar\u2019s pack or (b) a dungeoneer\u2019s pack",
       "any simple weapon"
     ],
     "spellcasting": {
@@ -558,7 +605,7 @@
     "startingEquipmentOptions": [
       "(a) a quarterstaff or (b) a dagger",
       "(a) a component pouch or (b) an arcane focus",
-      "(a) a scholar’s pack or (b) an explorer’s pack"
+      "(a) a scholar\u2019s pack or (b) an explorer\u2019s pack"
     ],
     "spellcasting": {
       "ability": "int",

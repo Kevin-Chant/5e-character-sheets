@@ -746,3 +746,21 @@ export function syncMartialArts(char: Character, klass: IClass): void {
 }
 
 const UNARMED_STRIKE = "unarmed strike";
+
+// ---------------------------------------------------------------------------
+// Expertise (rogue, bard)
+
+// How many skills gain expertise at a given class level. Rogues pick two at 1st
+// and two more at 6th; bards at 3rd and 10th. The sheet models Thieves' Tools
+// as a pseudo-skill, so a rogue can spend a pick on it exactly as RAW allows.
+const EXPERTISE_GRANTS: Partial<Record<OfficialClass, Record<number, number>>> =
+  {
+    [OfficialClass.Rogue]: { 1: 2, 6: 2 },
+    [OfficialClass.Bard]: { 3: 2, 10: 2 },
+  };
+
+// How many expertise picks reaching `level` in `className` grants (0 for most).
+export function expertiseDueAt(className: string, level: number): number {
+  const oc = Object.values(OfficialClass).find((c) => c === className);
+  return (oc && EXPERTISE_GRANTS[oc]?.[level]) ?? 0;
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   Alignment,
   ArmorType,
+  DamageType,
   SkillName,
   StandardDie,
 } from "src/lib/data/data-definitions";
@@ -303,5 +304,76 @@ describe("buildCharacter — escape hatches", () => {
     const char = buildCharacter({ ...defaultBuilderState(), mode: "sample" });
     expect(char.name).toBe(defaultCharacter.name);
     expect(char.uuid).not.toBe(defaultCharacter.uuid);
+  });
+});
+
+// A minimal guided level-1 build, overridable per test.
+const level1 = (classIndex: string, extra: Partial<BuilderState> = {}) =>
+  buildCharacter({
+    ...defaultBuilderState(),
+    mode: "guided",
+    classIndex,
+    scoreMethod: "manual",
+    baseStats: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+    ...extra,
+  });
+
+describe("wizard choices added by the coverage audit", () => {
+  it("a rogue's level-1 expertise lands on the chosen skills", () => {
+    const c = level1("rogue", {
+      classSkillChoices: [SkillName.Stealth, SkillName.Perception],
+      classExpertiseChoices: [SkillName.Stealth],
+    });
+    expect(c.proficiencies.expertise[SkillName.Stealth]).toBe(true);
+    expect(c.proficiencies.expertise[SkillName.Perception]).toBeFalsy();
+  });
+
+  it("expertise on a skill the character isn't proficient in is dropped", () => {
+    const c = level1("rogue", {
+      classSkillChoices: [SkillName.Stealth],
+      // Arcana isn't among the picks, so it can't be doubled.
+      classExpertiseChoices: [SkillName.Arcana],
+    });
+    expect(c.proficiencies.expertise[SkillName.Arcana]).toBeFalsy();
+  });
+
+  it("a non-expertise class ignores stray expertise picks", () => {
+    const c = level1("fighter", {
+      classExpertiseChoices: [SkillName.Athletics],
+    });
+    expect(c.proficiencies.expertise[SkillName.Athletics]).toBeFalsy();
+  });
+
+  it("class tool choices land as tool proficiencies", () => {
+    const c = level1("bard", { classToolChoices: ["Lute", "Drum", "Flute"] });
+    const tools = c.otherProficiencies.toolsAndOther.map((t) => t.title);
+    expect(tools).toEqual(expect.arrayContaining(["Lute", "Drum", "Flute"]));
+    // A pick the class doesn't offer is filtered out.
+    const stale = level1("bard", { classToolChoices: ["Smith's tools"] });
+    expect(
+      stale.otherProficiencies.toolsAndOther.map((t) => t.title),
+    ).not.toContain("Smith's tools");
+  });
+
+  it("a Variant Human starts with a feat, applied like any other", () => {
+    const c = level1("fighter", {
+      raceIndex: "human",
+      subraceIndex: "variant-human",
+      featIndex: "alert",
+    });
+    expect(c.features.map((f) => f.title)).toContain("Alert");
+  });
+
+  it("no feat is applied when the race doesn't grant one", () => {
+    const c = level1("fighter", { raceIndex: "human", featIndex: "alert" });
+    expect(c.features.map((f) => f.title)).not.toContain("Alert");
+  });
+
+  it("a draconic sorcerer's ancestry confers its damage resistance", () => {
+    const c = level1("sorcerer", {
+      subclass: "Draconic Bloodline",
+      chosenOptions: { draconicAncestry: ["Blue (lightning)"] },
+    });
+    expect(c.damageModifiers.resistances).toContain(DamageType.Lightning);
   });
 });

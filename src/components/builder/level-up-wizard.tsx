@@ -16,6 +16,7 @@ import {
 } from "src/lib/builder/class-features";
 import { OfficialClass } from "src/lib/data/data-definitions";
 import { newOptionPicksAt } from "src/lib/builder/chosen-options";
+import { expertiseDueAt } from "src/lib/builder/class-features";
 import {
   LevelUpAdvancementStep,
   LevelUpClassStep,
@@ -64,7 +65,8 @@ const STEPS: StepDef[] = [
         !!fightingStyleDueAt(state.className, level) ||
         (state.className === OfficialClass.Warlock &&
           newInvocationsAt(level) > 0) ||
-        newOptionPicksAt(state.className, level, subclass).length > 0
+        newOptionPicksAt(state.className, level, subclass).length > 0 ||
+        expertiseDueAt(state.className, level) > 0
       );
     },
   },

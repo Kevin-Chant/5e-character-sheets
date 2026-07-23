@@ -17,6 +17,11 @@ import { SrdRace } from "src/lib/builder/types";
 // ability step lets the player reassign racial bonuses freely (modern
 // floating-bonus rules), so nothing is lost.
 
+// Every real skill (the SkillName enum also carries Thieves' Tools, a tool).
+const ALL_SKILLS = Object.values(SkillName).filter(
+  (s) => s !== SkillName["Thieves Tools"],
+) as SkillName[];
+
 const noProf = () => ({
   armor: [] as string[],
   weapons: [] as string[],
@@ -1278,6 +1283,32 @@ export const NONSRD_RACES: SrdRace[] = [
         title: "Flexible Ability Increases",
         detail:
           "An owlin's ability score increases are freely assignable; the +2/+1 shown here is a default you can reassign in the ability-score step.",
+      },
+    ],
+    subraces: [],
+  },
+  // ------------------------------------------------------------- Tasha's
+  {
+    index: "custom-lineage",
+    name: "Custom Lineage",
+    size: "Medium",
+    speed: 30,
+    // A single +2 the player assigns; seeded onto STR and reassignable like
+    // every other racial bonus.
+    abilityBonuses: [{ stat: StatKey.str, bonus: 2 }],
+    languages: ["Common"],
+    languageChoices: 1,
+    // RAW this is "darkvision 60 ft OR one skill proficiency". The sheet offers
+    // the skill and names darkvision in the trait text — set it under Senses if
+    // that's the pick instead.
+    skillChoices: { choose: 1, from: ALL_SKILLS },
+    grantsFeat: true,
+    proficiencies: noProf(),
+    traits: [
+      {
+        title: "Custom Lineage Traits",
+        detail:
+          "One ability score increases by 2. You gain either darkvision out to 60 feet or one skill proficiency, plus one feat. Your size is Small or Medium (your choice).",
       },
     ],
     subraces: [],

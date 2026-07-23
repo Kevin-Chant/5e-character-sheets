@@ -25,3 +25,9 @@ export const getSubrace = (
   index?: string,
 ): SrdSubrace | undefined =>
   index ? subracesForRace(race).find((s) => s.index === index) : undefined;
+
+// Whether the chosen race/subrace grants a level-1 feat (Variant Human, Custom
+// Lineage) — the only way a brand-new character starts with one.
+export function raceGrantsFeat(race?: SrdRace, subrace?: SrdSubrace): boolean {
+  return !!(race?.grantsFeat || subrace?.grantsFeat);
+}
