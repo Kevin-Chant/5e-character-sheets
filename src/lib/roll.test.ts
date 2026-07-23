@@ -9,6 +9,7 @@ import {
 import { Character, CustomFormula, DieExpression } from "src/lib/types";
 import { defaultCharacter } from "src/lib/data/default-data";
 import {
+  critDiceCount,
   damageHasDice,
   formulaHasDice,
   rollD20Check,
@@ -99,6 +100,121 @@ describe("rollFormula", () => {
       const dis = rollD20Check(0, "disadvantage");
       expect(dis.kept).toBe(Math.min(...dis.dice));
     }
+  });
+
+  // 2d6 + STR modifier (+5) — the shape every crit mode is measured against.
+  const critFormula: CustomFormula = {
+    operation: Operation.addition,
+    operands: [roll(2, StandardDie.d6), StatKey.str],
+  };
+  const critCharacter = () => {
+    const character = structuredClone(defaultCharacter) as Character;
+    character.stats.str = 20; // +5
+    return character;
+  };
+
+  it("raw crits double the dice count but not the flat modifier", () => {
+    const character = critCharacter();
+    for (let i = 0; i < 100; i++) {
+      const dice: number[] = [];
+      const total = rollFormula(critFormula, character, dice, undefined, {
+        mode: "raw",
+      });
+      expect(dice).toHaveLength(4); // 2d6 → 4d6
+      // 4d6 (4..24) + 5, the modifier still counted once
+      expect(total).toBe(dice.reduce((a, b) => a + b, 0) + 5);
+      expect(total).toBeGreaterThanOrEqual(9);
+      expect(total).toBeLessThanOrEqual(29);
+    }
+  });
+
+  it("maxDice crits maximize the normal dice and roll the critical set", () => {
+    const character = critCharacter();
+    for (let i = 0; i < 100; i++) {
+      const dice: number[] = [];
+      const total = rollFormula(critFormula, character, dice, undefined, {
+        mode: "maxDice",
+      });
+      expect(dice).toHaveLength(4);
+      // The first set is maximized, the second genuinely rolled.
+      expect(dice.slice(0, 2)).toEqual([6, 6]);
+      expect(dice.slice(2).every((d) => d >= 1 && d <= 6)).toBe(true);
+      // 12 (maxed) + 2d6 (2..12) + 5 → 19..29, never below RAW's floor.
+      expect(total).toBeGreaterThanOrEqual(19);
+      expect(total).toBeLessThanOrEqual(29);
+    }
+  });
+
+  it("total crits double the modifier too, without adding dice", () => {
+    const character = critCharacter();
+    for (let i = 0; i < 100; i++) {
+      const dice: number[] = [];
+      const total = rollFormula(critFormula, character, dice, undefined, {
+        mode: "total",
+      });
+      expect(dice).toHaveLength(2); // no extra dice — the sum is scaled
+      expect(total).toBe((dice.reduce((a, b) => a + b, 0) + 5) * 2);
+    }
+  });
+
+  it("exploding crits stack another set of critical dice per repeat", () => {
+    const character = critCharacter();
+    const dice: number[] = [];
+    // One repeat crit: RAW's two sets of dice become three.
+    rollFormula(critFormula, character, dice, undefined, {
+      mode: "raw",
+      extraSets: 1,
+    });
+    expect(dice).toHaveLength(6);
+
+    // Under `total` the multiplier grows instead of the dice count.
+    const totalDice: number[] = [];
+    const scaled = rollFormula(critFormula, character, totalDice, undefined, {
+      mode: "total",
+      extraSets: 1,
+    });
+    expect(totalDice).toHaveLength(2);
+    expect(scaled).toBe((totalDice.reduce((a, b) => a + b, 0) + 5) * 3);
+  });
+
+  it("critDiceCount reports the dice a leaf will roll per mode", () => {
+    expect(critDiceCount(2, undefined)).toBe(2);
+    expect(critDiceCount(2, { mode: "raw" })).toBe(4);
+    expect(critDiceCount(2, { mode: "maxDice" })).toBe(4);
+    expect(critDiceCount(2, { mode: "total" })).toBe(2);
+    expect(critDiceCount(2, { mode: "raw", extraSets: 2 })).toBe(8);
+  });
+
+  it("doubles every component of a damage map on a critical", () => {
+    const character = structuredClone(defaultCharacter) as Character;
+    const results = rollDamage(
+      {
+        [DamageType.Fire]: roll(2, StandardDie.d6),
+        [DamageType.Cold]: roll(1, StandardDie.d4),
+      },
+      character,
+      undefined,
+      { mode: "raw" },
+    );
+    expect(
+      results.find((r) => r.damageType === DamageType.Fire)!.dice,
+    ).toHaveLength(4);
+    expect(
+      results.find((r) => r.damageType === DamageType.Cold)!.dice,
+    ).toHaveLength(2);
+  });
+
+  it("explodes the d20 while it keeps critting, and not otherwise", () => {
+    // A threshold of 21 is unreachable, so the chain never starts.
+    expect(
+      rollD20Check(0, "normal", undefined, 21).explosionDice,
+    ).toBeUndefined();
+    // A threshold of 1 always crits, so the chain runs to its safety cap.
+    const runaway = rollD20Check(0, "normal", undefined, 1);
+    expect(runaway.explosionDice).toHaveLength(20);
+    expect(runaway.explosions).toBe(20);
+    // Exploding never changes the check's own total.
+    expect(runaway.total).toBe(runaway.kept);
   });
 
   it("rolls each damage component of a damage map", () => {

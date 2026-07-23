@@ -3139,6 +3139,15 @@ button.slot-pip:hover:not(:disabled) {
 .roll-total.roll-crit-fail {
   color: var(--danger);
 }
+/* A crit *damage* total stays a full-size number (unlike the text callouts
+   above) — only recolored to mark that its dice were doubled. */
+.roll-total.roll-crit-damage {
+  color: var(--success);
+}
+/* The crit toggle sits directly above the roll button, so give it a little air. */
+.roll-crit-toggle {
+  margin-top: 0.15rem;
+}
 .roll-part {
   font-size: 0.9rem;
 }

@@ -6,7 +6,15 @@ import {
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRoller } from "src/lib/hooks/use-roller";
 import { useSettings } from "src/lib/hooks/use-settings";
-import { CheckMode, rollD20Check, rollDamage, rollFormula } from "src/lib/roll";
+import {
+  CheckMode,
+  CritMode,
+  CritSpec,
+  critDiceCount,
+  rollD20Check,
+  rollDamage,
+  rollFormula,
+} from "src/lib/roll";
 import {
   spellDamageAtLevel,
   spellHealingAtLevel,
@@ -58,12 +66,27 @@ const ordinalSlot = (n: number) =>
 
 const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
+// Short in-dialog wording for each crit flavor, so the player can see which
+// house rule is in force without opening Settings.
+const CRIT_MODE_LABELS: Record<CritMode, string> = {
+  raw: "double the damage dice",
+  maxDice: "maximize the dice, then roll again",
+  total: "double the total, modifiers included",
+};
+
 // The roll dialog. Read-only: it reuses the modal CSS but not ModalContainer (no
 // draft reducer / targeted-field coupling). An "attack" surfaces a to-hit roll
 // and its damage together, so one button handles both steps of an attack.
 export default function RollModal() {
   const { character } = useCharacter();
   const { request, closeRoller } = useRoller();
+  // Shared between the two halves of an attack: the to-hit roll sets it when the
+  // kept d20 lands in the crit range, and the damage half inflates its dice.
+  // Kept manually overridable — the sheet can't see the many other ways a hit
+  // crits (a paralyzed target, an assassin's surprise round). `extraSets` is the
+  // exploding-crits count carried over from the to-hit roll.
+  const [critical, setCritical] = useState(false);
+  const [extraSets, setExtraSets] = useState(0);
   if (!request || !character) return <></>;
 
   const { spec } = request;
@@ -86,6 +109,10 @@ export default function RollModal() {
               label="To Hit"
               modifier={spec.toHit}
               isAttack
+              onCrit={(crit, explosions) => {
+                setCritical(crit);
+                setExtraSets(explosions);
+              }}
             />
           )}
           <EffectControls
@@ -93,6 +120,20 @@ export default function RollModal() {
             damage={spec.damage}
             spell={spec.spell}
             titled={spec.toHit !== undefined}
+            critical={critical}
+            extraSets={extraSets}
+            // Only a to-hit roll can crit — a save-based spell never does, so
+            // that variant gets no toggle.
+            setCritical={
+              spec.toHit !== undefined
+                ? (crit) => {
+                    setCritical(crit);
+                    // Un-ticking drops any exploding stack with it; ticking by
+                    // hand is a plain crit until a roll says otherwise.
+                    setExtraSets(0);
+                  }
+                : undefined
+            }
           />
         </>
       )}
@@ -126,14 +167,19 @@ function CheckControls({
   modifier,
   label,
   isAttack = false,
+  onCrit,
 }: {
   character: Character;
   modifier: number;
   label?: string;
   isAttack?: boolean;
+  // Reports whether this roll was a critical hit (and how many exploding-crit
+  // repeats followed), so the damage half can inflate its dice. Re-rolling
+  // reports the new verdict (including "not a crit").
+  onCrit?: (crit: boolean, explosions: number) => void;
 }) {
   const {
-    settings: { criticalsOnAllRolls },
+    settings: { criticalsOnAllRolls, explodingCriticals },
   } = useSettings();
   const riders = useMemo(
     () => ridersFor(character, isAttack ? "attack" : "check"),
@@ -142,8 +188,18 @@ function CheckControls({
   const [result, setResult] = useState<ReturnType<typeof rollD20Check> | null>(
     null,
   );
-  const roll = (mode: CheckMode) =>
-    setResult(rollD20Check(modifier, mode, riders));
+  const threshold = critThreshold(riders);
+  const roll = (mode: CheckMode) => {
+    const rolled = rollD20Check(
+      modifier,
+      mode,
+      riders,
+      // Only an attack's crit stacks damage, and only when the table opted in.
+      isAttack && explodingCriticals && onCrit ? threshold : undefined,
+    );
+    setResult(rolled);
+    onCrit?.(rolled.kept >= threshold, rolled.explosions ?? 0);
+  };
   return (
     <div className="column roll-section">
       {label && <p className="roll-section-title">{label}</p>}
@@ -180,10 +236,10 @@ function CheckControls({
             result.kept,
             isAttack,
             criticalsOnAllRolls,
-            critThreshold(riders),
+            threshold,
           );
           const critClass =
-            result.kept >= critThreshold(riders) && result.kept > 1
+            result.kept >= threshold && result.kept > 1
               ? "roll-crit-success"
               : "roll-crit-fail";
           return (
@@ -202,6 +258,14 @@ function CheckControls({
                   : `(${result.kept})`}{" "}
                 {signed(result.modifier)}
               </span>
+              {result.explosionDice && (
+                <span className="roll-part muted">
+                  Exploding: {result.explosionDice.join(", ")}
+                  {result.explosions
+                    ? ` — ${result.explosions + 1}× critical dice`
+                    : " — no repeat"}
+                </span>
+              )}
             </div>
           );
         })()}
@@ -216,12 +280,23 @@ function EffectControls({
   damage,
   spell,
   titled,
+  critical = false,
+  extraSets = 0,
+  setCritical,
 }: {
   character: Character;
   damage?: CustomFormulaWithDamage;
   spell?: Spell;
   titled?: boolean;
+  critical?: boolean;
+  extraSets?: number;
+  // Omitted when the effect can't crit (a save-based spell) — which also hides
+  // the toggle.
+  setCritical?: (crit: boolean) => void;
 }) {
+  const {
+    settings: { criticalDamageMode },
+  } = useSettings();
   const mechanics = spell?.mechanics;
   const isHealing = !!mechanics?.healing;
   const isCantrip = mechanics?.level === 0;
@@ -308,6 +383,9 @@ function EffectControls({
       damageType?: DamageType;
     }[];
     total: number;
+    // The crit flavor *this* roll used, if any — kept with the result so
+    // toggling the checkbox afterwards doesn't relabel an already-rolled total.
+    critical?: CritSpec;
   } | null>(null);
   const [healResult, setHealResult] = useState<{
     total: number;
@@ -320,8 +398,20 @@ function EffectControls({
     );
 
   const hasDamage = Object.keys(map).length > 0;
+  // A crit inflates every damage die in the table's chosen flavor — the
+  // weapon/spell's own dice and the dice of any extra-damage rider riding along
+  // on the hit (Sneak Attack, Divine Smite) alike.
+  const crit: CritSpec | undefined =
+    setCritical && critical
+      ? { mode: criticalDamageMode, extraSets }
+      : undefined;
   const rollDamageEffect = () => {
-    const parts = rollDamage(map, character, ridersFor(character, "damage"));
+    const parts = rollDamage(
+      map,
+      character,
+      ridersFor(character, "damage"),
+      crit,
+    );
     // Fold in each active fixed extra: every always-on rider, plus opt-in ones
     // the player checked. Rolled on its own line so the source and type show.
     const extraResults = extras
@@ -333,7 +423,7 @@ function EffectControls({
         const dice: number[] = [];
         return {
           source,
-          total: rollFormula(rider.amount, character, dice),
+          total: rollFormula(rider.amount, character, dice, undefined, crit),
           dice,
           damageType: rider.damageType,
         };
@@ -350,6 +440,8 @@ function EffectControls({
         [count, slot.die, DieOperation.roll],
         character,
         dice,
+        undefined,
+        crit,
       );
       extraResults.push({
         source: slotExtra.source,
@@ -361,7 +453,7 @@ function EffectControls({
     const total =
       parts.reduce((s, p) => s + p.total, 0) +
       extraResults.reduce((s, e) => s + e.total, 0);
-    setDamageResult({ parts, extras: extraResults, total });
+    setDamageResult({ parts, extras: extraResults, total, critical: crit });
   };
   // Spend the chosen slot that powers the smite (an explicit, one-time commit,
   // mirroring the hit-die apply — so it syncs/undoes like any edit).
@@ -458,11 +550,13 @@ function EffectControls({
                 if (rider.slot) {
                   const slot = rider.slot;
                   const checked = chosen.has(source);
-                  const count =
+                  const count = critDiceCount(
                     effSmiteLevel !== undefined
                       ? smiteDiceCount(slot, effSmiteLevel) +
-                        (smiteBonus && slot.bonus ? slot.bonus.dice : 0)
-                      : slot.diceAtMin;
+                          (smiteBonus && slot.bonus ? slot.bonus.dice : 0)
+                      : slot.diceAtMin,
+                    crit,
+                  );
                   return (
                     <div key={source} className="column roll-extra">
                       <label className="row roll-extra-toggle">
@@ -545,18 +639,38 @@ function EffectControls({
               })}
             </div>
           )}
+          {setCritical && hasDamage && (
+            <label className="row roll-extra-toggle roll-crit-toggle">
+              <input
+                type="checkbox"
+                checked={critical}
+                onChange={(e) => setCritical(e.target.checked)}
+              />
+              <span>Critical hit — {CRIT_MODE_LABELS[criticalDamageMode]}</span>
+            </label>
+          )}
           <button
             className="btn-primary roll-go"
             disabled={!hasDamage || noSlots}
             onClick={rollDamageEffect}
           >
-            Roll Damage
+            Roll {crit && "Critical "}Damage
           </button>
           {damageResult && (
             <div className="column roll-result">
-              <span className="roll-total font-large">
+              <span
+                className={`roll-total font-large ${damageResult.critical ? "roll-crit-damage" : ""}`}
+              >
                 {damageResult.total}
               </span>
+              {damageResult.critical && (
+                <span className="roll-part muted">
+                  Critical — {CRIT_MODE_LABELS[damageResult.critical.mode]}
+                  {damageResult.critical.extraSets
+                    ? ` ×${damageResult.critical.extraSets + 1} (exploded)`
+                    : ""}
+                </span>
+              )}
               {damageResult.parts.map((p) => (
                 <span key={p.damageType} className="roll-part">
                   {p.total} {p.damageType}

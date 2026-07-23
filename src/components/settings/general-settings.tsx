@@ -4,6 +4,7 @@ import {
   useSettings,
 } from "src/lib/hooks/use-settings";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
+import { CritMode } from "src/lib/roll";
 import InputField from "../input-field";
 import IdentityFields from "../identity-fields";
 import AutosaveSettings from "./autosave-settings";
@@ -115,6 +116,36 @@ export default function GeneralSettings() {
             }
           />
           Show criticals on all d20 checks
+        </label>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Critical hit damage"
+        description="How a critical hit inflates damage. Crits are one of the most commonly house-ruled parts of 5e, so pick whichever flavor your table uses — it applies to weapon and spell damage alike, including riders like Sneak Attack and Divine Smite."
+      >
+        <label className="settings-select-inline">
+          On a critical hit
+          <select
+            value={settings.criticalDamageMode}
+            onChange={(e) =>
+              updateSetting("criticalDamageMode", e.target.value as CritMode)
+            }
+          >
+            <option value="raw">Double the damage dice (RAW)</option>
+            <option value="maxDice">Maximize the dice, then roll again</option>
+            <option value="total">Double the total, modifiers included</option>
+          </select>
+        </label>
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={settings.explodingCriticals}
+            onChange={(e) =>
+              updateSetting("explodingCriticals", e.target.checked)
+            }
+          />
+          Exploding crits — reroll the d20 after a crit; each repeat stacks
+          another set of critical dice
         </label>
       </SettingsSection>
 

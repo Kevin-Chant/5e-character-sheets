@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { readLocalStorage, writeLocalStorage } from "../local-storage";
 import { missingProvider } from "../missing-provider";
+import { CritMode } from "../roll";
 
 export const CLOUD_DEFAULT_HOST = "https://live.dndcharactersheets.net";
 export const DEFAULT_LIVE_EDIT_HOST =
@@ -35,6 +36,12 @@ interface Settings {
   // d20 check. Off (default), the crit callout only appears on attack to-hit
   // rolls (as "Critical Fail"/"Critical Hit").
   criticalsOnAllRolls: boolean;
+  // How a critical hit inflates damage — RAW (double the dice) plus the two
+  // most common house rules. See `CritMode` in `src/lib/roll.ts`.
+  criticalDamageMode: CritMode;
+  // Exploding crits: after a critical hit, reroll the d20 and stack another set
+  // of critical dice for each repeat crit. Compounds with `criticalDamageMode`.
+  explodingCriticals: boolean;
 }
 
 function sanitizeSettingValue<K extends keyof Settings>(
@@ -74,6 +81,8 @@ const DEFAULT_SETTINGS: Settings = {
   trackEncumbrance: true,
   weightUnit: "lb",
   criticalsOnAllRolls: false,
+  criticalDamageMode: "raw",
+  explodingCriticals: false,
 };
 
 export const SettingsContext = React.createContext<SettingsContextData>({

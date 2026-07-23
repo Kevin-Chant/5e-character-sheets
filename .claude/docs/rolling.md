@@ -87,6 +87,42 @@ For an `attack` spec the modal renders:
 
 A spell with no structured `mechanics` (damage or healing) shows no die button.
 
+## Critical hits
+
+Crits are one of the most-house-ruled parts of 5e, so the flavor is a **setting**
+(`criticalDamageMode`, plus the `explodingCriticals` toggle) rather than a
+constant. `roll.ts` models it as a `CritSpec` (`{mode, extraSets?}`) passed into
+`rollFormula`/`rollDamage`:
+
+| `mode`    | Setting label                        | What a die leaf of `N` dice does            |
+| --------- | ------------------------------------ | ------------------------------------------- |
+| `raw`     | Double the damage dice (RAW)         | rolls `2N` dice; flat modifiers unchanged   |
+| `maxDice` | Maximize the dice, then roll again   | `N` dice at max face value **+** `N` rolled |
+| `total`   | Double the total, modifiers included | rolls `N` dice, then doubles the whole sum  |
+
+Two structural points:
+
+- `total` can't be applied per die leaf — it scales the modifiers too — so
+  `rollFormula` is a thin wrapper that recurses via `rollNode` and multiplies
+  once at the top. The other modes never touch the wrapper.
+- The crit is a **roll-time argument, not a formula transform**: the stored
+  damage expression and its `format*` display stay untouched, which is what lets
+  the same `Attack` render normally and roll critically.
+
+`extraSets` is exploding crits. `rollD20Check` takes an `explodeAt` threshold;
+when the kept d20 crits it keeps rolling d20s until one doesn't, and each repeat
+adds another set of critical dice (so `raw` + one repeat = triple dice, `total` +
+one repeat = ×3). It never changes the check's own total, and a `MAX_EXPLOSIONS`
+cap keeps a bad threshold from hanging the tab.
+
+In the dialog, the two halves of an attack share the state: `CheckControls`
+reports `(crit, explosions)` up to `RollModal`, which hands it to
+`EffectControls`. The crit checkbox stays **manually overridable** — the sheet
+can't see a paralyzed target or an assassin's surprise round — and un-ticking it
+drops any exploding stack. Crit inflation covers the weapon/spell's own dice and
+every `on-hit` `extraDamage` rider riding along (Sneak Attack, Divine Smite),
+never healing, and never a save-based spell (no to-hit roll → no toggle).
+
 ## Where the button is wired
 
 | Surface        | Component                                | Roll                                          |

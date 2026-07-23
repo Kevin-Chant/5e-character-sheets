@@ -62,8 +62,8 @@ directly** rather than `applyTotalRiders`. Three fields drive that:
 
 - **`declareAt`** (`before-attack` | `on-hit` | `after-damage`) — the step at
   which the player commits. It's a field of its own, not folded into the
-  condition, because it drives dialog sequencing (and, later, crit doubling:
-  `on-hit` dice double on a crit, a `before-attack` flat bonus does not) while
+  condition, because it drives dialog sequencing and crit inflation (`on-hit`
+  dice ride along with the crit, a `before-attack` flat bonus would not) while
   the condition is advisory prose the sheet can't verify. Today all catalog
   entries are `on-hit`, rendered in the damage section; `before-attack` ones are
   excluded there (none exist yet) for a future to-hit-side prompt.
