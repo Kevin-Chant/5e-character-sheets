@@ -5,6 +5,7 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 import { CustomFormula } from "src/lib/types";
+import { emptyLevelChoices, LevelChoices } from "src/lib/builder/level-grants";
 
 // ---------------------------------------------------------------------------
 // Bundled catalog data shapes. `srd-races.json` / `srd-classes.json` are frozen
@@ -200,7 +201,7 @@ export const CUSTOM_SUBRACE = "__custom";
 // offer no official subrace so the subrace step still resolves to a choice.
 export const NO_SUBRACE = "__none";
 
-export interface BuilderState {
+export interface BuilderState extends LevelChoices {
   mode: StartMode;
 
   // Race — `raceIndex` undefined means either "not chosen yet" or an explicit
@@ -226,15 +227,7 @@ export interface BuilderState {
   classIsCustom: boolean;
   customClassName: string;
   customHitDie: StandardDie;
-  subclass?: string;
   classSkillChoices: SkillName[];
-  // Expertise picks for classes that grant it at level 1 (Rogue). Chosen from
-  // the skills the character ends up proficient in, so this step comes after
-  // the class/background skill choices.
-  classExpertiseChoices: SkillName[];
-  // Tool proficiencies chosen from the class's `toolChoices` list (bard's three
-  // instruments, monk's one artisan tool or instrument).
-  classToolChoices: string[];
 
   // Level-1 feat, for races that grant one (Variant Human, Custom Lineage).
   // Field names match `LevelUpState` so both wizards feed the same `applyFeat`.
@@ -244,12 +237,6 @@ export interface BuilderState {
   featExpertiseChoices: SkillName[];
   featWeaponChoices: string[];
   featSpellChoices: Record<number, string[]>;
-  // Fighting style, for classes that pick one at level 1 (Fighter).
-  fightingStyle?: string;
-  // Picks from the class's closed option lists, keyed by `OptionGroup.category`.
-  // At level 1 only the ranger's Favored Enemy / Natural Explorer apply — every
-  // other group starts at class level 3, so the level-up wizard owns those.
-  chosenOptions: Record<string, string[]>;
 
   // Ability scores (base, before racial bonuses).
   scoreMethod: ScoreMethod;
@@ -318,13 +305,11 @@ export function defaultBuilderState(): BuilderState {
     customClassName: "",
     customHitDie: StandardDie.d8,
     classSkillChoices: [],
-    classExpertiseChoices: [],
-    classToolChoices: [],
+    ...emptyLevelChoices(),
     featSkillChoices: [],
     featExpertiseChoices: [],
     featWeaponChoices: [],
     featSpellChoices: {},
-    chosenOptions: {},
     scoreMethod: "pointbuy",
     baseStats: { ...POINT_BUY_FLOOR },
     rolledPool: [],

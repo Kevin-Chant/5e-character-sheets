@@ -548,3 +548,14 @@ export function syncRacePools(char: Character, traitTitles: string[]): void {
     });
   }
 }
+
+// Every pool title a class can be granted, at any level (including its
+// subclasses'). Used to keep pool-backed features out of the prose feature
+// list — they already appear on the sheet as limited-use pools with their own
+// descriptions, so listing them twice just doubles them.
+export function poolTitlesFor(className: string): string[] {
+  const oc = Object.values(OfficialClass).find((c) => c === className);
+  const own = (oc && CLASS_POOLS[oc]) ?? [];
+  const sub = Object.values(SUBCLASS_POOLS).flat();
+  return [...own, ...sub].map((p) => p.title);
+}

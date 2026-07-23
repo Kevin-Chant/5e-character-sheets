@@ -26,17 +26,10 @@ import {
 import { CURRENT_SCHEMA_VERSION } from "src/lib/migrations/version";
 import { defaultCharacter } from "src/lib/data/default-data";
 import { BuilderState, CUSTOM_SUBRACE } from "src/lib/builder/types";
-import {
-  expertiseDueAt,
-  fightingStyleDueAt,
-  getFightingStyle,
-  syncMartialArts,
-} from "src/lib/builder/class-features";
-import {
-  newOptionPicksAt,
-  resistancesFromOptions,
-} from "src/lib/builder/chosen-options";
-import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
+import { syncMartialArts } from "src/lib/builder/class-features";
+
+import { syncRacePools } from "src/lib/builder/class-pools";
+import { applyClassLevel } from "src/lib/builder/level-grants";
 import {
   getSrdRace,
   getSubrace,
@@ -46,7 +39,6 @@ import { getFeat } from "src/lib/builder/feats";
 import { applyFeat } from "src/lib/builder/level-up";
 import { resolveFinalStats } from "src/lib/builder/resolve";
 import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
-import { getSubclassByName } from "src/lib/builder/subclasses";
 import { getBackground } from "src/lib/builder/backgrounds";
 import { resolveClassLoadout } from "src/lib/builder/equipment";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
@@ -263,7 +255,6 @@ function guidedCharacter(state: BuilderState): Character {
   const className = klass?.name ?? (state.customClassName.trim() || "Custom");
   // Level-1 subclass mechanics, if the chosen subclass carries any (only the
   // classes that pick a subclass at level 1 — cleric/sorcerer/warlock — do).
-  const subclassGrant = getSubclassByName(klass?.index, state.subclass)?.grants;
   const classId = randomUUID();
   char.class = [
     {
@@ -311,19 +302,10 @@ function guidedCharacter(state: BuilderState): Character {
     ...state.raceSkillChoices,
     ...(race?.proficiencies.skills ?? []),
     ...(subrace?.proficiencies.skills ?? []),
-    ...(subclassGrant?.proficiencies?.skills ?? []),
     ...(background?.skills ?? []),
     ...(state.backgroundName ? [] : state.customBackgroundSkills),
   ]);
   for (const skill of skills) char.proficiencies.skills[skill] = true;
-
-  // Expertise the class grants at level 1 (Rogue's two). Filtered to skills the
-  // character actually ended up proficient in, so reshuffling skill picks can't
-  // leave expertise stranded on a skill they don't have.
-  if (expertiseDueAt(className, 1) > 0)
-    for (const skill of state.classExpertiseChoices)
-      if (char.proficiencies.skills[skill])
-        char.proficiencies.expertise[skill] = true;
 
   // Other proficiencies
   char.otherProficiencies.languages = uniq([
@@ -335,13 +317,11 @@ function guidedCharacter(state: BuilderState): Character {
     ...(klass?.proficiencies.armor ?? []),
     ...(race?.proficiencies.armor ?? []),
     ...(subrace?.proficiencies.armor ?? []),
-    ...(subclassGrant?.proficiencies?.armor ?? []),
   ]);
   char.otherProficiencies.weapons = uniq([
     ...(klass?.proficiencies.weapons ?? []),
     ...(race?.proficiencies.weapons ?? []),
     ...(subrace?.proficiencies.weapons ?? []),
-    ...(subclassGrant?.proficiencies?.weapons ?? []),
   ]);
   const toolLabels = uniqBy(
     [
@@ -349,13 +329,10 @@ function guidedCharacter(state: BuilderState): Character {
       // Only the picks the class actually offers, so a stale choice left over
       // from switching class mid-wizard can't leak through.
       ...(klass?.toolChoices
-        ? state.classToolChoices.filter((t) =>
-            klass.toolChoices!.from.includes(t),
-          )
+        ? state.toolChoices.filter((t) => klass.toolChoices!.from.includes(t))
         : []),
       ...(race?.proficiencies.tools ?? []),
       ...(subrace?.proficiencies.tools ?? []),
-      ...(subclassGrant?.proficiencies?.tools ?? []),
       ...(background?.tools ?? []),
       ...(state.backgroundName ? [] : splitLines(state.customBackgroundTools)),
     ].filter(Boolean),
@@ -365,14 +342,10 @@ function guidedCharacter(state: BuilderState): Character {
   );
   char.otherProficiencies.toolsAndOther = toolLabels.map((t) => text(t));
 
-  // Features — racial traits, class level-1 features, subclass level-1
-  // features, background feature
-  char.features = [
-    ...raceTraits,
-    ...[...(klass?.features ?? []), ...(subclassGrant?.features ?? [])].map(
-      (f) => text(f.title, f.detail),
-    ),
-  ];
+  // Features — racial traits and the background feature. The class's and
+  // subclass's level-1 features are added by `applyClassLevel` below, the same
+  // way every later level gets them.
+  char.features = [...raceTraits];
   const bgFeature = background?.feature ?? {
     title: state.customBackgroundFeatureTitle.trim(),
     detail: state.customBackgroundFeatureDetail.trim(),
@@ -380,64 +353,22 @@ function guidedCharacter(state: BuilderState): Character {
   if (bgFeature.title)
     char.features.push(text(bgFeature.title, bgFeature.detail || undefined));
 
-  // Limited-use pools behind the level-1 features (Rage, Second Wind, Lay on
-  // Hands, a dragonborn's Breath Weapon, …). Titles match the mechanics
-  // catalog so the pools come with their actions attached.
-  syncClassPools(char, char.class[0]);
+  // Racial pools (a dragonborn's Breath Weapon) and structured racial
+  // resistances. Keyed to race traits rather than a class level, so they stay
+  // here; `applyClassLevel` only refreshes what already exists.
   syncRacePools(
     char,
     raceTraits.map((t) => t.title),
   );
-
-  // Structured racial damage resistances (Hellish Resistance → Fire, …).
   char.damageModifiers.resistances = resistancesFromTraits(raceTraits);
-
-  // Level-1 fighting style (Fighter). Bare style name as the feature title so
-  // catalog riders (Great Weapon Fighting) match; Defense folds +1 into AC.
-  if (
-    state.fightingStyle &&
-    fightingStyleDueAt(className, 1)?.includes(state.fightingStyle)
-  ) {
-    const style = getFightingStyle(state.fightingStyle);
-    if (style) {
-      char.features.push(text(style.name, style.summary));
-      if (style.acBonus)
-        char.acFormula = {
-          operation: Operation.addition,
-          operands: [char.acFormula, style.acBonus],
-        };
-    }
-  }
-
-  // Level-1 picks from the class's closed option lists — in practice only the
-  // ranger's Favored Enemy / Natural Explorer, since every other group starts
-  // at class level 3. Filtered against what level 1 actually grants so a stale
-  // pick (from switching class mid-wizard) can't leak onto the sheet.
-  const levelOnePicks = newOptionPicksAt(className, 1, state.subclass);
-  for (const { group } of levelOnePicks) {
-    for (const name of state.chosenOptions[group.category] ?? []) {
-      const detail = group.options.find((o) => o.name === name)?.summary;
-      (char.chosenOptions ??= []).push({
-        category: group.category,
-        name,
-        ...(detail ? { detail } : {}),
-      });
-    }
-  }
-
-  // A chosen option can confer a damage resistance (a draconic sorcerer's
-  // ancestry). Merged with the racial ones rather than replacing them.
-  char.damageModifiers.resistances = uniq([
-    ...char.damageModifiers.resistances,
-    ...resistancesFromOptions(char.chosenOptions ?? []),
-  ]);
 
   // Spellcasting
   if (klass && castsAtLevelOne(klass)) {
     char.spellcastingClasses = [{ classId }];
-    // Subclass-granted always-prepared spells (e.g. cleric domain spells) are
-    // folded in alongside the player's own picks.
-    char.spells = buildSpells(state, classId, subclassGrant?.spellIndices);
+    // A subclass's always-prepared spells (cleric domain spells) are added by
+    // `applyClassLevel`, which runs after this — `buildSpells` replaces the
+    // whole spell object, so it has to go first.
+    char.spells = buildSpells(state, classId);
     if (className === OfficialClass.Warlock) char.pactSlots = { expended: 0 };
   }
 
@@ -472,6 +403,12 @@ function guidedCharacter(state: BuilderState): Character {
   }
   otherLines.push(...state.extraEquipment.filter((l) => l.trim()));
   char.equipment = [...classItems, ...otherLines.map((l) => equipmentItem(l))];
+
+  // Everything reaching class level 1 grants — the class's and subclass's
+  // features, pools, fighting style, expertise, tool picks, chosen options.
+  // The same call the level-up wizard makes for level N, which is what keeps
+  // the two wizards from applying different sets.
+  if (char.class[0]) applyClassLevel(char, char.class[0], state);
 
   // A level-1 feat, for the two races that grant one. Applied through the same
   // `applyFeat` the level-up wizard uses, and last of all so its grants layer

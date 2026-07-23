@@ -322,7 +322,7 @@ describe("wizard choices added by the coverage audit", () => {
   it("a rogue's level-1 expertise lands on the chosen skills", () => {
     const c = level1("rogue", {
       classSkillChoices: [SkillName.Stealth, SkillName.Perception],
-      classExpertiseChoices: [SkillName.Stealth],
+      expertiseChoices: [SkillName.Stealth],
     });
     expect(c.proficiencies.expertise[SkillName.Stealth]).toBe(true);
     expect(c.proficiencies.expertise[SkillName.Perception]).toBeFalsy();
@@ -332,24 +332,24 @@ describe("wizard choices added by the coverage audit", () => {
     const c = level1("rogue", {
       classSkillChoices: [SkillName.Stealth],
       // Arcana isn't among the picks, so it can't be doubled.
-      classExpertiseChoices: [SkillName.Arcana],
+      expertiseChoices: [SkillName.Arcana],
     });
     expect(c.proficiencies.expertise[SkillName.Arcana]).toBeFalsy();
   });
 
   it("a non-expertise class ignores stray expertise picks", () => {
     const c = level1("fighter", {
-      classExpertiseChoices: [SkillName.Athletics],
+      expertiseChoices: [SkillName.Athletics],
     });
     expect(c.proficiencies.expertise[SkillName.Athletics]).toBeFalsy();
   });
 
   it("class tool choices land as tool proficiencies", () => {
-    const c = level1("bard", { classToolChoices: ["Lute", "Drum", "Flute"] });
+    const c = level1("bard", { toolChoices: ["Lute", "Drum", "Flute"] });
     const tools = c.otherProficiencies.toolsAndOther.map((t) => t.title);
     expect(tools).toEqual(expect.arrayContaining(["Lute", "Drum", "Flute"]));
     // A pick the class doesn't offer is filtered out.
-    const stale = level1("bard", { classToolChoices: ["Smith's tools"] });
+    const stale = level1("bard", { toolChoices: ["Smith's tools"] });
     expect(
       stale.otherProficiencies.toolsAndOther.map((t) => t.title),
     ).not.toContain("Smith's tools");

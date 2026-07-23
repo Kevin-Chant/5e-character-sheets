@@ -1032,11 +1032,11 @@ export function BackgroundStep({ state, patch }: StepProps) {
           >
             <ChipMultiSelect
               options={klass.toolChoices.from}
-              selected={state.classToolChoices.filter((t) =>
+              selected={state.toolChoices.filter((t) =>
                 klass.toolChoices!.from.includes(t),
               )}
               max={klass.toolChoices.choose}
-              onChange={(classToolChoices) => patch({ classToolChoices })}
+              onChange={(toolChoices) => patch({ toolChoices })}
             />
           </Field>
         )}
@@ -1055,13 +1055,11 @@ export function BackgroundStep({ state, patch }: StepProps) {
           >
             <ChipMultiSelect<SkillName>
               options={expertiseOptions}
-              selected={state.classExpertiseChoices.filter((s) =>
+              selected={state.expertiseChoices.filter((s) =>
                 expertiseOptions.includes(s),
               )}
               max={expertiseDueAt(klass.name, 1)}
-              onChange={(classExpertiseChoices) =>
-                patch({ classExpertiseChoices })
-              }
+              onChange={(expertiseChoices) => patch({ expertiseChoices })}
             />
           </Field>
         )}

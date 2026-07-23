@@ -7,6 +7,8 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
+import { getSrdClass } from "src/lib/builder/srd-classes";
+import { poolTitlesFor } from "src/lib/builder/class-pools";
 import {
   Character,
   CustomFormula,
@@ -678,12 +680,40 @@ export const CLASS_FEATURES: Partial<
   },
 };
 
+// The features a class gains at a given level. Level 1 comes from the bundled
+// SRD class data (whose `features` array is the level-1 set), levels 2+ from
+// the hand-authored table above — callers shouldn't have to know which. Before
+// this, creation read `klass.features` directly and level-up read the table, an
+// implicit split that made building a character above level 1 impossible to do
+// through one path.
 export function classFeaturesAt(
   className: string,
   level: number,
 ): { title: string; detail: string }[] {
   const oc = Object.values(OfficialClass).find((c) => c === className);
+  if (level === 1) {
+    // The SRD level-1 list includes features that the sheet grants as
+    // limited-use pools (Rage, Second Wind, …). Drop those here, the same way
+    // the hand-authored 2+ table omits them, so they aren't listed twice.
+    const pooled = new Set(
+      poolTitlesFor(className).map((t) => t.trim().toLowerCase()),
+    );
+    return (getSrdClass(className.toLowerCase())?.features ?? []).filter(
+      (f) => !pooled.has(f.title.trim().toLowerCase()),
+    );
+  }
   return (oc && CLASS_FEATURES[oc]?.[level]) ?? [];
+}
+
+// The "choose N tool proficiencies" a class offers at a given level — bard
+// instruments, monk artisan tools. Only ever at level 1 today, but keyed by
+// level so the grant path can ask uniformly.
+export function toolChoicesFor(
+  className: string,
+  level: number,
+): { choose: number; from: string[] } | undefined {
+  if (level !== 1) return undefined;
+  return getSrdClass(className.toLowerCase())?.toolChoices;
 }
 
 // ---------------------------------------------------------------------------

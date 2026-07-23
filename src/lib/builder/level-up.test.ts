@@ -282,13 +282,10 @@ describe("applyLevelUp — chosen options", () => {
   it("writes the picks onto the character, with their summaries", () => {
     const char = toBattleMaster();
     const picks = chosenIn(char, "maneuvers");
-    // The bogus name isn't in the catalog, so it lands with no detail — the
-    // wizard only ever offers real ones, but applying is tolerant.
-    expect(picks.map((o) => o.name)).toEqual([
-      "Riposte",
-      "Not A Real Maneuver",
-      "Precision Attack",
-    ]);
+    // A name that isn't in the catalog is rejected — the grant path validates
+    // picks against the group it's applying, so a hand-edited or stale state
+    // can't put junk on the sheet.
+    expect(picks.map((o) => o.name)).toEqual(["Riposte", "Precision Attack"]);
     expect(picks.find((o) => o.name === "Riposte")?.detail).toContain(
       "reaction",
     );
@@ -363,21 +360,26 @@ describe("level-up choices added by the coverage audit", () => {
     expect(expertiseDueAt("Rogue", 2)).toBe(0);
     expect(expertiseDueAt("Fighter", 6)).toBe(0);
 
-    let char = level1("rogue");
+    let char = level1("rogue", {
+      classSkillChoices: [SkillName.Stealth, SkillName.Perception],
+    });
+    // Expertise can only double a proficiency you have, so pick one the rogue
+    // actually took above.
+    const pick = [SkillName.Perception];
     // 1st → 6th; only the 6th-level step should take the picks.
     for (const _ of [2, 3, 4, 5]) {
       void _;
       char = applyLevelUp(char, {
         ...defaultLevelUpState(char),
         className: "Rogue",
-        expertiseChoices: [SkillName.Perception],
+        expertiseChoices: pick,
       });
       expect(char.proficiencies.expertise[SkillName.Perception]).toBeFalsy();
     }
     char = applyLevelUp(char, {
       ...defaultLevelUpState(char),
       className: "Rogue",
-      expertiseChoices: [SkillName.Perception],
+      expertiseChoices: pick,
     });
     expect(char.proficiencies.expertise[SkillName.Perception]).toBe(true);
   });
