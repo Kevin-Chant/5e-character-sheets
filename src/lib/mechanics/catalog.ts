@@ -222,6 +222,37 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
+  // Foe Slayer (ranger 20): once per turn, add your WIS modifier to *either*
+  // the attack roll or the damage roll against a favored enemy. Both halves are
+  // offered as opt-in riders so the player picks whichever the moment calls for
+  // — the note carries the "not both" the sheet can't enforce. Unlike the
+  // level-scaled riders in `classDamageRiders`, WIS is a formula leaf, so this
+  // needs no baking and lives here, keyed off the granted feature's title.
+  "foe slayer": {
+    riders: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "bonus",
+          value: StatKey.wis,
+          optional: true,
+          note: "against a favored enemy, once per turn — or add it to the damage instead",
+        },
+      },
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "extraDamage",
+          amount: StatKey.wis,
+          declareAt: "on-hit",
+          optional: true,
+          oncePerTurn: true,
+          note: "Against a favored enemy. Add to the attack roll or the damage roll — not both.",
+        },
+      },
+    ],
+  },
+
   // Champion fighter's expanded crit ranges.
   "improved critical": {
     riders: [
@@ -743,6 +774,36 @@ export function mechanicsForAbility(
   return ability.mechanics ?? mechanicsForTitle(ability.info.title);
 }
 
+// Divine Strike's damage type, by cleric domain. `type: null` means the extra
+// damage is untyped from the sheet's point of view: War matches the weapon's
+// own type, and Nature is the player's choice per attack — both render as the
+// weapon's line rather than a fixed type.
+//
+// Domains absent from this map get Potent Spellcasting at 8th instead of Divine
+// Strike (Knowledge, Light, Grave, Peace, Arcana), so they're deliberately not
+// listed rather than missing. Only Life is SRD; the rest are mechanical facts
+// with original wording, per the non-SRD rule.
+const DIVINE_STRIKE_TYPES: Record<
+  string,
+  { type: DamageType | null; note?: string }
+> = {
+  Life: { type: DamageType.Radiant },
+  Death: { type: DamageType.Necrotic },
+  Forge: { type: DamageType.Fire },
+  Order: { type: DamageType.Psychic },
+  Tempest: { type: DamageType.Thunder },
+  Trickery: { type: DamageType.Poison },
+  Twilight: { type: DamageType.Radiant },
+  War: {
+    type: null,
+    note: "On a weapon hit — the extra damage is the weapon's own type.",
+  },
+  Nature: {
+    type: null,
+    note: "On a weapon hit — choose cold, fire, or lightning for each attack.",
+  },
+};
+
 // Level-scaled `extraDamage` riders derived from the character's class levels.
 // These can't live in the static title-keyed map above: the dice *count* scales
 // with class level, and the engine's die count is a literal a formula can't
@@ -815,6 +876,31 @@ export function classDamageRiders(character: Character): ActiveRider[] {
           maxDice: 5,
           bonus: { dice: 1, label: "Target is an undead or fiend (+1d8)" },
         },
+      },
+    });
+
+  // Divine Strike (cleric 8+): once per turn, a weapon hit deals an extra 1d8
+  // (2d8 at 14th) of the domain's damage type. The type is the whole reason
+  // this needs the subclass — see DIVINE_STRIKE_TYPES. Domains that get Potent
+  // Spellcasting instead simply have no entry, so nothing is offered.
+  const cleric = levelOf(OfficialClass.Cleric);
+  const domain = character.class.find(
+    (k) => k.name === OfficialClass.Cleric,
+  )?.subclass;
+  const strike = domain ? DIVINE_STRIKE_TYPES[domain] : undefined;
+  if (cleric >= 8 && strike)
+    out.push({
+      source: "Divine Strike",
+      rider: {
+        rider: "extraDamage",
+        amount: [cleric >= 14 ? 2 : 1, StandardDie.d8, DieOperation.roll],
+        // `null` marks a domain whose type is the weapon's own (War) or the
+        // player's per-attack choice (Nature) — both mean "leave it untyped",
+        // which is exactly what omitting `damageType` does.
+        ...(strike.type ? { damageType: strike.type } : {}),
+        declareAt: "on-hit",
+        oncePerTurn: true,
+        note: strike.note ?? "On a weapon hit.",
       },
     });
 

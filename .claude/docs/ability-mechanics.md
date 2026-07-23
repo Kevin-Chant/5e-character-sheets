@@ -154,8 +154,8 @@ grant time, the latter is an unconditional reroll rider.)
 
 ### `extraDamage`: the one contextual rider
 
-`extraDamage` (Sneak Attack, Rage damage, and later Divine Smite/Divine Strike)
-is the exception to "a rider is a silent fold." It carries a whole damage
+`extraDamage` (Sneak Attack, Rage damage, Divine Smite, Divine Strike, Dueling,
+Foe Slayer) is the exception to "a rider is a silent fold." It carries a whole damage
 expression (`amount: CustomFormula` + optional `damageType` — omit to mean "the
 weapon's type", shown as its own untyped line), and its application depends on
 context the fold helpers don't have, so the **roll dialog interprets it
@@ -177,7 +177,8 @@ directly** rather than `applyTotalRiders`. Three fields drive that:
 Collection is separate too: `extraDamageRiders(character)` (not `ridersFor`)
 gathers authored `extraDamage` riders **plus** the level-scaled class ones from
 `classDamageRiders` in `catalog.ts` — Sneak Attack `ceil(rogue/2)` d6, Rage
-damage +2/+3/+4 — baked from class level at collection time (the die _count_ is
+damage +2/+3/+4, Divine Strike 1d8/2d8 — baked from class level at collection
+time (the die _count_ is
 a literal a formula can't scale, and the collector runs at roll time with the
 character in hand, so no storage is needed). Keeping it out of `ridersFor`
 guarantees it never leaks into spell damage or standalone rolls; the roll modal
@@ -195,6 +196,36 @@ re-rollable damage roll. That mirrors the hit-die spend: rolling stays pure and
 re-rollable, one button commits the state via `resolveEffects([{expendSlot}],
 {chosenLevel})` so it syncs/undoes like any edit. `amount` on a `slot` rider is
 just a pre-choice placeholder; the modal always recomputes from the slot.
+
+**Divine Strike — subclass-dependent damage type.** The only rider whose data
+depends on the _subclass_: a cleric's domain sets the type (Life radiant,
+Tempest thunder, …), so `DIVINE_STRIKE_TYPES` in `catalog.ts` maps domain →
+type. Two domains map to `type: null`, meaning "leave it untyped" — War matches
+the weapon's own type, Nature is a per-attack player choice — which is exactly
+what omitting `damageType` already does. Domains that get Potent Spellcasting
+instead (Knowledge, Light, Grave, Peace, Arcana) are simply absent from the map,
+so nothing is offered.
+
+**Foe Slayer — the same bonus on either side of the attack.** Ranger 20 adds WIS
+to _either_ the attack roll or the damage roll. It's the one feature that grants
+two riders for one choice: an opt-in `bonus` on `attack` and an opt-in
+`extraDamage` on `damage`. Both are opt-in and the note says "not both" — the
+sheet can't tell which one the player is spending.
+
+### Why Martial Arts _isn't_ a rider
+
+The monk's Martial Arts die **substitutes** the damage die of unarmed strikes
+and monk weapons rather than adding to it. Every rider kind adds a second
+expression; a "replace the weapon's die" kind would mean the roll dialog
+rewriting an attack's stored formula, which nothing else does.
+
+What a monk actually lacked was the attack itself — the sheet carried the prose
+but no Unarmed Strike to roll. So `syncMartialArts` (`class-features.ts`) grants
+one and re-derives its die (d4 → d6 at 5th → d8 at 11th → d10 at 17th) on every
+level-up, the same shape as `syncClassPools` and with the same trade-off: **the
+table is authoritative**, so a hand-edited Unarmed Strike is overwritten next
+level. Its ability is `max(STR, DEX)`, which is what "you may use DEX" always
+resolves to in practice.
 
 ## Effects and actions (the write side)
 

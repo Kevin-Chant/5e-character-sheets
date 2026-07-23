@@ -16,6 +16,7 @@ import {
   ELDRITCH_INVOCATIONS,
   fightingStyleDueAt,
   getFightingStyle,
+  syncMartialArts,
 } from "src/lib/builder/class-features";
 import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
 import { optionGroup } from "src/lib/builder/chosen-options";
@@ -387,6 +388,10 @@ export function applyLevelUp(
   //      (Rage count, Ki points, Channel Divinity uses, …) for the new level.
   //      Titles match the mechanics catalog, so their actions light up.
   syncClassPools(char, klass);
+
+  // 2.5a. The monk's Unarmed Strike, whose damage die is the Martial Arts die
+  //       — granted at monk 1 and re-derived as the die grows.
+  syncMartialArts(char, klass);
 
   // 2.5b. Refresh racial pools whose mechanics scale on total character level
   //       (Breath Weapon's dice). Passing the existing pool titles refreshes

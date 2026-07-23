@@ -1475,6 +1475,9 @@
                 "ritual": {
                     "type": "boolean"
                 },
+                "school": {
+                    "type": "string"
+                },
                 "spellcastingClass": {
                     "pattern": "^.*-.*-.*-.*-.*$",
                     "type": "string"

@@ -11,6 +11,22 @@ import RollButton from "../roll-button";
 import { getSpellAttackBonus } from "src/lib/formula";
 import { classNameForId, isPreparedCaster } from "src/lib/rules";
 
+// A school's badge letter. Enchantment/Evocation share an initial, so both take
+// two letters; a homebrew school falls back to its own first letter.
+const SCHOOL_ABBREVIATIONS: Record<string, string> = {
+  Abjuration: "A",
+  Conjuration: "C",
+  Divination: "D",
+  Enchantment: "En",
+  Evocation: "Ev",
+  Illusion: "I",
+  Necromancy: "N",
+  Transmutation: "T",
+};
+
+const schoolAbbreviation = (school: string): string =>
+  SCHOOL_ABBREVIATIONS[school] ?? school.charAt(0).toUpperCase();
+
 interface SpellListProps {
   // Cursor to this bucket within `character.spells` (the "cantrips" or a
   // SpellLevel array). Optional since a level's array may not exist yet.
@@ -107,6 +123,13 @@ export default function SpellList({
                 <span className="spell-badge class-badge">
                   {classNameForId(character, spell.spellcastingClass) ??
                     "Unknown"}
+                </span>
+              )}
+              {/* School as a single letter (A/C/D/En/Ev/I/N/T), spelled out on
+                  hover — full names would crowd the row. */}
+              {spell.school && (
+                <span className="spell-badge school-badge" title={spell.school}>
+                  {schoolAbbreviation(spell.school)}
                 </span>
               )}
               {spell.ritual && (

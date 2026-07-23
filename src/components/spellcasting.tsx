@@ -12,6 +12,7 @@ import { upperFirst } from "lodash";
 import { calculateCustomFormula } from "src/lib/formula";
 import {
   classNameForId,
+  expendedSpellSlots,
   getDefaultSpellSlots,
   getPactSlotInfo,
   isSpellcastingClass,
@@ -126,7 +127,9 @@ function SpellsTable({ character }: SpellsTableProps) {
         </div>
         {visibleLevels.map((level) => {
           const total = standardSlots(level);
-          const expended = character.spellSlots[level]?.expended ?? 0;
+          // Clamped, so lowering the override (or losing the level that granted
+          // the slots) can't render more spent pips than exist.
+          const expended = expendedSpellSlots(character, level);
           return (
             <div key={level} className="spell-level-card">
               <div className="spell-level-header">

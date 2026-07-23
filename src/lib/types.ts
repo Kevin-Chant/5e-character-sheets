@@ -29,6 +29,8 @@ import {
   ArmorDexContribution,
   RestType,
   Size,
+  CastingTime,
+  MagicSchool,
 } from "./data/data-definitions";
 import { UUID } from "crypto";
 import { Action } from "./hooks/reducers/actions";
@@ -590,7 +592,15 @@ export interface Spell {
   ritual?: boolean;
   concentration?: boolean;
   components?: SpellComponents;
-  castingTime?: string;
+  // The school of magic. `MagicSchool | string` rather than the bare enum so
+  // homebrew traditions still fit (mirrors `ClassName`). The SRD importer has
+  // always known this — it just used to be buried in the description prose.
+  school?: MagicSchool | string;
+  // How long the spell takes to cast. Typed against `CastingTime` for the three
+  // action-economy values so they can be matched exactly (and, later, drive a
+  // "what can I do this turn" view), while still accepting "1 minute",
+  // "8 hours", or anything else as free text.
+  castingTime?: CastingTime | string;
   range?: string;
   duration?: string;
   mechanics?: SpellMechanics;

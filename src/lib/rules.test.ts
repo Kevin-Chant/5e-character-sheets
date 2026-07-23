@@ -9,6 +9,7 @@ import { defaultCharacter } from "./data/default-data";
 import {
   availableSpellSlots,
   carryingCapacityLb,
+  expendedSpellSlots,
   countAttunedItems,
   equippedArmorAC,
   formatWeight,
@@ -19,6 +20,7 @@ import {
   remainingHitDice,
   saveDcFormula,
   totalEquipmentWeightLb,
+  totalSpellSlots,
   weightInUnit,
   weightToLb,
 } from "./rules";
@@ -340,5 +342,35 @@ describe("weight unit conversion", () => {
   it("formats in the chosen unit", () => {
     expect(formatWeight(10, "lb")).toBe("10 lb");
     expect(formatWeight(2.2046226218, "kg")).toBe("1 kg");
+  });
+});
+
+describe("spell slot accounting", () => {
+  it("clamps a stored expended count that exceeds the total", () => {
+    const c = wizard(9);
+    // Spend all three 3rd-level slots, then lose the levels that granted them.
+    c.spellSlots[3].expended = 3;
+    expect(availableSpellSlots(c, 3)).toBe(0);
+    c.spellSlots[3].totalOverride = 1;
+    // The stored 3 is now impossible; reads clamp rather than going negative.
+    expect(expendedSpellSlots(c, 3)).toBe(1);
+    expect(availableSpellSlots(c, 3)).toBe(0);
+  });
+
+  it("recovers the stored value when the total goes back up", () => {
+    const c = wizard(9);
+    c.spellSlots[3].expended = 3;
+    c.spellSlots[3].totalOverride = 1;
+    expect(expendedSpellSlots(c, 3)).toBe(1);
+    // Clamping is read-side only, so the original 3 is still there.
+    c.spellSlots[3].totalOverride = undefined;
+    expect(expendedSpellSlots(c, 3)).toBe(3);
+  });
+
+  it("floors a negative stored value at 0", () => {
+    const c = wizard(9);
+    c.spellSlots[3].expended = -2;
+    expect(expendedSpellSlots(c, 3)).toBe(0);
+    expect(availableSpellSlots(c, 3)).toBe(totalSpellSlots(c, 3));
   });
 });

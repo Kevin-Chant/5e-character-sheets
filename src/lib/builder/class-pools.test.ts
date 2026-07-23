@@ -14,6 +14,10 @@ import { calculateCustomFormula } from "src/lib/formula";
 import { randomUUID } from "src/lib/browser";
 import { Character, IClass, LimitedUseAbility } from "src/lib/types";
 import { syncClassPools, syncRacePools } from "./class-pools";
+import {
+  martialArtsDie,
+  syncMartialArts,
+} from "src/lib/builder/class-features";
 
 const blank = (): Character => {
   const c = structuredClone(defaultCharacter);
@@ -517,5 +521,54 @@ describe("builder integration", () => {
     expect(pool(dip2, "Sorcery Points").maxUses).toEqual({
       classLevel: sorc.id,
     });
+  });
+});
+
+describe("syncMartialArts", () => {
+  const monkAt = (level: number): Character => {
+    const c = blank();
+    c.attacks = [];
+    const monk = klass(OfficialClass.Monk, level);
+    c.class = [monk];
+    c.stats.dex = 16; // +3, beating STR 10
+    syncMartialArts(c, monk);
+    return c;
+  };
+  const strike = (c: Character) =>
+    c.attacks.find((a) => a.name === "Unarmed Strike")!;
+
+  it("grants an Unarmed Strike whose die is the Martial Arts die", () => {
+    expect(martialArtsDie(1)).toBe(StandardDie.d4);
+    expect(martialArtsDie(5)).toBe(StandardDie.d6);
+    expect(martialArtsDie(11)).toBe(StandardDie.d8);
+    expect(martialArtsDie(17)).toBe(StandardDie.d10);
+
+    const c = monkAt(1);
+    expect(strike(c)).toBeDefined();
+    // 1d4 + the better of STR/DEX.
+    expect(calculateCustomFormula(strike(c).formula.Bludgeoning!, c)).toBe(
+      3 + 1, // DEX +3, plus the d4's deterministic stub
+    );
+  });
+
+  it("re-derives the die on level-up instead of adding a second attack", () => {
+    const c = monkAt(1);
+    const monk5 = { ...c.class[0], level: 5 };
+    c.class = [monk5];
+    syncMartialArts(c, monk5);
+    expect(c.attacks.filter((a) => a.name === "Unarmed Strike")).toHaveLength(
+      1,
+    );
+    const damage = strike(c).formula.Bludgeoning as unknown as {
+      operands: [[number, StandardDie, string], unknown];
+    };
+    expect(damage.operands[0][1]).toBe(StandardDie.d6);
+  });
+
+  it("leaves non-monks alone", () => {
+    const c = blank();
+    c.attacks = [];
+    syncMartialArts(c, klass(OfficialClass.Fighter, 20));
+    expect(c.attacks).toHaveLength(0);
   });
 });

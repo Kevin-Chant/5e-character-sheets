@@ -56,6 +56,13 @@ slot in the spell's detail via `detailFormulas`, exactly like weapon damage —
 so a looked-up spell shows a **live** base-damage roll that recomputes with the
 character. Everything stays editable; homebrew is just a hand-edited `Spell`.
 
+The **school** lands in the structured `Spell.school` field (`MagicSchool |
+string`, so homebrew traditions fit) rather than the description prose, where it
+used to be rendered as a `_Evocation_` line. `SpellList` shows it as a one- or
+two-letter badge (Enchantment/Evocation share an initial, so both take two) with
+the full name on hover. Spells saved before the field existed simply have no
+school and no badge — it's optional, so nothing needed migrating.
+
 ### 4. Picker — `src/components/add-spell-from-srd.tsx`
 
 Routed like the weapon picker: `SpellList`'s "Browse SRD" button targets

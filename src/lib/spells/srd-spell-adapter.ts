@@ -76,10 +76,12 @@ function buildDetail(srd: SrdSpell): {
   const detailFormulas: DieExpression[] = [];
   const parts: string[] = [srd.desc];
 
-  const stats: string[] = [`_${srd.school}_`];
+  // The school is a structured field now (`Spell.school`), so it's no longer
+  // repeated in the description prose.
+  const stats: string[] = [];
   if (srd.areaOfEffect) stats.push(`Area: ${srd.areaOfEffect}`);
   if (srd.save) stats.push(`Save: ${srd.save}`);
-  parts.push(stats.join(" · "));
+  if (stats.length) parts.push(stats.join(" · "));
 
   const damageType = asDamageType(srd.damageType);
   const roll = srd.baseDamage ? parseDamageRoll(srd.baseDamage) : undefined;
@@ -106,6 +108,7 @@ export function buildSpellFromSrd(
     spellcastingClass,
     info: { title: srd.name, titleFormulas: [], detail, detailFormulas },
     castingTime: srd.castingTime,
+    ...(srd.school ? { school: srd.school } : {}),
     range: srd.range,
     duration: srd.duration,
   };

@@ -79,6 +79,8 @@ describe("buildSpellFromSrd", () => {
     expect(spell.spellcastingClass).toBe(WIZARD_ID);
     expect(spell.info.title).toBe("Fireball");
     expect(spell.castingTime).toBe("1 action");
+    // The school is a structured field now, not buried in the prose.
+    expect(spell.school).toBe("Evocation");
     expect(spell.range).toBe("150 feet");
     expect(spell.components).toEqual({
       verbal: true,

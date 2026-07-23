@@ -29,6 +29,7 @@ import { BuilderState, CUSTOM_SUBRACE } from "src/lib/builder/types";
 import {
   fightingStyleDueAt,
   getFightingStyle,
+  syncMartialArts,
 } from "src/lib/builder/class-features";
 import { newOptionPicksAt } from "src/lib/builder/chosen-options";
 import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
@@ -439,6 +440,10 @@ function guidedCharacter(state: BuilderState): Character {
   }
   otherLines.push(...state.extraEquipment.filter((l) => l.trim()));
   char.equipment = [...classItems, ...otherLines.map((l) => equipmentItem(l))];
+
+  // The monk's Unarmed Strike, whose damage die is the Martial Arts die. After
+  // the loadout, since that's what populates `char.attacks`.
+  if (char.class[0]) syncMartialArts(char, char.class[0]);
 
   // Personality
   const p = state.personality;

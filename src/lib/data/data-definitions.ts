@@ -463,6 +463,22 @@ export enum CastingTime {
   Reaction = "1 reaction",
 }
 
+// The eight schools of magic. A closed set in 5e, but stored on `Spell.school`
+// as `MagicSchool | string` so homebrew traditions aren't boxed out — the same
+// convention as `ClassName` and `RechargeCriteria`.
+export enum MagicSchool {
+  Abjuration = "Abjuration",
+  Conjuration = "Conjuration",
+  Divination = "Divination",
+  Enchantment = "Enchantment",
+  Evocation = "Evocation",
+  Illusion = "Illusion",
+  Necromancy = "Necromancy",
+  Transmutation = "Transmutation",
+}
+
+export const MAGIC_SCHOOLS = Object.values(MagicSchool);
+
 // Spell levels are plain numbers: 0 = cantrip, 1–9 = leveled spell/slot levels.
 // This matches `SpellMechanics.level` and `damageTable` keys, so there's a single
 // representation across the model (the former "First"…"Ninth" word enum is gone).

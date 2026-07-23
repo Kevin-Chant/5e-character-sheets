@@ -1,4 +1,19 @@
-import { OfficialClass } from "src/lib/data/data-definitions";
+import {
+  DamageType,
+  DieOperation,
+  OfficialClass,
+  Operation,
+  StandardDie,
+  StatKey,
+} from "src/lib/data/data-definitions";
+import { randomUUID } from "src/lib/browser";
+import {
+  Character,
+  CustomFormula,
+  CustomFormulaWithDamage,
+  DieExpression,
+  IClass,
+} from "src/lib/types";
 
 // Class-feature choice catalogs and per-level feature prose for the builder /
 // level-up wizards. As with the other non-SRD-JSON content files: mechanical
@@ -670,3 +685,64 @@ export function classFeaturesAt(
   const oc = Object.values(OfficialClass).find((c) => c === className);
   return (oc && CLASS_FEATURES[oc]?.[level]) ?? [];
 }
+
+// ---------------------------------------------------------------------------
+// Martial Arts (monk)
+
+// The monk's Martial Arts die by monk level: d4 → d6 (5th) → d8 (11th) →
+// d10 (17th).
+export function martialArtsDie(level: number): StandardDie {
+  if (level >= 17) return StandardDie.d10;
+  if (level >= 11) return StandardDie.d8;
+  if (level >= 5) return StandardDie.d6;
+  return StandardDie.d4;
+}
+
+// Martial Arts *substitutes* the damage die of unarmed strikes and monk weapons
+// rather than adding to them, so it's the one scaling feature that doesn't fit
+// the `extraDamage` rider shape — a rider adds a second expression, and there's
+// no "replace the weapon's die" kind (adding one would mean the roll dialog
+// rewriting an attack's stored formula, which nothing else does).
+//
+// What a monk actually lacked was the attack itself: the sheet had the prose but
+// no Unarmed Strike to roll. So this grants one and re-derives its die on every
+// level-up, exactly like `syncClassPools` does for pool sizes — and with the
+// same trade-off: **the table is authoritative**, so a hand-edited Unarmed
+// Strike is overwritten the next time the monk levels. Rename it (or add a
+// second attack) to keep a custom one.
+export function syncMartialArts(char: Character, klass: IClass): void {
+  if (klass.name !== OfficialClass.Monk) return;
+  // Martial Arts lets you use DEX in place of STR; taking the better of the two
+  // is what that always resolves to in practice.
+  const ability: CustomFormula = {
+    operation: Operation.maximum,
+    operands: [StatKey.str, StatKey.dex],
+  };
+  const die = martialArtsDie(klass.level);
+  const existing = char.attacks.find(
+    (a) => a.name.trim().toLowerCase() === UNARMED_STRIKE,
+  );
+  const bonus: CustomFormula = {
+    operation: Operation.addition,
+    operands: [ability, "proficiencyBonus"],
+  };
+  const formula: CustomFormulaWithDamage = {
+    [DamageType.Bludgeoning]: {
+      operation: Operation.addition,
+      operands: [[1, die, DieOperation.roll] as DieExpression, ability],
+    } as CustomFormula,
+  };
+  if (existing) {
+    existing.bonus = bonus;
+    existing.formula = formula;
+  } else {
+    char.attacks.push({
+      id: randomUUID(),
+      name: "Unarmed Strike",
+      bonus,
+      formula,
+    });
+  }
+}
+
+const UNARMED_STRIKE = "unarmed strike";

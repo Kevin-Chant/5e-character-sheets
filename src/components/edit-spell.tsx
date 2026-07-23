@@ -1,5 +1,9 @@
 import React, { useEffect } from "react";
-import { CastingTime, FIELD } from "src/lib/data/data-definitions";
+import {
+  CastingTime,
+  FIELD,
+  MAGIC_SCHOOLS,
+} from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
 import { UUID } from "crypto";
 import { useCharacter } from "src/lib/hooks/use-character";
@@ -166,6 +170,17 @@ export default function EditSpell() {
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          School
+          <OptionOrCustomValue
+            value={spell.school ?? ""}
+            setValue={(v: string) => updateSpellField("school", v || undefined)}
+            options={MAGIC_SCHOOLS}
+            customDefaultValue=""
+            customInputType="text"
+            customValueHelpText="e.g. Chronurgy"
+          />
         </label>
         <label>
           Casting time

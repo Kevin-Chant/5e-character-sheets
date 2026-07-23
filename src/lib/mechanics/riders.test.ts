@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultCharacter } from "src/lib/data/default-data";
-import { DamageType, OfficialClass } from "src/lib/data/data-definitions";
+import {
+  DamageType,
+  DieOperation,
+  OfficialClass,
+} from "src/lib/data/data-definitions";
 import { rollD20Check } from "src/lib/roll";
 import { Character, DieExpression } from "src/lib/types";
 import {
@@ -318,5 +322,72 @@ describe("extraDamageRiders", () => {
     expect(riders).toHaveLength(1);
     expect(riders[0].source).toBe("Homebrew Strike");
     expect(diceCount(riders[0])).toBe(2);
+  });
+});
+
+describe("Divine Strike", () => {
+  const cleric = (level: number, subclass?: string): Character => {
+    const c = asClass(OfficialClass.Cleric, level);
+    c.class[0].subclass = subclass;
+    return c;
+  };
+  const strikeOf = (c: Character) =>
+    extraDamageRiders(c).find((r) => r.source === "Divine Strike")?.rider as
+      | Extract<ActiveRider["rider"], { rider: "extraDamage" }>
+      | undefined;
+
+  it("appears at 8th and doubles its die at 14th", () => {
+    expect(strikeOf(cleric(7, "Life"))).toBeUndefined();
+    expect(strikeOf(cleric(8, "Life"))?.amount).toEqual([
+      1,
+      "d8",
+      DieOperation.roll,
+    ]);
+    expect(strikeOf(cleric(14, "Life"))?.amount).toEqual([
+      2,
+      "d8",
+      DieOperation.roll,
+    ]);
+  });
+
+  it("takes its damage type from the domain", () => {
+    expect(strikeOf(cleric(8, "Life"))?.damageType).toBe(DamageType.Radiant);
+    expect(strikeOf(cleric(8, "Tempest"))?.damageType).toBe(DamageType.Thunder);
+    expect(strikeOf(cleric(8, "Trickery"))?.damageType).toBe(DamageType.Poison);
+  });
+
+  it("leaves War and Nature untyped — weapon's type / player's choice", () => {
+    expect(strikeOf(cleric(8, "War"))?.damageType).toBeUndefined();
+    expect(strikeOf(cleric(8, "Nature"))?.damageType).toBeUndefined();
+    expect(strikeOf(cleric(8, "Nature"))?.note).toContain("cold, fire, or");
+  });
+
+  it("is absent for domains that get Potent Spellcasting instead", () => {
+    for (const domain of ["Knowledge", "Light", "Grave", "Peace", "Arcana"])
+      expect(strikeOf(cleric(20, domain)), domain).toBeUndefined();
+    // …and for a cleric who hasn't chosen a domain at all.
+    expect(strikeOf(cleric(20))).toBeUndefined();
+  });
+});
+
+describe("Foe Slayer", () => {
+  it("offers the WIS bonus on both the attack roll and the damage", () => {
+    const c = withFeatures("Foe Slayer");
+    const onAttack = flatBonusRiders(ridersFor(c, "attack")).optional;
+    expect(onAttack).toHaveLength(1);
+    expect(onAttack[0].rider.value).toBe("wis");
+    const onDamage = extraDamageRiders(c).filter(
+      (r) => r.source === "Foe Slayer",
+    );
+    expect(onDamage).toHaveLength(1);
+    // Both opt-in: the sheet can't tell which one the player is spending.
+    expect(
+      (
+        onDamage[0].rider as Extract<
+          ActiveRider["rider"],
+          { rider: "extraDamage" }
+        >
+      ).optional,
+    ).toBe(true);
   });
 });

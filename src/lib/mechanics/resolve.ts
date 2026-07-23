@@ -9,10 +9,11 @@ import { UpdateAction } from "src/lib/hooks/reducers/actions";
 import { formulaHasDice, rollFormula } from "src/lib/roll";
 import {
   availableSpellSlots,
-  getDefaultSpellSlots,
+  expendedSpellSlots,
   getHpFormula,
   levelInClass,
   remainingHitDice,
+  totalSpellSlots,
 } from "src/lib/rules";
 import { Character, LimitedUseAbility } from "src/lib/types";
 import { AbilityAction, AmountExpr, Effect } from "./types";
@@ -71,22 +72,10 @@ export function abilityRemainingUses(
   return Math.max(0, abilityMaxUses(ability, character) - ability.expended);
 }
 
-export function totalSpellSlots(
-  character: Character,
-  level: LeveledSpellLevel,
-): number {
-  return (
-    character.spellSlots[level]?.totalOverride ??
-    getDefaultSpellSlots(character, level)
-  );
-}
-
-export function expendedSpellSlots(
-  character: Character,
-  level: LeveledSpellLevel,
-): number {
-  return character.spellSlots[level]?.expended ?? 0;
-}
+// Slot accounting lives in rules.ts (which clamps a stored `expended` to the
+// current total); re-exported here so the mechanics interpreters and their
+// tests keep one import site.
+export { expendedSpellSlots, totalSpellSlots };
 
 // ---------------------------------------------------------------------------
 // Amounts

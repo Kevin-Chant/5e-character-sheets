@@ -593,15 +593,39 @@ export function maxSpellLevelForClass(klass: IClass): number {
 
 // Unspent standard slots at a level (total, respecting any override, minus
 // expended). Used to offer only castable levels in the roll dialog.
+// Total slots at a level: the override if set, else the derived table value.
+export function totalSpellSlots(
+  character: Character,
+  slotLevel: LeveledSpellLevel,
+): number {
+  return (
+    character.spellSlots[slotLevel]?.totalOverride ??
+    getDefaultSpellSlots(character, slotLevel)
+  );
+}
+
+// Slots spent at a level, **clamped to the total**. The stored `expended` can
+// legitimately exceed it — spend three 3rd-level slots, then lower the override
+// or lose the class level that granted them — and nothing should read as
+// "-1 available" or render more spent pips than exist. Clamping here (rather
+// than rewriting the character) keeps the read path honest without a migration
+// or a surprise edit, and the stored value recovers if the total goes back up.
+export function expendedSpellSlots(
+  character: Character,
+  slotLevel: LeveledSpellLevel,
+): number {
+  const expended = character.spellSlots[slotLevel]?.expended ?? 0;
+  return Math.min(Math.max(0, expended), totalSpellSlots(character, slotLevel));
+}
+
 export function availableSpellSlots(
   character: Character,
   slotLevel: LeveledSpellLevel,
 ): number {
-  const total =
-    character.spellSlots[slotLevel]?.totalOverride ??
-    getDefaultSpellSlots(character, slotLevel);
-  const expended = character.spellSlots[slotLevel]?.expended ?? 0;
-  return Math.max(0, total - expended);
+  return (
+    totalSpellSlots(character, slotLevel) -
+    expendedSpellSlots(character, slotLevel)
+  );
 }
 
 // Classes that prepare spells daily from their full list (vs. known casters with
