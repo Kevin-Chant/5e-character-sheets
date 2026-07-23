@@ -10,6 +10,7 @@ import { applyLevelUp, defaultLevelUpState } from "src/lib/builder/level-up";
 import { defaultBuilderState } from "src/lib/builder/types";
 import { mechanicsForAbility } from "src/lib/mechanics/catalog";
 import { critThreshold, ridersFor } from "src/lib/mechanics/riders";
+import { calculateCustomFormula } from "src/lib/formula";
 import { randomUUID } from "src/lib/browser";
 import { Character, IClass, LimitedUseAbility } from "src/lib/types";
 import { syncClassPools, syncRacePools } from "./class-pools";
@@ -65,6 +66,49 @@ describe("syncClassPools", () => {
       operation: "multiplication",
       operands: [5, { classLevel: pal.id }],
     });
+  });
+
+  it("grants a save DC on the pools whose features impose one", () => {
+    const c = blank();
+    c.stats.wis = 16; // +3
+    const monk = klass(OfficialClass.Monk, 5); // PB +3
+    c.class = [monk];
+    syncClassPools(c, monk);
+    const ki = pool(c, "Ki").save!;
+    // 8 + PB + WIS, live rather than baked — and no fixed ability, since each
+    // ki feature names its own save.
+    expect(calculateCustomFormula(ki.dc, c)).toBe(14);
+    expect(ki.stat).toBeUndefined();
+
+    // Pools with no save at all stay clean.
+    syncClassPools(c, klass(OfficialClass.Fighter, 1));
+    expect(pool(c, "Second Wind").save).toBeUndefined();
+  });
+
+  it("a maneuver DC takes the better of STR and DEX", () => {
+    const c = blank();
+    c.stats.str = 12; // +1
+    c.stats.dex = 18; // +4
+    const fighter = {
+      ...klass(OfficialClass.Fighter, 5),
+      subclass: "Battle Master",
+    }; // PB +3
+    c.class = [fighter];
+    syncClassPools(c, fighter);
+    expect(
+      calculateCustomFormula(pool(c, "Superiority Dice").save!.dc, c),
+    ).toBe(15);
+  });
+
+  it("backfills a save DC onto a pool granted before DCs existed", () => {
+    const c = blank();
+    const monk = klass(OfficialClass.Monk, 5);
+    c.class = [monk];
+    syncClassPools(c, monk);
+    // Simulate an older save: the pool exists, but carries no DC.
+    delete pool(c, "Ki").save;
+    syncClassPools(c, monk);
+    expect(pool(c, "Ki").save).toBeDefined();
   });
 
   it("Bardic Inspiration refreshes on short rests from bard 5", () => {

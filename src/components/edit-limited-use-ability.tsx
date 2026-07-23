@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { FIELD, RestType } from "src/lib/data/data-definitions";
+import { FIELD, RestType, StatKey } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
+import { STAT_NAMES, saveDcFormula } from "src/lib/rules";
 import {
   CustomFormula,
   LimitedUseAbility,
+  SaveEffect,
   TextComponentWithDetails,
   isTextComponent,
 } from "src/lib/types";
@@ -139,6 +141,69 @@ export default function EditLimitedUseAbility() {
           />
         </label>
       </div>
+      <fieldset className="limited-use-save">
+        <legend className="field-label">Save DC (optional)</legend>
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={!!ability.save}
+            onChange={(e) =>
+              dispatch(
+                updateAt(
+                  abilityCursor.k("save"),
+                  e.target.checked
+                    ? ({ dc: saveDcFormula(StatKey.wis) } satisfies SaveEffect)
+                    : undefined,
+                ),
+              )
+            }
+          />
+          This feature imposes a saving throw
+        </label>
+        {ability.save && (
+          <div className="row limited-use-ability-meta">
+            <div className="field">
+              <span className="field-label">DC</span>
+              <button
+                type="button"
+                className="uses-formula-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  pushCursor(abilityCursor.k("save").k("dc"));
+                }}
+              >
+                {calculateCustomFormula(ability.save.dc, character)}{" "}
+                <span className="uses-formula-hint">(edit formula)</span>
+              </button>
+            </div>
+            <label className="field">
+              <span className="field-label">Target rolls</span>
+              <select
+                value={ability.save.stat ?? ""}
+                onChange={(e) =>
+                  dispatch(
+                    updateAt(abilityCursor.k("save"), {
+                      ...ability.save!,
+                      stat: (e.target.value || undefined) as
+                        | StatKey
+                        | undefined,
+                    }),
+                  )
+                }
+              >
+                {/* The default for a pool: one Ki DC backs several features
+                    that call for different saves. */}
+                <option value="">(varies)</option>
+                {Object.values(StatKey).map((stat) => (
+                  <option key={stat} value={stat}>
+                    {STAT_NAMES[stat]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+      </fieldset>
       <EditAbilityMechanics ability={ability} cursor={abilityCursor} />
       <button
         className="btn-primary edit-save"

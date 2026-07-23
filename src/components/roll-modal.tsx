@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   formatCustomFormula,
   formatCustomFormulaWithDamage,
+  formatSaveEffect,
 } from "src/lib/formula";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRoller } from "src/lib/hooks/use-roller";
@@ -42,6 +43,7 @@ import {
   CustomFormulaWithDamage,
   DieDefinition,
   RollRider,
+  SaveEffect,
   Spell,
 } from "src/lib/types";
 
@@ -115,11 +117,13 @@ export default function RollModal() {
               }}
             />
           )}
+          {spec.save && <SaveControls character={character} save={spec.save} />}
           <EffectControls
             character={character}
             damage={spec.damage}
             spell={spec.spell}
-            titled={spec.toHit !== undefined}
+            save={spec.save}
+            titled={spec.toHit !== undefined || spec.save !== undefined}
             critical={critical}
             extraSets={extraSets}
             // Only a to-hit roll can crit — a save-based spell never does, so
@@ -138,6 +142,34 @@ export default function RollModal() {
         </>
       )}
     </Shell>
+  );
+}
+
+// A save-based attack's header: the DC the *target* rolls against. Read-only —
+// the target's roll happens on the other side of the table, so there's nothing
+// here to roll, only the number to call out and what a success does.
+function SaveControls({
+  character,
+  save,
+}: {
+  character: Character;
+  save: SaveEffect;
+}) {
+  return (
+    <div className="column roll-section">
+      <p className="roll-section-title">Saving Throw</p>
+      <p className="roll-total font-large roll-save-dc">
+        {formatSaveEffect(save, character)}
+      </p>
+      {save.onSuccess && (
+        <p className="roll-part muted">
+          {save.onSuccess === "half"
+            ? "Half damage on a success"
+            : "No damage on a success"}
+        </p>
+      )}
+      {save.note && <p className="muted font-small">{save.note}</p>}
+    </div>
   );
 }
 
@@ -279,6 +311,7 @@ function EffectControls({
   character,
   damage,
   spell,
+  save,
   titled,
   critical = false,
   extraSets = 0,
@@ -287,6 +320,9 @@ function EffectControls({
   character: Character;
   damage?: CustomFormulaWithDamage;
   spell?: Spell;
+  // Present on a save-based attack; used only to show what a successful save
+  // leaves of the rolled damage.
+  save?: SaveEffect;
   titled?: boolean;
   critical?: boolean;
   extraSets?: number;
@@ -669,6 +705,17 @@ function EffectControls({
                   {damageResult.critical.extraSets
                     ? ` ×${damageResult.critical.extraSets + 1} (exploded)`
                     : ""}
+                </span>
+              )}
+              {/* The save itself is the DM's roll, so the sheet just reports
+                  the outcome's number: full damage on a failed save, and the
+                  reduced figure on a success (5e rounds down). */}
+              {save?.onSuccess && (
+                <span className="roll-part muted">
+                  Failed save: {damageResult.total} — Successful save:{" "}
+                  {save.onSuccess === "half"
+                    ? Math.floor(damageResult.total / 2)
+                    : 0}
                 </span>
               )}
               {damageResult.parts.map((p) => (

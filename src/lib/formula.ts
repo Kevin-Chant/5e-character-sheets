@@ -6,6 +6,7 @@ import {
   CustomFormulaWithDamage,
   Expression,
   ExpressionCalculator,
+  SaveEffect,
   isArbitraryOperandOperation,
   isAtomicVariable,
   isClassLevel,
@@ -436,6 +437,31 @@ export function formatCustomFormulaWithDamage(
       )} ${damageType}`;
     })
     .join(", ");
+}
+
+// "DC 15 DEX" — the at-a-glance form of a `SaveEffect`, used everywhere one is
+// shown (the attacks table, a limited-use pool's header, the roll dialog). The
+// ability is dropped when the effect doesn't fix one (a Ki DC backs several
+// features with different saves), leaving a bare "DC 15".
+export function formatSaveEffect(
+  save: SaveEffect,
+  character: Character,
+): string {
+  const dc = calculateCustomFormula(save.dc, character);
+  return save.stat ? `DC ${dc} ${save.stat.toUpperCase()}` : `DC ${dc}`;
+}
+
+// The longer prose form: the DC, what a success does, and any advisory note.
+// Used where there's room for a sentence (the roll dialog), not in a table cell.
+export function describeSaveEffect(
+  save: SaveEffect,
+  character: Character,
+): string {
+  const parts = [`${formatSaveEffect(save, character)} saving throw`];
+  if (save.onSuccess === "half") parts.push("half damage on a success");
+  else if (save.onSuccess === "none") parts.push("no damage on a success");
+  if (save.note) parts.push(save.note);
+  return parts.join(" — ");
 }
 
 export function calculateCustomFormula(

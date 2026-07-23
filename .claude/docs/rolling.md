@@ -61,8 +61,9 @@ dice, crit range, minimums — via `ridersFor` (see
 [`ability-mechanics.md`](./ability-mechanics.md)); `rollFormula`/`rollDamage`/
 `rollD20Check` all take the active rider list.
 
-- **`attack`** (from `toHit` and/or `damage`/`spell`) → **one dialog with both
-  steps**: an optional _To Hit_ section (`d20 + toHit`, adv/dis) above a
+- **`attack`** (from `toHit`/`save` and/or `damage`/`spell`) → **one dialog with
+  both steps**: an optional _To Hit_ section (`d20 + toHit`, adv/dis) — or a
+  read-only _Saving Throw_ section when the target rolls instead — above a
   _Damage_/_Healing_ section. This is why a weapon or attack-spell has a single
   die button — you click "I'm attacking with this" once and resolve both rolls
   in place.
@@ -73,6 +74,12 @@ For an `attack` spec the modal renders:
 
 - **To Hit** — shown when `toHit` is set (weapon attack bonus, or spell attack
   bonus via `getSpellAttackBonus`). A d20 check with advantage/disadvantage.
+- **Saving Throw** — shown instead when `save` is set. Deliberately **not
+  rollable**: the target's save is the DM's roll, so the section is read-only —
+  the DC, what a success does, and any advisory note. The player still rolls
+  damage once; the result line reports both outcomes ("Failed save: 12 —
+  Successful save: 6") so nobody halves it by hand. A save-based attack also has
+  no crit toggle, since there's no attack roll to crit.
 - **Damage / Healing** — from a fixed `damage` map, or a `spell`'s
   `mechanics`. A `spell` adds a cast-level control: a slot-level `<select>`
   (base…9th) for leveled spells, or an automatic character-level note for

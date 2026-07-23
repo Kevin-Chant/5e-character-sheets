@@ -2044,6 +2044,17 @@ button:active:not(:disabled) {
   background-color: var(--surface-2);
 }
 
+/* The save-based-attack fieldset: DC / target ability / on-success sit side by
+   side like the formula pair above, with the free-text note on its own row. */
+.attack-save {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem 1rem;
+}
+.attack-save-note {
+  grid-column: 1 / -1;
+}
+
 /* Keep the primary save aligned to the start, matching field controls. */
 .edit-attack > .btn-primary,
 .formula-with-damage > .btn-primary,
@@ -3147,6 +3158,17 @@ button.slot-pip:hover:not(:disabled) {
 /* The crit toggle sits directly above the roll button, so give it a little air. */
 .roll-crit-toggle {
   margin-top: 0.15rem;
+}
+/* A save-based attack's DC. Sized like a crit callout rather than a bare total
+   — it's a label ("DC 15 DEX"), not a number, and nothing here is rolled. */
+.roll-total.roll-save-dc {
+  font-size: 1.6rem;
+  text-align: center;
+}
+/* The DC chip in a limited-use pool's header row, between the name and the
+   recharge note. */
+.limited-use-save-dc {
+  color: var(--accent);
 }
 .roll-part {
   font-size: 0.9rem;

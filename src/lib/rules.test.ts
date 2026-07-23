@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { OfficialClass, StandardDie } from "./data/data-definitions";
+import {
+  OfficialClass,
+  Operation,
+  StandardDie,
+  StatKey,
+} from "./data/data-definitions";
 import { defaultCharacter } from "./data/default-data";
 import {
   availableSpellSlots,
@@ -12,11 +17,17 @@ import {
   maxSpellLevelForClass,
   officialSpellcastingClasses,
   remainingHitDice,
+  saveDcFormula,
   totalEquipmentWeightLb,
   weightInUnit,
   weightToLb,
 } from "./rules";
 import { Character, EquipmentItem } from "./types";
+import {
+  calculateCustomFormula,
+  describeSaveEffect,
+  formatSaveEffect,
+} from "./formula";
 import { randomUUID } from "src/lib/browser";
 
 const wizard = (level: number): Character => {
@@ -26,6 +37,68 @@ const wizard = (level: number): Character => {
   c.spellcastingClasses = [{ classId: id }];
   return c;
 };
+
+describe("saveDcFormula", () => {
+  it("builds 8 + PB + ability, and resolves to the 5e DC", () => {
+    const c = wizard(5); // PB +3
+    c.stats.wis = 16; // +3
+    const formula = saveDcFormula(StatKey.wis);
+    expect(formula).toEqual({
+      operation: Operation.addition,
+      operands: [8, "proficiencyBonus", StatKey.wis],
+    });
+    expect(calculateCustomFormula(formula, c)).toBe(14);
+  });
+
+  it("takes the best of several abilities when the rule lets you choose", () => {
+    const c = wizard(5); // PB +3
+    c.stats.str = 12; // +1
+    c.stats.dex = 18; // +4
+    // A Battle Master's maneuver DC is "STR or DEX", so the higher one wins.
+    expect(
+      calculateCustomFormula(saveDcFormula([StatKey.str, StatKey.dex]), c),
+    ).toBe(15);
+  });
+
+  it("re-derives on a level-up instead of going stale", () => {
+    const c = wizard(4); // PB +2
+    c.stats.wis = 16; // +3
+    const formula = saveDcFormula(StatKey.wis);
+    expect(calculateCustomFormula(formula, c)).toBe(13);
+    c.class[0].level = 5; // PB +3
+    expect(calculateCustomFormula(formula, c)).toBe(14);
+  });
+});
+
+describe("formatSaveEffect / describeSaveEffect", () => {
+  const character = () => {
+    const c = wizard(5); // PB +3
+    c.stats.con = 16; // +3
+    return c;
+  };
+
+  it("renders the DC with its ability, or bare when the ability varies", () => {
+    const c = character();
+    const dc = saveDcFormula(StatKey.con);
+    expect(formatSaveEffect({ dc, stat: StatKey.dex }, c)).toBe("DC 14 DEX");
+    expect(formatSaveEffect({ dc }, c)).toBe("DC 14");
+  });
+
+  it("describes what a success does, and any advisory note", () => {
+    const c = character();
+    const dc = saveDcFormula(StatKey.con);
+    expect(
+      describeSaveEffect({ dc, stat: StatKey.dex, onSuccess: "half" }, c),
+    ).toBe("DC 14 DEX saving throw — half damage on a success");
+    expect(describeSaveEffect({ dc, onSuccess: "none" }, c)).toBe(
+      "DC 14 saving throw — no damage on a success",
+    );
+    // A save with no damage to scale is all note.
+    expect(describeSaveEffect({ dc, note: "Stunned on a failure." }, c)).toBe(
+      "DC 14 saving throw — Stunned on a failure.",
+    );
+  });
+});
 
 describe("isPreparedCaster", () => {
   it("is true for prepared casters", () => {

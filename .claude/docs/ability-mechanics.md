@@ -32,6 +32,41 @@ effects on every edit. Amounts round-trip through the `SimpleAmount` codec
 per-level tables, `plusLevelOf`) render read-only as "(formula)" rather than
 being mangled. Rider authoring is data-only for now (no UI).
 
+## Save DCs (`SaveEffect`)
+
+Non-spell DCs live in one shared shape, `SaveEffect` in `src/lib/types.ts`,
+hung off two places: `LimitedUseAbility.save?` (a monk's Ki DC, a Battle
+Master's maneuver DC) and `Attack.save?` (a save-based attack — see below).
+Both are optional, so no migration was needed.
+
+- **`dc` is a `CustomFormula`, never a number** — so it re-derives on a
+  level-up or an ASI instead of going stale. `saveDcFormula(stat)` in
+  `rules.ts` builds the 5e 8 + PB + ability, and accepts a _list_ of abilities
+  for the "your choice of STR or DEX" rules (it takes the best). Spellcasting's
+  seeded `saveDcOverride` now goes through the same builder.
+- **`stat` (the ability the target rolls) is separate from the DC's source
+  ability, and optional.** A monk's Ki DC comes off WIS while Stunning Strike
+  calls for a CON save; one pool backs several features with different saves,
+  so "varies" is a real state, rendered as a bare "DC 15".
+- `formatSaveEffect` / `describeSaveEffect` (in `formula.ts`, not `rules.ts` —
+  which can't import it without a cycle) are the two render forms: the table
+  chip and the prose sentence.
+
+The builder grants DCs alongside pools: `ClassPoolDef.save` / `RACE_POOLS[].save`
+in `class-pools.ts` cover **Ki**, **Superiority Dice** (maneuver DC), and the
+draconic **Breath Weapon**. Unlike `maxUses` these need no re-derivation (the
+formula does that), so sync only _backfills_ a DC onto a pool that predates
+them — a hand-edited one is left alone.
+
+### Save-based attacks
+
+`Attack.bonus` is now optional: an attack resolves either as a to-hit roll or as
+a save, and the editor's "Resolved by" select clears the other side when you
+switch. The sheet **never rolls the save** — that's the DM's roll on the other
+side of the table. It shows the DC, and the damage result reports both outcomes
+("Failed save: 12 — Successful save: 6") so the halving isn't done by hand. See
+[`rolling.md`](./rolling.md) for the dialog.
+
 ## Riders (the roll side)
 
 A `RollRider` modifies matching rolls: `minimumTotal` (Durable), `minimumDie`

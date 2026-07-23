@@ -3,6 +3,7 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import {
   calculateCustomFormula,
   formatCustomFormulaWithDamage,
+  formatSaveEffect,
 } from "src/lib/formula";
 import { getHitDice } from "src/lib/rules";
 import SingleValueDisplay from "./display/single-value-display";
@@ -191,17 +192,21 @@ export default function DefenceAndEquipmentPanel() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Atk Bonus</th>
+              {/* One column for both ways an attack resolves: a to-hit bonus,
+                  or the DC the target rolls against. */}
+              <th>Atk / DC</th>
               <th>Damage/Type</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {character.attacks.map((attack, index) => {
-              const attackBonus = calculateCustomFormula(
-                attack.bonus,
-                character,
-              );
+              // A save-based attack (a breath weapon, a poison) has no to-hit
+              // bonus at all — its cell shows the target's DC instead.
+              const attackBonus =
+                attack.bonus === undefined
+                  ? undefined
+                  : calculateCustomFormula(attack.bonus, character);
               const rangeText = formatRange(attack.range);
               // Remaining ammo across every pool linked to this weapon (setting-
               // gated); the pool is the single source of truth for the count.
@@ -226,7 +231,15 @@ export default function DefenceAndEquipmentPanel() {
                       <span className="ammo-badge"> ({ammoTotal})</span>
                     )}
                   </td>
-                  <td>{attackBonus > 0 ? `+${attackBonus}` : attackBonus}</td>
+                  <td>
+                    {attackBonus !== undefined
+                      ? attackBonus > 0
+                        ? `+${attackBonus}`
+                        : attackBonus
+                      : attack.save
+                        ? formatSaveEffect(attack.save, character)
+                        : "—"}
+                  </td>
                   <td>
                     {formatCustomFormulaWithDamage(attack.formula, character)}
                   </td>
@@ -256,6 +269,7 @@ export default function DefenceAndEquipmentPanel() {
                       <RollButton
                         label={attack.name}
                         toHit={attackBonus}
+                        save={attack.save}
                         damage={attack.formula}
                       />
                     )}

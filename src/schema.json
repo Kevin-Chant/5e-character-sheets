@@ -248,10 +248,12 @@
                 },
                 "range": {
                     "$ref": "#/definitions/WeaponRange"
+                },
+                "save": {
+                    "$ref": "#/definitions/SaveEffect"
                 }
             },
             "required": [
-                "bonus",
                 "formula",
                 "id",
                 "name"
@@ -879,6 +881,9 @@
                 },
                 "recharge": {
                     "type": "string"
+                },
+                "save": {
+                    "$ref": "#/definitions/SaveEffect"
                 }
             },
             "required": [
@@ -1330,6 +1335,30 @@
                     "type": "object"
                 }
             ]
+        },
+        "SaveEffect": {
+            "properties": {
+                "dc": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "onSuccess": {
+                    "enum": [
+                        "half",
+                        "none"
+                    ],
+                    "type": "string"
+                },
+                "stat": {
+                    "$ref": "#/definitions/StatKey"
+                }
+            },
+            "required": [
+                "dc"
+            ],
+            "type": "object"
         },
         "Senses": {
             "properties": {

@@ -1,6 +1,11 @@
 import React, { useContext, useState } from "react";
 import { StandardDie } from "src/lib/data/data-definitions";
-import { CustomFormula, CustomFormulaWithDamage, Spell } from "src/lib/types";
+import {
+  CustomFormula,
+  CustomFormulaWithDamage,
+  SaveEffect,
+  Spell,
+} from "src/lib/types";
 
 // What a roll button asks the roller to roll.
 export type RollSpec =
@@ -17,9 +22,13 @@ export type RollSpec =
   // Using a weapon or spell: an optional to-hit roll and its damage, handled
   // together in one dialog. `spell` carries the model so the modal can offer a
   // cast-level selector and expand scaling; otherwise `damage` is fixed.
+  // `save` is the alternative to `toHit` — the target rolls instead of the
+  // character, so the dialog shows the DC and (for `onSuccess: "half"`) the
+  // halved damage alongside the full total.
   | {
       kind: "attack";
       toHit?: number;
+      save?: SaveEffect;
       damage?: CustomFormulaWithDamage;
       spell?: Spell;
     };

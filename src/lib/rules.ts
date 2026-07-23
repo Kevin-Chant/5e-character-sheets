@@ -377,6 +377,25 @@ export function getHpFormula(character: Character): CustomFormula {
   };
 }
 
+// The standard 5e save DC: 8 + proficiency bonus + a governing ability modifier.
+// Kept as a formula (not a computed number) so it re-derives on a level-up or an
+// ASI. Every DC on the sheet is this shape — spellcasting's seeded
+// `saveDcOverride`, a class feature's `SaveEffect.dc`, a save-based attack —
+// which is why they share one builder.
+//
+// `stat` may be a list when the rule lets the player choose (a Battle Master's
+// maneuver DC is "STR or DEX"); the best of them is used, since the choice is
+// free and always resolves that way in practice.
+export function saveDcFormula(stat: StatKey | StatKey[]): CustomFormula {
+  const ability: CustomFormula = Array.isArray(stat)
+    ? { operation: Operation.maximum, operands: stat }
+    : stat;
+  return {
+    operation: Operation.addition,
+    operands: [8, "proficiencyBonus", ability],
+  };
+}
+
 export function getSpellcastingAbility(className: ClassName) {
   return isOfficialClass(className)
     ? SPELLCASTING_ABILITIES[className] || StatKey.int
@@ -639,20 +658,15 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
       );
     }
     if (subSubField === "saveDcOverride") {
-      return {
-        operation: Operation.addition,
-        operands: [
-          8,
-          "proficiencyBonus",
-          character.spellcastingClasses[parseInt(index)].abilityOverride ||
-            getSpellcastingAbility(
-              classNameForId(
-                character,
-                character.spellcastingClasses[parseInt(index)].classId,
-              ) ?? "",
-            ),
-        ],
-      };
+      return saveDcFormula(
+        character.spellcastingClasses[parseInt(index)].abilityOverride ||
+          getSpellcastingAbility(
+            classNameForId(
+              character,
+              character.spellcastingClasses[parseInt(index)].classId,
+            ) ?? "",
+          ),
+      );
     } else if (subSubField === "attackBonusOverride") {
       return {
         operation: Operation.addition,

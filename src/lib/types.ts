@@ -357,13 +357,46 @@ export interface WeaponRange {
   long?: number;
 }
 
+// A saving throw the *target* makes against something the character does — a
+// breath weapon, a Stunning Strike, a Battle Master maneuver. The counterpart to
+// a to-hit `bonus`: instead of the character rolling to hit, the target rolls to
+// avoid. Shared by `Attack` (save-based attacks) and `LimitedUseAbility` (a
+// feature's DC), since "DC N, ABILITY save, effect on a success" is the same
+// shape either way.
+export interface SaveEffect {
+  // The DC as a formula, not a number, so it re-derives on a level-up instead of
+  // going stale — `saveDcFormula` in `rules.ts` builds the standard
+  // 8 + PB + ability. (Spellcasting has its own seeded override in
+  // `spellcastingClasses[].saveDcOverride`; this is that shape for everything
+  // else.)
+  dc: CustomFormula;
+  // Which ability the *target* rolls. Deliberately independent of whichever
+  // ability the DC derives from — a monk's Ki DC comes off WIS while Stunning
+  // Strike calls for a CON save. Omit when it varies by use: one Ki pool backs
+  // several features with different saves.
+  stat?: StatKey;
+  // What a successful save does to the damage: `half` (fireball, a breath
+  // weapon) or `none` (a success avoids it entirely). Omit when there's no
+  // damage to scale — the effect then lives in `note`.
+  onSuccess?: "half" | "none";
+  // Advisory prose for what the sheet can't model ("stunned until the end of
+  // your next turn").
+  note?: string;
+}
+
 export interface Attack {
   // Stable identity so ammunition entries can reference the weapons they feed
   // by id (a rename never orphans the link) — mirrors `IClass.id`.
   id: UUID;
   name: string;
-  bonus: CustomFormula;
+  // The to-hit bonus. Optional because a save-based attack (a breath weapon, a
+  // poison) has no attack roll at all — it sets `save` instead. An attack should
+  // carry one or the other; both is legal and simply shows both.
+  bonus?: CustomFormula;
   formula: CustomFormulaWithDamage;
+  // Set instead of `bonus` when the target saves rather than the character
+  // rolling to hit.
+  save?: SaveEffect;
   // Optional weapon range; when present, shown as a tooltip on the attack name.
   range?: WeaponRange;
 }
@@ -764,6 +797,10 @@ export interface LimitedUseAbility {
   // (`mechanics/catalog.ts`) is consulted by title; when present, this wins —
   // which is how homebrew attaches actions/riders without a well-known name.
   mechanics?: FeatureMechanics;
+  // The DC targets roll against when this feature calls for a saving throw —
+  // a monk's Ki save DC, a Battle Master's maneuver DC. Absent for the many
+  // pools that never impose one (Second Wind, Action Surge).
+  save?: SaveEffect;
 }
 
 // The character's movement speeds, in feet. `walk` is always present; the others

@@ -1,6 +1,11 @@
 import { FaDiceD20 } from "react-icons/fa6";
 import { StandardDie } from "src/lib/data/data-definitions";
-import { CustomFormula, CustomFormulaWithDamage, Spell } from "src/lib/types";
+import {
+  CustomFormula,
+  CustomFormulaWithDamage,
+  SaveEffect,
+  Spell,
+} from "src/lib/types";
 import { RollSpec, useRoller } from "src/lib/hooks/use-roller";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 
@@ -14,8 +19,11 @@ interface RollButtonProps {
   // Spend a hit die of this size: roll it, apply healing, expend the die.
   hitDie?: StandardDie;
   // An attack: a to-hit modifier and/or damage, resolved together. `spell`
-  // supplies level-scaled damage; `damage` is a fixed map.
+  // supplies level-scaled damage; `damage` is a fixed map. `save` replaces
+  // `toHit` when the target rolls to avoid rather than the character rolling to
+  // hit (a breath weapon, a poison).
   toHit?: number;
+  save?: SaveEffect;
   damage?: CustomFormulaWithDamage;
   spell?: Spell;
 }
@@ -28,6 +36,7 @@ export default function RollButton({
   formula,
   hitDie,
   toHit,
+  save,
   damage,
   spell,
 }: RollButtonProps) {
@@ -37,7 +46,8 @@ export default function RollButton({
   // instead, so the die button takes their place rather than adding clutter.
   if (editMode) return <></>;
 
-  const isAttack = toHit !== undefined || damage !== undefined || spell;
+  const isAttack =
+    toHit !== undefined || save !== undefined || damage !== undefined || spell;
   const spec: RollSpec | undefined =
     check !== undefined
       ? { kind: "check", modifier: check }
@@ -46,7 +56,7 @@ export default function RollButton({
         : hitDie
           ? { kind: "hitDie", die: hitDie }
           : isAttack
-            ? { kind: "attack", toHit, damage, spell }
+            ? { kind: "attack", toHit, save, damage, spell }
             : undefined;
   if (!spec) return <></>;
 

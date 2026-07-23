@@ -5,7 +5,11 @@ import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
 import { isTextComponentWithDetail } from "src/lib/types";
 import { charPath, updateAt } from "src/lib/cursor";
-import { calculateCustomFormula } from "src/lib/formula";
+import {
+  calculateCustomFormula,
+  describeSaveEffect,
+  formatSaveEffect,
+} from "src/lib/formula";
 import AbilityActions from "./ability-actions";
 import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
@@ -73,6 +77,14 @@ export default function LimitedUseAbilitiesDisplay() {
           <div key={i} className="column limited-use-ability">
             <div className="row limited-use-ability-header">
               {title}
+              {ability.save && (
+                <b
+                  className="font-small nowrap limited-use-save-dc"
+                  title={describeSaveEffect(ability.save, character)}
+                >
+                  {formatSaveEffect(ability.save, character)}
+                </b>
+              )}
               <i className="font-small nowrap">per {ability.recharge}</i>
               <div className="flex">
                 <button

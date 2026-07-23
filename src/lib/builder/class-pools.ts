@@ -11,11 +11,13 @@ import {
   SUPERIORITY,
 } from "src/lib/mechanics/catalog";
 import { FeatureMechanics } from "src/lib/mechanics/types";
+import { saveDcFormula } from "src/lib/rules";
 import {
   Character,
   CustomFormula,
   IClass,
   LimitedUseAbility,
+  SaveEffect,
 } from "src/lib/types";
 
 // The limited-use pools each class's features carry, so the builder and the
@@ -42,6 +44,10 @@ interface ClassPoolDef {
   // own `mechanics`, so this wins over the catalog and is re-derived on every
   // level-up alongside `maxUses`.
   mechanics?: (klass: IClass) => FeatureMechanics;
+  // The DC targets roll against for features this pool fuels (a monk's Ki save
+  // DC, a Battle Master's maneuver DC). A formula, so it tracks PB and ability
+  // changes; re-derived on level-up like `maxUses`.
+  save?: SaveEffect;
 }
 
 // The value from a step table at a given level: the last entry whose threshold
@@ -216,6 +222,12 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       level: 2,
       recharge: short,
       maxUses: classLevel,
+      // Ki save DC = 8 + PB + WIS. No fixed ability: the DC is one number, but
+      // each ki feature names its own save (Stunning Strike is CON).
+      save: {
+        dc: saveDcFormula(StatKey.wis),
+        note: "Ki save DC. Stunning Strike calls for a CON save.",
+      },
     },
   ],
   [OfficialClass.Paladin]: [
@@ -299,6 +311,13 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
       level: 3,
       recharge: short,
       maxUses: (k) => (k.level >= 15 ? 6 : k.level >= 7 ? 5 : 4),
+      // Maneuver save DC = 8 + PB + STR or DEX, the fighter's choice; the
+      // formula takes whichever is higher. Which save the *target* rolls
+      // depends on the maneuver (Trip Attack is STR, Menacing is WIS).
+      save: {
+        dc: saveDcFormula([StatKey.str, StatKey.dex]),
+        note: "Maneuver save DC. The ability saved against varies by maneuver.",
+      },
       // The die grows d8 → d10 (10th) → d12 (18th).
       mechanics: (k) =>
         SUPERIORITY(
@@ -389,6 +408,7 @@ export const RACE_POOLS: Record<
     recharge: RestType;
     maxUses: CustomFormula;
     mechanics?: (totalLevel: number) => FeatureMechanics;
+    save?: SaveEffect;
   }
 > = {
   "breath weapon": {
@@ -396,6 +416,14 @@ export const RACE_POOLS: Record<
       "Exhale your draconic ancestry's breath: DC 8 + CON mod + PB, damage scaling with character level, half on a successful save.",
     recharge: RestType.shortRest,
     maxUses: 1,
+    // The ancestry decides whether the target rolls DEX (a line/cone of fire,
+    // lightning, …) or CON (poison), and the sheet doesn't model ancestry — so
+    // the DC is fixed and the ability is left to vary.
+    save: {
+      dc: saveDcFormula(StatKey.con),
+      onSuccess: "half",
+      note: "The ability saved against follows your draconic ancestry (usually DEX; CON for poison).",
+    },
     // 2d6 → 3d6 (6th) → 4d6 (11th) → 5d6 (16th) by character level. Type and
     // shape (line vs. cone) follow the ancestry, which the sheet doesn't model.
     mechanics: (level) => ({
@@ -462,6 +490,9 @@ export function syncClassPools(char: Character, klass: IClass): void {
       existing.maxUses = maxUses;
       existing.recharge = recharge;
       if (mechanics) existing.mechanics = mechanics;
+      // The DC is a formula, so it needs no re-derivation — but a pool granted
+      // before save DCs existed won't have one, so backfill it.
+      if (pool.save && !existing.save) existing.save = pool.save;
     } else {
       char.limitedUseAbilities.push({
         info: {
@@ -474,6 +505,7 @@ export function syncClassPools(char: Character, klass: IClass): void {
         recharge,
         expended: 0,
         ...(mechanics ? { mechanics } : {}),
+        ...(pool.save ? { save: pool.save } : {}),
       });
     }
   }
@@ -496,6 +528,9 @@ export function syncRacePools(char: Character, traitTitles: string[]): void {
     const existing = findPool(char, title);
     if (existing) {
       if (mechanics) existing.mechanics = mechanics;
+      // Backfill for pools granted before racial save DCs existed; a
+      // hand-edited one is left alone, like the use count.
+      if (def.save && !existing.save) existing.save = def.save;
       continue;
     }
     char.limitedUseAbilities.push({
@@ -509,6 +544,7 @@ export function syncRacePools(char: Character, traitTitles: string[]): void {
       recharge: def.recharge,
       expended: 0,
       ...(mechanics ? { mechanics } : {}),
+      ...(def.save ? { save: def.save } : {}),
     });
   }
 }
