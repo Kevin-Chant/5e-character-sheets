@@ -218,6 +218,10 @@ export interface BuilderState {
   classSkillChoices: SkillName[];
   // Fighting style, for classes that pick one at level 1 (Fighter).
   fightingStyle?: string;
+  // Picks from the class's closed option lists, keyed by `OptionGroup.category`.
+  // At level 1 only the ranger's Favored Enemy / Natural Explorer apply — every
+  // other group starts at class level 3, so the level-up wizard owns those.
+  chosenOptions: Record<string, string[]>;
 
   // Ability scores (base, before racial bonuses).
   scoreMethod: ScoreMethod;
@@ -286,6 +290,7 @@ export function defaultBuilderState(): BuilderState {
     customClassName: "",
     customHitDie: StandardDie.d8,
     classSkillChoices: [],
+    chosenOptions: {},
     scoreMethod: "pointbuy",
     baseStats: { ...POINT_BUY_FLOOR },
     rolledPool: [],

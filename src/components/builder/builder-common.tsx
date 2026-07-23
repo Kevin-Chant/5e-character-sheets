@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { ReactNode, Ref, useEffect, useRef, useState } from "react";
 import { BuilderState } from "src/lib/builder/types";
+import { OptionGroup } from "src/lib/builder/chosen-options";
 import { DEFAULT_LANGUAGES } from "src/lib/data/option-lists";
 
 const LANGUAGE_OPTIONS = DEFAULT_LANGUAGES.flatMap((g) => g.options);
@@ -132,6 +133,70 @@ export function Field({
       {hint && <span className="text-muted builder-hint">{hint}</span>}
       {children}
     </div>
+  );
+}
+
+// Picker for one of a class's closed option lists (Metamagic, maneuvers, a
+// ranger's favored enemy). Shared by both wizards, since a level-1 pick during
+// creation and a pick at level 10 are the same interaction.
+//
+// It offers only what's *new*: options already known from an earlier level are
+// filtered out entirely, and the remaining boxes lock once `count` are ticked —
+// the allowance is the whole point of the model, so the wizard enforces it
+// rather than letting a player quietly over-pick.
+export function ChosenOptionPicker({
+  group,
+  count,
+  alreadyKnown,
+  picked,
+  onChange,
+}: {
+  group: OptionGroup;
+  count: number;
+  alreadyKnown: string[];
+  picked: string[];
+  onChange: (names: string[]) => void;
+}) {
+  const known = new Set(alreadyKnown);
+  const atLimit = picked.length >= count;
+  return (
+    <Field
+      label={group.label}
+      hint={`Choose ${count}${alreadyKnown.length ? " more" : ""}.`}
+    >
+      {group.summary && (
+        <p className="text-muted builder-hint">{group.summary}</p>
+      )}
+      <div className="column invocation-options">
+        {group.options
+          .filter((option) => !known.has(option.name))
+          .map((option) => {
+            const checked = picked.includes(option.name);
+            return (
+              <label key={option.name} className="row invocation-option">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={!checked && atLimit}
+                  onChange={(e) =>
+                    onChange(
+                      e.target.checked
+                        ? [...picked, option.name]
+                        : picked.filter((n) => n !== option.name),
+                    )
+                  }
+                />
+                <span>
+                  <b>{option.name}</b>
+                  {option.summary && (
+                    <span className="text-muted"> {option.summary}</span>
+                  )}
+                </span>
+              </label>
+            );
+          })}
+      </div>
+    </Field>
   );
 }
 

@@ -18,6 +18,7 @@ import {
   getFightingStyle,
 } from "src/lib/builder/class-features";
 import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
+import { optionGroup } from "src/lib/builder/chosen-options";
 import { getSubclassByName } from "src/lib/builder/subclasses";
 import { getFeat } from "src/lib/builder/feats";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
@@ -173,6 +174,10 @@ export interface LevelUpState {
   fightingStyle?: string;
   // Eldritch invocations picked when the warlock's known count grows.
   invocations: string[];
+  // Picks from the class's closed option lists (Metamagic, maneuvers, Pact
+  // Boon, a ranger's favored enemy), keyed by `OptionGroup.category`. Only the
+  // *new* picks this level grants live here — earlier ones stay on the sheet.
+  chosenOptions: Record<string, string[]>;
   // Free-text features the player adds for content we don't model.
   addedFeatures: { title: string; detail: string }[];
 }
@@ -197,6 +202,7 @@ export function defaultLevelUpState(character: Character): LevelUpState {
     ...emptyFeatChoices(),
     newSpells: {},
     invocations: [],
+    chosenOptions: {},
     addedFeatures: [],
   };
 }
@@ -419,6 +425,26 @@ export function applyLevelUp(
   for (const name of state.invocations) {
     const inv = ELDRITCH_INVOCATIONS.find((i) => i.name === name);
     if (inv) char.features.push(text(inv.name, inv.summary));
+  }
+
+  // 2.9. Picks from the class's closed option lists. Appended to whatever the
+  //      character already knows, and de-duplicated so re-running a level-up
+  //      (or picking something already on the sheet) can't double an entry.
+  for (const [category, names] of Object.entries(state.chosenOptions)) {
+    const group = optionGroup(category);
+    if (!group) continue;
+    for (const name of names) {
+      const already = (char.chosenOptions ?? []).some(
+        (o) => o.category === category && o.name === name,
+      );
+      if (already) continue;
+      const detail = group.options.find((o) => o.name === name)?.summary;
+      (char.chosenOptions ??= []).push({
+        category,
+        name,
+        ...(detail ? { detail } : {}),
+      });
+    }
   }
 
   // 3. Recompute derived numbers. HP/hit dice/PB/spell slots all read from the

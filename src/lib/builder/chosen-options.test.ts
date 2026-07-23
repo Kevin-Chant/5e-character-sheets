@@ -83,8 +83,12 @@ describe("the option catalog", () => {
     for (const group of OPTION_GROUPS) {
       const names = group.options.map((o) => o.name);
       expect(new Set(names).size, group.category).toBe(names.length);
-      // Every option carries a summary — the sheet copies it onto the pick.
-      expect(group.options.every((o) => o.summary.length > 0)).toBe(true);
+      // Every option is described *somewhere*: either per-option, or once on
+      // the group for "pick a type" lists where they all do the same thing.
+      expect(
+        group.options.every((o) => !!o.summary?.length) || !!group.summary,
+        group.category,
+      ).toBe(true);
     }
   });
 

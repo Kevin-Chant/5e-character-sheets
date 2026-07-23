@@ -17,6 +17,7 @@ import {
   subclassDueAt,
   targetClassLevel,
 } from "src/lib/builder/level-up";
+import { chosenIn, newOptionPicksAt } from "src/lib/builder/chosen-options";
 import { getPB } from "src/lib/rules";
 import { calculateCustomFormula } from "src/lib/formula";
 import { PB } from "src/lib/data/data-definitions";
@@ -246,5 +247,108 @@ describe("defaultLevelUpState", () => {
   it("targets the character's primary class", () => {
     const char = level1("rogue");
     expect(defaultLevelUpState(char).className).toBe(OfficialClass.Rogue);
+  });
+});
+
+describe("applyLevelUp — chosen options", () => {
+  // A fighter climbing to 3rd and taking Battle Master: the subclass is chosen
+  // in the same level-up, so its maneuvers must be offered and applied now.
+  const toBattleMaster = () => {
+    let char = level1("fighter");
+    char = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+    });
+    return applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      subclass: "Battle Master",
+      chosenOptions: {
+        maneuvers: ["Riposte", "Not A Real Maneuver", "Precision Attack"],
+      },
+    });
+  };
+
+  it("offers a subclass's picks at the level the subclass is chosen", () => {
+    expect(newOptionPicksAt("Fighter", 3, "Battle Master")).toEqual([
+      expect.objectContaining({ count: 3 }),
+    ]);
+    // Without the subclass, nothing — a Champion gets no maneuvers.
+    expect(newOptionPicksAt("Fighter", 3, "Champion")).toEqual([]);
+  });
+
+  it("writes the picks onto the character, with their summaries", () => {
+    const char = toBattleMaster();
+    const picks = chosenIn(char, "maneuvers");
+    // The bogus name isn't in the catalog, so it lands with no detail — the
+    // wizard only ever offers real ones, but applying is tolerant.
+    expect(picks.map((o) => o.name)).toEqual([
+      "Riposte",
+      "Not A Real Maneuver",
+      "Precision Attack",
+    ]);
+    expect(picks.find((o) => o.name === "Riposte")?.detail).toContain(
+      "reaction",
+    );
+  });
+
+  it("appends later picks without disturbing or duplicating earlier ones", () => {
+    let char = toBattleMaster();
+    // 4th is an ASI level and grants no maneuvers; 7th grants two more.
+    for (const level of [4, 5, 6]) {
+      void level;
+      char = applyLevelUp(char, {
+        ...defaultLevelUpState(char),
+        className: "Fighter",
+      });
+    }
+    expect(newOptionPicksAt("Fighter", 7, "Battle Master")).toEqual([
+      expect.objectContaining({ count: 2 }),
+    ]);
+    char = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      // Re-picking one already known must not duplicate it.
+      chosenOptions: { maneuvers: ["Riposte", "Parry", "Rally"] },
+    });
+    const names = chosenIn(char, "maneuvers").map((o) => o.name);
+    expect(names.filter((n) => n === "Riposte")).toHaveLength(1);
+    expect(names).toContain("Parry");
+    expect(names).toContain("Rally");
+  });
+
+  it("ignores picks for a category the catalog doesn't know", () => {
+    const char = level1("fighter");
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      chosenOptions: { notARealCategory: ["Whatever"] },
+    });
+    expect(leveled.chosenOptions ?? []).toEqual([]);
+  });
+});
+
+describe("buildCharacter — level-1 chosen options", () => {
+  it("applies a ranger's level-1 favored enemy and terrain", () => {
+    const char = level1("ranger", {
+      chosenOptions: {
+        favoredEnemy: ["Dragons"],
+        naturalExplorer: ["Forest"],
+      },
+    });
+    expect(chosenIn(char, "favoredEnemy").map((o) => o.name)).toEqual([
+      "Dragons",
+    ]);
+    expect(chosenIn(char, "naturalExplorer").map((o) => o.name)).toEqual([
+      "Forest",
+    ]);
+  });
+
+  it("drops picks the chosen class doesn't grant at level 1", () => {
+    // Switching class mid-wizard can leave a stale pick in the working state.
+    const char = level1("fighter", {
+      chosenOptions: { favoredEnemy: ["Dragons"] },
+    });
+    expect(char.chosenOptions ?? []).toEqual([]);
   });
 });

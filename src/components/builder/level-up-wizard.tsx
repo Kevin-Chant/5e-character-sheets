@@ -15,6 +15,7 @@ import {
   newInvocationsAt,
 } from "src/lib/builder/class-features";
 import { OfficialClass } from "src/lib/data/data-definitions";
+import { newOptionPicksAt } from "src/lib/builder/chosen-options";
 import {
   LevelUpAdvancementStep,
   LevelUpClassStep,
@@ -54,10 +55,16 @@ const STEPS: StepDef[] = [
     Component: LevelUpFeatureChoicesStep,
     visible: (character, state) => {
       const level = targetClassLevel(character, state);
+      // A subclass picked in this same level-up counts (Battle Master at 3rd
+      // grants maneuvers immediately), so prefer the pending choice.
+      const subclass =
+        state.subclass ??
+        character.class.find((k) => k.name === state.className)?.subclass;
       return (
         !!fightingStyleDueAt(state.className, level) ||
         (state.className === OfficialClass.Warlock &&
-          newInvocationsAt(level) > 0)
+          newInvocationsAt(level) > 0) ||
+        newOptionPicksAt(state.className, level, subclass).length > 0
       );
     },
   },

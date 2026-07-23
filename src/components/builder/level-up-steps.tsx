@@ -25,11 +25,13 @@ import {
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import { subclassesForClass } from "src/lib/builder/subclasses";
+import { chosenIn, newOptionPicksAt } from "src/lib/builder/chosen-options";
 import { FEATS } from "src/lib/builder/feats";
 import {
   ChipMultiSelect,
   Choice,
   ChoiceGrid,
+  ChosenOptionPicker,
   Field,
   STAT_LABEL,
 } from "./builder-common";
@@ -155,6 +157,13 @@ export function LevelUpFeatureChoicesStep({
   const newInvocations =
     state.className === OfficialClass.Warlock ? newInvocationsAt(level) : 0;
   const known = new Set(character.features.map((f) => f.title.trim()));
+  // The subclass may be chosen in this same level-up (a fighter taking Battle
+  // Master at 3rd gets their first maneuvers now), so prefer the pending
+  // choice over what's already on the sheet.
+  const subclass =
+    state.subclass ??
+    character.class.find((k) => k.name === state.className)?.subclass;
+  const newPicks = newOptionPicksAt(state.className, level, subclass);
 
   return (
     <div className="builder-step">
@@ -216,6 +225,25 @@ export function LevelUpFeatureChoicesStep({
           </div>
         </Field>
       )}
+      {newPicks.map(({ group, count }) => (
+        <ChosenOptionPicker
+          key={group.category}
+          group={group}
+          count={count}
+          // Options already on the sheet from an earlier level aren't offered
+          // again — you're picking what's *new*.
+          alreadyKnown={chosenIn(character, group.category).map((o) => o.name)}
+          picked={state.chosenOptions[group.category] ?? []}
+          onChange={(names) =>
+            patch({
+              chosenOptions: {
+                ...state.chosenOptions,
+                [group.category]: names,
+              },
+            })
+          }
+        />
+      ))}
     </div>
   );
 }

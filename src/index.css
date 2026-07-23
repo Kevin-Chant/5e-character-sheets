@@ -3171,6 +3171,30 @@ button.slot-pip:hover:not(:disabled) {
   color: var(--accent);
 }
 
+/* Checkbox lists in the wizards — eldritch invocations and the class-option
+   pickers (Metamagic, maneuvers, favored enemy), which share this markup.
+   Without these, `.row`/`.column`'s space-evenly centering flings each checkbox
+   away from its own label. */
+.invocation-options {
+  gap: 0.4rem;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+.invocation-option {
+  width: auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  justify-content: flex-start;
+  text-align: left;
+  cursor: pointer;
+}
+.invocation-option > input {
+  flex: 0 0 auto;
+}
+.invocation-option > span {
+  flex: 1 1 auto;
+}
+
 /* Class options (Metamagic, maneuvers, Pact Boon): a group per category, each a
    header row plus a wrapping row of picked-option chips. */
 .chosen-options {

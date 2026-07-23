@@ -30,6 +30,7 @@ import {
   weaponsInCategory,
 } from "src/lib/builder/equipment";
 import { buildCharacter } from "src/lib/builder/build-character";
+import { newOptionPicksAt } from "src/lib/builder/chosen-options";
 import { calculateCustomFormula } from "src/lib/formula";
 import { searchSrdSpells } from "src/lib/spells/srd-spells";
 import {
@@ -57,6 +58,7 @@ import {
   ChipMultiSelect,
   Choice,
   ChoiceGrid,
+  ChosenOptionPicker,
   Field,
   FilterSearch,
   LanguagePicker,
@@ -476,6 +478,31 @@ export function ClassStep({ state, patch }: StepProps) {
           })()}
         </Field>
       )}
+
+      {/* Closed option lists this class grants at level 1 — in practice the
+          ranger's Favored Enemy and Natural Explorer, since every other group
+          starts at class level 3 and belongs to the level-up wizard. Nothing
+          is known yet at creation, so `alreadyKnown` is always empty. */}
+      {klass &&
+        newOptionPicksAt(klass.name, 1, state.subclass).map(
+          ({ group, count }) => (
+            <ChosenOptionPicker
+              key={group.category}
+              group={group}
+              count={count}
+              alreadyKnown={[]}
+              picked={state.chosenOptions[group.category] ?? []}
+              onChange={(names) =>
+                patch({
+                  chosenOptions: {
+                    ...state.chosenOptions,
+                    [group.category]: names,
+                  },
+                })
+              }
+            />
+          ),
+        )}
 
       {custom && (
         <>

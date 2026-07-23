@@ -53,8 +53,23 @@ Licensing note: Metamagic and Pact Boon are SRD (base-class features); the Battl
 Master is **not**, so its maneuver summaries are original paraphrases of
 mechanical facts only, per the rule in `nonsrd-classes.ts`.
 
-Not yet wired: the level-up wizard doesn't prompt for these, so a new pick shows
-as an unfilled "2 / 3 known" on the sheet until the player opens the picker.
+Both wizards prompt for them, through one shared `ChosenOptionPicker`
+(`builder-common.tsx`) that offers only what's _new_ — options already known
+from an earlier level are filtered out, and the boxes lock once the level's
+allowance is spent:
+
+- **Level-up** — folded into the existing "Class features" step, alongside
+  fighting styles and invocations. `newOptionPicksAt(className, level, subclass)`
+  gives the delta for the level. The subclass is read from the _pending_ choice
+  first, so a fighter taking Battle Master at 3rd is offered their first three
+  maneuvers in the same pass.
+- **Creation** — on the class step. In practice only the ranger's two lists ever
+  appear, since every other group starts at class level 3; `buildCharacter`
+  re-filters through `newOptionPicksAt(className, 1, …)` so a pick left behind by
+  switching class mid-wizard can't leak onto the sheet.
+
+`applyLevelUp` de-duplicates against what the character already knows, so
+re-running a level-up can't double an entry.
 
 ## Save DCs (`SaveEffect`)
 

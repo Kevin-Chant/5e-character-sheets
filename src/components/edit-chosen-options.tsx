@@ -28,12 +28,12 @@ export default function EditChosenOptions() {
   const toggle = (
     category: string,
     name: string,
-    detail: string,
+    detail: string | undefined,
     checked: boolean,
   ) =>
     setAll(
       checked
-        ? all.concat({ category, name, detail })
+        ? all.concat({ category, name, ...(detail ? { detail } : {}) })
         : all.filter((o) => !(o.category === category && o.name === name)),
     );
 
@@ -47,6 +47,11 @@ export default function EditChosenOptions() {
             <legend className="field-label">
               {group.label} — {picked.length} / {known} known
             </legend>
+            {/* "Pick a type" lists share one effect, described once here rather
+                than repeated against every option. */}
+            {group.summary && (
+              <p className="muted font-small">{group.summary}</p>
+            )}
             {group.options.map((option) => {
               const checked = picked.some((o) => o.name === option.name);
               return (
@@ -68,10 +73,12 @@ export default function EditChosenOptions() {
                   />
                   <span>
                     <b>{option.name}</b>
-                    <span className="muted font-small">
-                      {" "}
-                      — {option.summary}
-                    </span>
+                    {option.summary && (
+                      <span className="muted font-small">
+                        {" "}
+                        — {option.summary}
+                      </span>
+                    )}
                   </span>
                 </label>
               );

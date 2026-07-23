@@ -30,6 +30,7 @@ import {
   fightingStyleDueAt,
   getFightingStyle,
 } from "src/lib/builder/class-features";
+import { newOptionPicksAt } from "src/lib/builder/chosen-options";
 import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
 import { getSrdRace, getSubrace } from "src/lib/builder/srd-races";
 import { resolveFinalStats } from "src/lib/builder/resolve";
@@ -379,6 +380,22 @@ function guidedCharacter(state: BuilderState): Character {
           operation: Operation.addition,
           operands: [char.acFormula, style.acBonus],
         };
+    }
+  }
+
+  // Level-1 picks from the class's closed option lists — in practice only the
+  // ranger's Favored Enemy / Natural Explorer, since every other group starts
+  // at class level 3. Filtered against what level 1 actually grants so a stale
+  // pick (from switching class mid-wizard) can't leak onto the sheet.
+  const levelOnePicks = newOptionPicksAt(className, 1, state.subclass);
+  for (const { group } of levelOnePicks) {
+    for (const name of state.chosenOptions[group.category] ?? []) {
+      const detail = group.options.find((o) => o.name === name)?.summary;
+      (char.chosenOptions ??= []).push({
+        category: group.category,
+        name,
+        ...(detail ? { detail } : {}),
+      });
     }
   }
 

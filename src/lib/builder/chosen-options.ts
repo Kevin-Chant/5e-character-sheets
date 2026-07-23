@@ -14,7 +14,10 @@ import { Character, ChosenOption } from "src/lib/types";
 
 export interface OptionDef {
   name: string;
-  summary: string;
+  // What this specific option does. Omitted for "pick a type" lists where every
+  // option has the same effect (a ranger's favored enemy) — those describe it
+  // once on the group instead.
+  summary?: string;
 }
 
 export interface OptionGroup {
@@ -22,6 +25,9 @@ export interface OptionGroup {
   category: string;
   // Shown as the section heading.
   label: string;
+  // The effect shared by every option in the group, when the options themselves
+  // are just values (see `OptionDef.summary`).
+  summary?: string;
   // The class that grants the picks, and (for a subclass feature) which
   // subclass — a fighter only gets maneuvers as a Battle Master.
   className: OfficialClass;
@@ -42,6 +48,61 @@ const knownAt = (level: number, steps: [number, number][]): number => {
 };
 
 export const OPTION_GROUPS: OptionGroup[] = [
+  // The two ranger lists are the only groups available at level 1, which makes
+  // them the only ones the character-creation wizard ever prompts for — the
+  // rest all start at class level 3.
+  {
+    category: "favoredEnemy",
+    label: "Favored Enemy",
+    summary:
+      "Advantage on Survival checks to track them and on Intelligence checks to recall information about them. You also learn one language of your choice that they speak.",
+    className: OfficialClass.Ranger,
+    known: [
+      [1, 1],
+      [6, 2],
+      [14, 3],
+    ],
+    options: [
+      { name: "Aberrations" },
+      { name: "Beasts" },
+      { name: "Celestials" },
+      { name: "Constructs" },
+      { name: "Dragons" },
+      { name: "Elementals" },
+      { name: "Fey" },
+      { name: "Fiends" },
+      { name: "Giants" },
+      { name: "Monstrosities" },
+      { name: "Oozes" },
+      { name: "Plants" },
+      { name: "Undead" },
+      {
+        name: "Two humanoid races",
+        summary: "Counts as one choice — pick two races of humanoid.",
+      },
+    ],
+  },
+  {
+    category: "naturalExplorer",
+    label: "Natural Explorer",
+    summary:
+      "In this terrain: difficult terrain doesn't slow your group, you can't get lost except by magic, you stay alert while tracking/foraging/navigating, you travel stealthily at a normal pace alone, you forage twice as much, and you learn the exact number and size of creatures you track. Intelligence and Wisdom checks related to it are doubly proficient.",
+    className: OfficialClass.Ranger,
+    known: [
+      [1, 1],
+      [6, 2],
+      [10, 3],
+    ],
+    options: [
+      { name: "Arctic" },
+      { name: "Coast" },
+      { name: "Desert" },
+      { name: "Forest" },
+      { name: "Grassland" },
+      { name: "Mountain" },
+      { name: "Swamp" },
+    ],
+  },
   {
     category: "metamagic",
     label: "Metamagic",
@@ -249,6 +310,26 @@ export function availableOptionGroups(
     if (!klass) return [];
     const known = knownAt(klass.level, group.known);
     return known > 0 ? [{ group, known }] : [];
+  });
+}
+
+// How many *new* picks reaching `level` in a class grants, per group: the
+// count at that level minus the count at the one below. Used by both wizards to
+// prompt only for what this level actually adds.
+//
+// `subclass` is passed separately rather than read off the character because
+// the subclass is often chosen in the *same* step — a fighter picking Battle
+// Master at 3rd gets their first three maneuvers immediately.
+export function newOptionPicksAt(
+  className: string,
+  level: number,
+  subclass?: string,
+): { group: OptionGroup; count: number }[] {
+  return OPTION_GROUPS.flatMap((group) => {
+    if (group.className !== className) return [];
+    if (group.subclass && group.subclass !== subclass) return [];
+    const count = knownAt(level, group.known) - knownAt(level - 1, group.known);
+    return count > 0 ? [{ group, count }] : [];
   });
 }
 
