@@ -82,11 +82,32 @@ unknown. When multiclassing, a class dropdown narrows further to one class.
 class is a `isPreparedCaster` — prepared casters choose daily; known casters like
 Sorcerer/Bard don't prepare.)
 
+## Non-SRD spells (`src/lib/data/nonsrd-spells/`)
+
+The catalog is no longer SRD-only. The ~165 official non-SRD spells
+(PHB/XGE/TCE/…) are **hand-authored** in `src/lib/data/nonsrd-spells/part*.ts`
+(one file per authoring partition, merged by `index.ts`), then folded into
+`ALL_SPELLS` by `srd-spells.ts` — so `getSrdSpell` resolves them by index and
+the picker lists them, exactly like SRD spells. Total catalog: ~483 spells.
+
+**Why hand-authored, not generated:** the SRD is open-license, so `srd-spells.json`
+can carry the API's verbatim `desc`. Non-SRD spell text is **copyrighted**, so
+these files carry only **mechanical facts** (level, school, timing, range,
+duration, components, save/attack, damage dice + type, area, class lists — all
+uncopyrightable data) plus a `desc` that is an **original paraphrase written
+from scratch**, never the published prose. Same rule as `nonsrd-races.ts` /
+`subclasses.ts`, and the reason they live apart from the SRD JSON. Unearthed
+Arcana (beta) is excluded. `nonsrd-spells.test.ts` guards index/slug, required
+facts, and class names.
+
+These carry **no structured `mechanics` block yet** (the roll-dialog scaling) —
+a follow-up. `buildSpellFromSrd` still turns their `baseDamage` into a live
+base-damage formula, so a granted non-SRD damage spell shows its base roll.
+
 ## What this does _not_ cover
 
-- **Non-SRD spells.** SRD 5.1 only (~319). That's a licensing feature, not just
-  a limit — everything bundled is safe to redistribute. Broader coverage would
-  mean a different source (e.g. Open5e) with per-document license filtering.
+- **Structured rolling for non-SRD spells.** They surface with facts + a live
+  base-damage roll, but not the `mechanics` scaling block the SRD spells carry.
 - **Scaling in the _detail prose_.** The detail line still shows only the base
   roll as a live formula. The full slot/character scaling _is_ now modelled
   structurally in `mechanics` (populated by `buildMechanics`), but no UI consumes
