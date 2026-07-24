@@ -264,8 +264,8 @@ export function LevelUpFeatureChoicesStep({
         <Field label="Eldritch invocations">
           <p className="text-muted builder-hint">
             Choose {newInvocations} new invocation
-            {newInvocations > 1 ? "s" : ""}. Only SRD invocations are listed —
-            add others as features from the sheet.
+            {newInvocations > 1 ? "s" : ""}. Prerequisites are shown but not
+            enforced, as with feats.
           </p>
           <div className="column invocation-options">
             {ELDRITCH_INVOCATIONS.filter((inv) => !known.has(inv.name)).map(

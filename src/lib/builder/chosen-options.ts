@@ -5,6 +5,11 @@ import {
 } from "src/lib/data/data-definitions";
 import { ActionCost, Character, ChosenOption } from "src/lib/types";
 import { RaceTrait } from "src/lib/builder/types";
+import {
+  ELEMENTAL_DISCIPLINES,
+  KENSEI_WEAPONS,
+  RUNE_KNIGHT_RUNES,
+} from "src/lib/data/class-option-lists";
 
 // The closed option lists a class lets you pick a fixed number of things from:
 // Metamagic, Battle Master maneuvers, Pact Boon. Distinct from `features`
@@ -911,6 +916,47 @@ export const OPTION_GROUPS: OptionGroup[] = [
           "Hang a talisman on a creature; while worn, it can add 1d4 to one failed ability check per long rest.",
       },
     ],
+  },
+  {
+    // Elemental Attunement is granted outright and isn't in the list, so these
+    // counts are the *additional* disciplines: one at 3rd, then 6/11/17.
+    category: "elementalDiscipline",
+    label: "Elemental Disciplines",
+    className: OfficialClass.Monk,
+    subclass: "Four Elements",
+    known: [
+      [3, 1],
+      [6, 2],
+      [11, 3],
+      [17, 4],
+    ],
+    options: ELEMENTAL_DISCIPLINES,
+  },
+  {
+    category: "kenseiWeapon",
+    label: "Kensei Weapons",
+    summary:
+      "Your chosen weapons count as monk weapons, and gain the subclass's Kensei features.",
+    className: OfficialClass.Monk,
+    subclass: "Kensei",
+    // Two at 3rd and no more — one melee, one ranged. The count doesn't grow;
+    // RAW you may *swap* one on each monk level, which the picker can't model
+    // (see the swapping note on Rune Knight below).
+    known: [[3, 2]],
+    options: KENSEI_WEAPONS,
+  },
+  {
+    category: "rune",
+    label: "Runes",
+    className: OfficialClass.Fighter,
+    subclass: "Rune Knight",
+    known: [
+      [3, 2],
+      [7, 3],
+      [10, 4],
+      [15, 5],
+    ],
+    options: RUNE_KNIGHT_RUNES,
   },
   {
     category: "maneuvers",

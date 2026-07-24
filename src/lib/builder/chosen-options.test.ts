@@ -13,6 +13,7 @@ import {
 } from "./chosen-options";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
 import { CLASS_POOLS, SUBCLASS_POOLS } from "src/lib/builder/class-pools";
+import { WEAPON_PRESETS } from "src/lib/data/weapon-presets";
 
 const withClass = (...classes: Partial<IClass>[]): Character => {
   const c = structuredClone(defaultCharacter);
@@ -239,5 +240,64 @@ describe("option action hosts", () => {
     // Twinned Spell's cost is the spell's level, which only the player knows.
     const twinned = metamagic.options.find((o) => o.name === "Twinned Spell");
     expect(twinned!.action!.amount).toBe("choose");
+  });
+});
+
+// The three lists added to close the "chosen options are inert" gap.
+describe("monk and fighter option lists", () => {
+  it("offers the full Four Elements discipline list, gated to the subclass", () => {
+    const group = optionGroup("elementalDiscipline")!;
+    expect(group.subclass).toBe("Four Elements");
+    expect(group.options).toHaveLength(17);
+    // Elemental Attunement is granted outright, so the counts are the extras.
+    expect(group.known[0]).toEqual([3, 1]);
+  });
+
+  it("charges ki for every discipline that costs it", () => {
+    const group = optionGroup("elementalDiscipline")!;
+    const free = group.options.filter((o) => !o.action).map((o) => o.name);
+    // Only Elemental Attunement is free — everything else spends ki.
+    expect(free).toEqual(["Elemental Attunement"]);
+    for (const option of group.options)
+      if (option.action) expect(option.action.pool, option.name).toBe("Ki");
+  });
+
+  it("lets extra ki scale the disciplines that allow it", () => {
+    const group = optionGroup("elementalDiscipline")!;
+    const scaling = group.options
+      .filter((o) => o.action?.amount === "choose")
+      .map((o) => o.name);
+    expect(scaling).toEqual([
+      "Fangs of the Fire Snake",
+      "Fist of Unbroken Air",
+      "Water Whip",
+    ]);
+  });
+
+  it("offers six runes on the Rune Knight's schedule", () => {
+    const group = optionGroup("rune")!;
+    expect(group.options.map((o) => o.name)).toEqual([
+      "Cloud Rune",
+      "Fire Rune",
+      "Frost Rune",
+      "Stone Rune",
+      "Hill Rune",
+      "Storm Rune",
+    ]);
+    expect(group.known).toEqual([
+      [3, 2],
+      [7, 3],
+      [10, 4],
+      [15, 5],
+    ]);
+  });
+
+  it("names kensei weapons that exist in the weapon presets", () => {
+    // WEAPON_PRESETS is grouped by category, so flatten before comparing.
+    const presets = new Set(
+      WEAPON_PRESETS.flatMap((g) => g.options.map((w) => w.name)),
+    );
+    for (const option of optionGroup("kenseiWeapon")!.options)
+      expect(presets.has(option.name), option.name).toBe(true);
   });
 });

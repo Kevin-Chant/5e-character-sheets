@@ -348,6 +348,67 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
+  // Eldritch invocations. They land on the sheet as feature rows, so the
+  // title-keyed map picks them up with no extra wiring. Only the three with
+  // arithmetic are here — the rest grant at-will spells or movement, which the
+  // prose already states and the engine has nothing to add to.
+
+  // Agonizing Blast: +CHA to Eldritch Blast's damage. Opt-in rather than
+  // automatic because it applies to *one specific cantrip* and `spellDamage`
+  // scopes by cantrip-vs-leveled, not by which spell was cast.
+  "agonizing blast": {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "spellDamage",
+          value: StatKey.cha,
+          scope: "cantrip",
+          optional: true,
+          note: "Eldritch Blast only — add to each beam that hits.",
+        },
+      },
+    ],
+  },
+
+  // Lifedrinker: +CHA necrotic on a pact weapon hit.
+  lifedrinker: {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "extraDamage",
+          amount: StatKey.cha,
+          damageType: DamageType.Necrotic,
+          declareAt: "on-hit",
+          optional: true,
+          note: "On a hit with your pact weapon.",
+        },
+      },
+    ],
+  },
+
+  // Eldritch Smite: the warlock's Divine Smite — expend a slot on a pact
+  // weapon hit for 1d8 force per slot level, plus 1d8. Pact Magic tops out at
+  // 5th level, so the ceiling is 6d8 rather than the paladin's 5d8.
+  "eldritch smite": {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "extraDamage",
+          amount: [2, StandardDie.d8, DieOperation.roll], // before a slot is picked
+          damageType: DamageType.Force,
+          declareAt: "on-hit",
+          optional: true,
+          note: "On a hit with your pact weapon. Expends a warlock spell slot, and knocks a Huge or smaller target prone.",
+          requires: { tags: ["melee"] },
+          slot: { minLevel: 1, die: StandardDie.d8, diceAtMin: 2, maxDice: 6 },
+        },
+      },
+    ],
+  },
+
   // Champion fighter's expanded crit ranges.
   "improved critical": {
     riders: [

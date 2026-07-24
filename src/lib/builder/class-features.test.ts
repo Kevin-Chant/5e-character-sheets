@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { OfficialClass } from "src/lib/data/data-definitions";
 import { mechanicsForTitle } from "src/lib/mechanics/catalog";
+import { OfficialClass } from "src/lib/data/data-definitions";
 import {
   classFeaturesAt,
   ELDRITCH_INVOCATIONS,
@@ -157,5 +157,39 @@ describe("spells known / cantrips known progression", () => {
         expect(newSpellsAt(c, lvl) ?? 0).toBeGreaterThanOrEqual(0);
         expect(newCantripsAt(c, lvl) ?? 0).toBeGreaterThanOrEqual(0);
       }
+  });
+});
+
+// Invocations moved out to `src/lib/data/invocations/` (per-book files, merged
+// and alphabetised). The list is the warlock's whole character-building
+// surface, so its size and shape are worth pinning.
+describe("eldritch invocations", () => {
+  it("carries the full PHB + XGE/TCE catalog, not just the SRD subset", () => {
+    // 32 PHB + 22 XGE/TCE. The old hand-written list held 15.
+    expect(ELDRITCH_INVOCATIONS.length).toBe(54);
+  });
+
+  it("is alphabetical and free of duplicate names", () => {
+    const names = ELDRITCH_INVOCATIONS.map((i) => i.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("keeps every summary a single terse sentence", () => {
+    for (const inv of ELDRITCH_INVOCATIONS) {
+      expect(inv.summary.length, inv.name).toBeGreaterThan(10);
+      // A guard against published prose creeping in: these are one-liners.
+      expect(inv.summary.length, inv.name).toBeLessThan(220);
+    }
+  });
+
+  it("wires the three invocations that have arithmetic", () => {
+    for (const name of ["Agonizing Blast", "Lifedrinker", "Eldritch Smite"]) {
+      expect(
+        ELDRITCH_INVOCATIONS.some((i) => i.name === name),
+        name,
+      ).toBe(true);
+      expect(mechanicsForTitle(name)?.riders, name).toBeDefined();
+    }
   });
 });

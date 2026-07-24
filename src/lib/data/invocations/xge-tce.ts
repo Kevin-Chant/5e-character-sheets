@@ -22,7 +22,7 @@ export const XGE_TCE_INVOCATIONS: Invocation[] = [
   {
     name: "Cloak of Flies",
     summary:
-      "As a bonus action, once per short or long rest, you surround yourself with a 5-foot aura of buzzing flies that damages other creatures starting their turn in it with poison equal to your Charisma modifier, granting you advantage on Intimidation checks but disadvantage on other Charisma checks.",
+      "Bonus action, once per rest: a 5-ft. aura deals poison damage equal to your Charisma modifier to creatures starting their turn in it, and trades advantage on Intimidation for disadvantage on other Charisma checks.",
     prerequisite: "5th level",
   },
   {
@@ -93,7 +93,7 @@ export const XGE_TCE_INVOCATIONS: Invocation[] = [
   {
     name: "Maddening Hex",
     summary:
-      "As a bonus action, you deal psychic damage equal to your Charisma modifier to a target cursed by your hex spell (or a cursing warlock feature) and to other creatures of your choice within 5 feet of it, provided the target is within 30 feet and visible.",
+      "Bonus action: deal psychic damage equal to your Charisma modifier to a creature you have cursed within 30 ft., and to others of your choice within 5 ft. of it.",
     prerequisite: "5th level, hex spell or a cursing warlock feature",
   },
   {
@@ -122,7 +122,7 @@ export const XGE_TCE_INVOCATIONS: Invocation[] = [
   {
     name: "Tomb of Levistus",
     summary:
-      "As a reaction to taking damage, once per short or long rest, you gain 10 temporary hit points per warlock level that absorb the triggering damage, but you become vulnerable to fire, your speed drops to 0, and you're incapacitated until the ice melts at the end of your next turn.",
+      "Reaction on taking damage, once per rest: gain 10 temporary hit points per warlock level, but until the end of your next turn you are incapacitated, have speed 0, and are vulnerable to fire.",
     prerequisite: "5th level",
   },
   {

@@ -8,6 +8,7 @@ import {
 } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
 import { getSrdClass } from "src/lib/builder/srd-classes";
+import { ALL_INVOCATIONS, type Invocation } from "src/lib/data/invocations";
 import { poolTitlesFor } from "src/lib/builder/class-pools";
 import {
   Character,
@@ -100,81 +101,12 @@ export function fightingStyleDueAt(
 // ---------------------------------------------------------------------------
 // Eldritch invocations (warlock)
 
-export interface Invocation {
-  name: string;
-  summary: string;
-  prerequisite?: string;
-}
-
-// The SRD invocation list, summarized.
-export const ELDRITCH_INVOCATIONS: Invocation[] = [
-  {
-    name: "Agonizing Blast",
-    summary: "Add your Charisma modifier to Eldritch Blast damage.",
-  },
-  {
-    name: "Armor of Shadows",
-    summary: "Cast Mage Armor on yourself at will, without a slot.",
-  },
-  {
-    name: "Beast Speech",
-    summary: "Cast Speak with Animals at will, without a slot.",
-  },
-  {
-    name: "Beguiling Influence",
-    summary: "Gain proficiency in Deception and Persuasion.",
-  },
-  {
-    name: "Book of Ancient Secrets",
-    summary:
-      "Inscribe and ritual-cast spells from any class list in your Book of Shadows.",
-    prerequisite: "Pact of the Tome",
-  },
-  {
-    name: "Devil's Sight",
-    summary: "See normally in darkness, magical or not, to 120 ft.",
-  },
-  {
-    name: "Eldritch Sight",
-    summary: "Cast Detect Magic at will, without a slot.",
-  },
-  {
-    name: "Eyes of the Rune Keeper",
-    summary: "Read all writing.",
-  },
-  {
-    name: "Fiendish Vigor",
-    summary: "Cast False Life on yourself at will as a 1st-level spell.",
-  },
-  {
-    name: "Mask of Many Faces",
-    summary: "Cast Disguise Self at will, without a slot.",
-  },
-  {
-    name: "Misty Visions",
-    summary: "Cast Silent Image at will, without a slot.",
-  },
-  {
-    name: "Repelling Blast",
-    summary: "Eldritch Blast pushes a hit creature 10 ft. away.",
-  },
-  {
-    name: "Thief of Five Fates",
-    summary: "Cast Bane once per long rest using a warlock spell slot.",
-  },
-  {
-    name: "Thirsting Blade",
-    summary:
-      "Attack twice with your pact weapon when you take the Attack action.",
-    prerequisite: "5th level, Pact of the Blade",
-  },
-  {
-    name: "Voice of the Chain Master",
-    summary:
-      "Communicate telepathically with your familiar and perceive through its senses at any distance.",
-    prerequisite: "Pact of the Chain",
-  },
-];
+// Eldritch invocations now live in `src/lib/data/invocations/` (one file per
+// source book, merged and alphabetised there). Re-exported here because the
+// wizards, `applyClassLevel` and the pickers have always imported them from
+// this module.
+export type { Invocation };
+export const ELDRITCH_INVOCATIONS: Invocation[] = ALL_INVOCATIONS;
 
 // How many invocations a warlock knows at a given level (PHB table). The
 // wizard offers picks whenever the count increases at the target level.
