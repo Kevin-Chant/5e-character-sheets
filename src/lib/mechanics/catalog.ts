@@ -379,6 +379,59 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
+  // Elemental Affinity (draconic sorcerer 6): +CHA to one damage roll of a spell
+  // that deals your draconic type. The type is the player's to confirm.
+  "elemental affinity": {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "spellDamage",
+          value: StatKey.cha,
+          scope: "any",
+          optional: true,
+          note: "To a spell that deals your draconic ancestry's damage type.",
+        },
+      },
+    ],
+  },
+
+  // Alchemical Savant (artificer 5): +INT to one roll of a spell cast with
+  // alchemist's supplies that heals or deals acid/fire/necrotic/poison. Only the
+  // damage half is modelled here; the healing half the sheet can't scope.
+  "alchemical savant": {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "spellDamage",
+          value: StatKey.int,
+          scope: "any",
+          optional: true,
+          note: "Cast with alchemist's supplies, dealing acid, fire, necrotic, or poison damage.",
+        },
+      },
+    ],
+  },
+
+  // Arcane Firearm (artillerist 5): +1d8 to one damage roll of an artificer
+  // spell channelled through the firearm. A die, not a flat mod, so it inflates
+  // on a crit like any damage die.
+  "arcane firearm": {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "spellDamage",
+          value: [1, StandardDie.d8, DieOperation.roll],
+          scope: "any",
+          optional: true,
+          note: "An artificer spell channelled through your Arcane Firearm.",
+        },
+      },
+    ],
+  },
+
   // Reckless Attack (barbarian 2): still advisory — it's a choice you make on
   // your turn, and it hands attackers advantage against you in return, which no
   // sheet should quietly opt you into. The `requires` clause is what stops the

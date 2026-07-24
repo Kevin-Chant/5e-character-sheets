@@ -38,11 +38,6 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Any Persuasion or Deception check you make that rolls 9 or lower on the d20 counts as a 10 instead.",
       },
-      {
-        title: "Unsettling Words",
-        detail:
-          "As a bonus action, expend a Bardic Inspiration die and subtract its roll from a creature's next saving throw before the start of your next turn.",
-      },
     ],
     6: [
       {
@@ -100,13 +95,6 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
           "Learn two spells of your choice from any class's spell list; they count as bard spells for you but don't count against the number of bard spells you know.",
       },
     ],
-    14: [
-      {
-        title: "Peerless Skill",
-        detail:
-          "When you make an ability check, expend a Bardic Inspiration die and add the roll to your own check after seeing the roll but before the outcome is decided.",
-      },
-    ],
   },
   Spirits: {
     3: [
@@ -119,11 +107,6 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         title: "Spiritual Focus",
         detail:
           "Choose a small trinket, doll, or totem to serve as your spellcasting focus, channeling the spirits you commune with.",
-      },
-      {
-        title: "Tales from Beyond",
-        detail:
-          "While holding your Spiritual Focus, use a bonus action and expend a Bardic Inspiration die to roll on the Spirit Tales table, retaining the tale until you bestow it (as an action, on a creature within 30 ft.) or finish a short or long rest; save DC equals your spell save DC where relevant.",
       },
     ],
     6: [
@@ -208,11 +191,6 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
   },
   Whispers: {
     3: [
-      {
-        title: "Psychic Blades",
-        detail:
-          "Once per turn on a weapon hit, expend a Bardic Inspiration use to deal an extra 2d6 psychic damage (rising to 3d6 at 5th, 5d6 at 10th, and 8d6 at 15th level).",
-      },
       {
         title: "Words of Terror",
         detail:

@@ -13,7 +13,7 @@ import { critThreshold, ridersFor } from "src/lib/mechanics/riders";
 import { calculateCustomFormula } from "src/lib/formula";
 import { randomUUID } from "src/lib/browser";
 import { Character, IClass, LimitedUseAbility } from "src/lib/types";
-import { syncClassPools, syncRacePools } from "./class-pools";
+import { SUBCLASS_POOLS, syncClassPools, syncRacePools } from "./class-pools";
 import {
   martialArtsDie,
   syncMartialArts,
@@ -324,6 +324,23 @@ describe("builder integration", () => {
     expect(spend && "pool" in spend && spend.pool).toBe("Bardic Inspiration");
     // And it isn't also a prose feature row (would double it on the sheet).
     expect(c.features.map((f) => f.title)).not.toContain("Cutting Words");
+  });
+
+  it("every action-host pool (maxUses 0) resolves to a cross-pool spend", () => {
+    // A maxUses-0 pool owns no charges, so it only makes sense if it carries an
+    // action that drains some *other* named pool.
+    for (const [subclass, defs] of Object.entries(SUBCLASS_POOLS))
+      for (const def of defs) {
+        const k = klass(OfficialClass.Bard, 20);
+        if (calculateCustomFormula(def.maxUses(k), blank()) !== 0) continue;
+        const spend = def
+          .mechanics?.(k)
+          ?.actions?.[0].effects.find((e) => e.effect === "spendUses");
+        expect(
+          spend && "pool" in spend && spend.pool,
+          `${subclass} / ${def.title}`,
+        ).toBeTruthy();
+      }
   });
 
   it("druid subclass at level 2 grants the Natural Recovery pool (Land)", () => {

@@ -11,7 +11,7 @@ import {
   spendsSharedPool,
   SUPERIORITY,
 } from "src/lib/mechanics/catalog";
-import { FeatureMechanics } from "src/lib/mechanics/types";
+import { ActionCost, FeatureMechanics } from "src/lib/mechanics/types";
 import { saveDcFormula } from "src/lib/rules";
 import {
   Character,
@@ -73,6 +73,43 @@ export const bardicInspirationDie = (level: number): StandardDie =>
     [10, StandardDie.d10],
     [15, StandardDie.d12],
   ]);
+
+// A bard-subclass action host that spends one Bardic Inspiration die, rolling
+// the current die for display. Every College feature that drains the shared
+// pool has this exact shape, so they share one builder.
+const bardicSpender = (opts: {
+  title: string;
+  detail: string;
+  level: number;
+  cost: ActionCost;
+  costNote?: string;
+  note: string;
+}): ClassPoolDef => ({
+  title: opts.title,
+  detail: opts.detail,
+  level: opts.level,
+  recharge: long,
+  maxUses: () => 0,
+  mechanics: (k) =>
+    spendsSharedPool({
+      id: slugId(opts.title),
+      name: opts.title,
+      cost: opts.cost,
+      ...(opts.costNote ? { costNote: opts.costNote } : {}),
+      pool: "Bardic Inspiration",
+      roll: {
+        label: "Bardic Inspiration die",
+        die: bardicInspirationDie(k.level),
+      },
+      note: opts.note,
+    }),
+});
+
+const slugId = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 const classLevel = (klass: IClass): CustomFormula => ({
   classLevel: klass.id,
 });
@@ -381,24 +418,70 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
   // spender: it owns no charges (maxUses 0 → an action-only host), and its
   // reaction drains the shared Bardic Inspiration pool by title.
   Lore: [
-    {
+    bardicSpender({
       title: "Cutting Words",
       detail:
         "As a reaction when a creature within 60 ft. makes an attack roll, ability check, or damage roll, expend a Bardic Inspiration die and subtract it from the roll.",
+      level: 3,
+      cost: "reaction",
+      note: "Subtract the roll from the triggering creature's attack roll, ability check, or damage roll.",
+    }),
+    bardicSpender({
+      title: "Peerless Skill",
+      detail:
+        "When you make an ability check, expend a Bardic Inspiration die and add it to the roll (you may wait until after you roll).",
+      level: 14,
+      cost: "special",
+      costNote: "as part of an ability check",
+      note: "Add the roll to your ability check.",
+    }),
+  ],
+  Eloquence: [
+    bardicSpender({
+      title: "Unsettling Words",
+      detail:
+        "As a bonus action, expend a Bardic Inspiration die and subtract it from the next saving throw a creature within 60 ft. makes before your next turn.",
+      level: 3,
+      cost: "bonusAction",
+      note: "Subtract the roll from the target's next saving throw before your next turn.",
+    }),
+  ],
+  Spirits: [
+    bardicSpender({
+      title: "Tales from Beyond",
+      detail:
+        "While holding your Spiritual Focus, expend a Bardic Inspiration die and roll it on the Spirit Tales table; you keep the tale until you bestow its effect or finish a rest.",
+      level: 3,
+      cost: "bonusAction",
+      note: "Roll on the Spirit Tales table for the effect you retain.",
+    }),
+  ],
+  Whispers: [
+    {
+      title: "Psychic Blades",
+      detail:
+        "Once per turn on a weapon hit, expend a Bardic Inspiration use to deal extra psychic damage (2d6, rising with bard level).",
       level: 3,
       recharge: long,
       maxUses: () => 0,
       mechanics: (k) =>
         spendsSharedPool({
-          id: "cutting-words",
-          name: "Cutting Words",
-          cost: "reaction",
+          id: "psychic-blades",
+          name: "Psychic Blades",
+          cost: "special",
+          costNote: "once per turn, on a weapon hit",
           pool: "Bardic Inspiration",
           roll: {
-            label: "Bardic Inspiration die",
-            die: bardicInspirationDie(k.level),
+            label: "Psychic damage",
+            count: atLevel(k.level, [
+              [3, 2],
+              [5, 3],
+              [10, 5],
+              [15, 8],
+            ]),
+            die: StandardDie.d6,
           },
-          note: "Subtract the roll from the triggering creature's attack roll, ability check, or damage roll.",
+          note: "Extra psychic damage on the hit.",
         }),
     },
   ],
