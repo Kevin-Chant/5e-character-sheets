@@ -32,9 +32,15 @@ export interface OptionDef {
   };
   // Feature prose this pick grants — the counterpart to `spellIndices` for a
   // sub-choice that confers a *feature* rather than a spell (a Totem Warrior's
-  // totem, a Storm Herald's environment). Granted when the option is picked,
-  // de-duplicated by title against the character's features.
+  // totem, a Genie's kind). Granted when the option is picked, de-duplicated by
+  // title against the character's features.
   features?: RaceTrait[];
+  // Features gated by the owning class's level — for a *single* sub-choice that
+  // then unlocks features across several levels (a Storm Herald's environment
+  // shapes its aura at 3rd, then Storm Soul/Shielding Storm/Raging Storm at
+  // 6th/10th/14th; an Armorer's model at 3rd, Perfected Armor at 15th). Granted
+  // idempotently as the class levels, like `spellIndices.byLevel`.
+  featuresByLevel?: Record<number, RaceTrait[]>;
 }
 
 export interface OptionGroup {
@@ -94,12 +100,14 @@ export function optionSpellIndicesAt(
   return out;
 }
 
-// The feature prose a character's sub-choices grant, for options whose group
-// belongs to `className`. Granted once when picked; the builder de-duplicates by
-// title, so calling every level-up is safe.
+// The feature prose a character's sub-choices grant at a given class level: the
+// flat `features` of each pick plus every `featuresByLevel` tier the level has
+// reached. Only options whose group belongs to `className` count. The builder
+// de-duplicates by title, so calling every level-up is safe.
 export function optionFeaturesFor(
   picks: ChosenOption[],
   className: string,
+  classLevel: number,
 ): RaceTrait[] {
   const out: RaceTrait[] = [];
   for (const pick of picks) {
@@ -107,6 +115,8 @@ export function optionFeaturesFor(
     if (!group || group.className !== className) continue;
     const def = group.options.find((o) => o.name === pick.name);
     if (def?.features) out.push(...def.features);
+    for (const [lvl, feats] of Object.entries(def?.featuresByLevel ?? {}))
+      if (classLevel >= Number(lvl)) out.push(...feats);
   }
   return out;
 }
@@ -212,6 +222,136 @@ const LAND_TERRAIN: OptionDef[] = [
         7: ["greater-invisibility", "stone-shape"],
         9: ["cloudkill", "insect-plague"],
       },
+    },
+  },
+];
+
+// A Storm Herald's environment — one choice at 3rd that then shapes the aura,
+// the resistance, and the reaction across four levels: the level-gated
+// `features` case. Shielding Storm (10th) is the same regardless of
+// environment, so it stays a plain prose row rather than living here.
+const STORM_ENVIRONMENTS: OptionDef[] = [
+  {
+    name: "Desert",
+    featuresByLevel: {
+      3: [
+        {
+          title: "Storm Aura (Desert)",
+          detail:
+            "While raging, emanate a 10-foot aura (reactivated each turn as a bonus action): each other creature in it takes fire damage — 2 at 3rd, rising to 3 (5th), 4 (10th), 5 (15th), and 6 (20th) barbarian level.",
+        },
+      ],
+      6: [
+        {
+          title: "Storm Soul (Desert)",
+          detail:
+            "Fire resistance, immunity to extreme heat, and the ability to ignite a flammable object within 10 feet as an action.",
+        },
+      ],
+      14: [
+        {
+          title: "Raging Storm (Desert)",
+          detail:
+            "As a reaction when a creature within your aura hits you, force a Dexterity save (DC 8 + PB + CON) or it takes fire damage equal to half your barbarian level.",
+        },
+      ],
+    },
+  },
+  {
+    name: "Sea",
+    featuresByLevel: {
+      3: [
+        {
+          title: "Storm Aura (Sea)",
+          detail:
+            "While raging, emanate a 10-foot aura (reactivated each turn as a bonus action): as part of activating it, force one creature in it to make a Dexterity save (DC 8 + PB + CON) or take lightning damage — 1d6, rising to 2d6 (10th), 3d6 (15th), 4d6 (20th) — half on a success.",
+        },
+      ],
+      6: [
+        {
+          title: "Storm Soul (Sea)",
+          detail:
+            "Lightning resistance, the ability to breathe underwater, and a 30-foot swim speed.",
+        },
+      ],
+      14: [
+        {
+          title: "Raging Storm (Sea)",
+          detail:
+            "As a reaction when you hit a creature within your aura, force a Strength save (DC 8 + PB + CON) or knock it prone.",
+        },
+      ],
+    },
+  },
+  {
+    name: "Tundra",
+    featuresByLevel: {
+      3: [
+        {
+          title: "Storm Aura (Tundra)",
+          detail:
+            "While raging, emanate a 10-foot aura (reactivated each turn as a bonus action): each creature of your choice in it gains temporary hit points — 2 at 3rd, rising to 3 (5th), 4 (10th), 5 (15th), and 6 (20th) barbarian level.",
+        },
+      ],
+      6: [
+        {
+          title: "Storm Soul (Tundra)",
+          detail:
+            "Cold resistance, immunity to extreme cold, and the ability to freeze a 5-foot cube of water as an action.",
+        },
+      ],
+      14: [
+        {
+          title: "Raging Storm (Tundra)",
+          detail:
+            "When your Storm Aura activates, force one creature in it to make a Strength save (DC 8 + PB + CON) or have its speed drop to 0 until the end of your next turn.",
+        },
+      ],
+    },
+  },
+];
+
+// An Armorer's model — one choice at 3rd shaping the built-in weapon and a
+// special property, and again the capstone at 15th. Arcane Armor itself, Extra
+// Attack (5th) and Armor Modifications (9th) are the same for both models, so
+// they stay prose rows.
+const ARMOR_MODELS: OptionDef[] = [
+  {
+    name: "Guardian",
+    featuresByLevel: {
+      3: [
+        {
+          title: "Guardian Armor",
+          detail:
+            "Your armor grows Thunder Gauntlets — a melee weapon dealing 1d8 thunder (adds INT to attack and damage); a creature you hit has disadvantage on attacks against anyone but you until your next turn. Defensive Field: as a bonus action, gain temporary hit points equal to your artificer level, a number of times per long rest equal to your proficiency bonus.",
+        },
+      ],
+      15: [
+        {
+          title: "Perfected Armor (Guardian)",
+          detail:
+            "As a reaction when a Huge or smaller creature you can see ends its turn within 30 feet, force a Strength save (your spell save DC) and pull a failed target up to 25 feet toward you; if it comes within 5 feet you may make one melee attack against it. Uses equal to your proficiency bonus per long rest.",
+        },
+      ],
+    },
+  },
+  {
+    name: "Infiltrator",
+    featuresByLevel: {
+      3: [
+        {
+          title: "Infiltrator Armor",
+          detail:
+            "Your armor grows a Lightning Launcher — a ranged weapon (90/300 ft.) dealing 1d6 lightning (adds INT to attack and damage), plus 1d6 lightning once per turn on a hit. Powered Steps: +5 feet walking speed. Dampening Field: advantage on Stealth checks, and your armor imposes no Stealth disadvantage.",
+        },
+      ],
+      15: [
+        {
+          title: "Perfected Armor (Infiltrator)",
+          detail:
+            "When you hit a creature with your Lightning Launcher, you can make it glow with dim light in a 5-foot radius until your next turn; the next attack against a glowing target has advantage, and on a hit deals an extra 1d6 lightning.",
+        },
+      ],
     },
   },
 ];
@@ -823,6 +963,26 @@ export const OPTION_GROUPS: OptionGroup[] = [
     subclass: "Beast",
     known: [[3, 1]],
     options: BEAST_WEAPON,
+  },
+  {
+    category: "stormAura",
+    label: "Storm Aura Environment",
+    summary:
+      "The environment your storm channels — it shapes your Storm Aura (3rd), Storm Soul (6th), and Raging Storm (14th). Shielding Storm (10th) is the same whichever you pick.",
+    className: OfficialClass.Barbarian,
+    subclass: "Storm Herald",
+    known: [[3, 1]],
+    options: STORM_ENVIRONMENTS,
+  },
+  {
+    category: "armorModel",
+    label: "Armor Model",
+    summary:
+      "Your Arcane Armor's model — it sets your built-in weapon and special property (3rd) and your Perfected Armor (15th). You can change models on a rest.",
+    className: OfficialClass.Artificer,
+    subclass: "Armorer",
+    known: [[3, 1]],
+    options: ARMOR_MODELS,
   },
   {
     category: "genieKind",

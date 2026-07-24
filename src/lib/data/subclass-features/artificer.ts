@@ -40,16 +40,9 @@ export const ARTIFICER_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "As an action with smith's tools, turn worn armor into an arcane focus that ignores Strength requirements; it can't be removed against your will, and donning/doffing it takes an action.",
       },
-      {
-        title: "Armor Model: Guardian",
-        detail:
-          "Your gauntlets deal 1d8 thunder damage unarmed and impose disadvantage on the target's attacks against anyone but you until your next turn; as a bonus action a number of times per long rest equal to your proficiency bonus, grant yourself temporary hit points equal to your artificer level.",
-      },
-      {
-        title: "Armor Model: Infiltrator",
-        detail:
-          "Your armor's launcher makes a ranged attack (90/300 ft, 1d6 lightning, plus an extra 1d6 lightning the first time you hit each of your turns), your speed increases by 5 ft, and you gain advantage on Stealth checks.",
-      },
+      // The model-specific weapon and property (Guardian vs Infiltrator) and
+      // the 15th-level Perfected Armor are gated by the `armorModel` sub-choice
+      // in chosen-options.ts, so only the model you chose is granted.
     ],
     5: [
       {
@@ -63,18 +56,6 @@ export const ARTIFICER_SUBCLASS_FEATURES: SubclassFeatureTable = {
         title: "Armor Modifications",
         detail:
           "Your Arcane Armor now counts as four separate items (helmet, chest piece, boots, and one weapon) for infusions, and the number of infused items you can have active at once increases by two.",
-      },
-    ],
-    15: [
-      {
-        title: "Perfected Armor (Guardian)",
-        detail:
-          "When a Huge or larger creature ends its turn within 30 feet of you, use your reaction to pull it up to 25 feet toward you (it can attempt a Strength save to resist); if it ends adjacent to you, make a free melee attack against it.",
-      },
-      {
-        title: "Perfected Armor (Infiltrator)",
-        detail:
-          "A creature you hit with your lightning launcher glows with light until the start of your next turn, suffers disadvantage on attacks against you while glowing, and your next attack against a glowing target has advantage and deals an extra 1d6 lightning damage.",
       },
     ],
   },

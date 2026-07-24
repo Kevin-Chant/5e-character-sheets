@@ -143,33 +143,15 @@ export const BARBARIAN_SUBCLASS_FEATURES: SubclassFeatureTable = {
       },
     ],
   },
+  // Storm Aura (3), Storm Soul (6) and Raging Storm (14) are environment-gated,
+  // so they come from the `stormAura` sub-choice group in chosen-options.ts.
+  // Only Shielding Storm is the same whichever environment you chose.
   "Storm Herald": {
-    3: [
-      {
-        title: "Storm Aura",
-        detail:
-          "While raging, emanate a 10-foot aura (reactivate each turn as a bonus action) whose effect depends on your chosen environment: Desert deals 2 fire damage to every other creature in it; Sea forces one creature in it to make a Dexterity save (DC 8 + proficiency bonus + Constitution modifier) or take 1d6 lightning (half on success); Tundra grants 2 temporary hit points to creatures of your choice in it.",
-      },
-    ],
-    6: [
-      {
-        title: "Storm Soul",
-        detail:
-          "Gain a permanent benefit tied to your environment: Desert grants fire resistance, immunity to extreme heat, and the ability to ignite flammable objects within 10 feet as an action; Sea grants lightning resistance, water breathing, and a 30-foot swim speed; Tundra grants cold resistance, immunity to extreme cold, and the ability to freeze a 5-foot cube of water as an action.",
-      },
-    ],
     10: [
       {
         title: "Shielding Storm",
         detail:
           "Creatures of your choice within your Storm Aura share your Storm Soul resistance while inside it.",
-      },
-    ],
-    14: [
-      {
-        title: "Raging Storm",
-        detail:
-          "Gain a reaction tied to your environment: Desert lets you force a Dexterity save on a creature that just hit you (fire damage equal to half your barbarian level on a failure); Sea lets you force a Strength save on a creature you just hit (knocked prone on a failure); Tundra forces a Strength save on one creature when your Storm Aura activates (its speed drops to 0 until your next turn on a failure).",
       },
     ],
   },

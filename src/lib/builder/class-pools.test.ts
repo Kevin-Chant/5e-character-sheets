@@ -446,6 +446,45 @@ describe("builder integration", () => {
     expect(titles).not.toContain("Wolf Totem Spirit");
   });
 
+  it("a Storm Herald's environment unlocks its aura features by level", () => {
+    let c = level1("barbarian");
+    const levelTo = (target: number, extra = {}) => {
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Barbarian as string,
+        ...extra,
+      });
+      expect(c.class[0].level).toBe(target);
+    };
+    levelTo(2);
+    levelTo(3, {
+      subclass: "Storm Herald",
+      chosenOptions: { stormAura: ["Tundra"] },
+    });
+    // 3rd: the Tundra aura, and not another environment's.
+    expect(c.features.map((f) => f.title)).toContain("Storm Aura (Tundra)");
+    expect(c.features.map((f) => f.title)).not.toContain("Storm Aura (Desert)");
+    // Storm Soul only unlocks at 6th.
+    expect(c.features.map((f) => f.title)).not.toContain("Storm Soul (Tundra)");
+    for (let l = 4; l <= 6; l++) levelTo(l);
+    expect(c.features.map((f) => f.title)).toContain("Storm Soul (Tundra)");
+  });
+
+  it("an Armorer's model grants only the chosen model's features", () => {
+    let c = level1("artificer");
+    for (const level of [2, 3])
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Artificer as string,
+        ...(level === 3
+          ? { subclass: "Armorer", chosenOptions: { armorModel: ["Guardian"] } }
+          : {}),
+      });
+    const titles = c.features.map((f) => f.title);
+    expect(titles).toContain("Guardian Armor");
+    expect(titles).not.toContain("Infiltrator Armor");
+  });
+
   it("a Genie warlock's kind grants its resistance, spell, and Genie's Wrath", () => {
     const c = buildCharacter({
       ...defaultBuilderState(),

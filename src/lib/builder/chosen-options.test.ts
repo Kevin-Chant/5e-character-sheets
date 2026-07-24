@@ -152,8 +152,21 @@ describe("optionFeaturesFor", () => {
     // real group: an unknown class yields nothing, the right class yields its
     // (here empty) feature list without throwing.
     const picks = [{ category: "draconicAncestry", name: "Red (fire)" }];
-    expect(optionFeaturesFor(picks, OfficialClass.Wizard)).toEqual([]);
-    expect(optionFeaturesFor(picks, OfficialClass.Sorcerer)).toEqual([]);
+    expect(optionFeaturesFor(picks, OfficialClass.Wizard, 20)).toEqual([]);
+    expect(optionFeaturesFor(picks, OfficialClass.Sorcerer, 20)).toEqual([]);
+  });
+
+  it("unlocks a pick's level-gated features as the class levels", () => {
+    // Storm Herald's environment gates features across four levels.
+    const picks = [{ category: "stormAura", name: "Tundra" }];
+    const titlesAt = (level: number) =>
+      optionFeaturesFor(picks, OfficialClass.Barbarian, level).map(
+        (f) => f.title,
+      );
+    // 3rd: only the base aura; 6th: the aura plus the 6th-level feature.
+    expect(titlesAt(3).length).toBeGreaterThan(0);
+    expect(titlesAt(6).length).toBeGreaterThan(titlesAt(3).length);
+    expect(titlesAt(2)).toEqual([]);
   });
 });
 

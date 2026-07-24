@@ -366,7 +366,11 @@ export function applyClassLevel(
   const haveFeature = new Set(
     char.features.map((f) => f.title.trim().toLowerCase()),
   );
-  for (const f of optionFeaturesFor(char.chosenOptions ?? [], className)) {
+  for (const f of optionFeaturesFor(
+    char.chosenOptions ?? [],
+    className,
+    level,
+  )) {
     const key = f.title.trim().toLowerCase();
     if (haveFeature.has(key)) continue;
     haveFeature.add(key);
