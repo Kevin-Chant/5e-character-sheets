@@ -1,5 +1,6 @@
 import { SpellMechanics } from "src/lib/types";
 import srdSpellData from "src/lib/data/srd-spells.json";
+import { NONSRD_SPELLS } from "src/lib/data/nonsrd-spells";
 
 // The compact snapshot shape written by `scripts/generate-spells.mjs`. This is a
 // flattened, display-oriented projection of the D&D 5e API's SRD spell — only
@@ -43,7 +44,14 @@ export interface SrdSpell {
 
 export const SRD_SPELLS = srdSpellData as SrdSpell[];
 
-const BY_INDEX = new Map(SRD_SPELLS.map((s) => [s.index, s]));
+// The full catalog: the SRD snapshot plus the hand-authored non-SRD spells
+// (`src/lib/data/nonsrd-spells/`). Those files only `import type` from here, so
+// the value graph stays acyclic. Lookups and search run over this combined
+// list, so a Genie warlock's Wish or a paladin's Compelled Duel resolve by
+// index and show up in the picker.
+export const ALL_SPELLS: SrdSpell[] = [...SRD_SPELLS, ...NONSRD_SPELLS];
+
+const BY_INDEX = new Map(ALL_SPELLS.map((s) => [s.index, s]));
 
 export const getSrdSpell = (index: string): SrdSpell | undefined =>
   BY_INDEX.get(index);
@@ -54,8 +62,8 @@ export const getSrdSpell = (index: string): SrdSpell | undefined =>
 export function searchSrdSpells(query: string, className?: string): SrdSpell[] {
   const q = query.trim().toLowerCase();
   const pool = className
-    ? SRD_SPELLS.filter((s) => s.classes.includes(className))
-    : SRD_SPELLS;
+    ? ALL_SPELLS.filter((s) => s.classes.includes(className))
+    : ALL_SPELLS;
   if (!q) return pool;
   return pool
     .filter((s) => s.name.toLowerCase().includes(q))
