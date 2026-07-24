@@ -216,6 +216,289 @@ const LAND_TERRAIN: OptionDef[] = [
   },
 ];
 
+// Path of the Totem Warrior's three totem choices, one per feature level. Each
+// re-picks a totem animal (you can choose the same one again or switch), so
+// they're three separate groups rather than one — the engine has no notion of
+// "same pick, later feature" reuse.
+const TOTEM_SPIRIT: OptionDef[] = [
+  {
+    name: "Bear",
+    features: [
+      {
+        title: "Bear Totem Spirit",
+        detail:
+          "While raging, you have resistance to all damage types except psychic.",
+      },
+    ],
+  },
+  {
+    name: "Eagle",
+    features: [
+      {
+        title: "Eagle Totem Spirit",
+        detail:
+          "While raging and not wearing heavy armor, other creatures have disadvantage on opportunity attacks against you, and you can take the Dash action as a bonus action.",
+      },
+    ],
+  },
+  {
+    name: "Elk",
+    features: [
+      {
+        title: "Elk Totem Spirit",
+        detail:
+          "While raging and not wearing heavy armor, your walking speed increases by 15 feet.",
+      },
+    ],
+  },
+  {
+    name: "Tiger",
+    features: [
+      {
+        title: "Tiger Totem Spirit",
+        detail:
+          "While raging, add 10 feet to your long jump distance and 3 feet to your high jump distance.",
+      },
+    ],
+  },
+  {
+    name: "Wolf",
+    features: [
+      {
+        title: "Wolf Totem Spirit",
+        detail:
+          "While raging, your allies have advantage on melee attack rolls against a creature within 5 feet of you that's hostile to you.",
+      },
+    ],
+  },
+];
+
+const TOTEM_ASPECT: OptionDef[] = [
+  {
+    name: "Bear",
+    features: [
+      {
+        title: "Bear Aspect of the Beast",
+        detail:
+          "Your carrying capacity doubles, and you have advantage on Strength checks to push, pull, lift, or break objects.",
+      },
+    ],
+  },
+  {
+    name: "Eagle",
+    features: [
+      {
+        title: "Eagle Aspect of the Beast",
+        detail:
+          "You can see up to a mile away with no difficulty, and dim light no longer imposes disadvantage on your Perception checks.",
+      },
+    ],
+  },
+  {
+    name: "Elk",
+    features: [
+      {
+        title: "Elk Aspect of the Beast",
+        detail:
+          "Your travel pace doubles for you and up to ten companions within 60 feet.",
+      },
+    ],
+  },
+  {
+    name: "Tiger",
+    features: [
+      {
+        title: "Tiger Aspect of the Beast",
+        detail:
+          "You gain proficiency in two of Athletics, Acrobatics, Stealth, or Survival.",
+      },
+    ],
+  },
+  {
+    name: "Wolf",
+    features: [
+      {
+        title: "Wolf Aspect of the Beast",
+        detail:
+          "You can track other creatures while traveling at a fast pace, and move stealthily at a normal pace.",
+      },
+    ],
+  },
+];
+
+const TOTEM_ATTUNEMENT: OptionDef[] = [
+  {
+    name: "Bear",
+    features: [
+      {
+        title: "Bear Totemic Attunement",
+        detail:
+          "Hostile creatures within 5 feet of you that can see or hear you have disadvantage on attack rolls against anyone but you.",
+      },
+    ],
+  },
+  {
+    name: "Eagle",
+    features: [
+      {
+        title: "Eagle Totemic Attunement",
+        detail:
+          "While raging, gain a flying speed equal to your walking speed; you fall if you're still aloft when your turn ends.",
+      },
+    ],
+  },
+  {
+    name: "Elk",
+    features: [
+      {
+        title: "Elk Totemic Attunement",
+        detail:
+          "As a bonus action, barrel through a Large or smaller creature's space; it makes a Strength save (DC 8 + proficiency bonus + Strength modifier) or is knocked prone and takes 1d12 plus your Strength modifier bludgeoning damage.",
+      },
+    ],
+  },
+  {
+    name: "Tiger",
+    features: [
+      {
+        title: "Tiger Totemic Attunement",
+        detail:
+          "After moving at least 20 feet in a straight line toward a target and hitting it, make one additional melee attack against it as a bonus action.",
+      },
+    ],
+  },
+  {
+    name: "Wolf",
+    features: [
+      {
+        title: "Wolf Totemic Attunement",
+        detail:
+          "After hitting a Large or smaller creature with a melee attack, knock it prone as a bonus action.",
+      },
+    ],
+  },
+];
+
+// Path of the Beast's natural weapon, chosen on entering rage. No attack object
+// is created for it — the sheet has no notion of a shapeshifted natural
+// weapon slot — so the prose is the honest representation of what it does.
+const BEAST_WEAPON: OptionDef[] = [
+  {
+    name: "Bite",
+    features: [
+      {
+        title: "Bite (Natural Weapon)",
+        detail:
+          "While raging, your bite deals 1d8 piercing damage using Strength; once per turn, when you damage a creature with it while you're below half your hit point maximum, you regain hit points equal to your proficiency bonus.",
+      },
+    ],
+  },
+  {
+    name: "Claws",
+    features: [
+      {
+        title: "Claws (Natural Weapon)",
+        detail:
+          "While raging, your claws deal 1d6 slashing damage using Strength; once per turn when you take the Attack action, make one additional claw attack.",
+      },
+    ],
+  },
+  {
+    name: "Tail",
+    features: [
+      {
+        title: "Tail (Natural Weapon)",
+        detail:
+          "While raging, your tail deals 1d8 piercing damage using Strength and has 10 feet of reach; as a reaction when you're hit by an attack from within 10 feet, add a d8 to your AC against it.",
+      },
+    ],
+  },
+];
+
+// A Genie warlock's vessel kind, chosen at 1st level: it sets the damage type
+// of Genie's Wrath and the Elemental Gift resistance, and unlocks one
+// kind-specific spell per spell level (1st-5th) in the expanded list, on top
+// of the spells every genie kind shares (kept as prose — see
+// warlock.ts). All ten kind-specific spells are SRD.
+const GENIE_KIND: OptionDef[] = [
+  {
+    name: "Dao",
+    features: [
+      {
+        title: "Genie's Wrath",
+        detail:
+          "Once on each of your turns when you hit with an attack, deal extra bludgeoning damage equal to your proficiency bonus.",
+      },
+    ],
+    spellIndices: {
+      byLevel: {
+        1: ["sanctuary"],
+        3: ["spike-growth"],
+        5: ["meld-into-stone"],
+        7: ["stone-shape"],
+        9: ["wall-of-stone"],
+      },
+    },
+  },
+  {
+    name: "Djinni",
+    features: [
+      {
+        title: "Genie's Wrath",
+        detail:
+          "Once on each of your turns when you hit with an attack, deal extra thunder damage equal to your proficiency bonus.",
+      },
+    ],
+    spellIndices: {
+      byLevel: {
+        1: ["thunderwave"],
+        3: ["gust-of-wind"],
+        5: ["wind-wall"],
+        7: ["greater-invisibility"],
+        9: ["seeming"],
+      },
+    },
+  },
+  {
+    name: "Efreeti",
+    features: [
+      {
+        title: "Genie's Wrath",
+        detail:
+          "Once on each of your turns when you hit with an attack, deal extra fire damage equal to your proficiency bonus.",
+      },
+    ],
+    spellIndices: {
+      byLevel: {
+        1: ["burning-hands"],
+        3: ["scorching-ray"],
+        5: ["fireball"],
+        7: ["fire-shield"],
+        9: ["flame-strike"],
+      },
+    },
+  },
+  {
+    name: "Marid",
+    features: [
+      {
+        title: "Genie's Wrath",
+        detail:
+          "Once on each of your turns when you hit with an attack, deal extra cold damage equal to your proficiency bonus.",
+      },
+    ],
+    spellIndices: {
+      byLevel: {
+        1: ["fog-cloud"],
+        3: ["blur"],
+        5: ["sleet-storm"],
+        7: ["control-water"],
+        9: ["cone-of-cold"],
+      },
+    },
+  },
+];
+
 export const OPTION_GROUPS: OptionGroup[] = [
   {
     category: "landTerrain",
@@ -500,6 +783,62 @@ export const OPTION_GROUPS: OptionGroup[] = [
           "Add the die to damage; a Large or smaller target makes a STR save or is knocked prone.",
       },
     ],
+  },
+  {
+    category: "totemSpirit",
+    label: "Totem Spirit",
+    summary:
+      "Your totem animal grants a benefit while you rage — see the option for what it does.",
+    className: OfficialClass.Barbarian,
+    subclass: "Totem Warrior",
+    known: [[3, 1]],
+    options: TOTEM_SPIRIT,
+  },
+  {
+    category: "totemAspect",
+    label: "Aspect of the Beast",
+    summary:
+      "Your totem animal grants a permanent benefit — see the option for what it does.",
+    className: OfficialClass.Barbarian,
+    subclass: "Totem Warrior",
+    known: [[6, 1]],
+    options: TOTEM_ASPECT,
+  },
+  {
+    category: "totemAttunement",
+    label: "Totemic Attunement",
+    summary:
+      "Your totem animal grants a further benefit — see the option for what it does.",
+    className: OfficialClass.Barbarian,
+    subclass: "Totem Warrior",
+    known: [[14, 1]],
+    options: TOTEM_ATTUNEMENT,
+  },
+  {
+    category: "beastWeapon",
+    label: "Form of the Beast",
+    summary:
+      "The natural weapon your rage manifests. Requires no free hand, uses Strength, and lasts until your rage ends.",
+    className: OfficialClass.Barbarian,
+    subclass: "Beast",
+    known: [[3, 1]],
+    options: BEAST_WEAPON,
+  },
+  {
+    category: "genieKind",
+    label: "Genie Kind",
+    summary:
+      "Your vessel's kind sets Genie's Wrath's damage type, your Elemental Gift resistance at 6th level, and one kind-specific spell per spell level in your expanded list.",
+    className: OfficialClass.Warlock,
+    subclass: "Genie",
+    known: [[1, 1]],
+    resistances: {
+      Dao: DamageType.Bludgeoning,
+      Djinni: DamageType.Thunder,
+      Efreeti: DamageType.Fire,
+      Marid: DamageType.Cold,
+    },
+    options: GENIE_KIND,
   },
 ];
 

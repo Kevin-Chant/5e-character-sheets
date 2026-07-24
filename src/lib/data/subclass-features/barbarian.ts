@@ -63,13 +63,6 @@ export const BARBARIAN_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Beast: {
-    3: [
-      {
-        title: "Form of the Beast",
-        detail:
-          "While raging, manifest one natural weapon of your choice: Bite (1d8 piercing, reach 5 ft., and once per turn when below half HP heal yourself proficiency-bonus HP), Claws (1d6 slashing plus a bonus-action second claw attack once per turn), or Tail (1d8 piercing, reach 10 ft., and as a reaction gain +1 AC against one attack). All use Strength.",
-      },
-    ],
     6: [
       {
         title: "Bestial Soul",
@@ -186,31 +179,12 @@ export const BARBARIAN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         title: "Spirit Seeker",
         detail: "Cast Beast Sense and Speak with Animals, but only as rituals.",
       },
-      {
-        title: "Totem Spirit",
-        detail:
-          "Choose a totem animal for a rage benefit: Bear grants resistance to all damage except psychic; Eagle denies attackers advantage from opportunity attacks against you (while unarmored) and lets you Dash as a bonus action; Elk grants +15 feet of speed (while unarmored); Tiger grants +10 feet to your long jump and +3 feet to your high jump; Wolf gives allies advantage on melee attacks against a hostile creature within 5 feet of you.",
-      },
-    ],
-    6: [
-      {
-        title: "Aspect of the Beast",
-        detail:
-          "Gain a permanent benefit from your totem: Bear doubles your carrying capacity and grants advantage on Strength checks to push, pull, lift, or break objects; Eagle lets you see clearly up to a mile and removes the disadvantage dim light imposes on Perception; Elk doubles your and up to ten companions' travel pace; Tiger grants proficiency in two of Athletics, Acrobatics, Stealth, or Survival; Wolf lets you track at a fast pace and move stealthily at a normal pace.",
-      },
     ],
     10: [
       {
         title: "Spirit Walker",
         detail:
           "Cast Commune with Nature as a ritual, with a spirit animal appearing to convey the answers.",
-      },
-    ],
-    14: [
-      {
-        title: "Totemic Attunement",
-        detail:
-          "Gain a further benefit from your totem: Bear gives hostile creatures within 5 feet that can see or hear you disadvantage attacking anyone but you; Eagle grants a flying speed equal to your walking speed while raging (you fall if still aloft when your turn ends); Elk lets you spend a bonus action to barrel past a Large or smaller creature's space, forcing a Strength save (DC 8 + proficiency bonus + Strength modifier) or knocking it prone and dealing 1d12 + Strength modifier bludgeoning damage; Tiger lets you make a bonus-action melee attack after moving at least 20 feet toward a target and hitting it; Wolf lets you knock a Large or smaller creature prone as a bonus action after hitting it with melee.",
       },
     ],
   },

@@ -10,16 +10,6 @@ export const PALADIN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Always-prepared spells from your oath: 3rd level Ensnaring Strike and speak with animals; 5th moonbeam and misty step; 9th plant growth and protection from energy; 13th ice storm and stoneskin; 17th commune with nature and tree stride.",
       },
-      {
-        title: "Nature's Wrath (Channel Divinity)",
-        detail:
-          "As an action, spend a Channel Divinity use to entangle one creature within 10 ft. in spectral vines; it fails a STR or DEX save (your Channel Divinity DC) or is restrained, repeating the save at the end of each of its turns.",
-      },
-      {
-        title: "Turn the Faithless (Channel Divinity)",
-        detail:
-          "As an action, spend a Channel Divinity use so each fey or fiend within 30 ft. that fails a WIS save (your Channel Divinity DC) is turned for 1 minute or until it takes damage.",
-      },
     ],
     7: [
       {
@@ -50,16 +40,6 @@ export const PALADIN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Always-prepared spells from your oath: 3rd level Armor of Agathys and command; 5th hold person and spiritual weapon; 9th bestow curse and fear; 13th dominate beast and stoneskin; 17th cloudkill and dominate person.",
       },
-      {
-        title: "Conquering Presence (Channel Divinity)",
-        detail:
-          "As an action, spend a Channel Divinity use so each creature within 30 ft. that fails a WIS save (your Channel Divinity DC) is frightened for 1 minute, repeating the save at the end of each of its turns.",
-      },
-      {
-        title: "Guided Strike (Channel Divinity)",
-        detail:
-          "After you make an attack roll but before the result is announced, spend a Channel Divinity use to add +10 to the roll.",
-      },
     ],
     7: [
       {
@@ -89,16 +69,6 @@ export const PALADIN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         title: "Oath Spells",
         detail:
           "Always-prepared spells from your oath: 3rd level command and Compelled Duel; 5th warding bond and zone of truth; 9th Aura of Vitality and spirit guardians; 13th banishment and guardian of faith; 17th Circle of Power and geas.",
-      },
-      {
-        title: "Champion Challenge (Channel Divinity)",
-        detail:
-          "As a bonus action, spend a Channel Divinity use so each creature of your choice within 30 ft. that fails a WIS save (your Channel Divinity DC) can't willingly move more than 30 ft. away from you until the effect ends.",
-      },
-      {
-        title: "Turn the Tide (Channel Divinity)",
-        detail:
-          "As a bonus action, spend a Channel Divinity use to let each creature of your choice within 30 ft. at or below half its hit point maximum regain 1d6 + your CHA modifier (minimum 1) hit points.",
       },
     ],
     7: [
@@ -160,16 +130,6 @@ export const PALADIN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Always-prepared spells from your oath: 3rd level guiding bolt and heroism; 5th enhance ability and magic weapon; 9th haste and protection from energy; 13th compulsion and freedom of movement; 17th commune and flame strike.",
       },
-      {
-        title: "Peerless Athlete (Channel Divinity)",
-        detail:
-          "As a bonus action, spend a Channel Divinity use for advantage on STR (Athletics) and DEX (Acrobatics) checks for 10 minutes; you can carry, push, drag, or lift double your usual amount, and your jump distance increases by 10 ft.",
-      },
-      {
-        title: "Inspiring Smite (Channel Divinity)",
-        detail:
-          "Immediately after you use Divine Smite to hit a creature, spend a Channel Divinity use to distribute 2d8 + your paladin level in temporary hit points among creatures of your choice within 30 ft.",
-      },
     ],
     7: [
       {
@@ -200,16 +160,6 @@ export const PALADIN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Always-prepared spells from your oath: 3rd level hellish rebuke and inflict wounds; 5th Crown of Madness and darkness; 9th animate dead and bestow curse; 13th blight and confusion; 17th contagion and dominate person.",
       },
-      {
-        title: "Control Undead (Channel Divinity)",
-        detail:
-          "As an action, spend a Channel Divinity use to target one undead within 30 ft. with a challenge rating below your paladin level: it fails a WIS save (your Channel Divinity DC) or obeys your commands for 24 hours or until you use this again.",
-      },
-      {
-        title: "Dreadful Aspect (Channel Divinity)",
-        detail:
-          "As an action, spend a Channel Divinity use so each creature within 30 ft. who can see you and fails a WIS save (your Channel Divinity DC) is frightened for 1 minute, retrying the save if it ends its turn more than 30 ft. away from you.",
-      },
     ],
     7: [
       {
@@ -239,16 +189,6 @@ export const PALADIN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         title: "Oath Spells",
         detail:
           "Always-prepared spells from your oath: 3rd level sanctuary and sleep; 5th calm emotions and hold person; 9th counterspell and hypnotic pattern; 13th resilient sphere and stoneskin; 17th hold monster and wall of force.",
-      },
-      {
-        title: "Emissary of Peace (Channel Divinity)",
-        detail:
-          "As a bonus action, spend a Channel Divinity use for a +5 bonus to CHA (Persuasion) checks for the next 10 minutes.",
-      },
-      {
-        title: "Rebuke the Violent (Channel Divinity)",
-        detail:
-          "As a reaction when a creature within 30 ft. damages another creature, spend a Channel Divinity use to force it to make a WIS save (your Channel Divinity DC) or take radiant damage equal to the damage it just dealt (half as much on a success).",
       },
     ],
     7: [
@@ -309,16 +249,6 @@ export const PALADIN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         title: "Oath Spells",
         detail:
           "Always-prepared spells from your oath: 3rd level alarm and detect magic; 5th moonbeam and see invisibility; 9th counterspell and nondetection; 13th Aura of Purity and banishment; 17th hold monster and scrying.",
-      },
-      {
-        title: "Watcher's Will (Channel Divinity)",
-        detail:
-          "As an action, spend a Channel Divinity use so you and up to a number of chosen creatures (equal to your CHA modifier, minimum 1) within 30 ft. have advantage on INT, WIS, and CHA saving throws for 1 minute.",
-      },
-      {
-        title: "Abjure the Extraplanar (Channel Divinity)",
-        detail:
-          "As an action, spend a Channel Divinity use so each aberration, celestial, elemental, fey, or fiend within 30 ft. that fails a WIS save (your Channel Divinity DC) is turned for 1 minute or until it takes damage.",
       },
     ],
     7: [

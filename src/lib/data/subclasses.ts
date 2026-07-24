@@ -605,19 +605,9 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Devotion",
       summary:
         "The archetypal knight's oath: honesty, courage, and radiant purity.",
+      // Channel Divinity options are cross-pool action hosts, see
+      // SUBCLASS_ACTION_HOSTS["Devotion"] — not prose grants.
       grants: {
-        features: [
-          {
-            title: "Sacred Weapon (Channel Divinity)",
-            detail:
-              "As an action, add your CHA modifier to attack rolls with one weapon for 1 minute; it sheds bright light.",
-          },
-          {
-            title: "Turn the Unholy (Channel Divinity)",
-            detail:
-              "As an action, each fiend or undead within 30 ft. that fails a WIS save is turned for 1 minute.",
-          },
-        ],
         spellIndices: ["protection-from-evil-and-good", "sanctuary"],
       },
     },
@@ -626,19 +616,9 @@ export const SUBCLASSES: SrdSubclass[] = [
     {
       name: "Vengeance",
       summary: "An avenger's oath: punish the wicked, whatever the cost.",
+      // Channel Divinity options are cross-pool action hosts, see
+      // SUBCLASS_ACTION_HOSTS["Vengeance"] — not prose grants.
       grants: {
-        features: [
-          {
-            title: "Abjure Enemy (Channel Divinity)",
-            detail:
-              "As an action, one creature within 60 ft. makes a WIS save or is frightened and halted for 1 minute (halved speed on a success).",
-          },
-          {
-            title: "Vow of Enmity (Channel Divinity)",
-            detail:
-              "As a bonus action, vow against one creature within 10 ft.: advantage on attack rolls against it for 1 minute.",
-          },
-        ],
         spellIndices: ["bane", "hunters-mark"],
       },
     },

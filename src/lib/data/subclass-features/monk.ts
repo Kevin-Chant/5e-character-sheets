@@ -46,32 +46,11 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   "Astral Self": {
-    3: [
-      {
-        title: "Arms of the Astral Self",
-        detail:
-          "Bonus action, 1 ki, 10 minutes: summon spectral arms. Creatures within 10 feet make a Dexterity save or take 2 Martial Arts dice of force damage. While active, use Wisdom for Strength checks and saves and for unarmed-strike attack and damage rolls (force damage, +5 feet of reach).",
-      },
-    ],
-    6: [
-      {
-        title: "Visage of the Astral Self",
-        detail:
-          "Bonus action (stacks with Arms), 1 ki, 10 minutes: gain darkvision 120 feet (works even in magical darkness) and advantage on Wisdom (Insight) and Charisma (Intimidation) checks, and speak telepathically to one creature within 60 feet or project your voice 600 feet.",
-      },
-    ],
     11: [
       {
         title: "Body of the Astral Self",
         detail:
           "No action required, needs Arms and Visage both active: reaction to reduce acid, cold, fire, force, lightning, or thunder damage by 1d10 + your Wisdom modifier (minimum 1). Once per turn, add a Martial Arts die of extra force damage on an Arms unarmed-strike hit.",
-      },
-    ],
-    17: [
-      {
-        title: "Awakened Astral Self",
-        detail:
-          "Bonus action, 5 ki, 10 minutes: summon the arms, visage, and body of your astral self together, gaining +2 AC and letting Extra Attack make three unarmed strikes with the Arms instead of two.",
       },
     ],
   },
@@ -92,14 +71,7 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
       {
         title: "Tipsy Sway",
         detail:
-          "While prone, standing up costs only 5 feet of movement instead of half your speed. As a reaction, spend 1 ki when a melee attack misses you to redirect it at another creature within 5 feet that you can see.",
-      },
-    ],
-    11: [
-      {
-        title: "Drunkard's Luck",
-        detail:
-          "When you'd make an ability check, attack roll, or saving throw with disadvantage, spend 2 ki to remove the disadvantage for that roll.",
+          "While prone, standing up costs only 5 feet of movement instead of half your speed.",
       },
     ],
     17: [
@@ -136,14 +108,7 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
       {
         title: "One with the Blade",
         detail:
-          "Kensei weapon attacks count as magical against resistance and immunity. On a kensei weapon hit, spend 1 ki (once per turn) for extra damage equal to your Martial Arts die.",
-      },
-    ],
-    11: [
-      {
-        title: "Sharpen the Blade",
-        detail:
-          "Bonus action, spend up to 3 ki: one kensei weapon you're holding gains a +1 to +3 bonus (matching ki spent) to attack and damage rolls for 1 minute or until you repeat this. No effect on a weapon that already has a magic bonus.",
+          "Kensei weapon attacks count as magical against resistance and immunity.",
       },
     ],
     17: [
@@ -169,20 +134,6 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
           "As an action, every creature within 30 feet that can see you makes a Wisdom save or becomes frightened of you until the end of your next turn.",
       },
     ],
-    11: [
-      {
-        title: "Mastery of Death",
-        detail:
-          "When you'd drop to 0 hit points, you may spend 1 ki (no action required) to drop to 1 hit point instead.",
-      },
-    ],
-    17: [
-      {
-        title: "Touch of the Long Death",
-        detail:
-          "As an action, touch a creature within 5 feet and spend 1-10 ki: it makes a Constitution save, taking 2d10 necrotic damage per ki spent, half on a success.",
-      },
-    ],
   },
   Mercy: {
     3: [
@@ -190,16 +141,6 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
         title: "Implements of Mercy",
         detail:
           "Gain proficiency in Insight, Medicine, and the herbalism kit, plus a mask that hides your identity while worn.",
-      },
-      {
-        title: "Hands of Healing",
-        detail:
-          "Action, spend 1 ki: touch a creature and restore hit points equal to a Martial Arts die + your Wisdom modifier. Can replace one Flurry of Blows strike with this at no ki cost.",
-      },
-      {
-        title: "Hands of Harm",
-        detail:
-          "Once per turn, when you hit with an unarmed strike, spend 1 ki for extra necrotic damage equal to a Martial Arts die + your Wisdom modifier.",
       },
     ],
     6: [
@@ -214,13 +155,6 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
         title: "Flurry of Healing and Harm",
         detail:
           "Every Flurry of Blows strike can be replaced with Hands of Healing at no ki cost, and you may use Hands of Harm alongside Flurry strikes without spending ki (still once per turn).",
-      },
-    ],
-    17: [
-      {
-        title: "Hand of Ultimate Mercy",
-        detail:
-          "Once per long rest, as an action, spend 5 ki and touch a creature dead no longer than 24 hours: it returns to life with 4d10 + your Wisdom modifier hit points, cured of the same conditions as Physician's Touch.",
       },
     ],
   },
@@ -239,20 +173,12 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
           "At the end of a long rest, gain the effect of Sanctuary — attackers must succeed on a Wisdom save (your ki save DC) to target you — until you finish your next long rest.",
       },
     ],
-    17: [
-      {
-        title: "Quivering Palm",
-        detail:
-          "On an unarmed-strike hit, spend 3 ki to set up lethal vibrations lasting days equal to your monk level. At any point within that time, end them as a bonus action, forcing a Constitution save (your ki save DC): the target drops to 0 hit points on a failure, or takes 10d10 necrotic damage on a success. Only one target at a time.",
-      },
-    ],
   },
   Shadow: {
     3: [
       {
-        title: "Shadow Arts",
-        detail:
-          "Learn the Minor Illusion cantrip. Spend 2 ki to cast Darkness, Darkvision, Pass without Trace, or Silence without material components.",
+        title: "Shadow Arts (Minor Illusion)",
+        detail: "Learn the Minor Illusion cantrip.",
       },
     ],
     6: [
@@ -280,16 +206,9 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
   "Sun Soul": {
     3: [
       {
-        title: "Radiant Sun Bolt",
+        title: "Radiant Sun Bolt (attack option)",
         detail:
-          "Ranged spell attack, 30 feet, using Dexterity; deals your Martial Arts die of radiant damage. Spend 1 ki to make the attack twice as a bonus action (stacks with Extra Attack).",
-      },
-    ],
-    6: [
-      {
-        title: "Searing Arc Strike",
-        detail:
-          "After the Attack action, bonus action: spend 2+ ki to cast Burning Hands without a spell slot, its level rising by one per extra ki spent (max extra ki = half your monk level).",
+          "Gain a new ranged spell attack option (30 feet, using Dexterity) usable as part of the Attack action, dealing your Martial Arts die of radiant damage on a hit.",
       },
     ],
     11: [

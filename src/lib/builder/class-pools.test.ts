@@ -398,6 +398,73 @@ describe("builder integration", () => {
     expect(spellTitles(c).filter((t) => t === "barkskin")).toHaveLength(1);
   });
 
+  it("wires a monk subclass Ki spender as a cross-pool host draining Ki", () => {
+    let c = level1("monk");
+    for (const level of [2, 3])
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Monk as string,
+        ...(level === 3 ? { subclass: "Shadow" } : {}),
+      });
+    const spend = mechanicsForAbility(
+      pool(c, "Shadow Arts"),
+    )?.actions?.[0].effects.find((e) => e.effect === "spendUses");
+    expect(spend && "pool" in spend && spend.pool).toBe("Ki");
+    expect(c.features.map((f) => f.title)).not.toContain("Shadow Arts");
+  });
+
+  it("wires a cleric domain's Channel Divinity option to drain Channel Divinity", () => {
+    // The domain's Channel Divinity option arrives with Channel Divinity itself,
+    // at cleric 2.
+    const c = applyLevelUp(level1("cleric", { subclass: "Light" }), {
+      ...defaultLevelUpState(level1("cleric", { subclass: "Light" })),
+      className: OfficialClass.Cleric as string,
+    });
+    const host = pool(c, "Channel Divinity: Radiance of the Dawn");
+    const spend = mechanicsForAbility(host)?.actions?.[0].effects.find(
+      (e) => e.effect === "spendUses",
+    );
+    expect(spend && "pool" in spend && spend.pool).toBe("Channel Divinity");
+  });
+
+  it("a Totem Warrior's totem sub-choice grants the chosen totem's feature", () => {
+    let c = level1("barbarian");
+    for (const level of [2, 3])
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Barbarian as string,
+        ...(level === 3
+          ? {
+              subclass: "Totem Warrior",
+              chosenOptions: { totemSpirit: ["Bear"] },
+            }
+          : {}),
+      });
+    const titles = c.features.map((f) => f.title);
+    expect(titles).toContain("Bear Totem Spirit");
+    // Not the totem you didn't pick.
+    expect(titles).not.toContain("Wolf Totem Spirit");
+  });
+
+  it("a Genie warlock's kind grants its resistance, spell, and Genie's Wrath", () => {
+    const c = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "warlock",
+      subclass: "Genie",
+      scoreMethod: "manual",
+      baseStats: { str: 8, dex: 13, con: 14, int: 10, wis: 12, cha: 15 },
+      chosenOptions: { genieKind: ["Djinni"] },
+    });
+    expect(c.damageModifiers?.resistances).toContain("Thunder");
+    expect(c.features.map((f) => f.title)).toContain("Genie's Wrath");
+    expect(
+      Object.values(c.spells)
+        .flat()
+        .map((s) => s.info.title.toLowerCase()),
+    ).toContain("thunderwave");
+  });
+
   it("fighter subclass at level 3 applies riders (Champion) ", () => {
     let c = level1("fighter");
     for (const subclass of [undefined, "Champion"]) {
@@ -469,9 +536,9 @@ describe("builder integration", () => {
         subclass,
       });
     }
-    expect(c.features.map((f) => f.title)).toContain(
-      "Sacred Weapon (Channel Divinity)",
-    );
+    // Its Channel Divinity option is now a cross-pool action host, not a prose
+    // feature — it drains the shared Channel Divinity pool.
+    expect(titles(c)).toContain("Channel Divinity: Sacred Weapon");
     expect((c.spells[1] ?? []).map((s) => s.info.title)).toContain("Sanctuary");
   });
 
@@ -574,9 +641,7 @@ describe("builder integration", () => {
         subclass,
       });
     }
-    expect(c.features.map((f) => f.title)).toContain(
-      "Vow of Enmity (Channel Divinity)",
-    );
+    expect(titles(c)).toContain("Channel Divinity: Vow of Enmity");
     expect((c.spells[1] ?? []).map((s) => s.info.title)).toContain("Bane");
   });
 

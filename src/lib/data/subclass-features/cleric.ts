@@ -4,13 +4,6 @@ import { SubclassFeatureTable } from "src/lib/data/subclass-features/types";
 // class level. Mechanical facts with original paraphrased summaries only.
 export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
   Arcana: {
-    2: [
-      {
-        title: "Channel Divinity: Arcane Abjuration",
-        detail:
-          "Spend a Channel Divinity use to force a celestial, elemental, fey, or fiend within 30 ft. to make a WIS save; on a failure it is turned (must flee, no reactions) for 1 minute or until it takes damage. Against a low enough CR target at cleric level 5+, it is banished instead.",
-      },
-    ],
     6: [
       {
         title: "Spell Breaker",
@@ -34,13 +27,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Death: {
-    2: [
-      {
-        title: "Channel Divinity: Touch of Death",
-        detail:
-          "Spend a Channel Divinity use on a melee hit to deal extra necrotic damage equal to 5 plus twice your cleric level.",
-      },
-    ],
     6: [
       {
         title: "Inescapable Destruction",
@@ -57,13 +43,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Forge: {
-    2: [
-      {
-        title: "Channel Divinity: Artisan's Blessing",
-        detail:
-          "Spend a Channel Divinity use and 1 hour to craft a nonmagical metal item worth up to 100 gp, consuming that much raw material.",
-      },
-    ],
     6: [
       {
         title: "Soul of the Forge",
@@ -80,13 +59,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Grave: {
-    2: [
-      {
-        title: "Channel Divinity: Path to the Grave",
-        detail:
-          "Spend a Channel Divinity use to curse a creature within 30 ft.; the next attack against it before the start of your next turn treats it as if it had vulnerability to that damage, then the curse ends.",
-      },
-    ],
     6: [
       {
         title: "Sentinel at Death's Door",
@@ -110,20 +82,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Knowledge: {
-    2: [
-      {
-        title: "Channel Divinity: Knowledge of the Ages",
-        detail:
-          "Spend a Channel Divinity use to gain proficiency with one skill or tool of your choice for 10 minutes.",
-      },
-    ],
-    6: [
-      {
-        title: "Channel Divinity: Read Thoughts",
-        detail:
-          "Spend a Channel Divinity use to force a creature within 60 ft. to make a WIS save; on a failure you read its surface thoughts for 1 minute and can spend your action to cast Suggestion on it without using a spell slot, and it automatically fails the save.",
-      },
-    ],
     8: [
       {
         title: "Potent Spellcasting",
@@ -140,13 +98,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Life: {
-    2: [
-      {
-        title: "Channel Divinity: Preserve Life",
-        detail:
-          "Spend a Channel Divinity use to restore hit points totalling five times your cleric level, split among creatures within 30 ft. (up to half each creature's HP maximum); can't target undead or constructs.",
-      },
-    ],
     6: [
       {
         title: "Blessed Healer",
@@ -163,13 +114,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Light: {
-    2: [
-      {
-        title: "Channel Divinity: Radiance of the Dawn",
-        detail:
-          "Spend a Channel Divinity use to dispel magical darkness within 30 ft. and force a CON save from hostile creatures in the area, dealing 2d10 plus your cleric level radiant damage (half on a success).",
-      },
-    ],
     6: [
       {
         title: "Improved Flare",
@@ -193,13 +137,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Nature: {
-    2: [
-      {
-        title: "Channel Divinity: Charm Animals and Plants",
-        detail:
-          "Spend a Channel Divinity use to force beasts and plant creatures within 30 ft. to make a WIS save or be charmed toward you for 1 minute (ends early if they take damage).",
-      },
-    ],
     6: [
       {
         title: "Dampen Elements",
@@ -216,13 +153,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Order: {
-    2: [
-      {
-        title: "Channel Divinity: Order's Demand",
-        detail:
-          "Spend a Channel Divinity use to force a WIS save from creatures within 30 ft.; failures are charmed until the end of your next turn (or until they take damage) and can be made to drop what they're holding.",
-      },
-    ],
     6: [
       {
         title: "Embodiment of the Law",
@@ -239,13 +169,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Peace: {
-    2: [
-      {
-        title: "Channel Divinity: Balm of Peace",
-        detail:
-          "Spend a Channel Divinity use to move up to your speed without provoking opportunity attacks, healing 2d6 plus your Wisdom modifier hit points (minimum 1) to each creature you come within 5 ft. of along the way, once each.",
-      },
-    ],
     6: [
       {
         title: "Protective Bond",
@@ -269,13 +192,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Tempest: {
-    2: [
-      {
-        title: "Channel Divinity: Destructive Wrath",
-        detail:
-          "Spend a Channel Divinity use, when you roll lightning or thunder damage, to deal the maximum possible damage instead of rolling.",
-      },
-    ],
     6: [
       {
         title: "Thunderbolt Strike",
@@ -292,20 +208,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Trickery: {
-    2: [
-      {
-        title: "Channel Divinity: Invoke Duplicity",
-        detail:
-          "Spend a Channel Divinity use to create an illusory duplicate of yourself within 30 ft. for up to 1 minute; you can cast spells as if from its space, and you gain advantage on attack rolls against a creature adjacent to both you and the duplicate.",
-      },
-    ],
-    6: [
-      {
-        title: "Channel Divinity: Cloak of Shadows",
-        detail:
-          "Spend a Channel Divinity use to become invisible until the end of your next turn (ends early if you attack or cast a spell).",
-      },
-    ],
     17: [
       {
         title: "Improved Duplicity",
@@ -315,13 +217,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Twilight: {
-    2: [
-      {
-        title: "Channel Divinity: Twilight Sanctuary",
-        detail:
-          "Spend a Channel Divinity use to create a 30 ft. radius dim-light sphere centered on you for 1 minute; creatures that end their turn inside choose either 1d6 plus your cleric level temporary hit points or to end one charmed or frightened effect on themselves.",
-      },
-    ],
     6: [
       {
         title: "Steps of Night",
@@ -338,20 +233,6 @@ export const CLERIC_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   War: {
-    2: [
-      {
-        title: "Channel Divinity: Guided Strike",
-        detail:
-          "Spend a Channel Divinity use, after making an attack roll but before knowing the result, to add +10 to it.",
-      },
-    ],
-    6: [
-      {
-        title: "Channel Divinity: War God's Blessing",
-        detail:
-          "Reaction: spend a Channel Divinity use to grant +10 to an ally's attack roll within 30 ft., before the result of that roll is known.",
-      },
-    ],
     17: [
       {
         title: "Avatar of Battle",

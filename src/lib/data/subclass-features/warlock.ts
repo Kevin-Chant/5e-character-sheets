@@ -133,7 +133,7 @@ export const WARLOCK_SUBCLASS_FEATURES: SubclassFeatureTable = {
       {
         title: "Expanded Spell List",
         detail:
-          "Your patron lets you choose from extra spells when you learn a warlock spell. Every genie kind shares 1st level Detect Evil and Good, 2nd Phantasmal Force, 3rd Create Food and Water, 4th Phantasmal Killer, 5th Creation, and 9th Wish, plus one more spell per level 1-5 tied to your vessel's kind: Dao gains Sanctuary, Spike Growth, Meld into Stone, Stone Shape, and Wall of Stone; Djinni gains Thunderwave, Gust of Wind, Wind Wall, Greater Invisibility, and Seeming; Efreeti gains Burning Hands, Scorching Ray, Fireball, Fire Shield, and Flame Strike; Marid gains Fog Cloud, Blur, Sleet Storm, Control Water, and Cone of Cold.",
+          "Your patron lets you choose from extra spells when you learn a warlock spell. Every genie kind shares 1st level Detect Evil and Good, 2nd Phantasmal Force, 3rd Create Food and Water, 4th Phantasmal Killer, 5th Creation, and 9th Wish, plus one more spell per level 1-5 set by your vessel's kind.",
       },
     ],
     6: [
