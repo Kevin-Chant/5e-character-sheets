@@ -12,6 +12,7 @@ import {
   SUPERIORITY,
 } from "src/lib/mechanics/catalog";
 import { ActionCost, FeatureMechanics } from "src/lib/mechanics/types";
+import { SUBCLASS_ACTION_HOSTS } from "src/lib/builder/subclass-action-hosts";
 import { saveDcFormula } from "src/lib/rules";
 import {
   Character,
@@ -32,7 +33,7 @@ import {
 //
 // Numbers are the 2014 SRD progressions; summaries are original paraphrases.
 
-interface ClassPoolDef {
+export interface ClassPoolDef {
   title: string;
   detail: string;
   // Class level at which the pool appears.
@@ -593,6 +594,7 @@ export function syncClassPools(char: Character, klass: IClass): void {
   const pools = [
     ...((oc && CLASS_POOLS[oc]) ?? []),
     ...((klass.subclass && SUBCLASS_POOLS[klass.subclass]) || []),
+    ...((klass.subclass && SUBCLASS_ACTION_HOSTS[klass.subclass]) || []),
   ];
   for (const pool of pools) {
     if (klass.level < pool.level) continue;
@@ -672,5 +674,6 @@ export function poolTitlesFor(className: string): string[] {
   const oc = Object.values(OfficialClass).find((c) => c === className);
   const own = (oc && CLASS_POOLS[oc]) ?? [];
   const sub = Object.values(SUBCLASS_POOLS).flat();
-  return [...own, ...sub].map((p) => p.title);
+  const hosts = Object.values(SUBCLASS_ACTION_HOSTS).flat();
+  return [...own, ...sub, ...hosts].map((p) => p.title);
 }
