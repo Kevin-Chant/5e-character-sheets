@@ -114,6 +114,57 @@ export const spendRollRemind = (opts: {
   ],
 });
 
+// A pool-less "action host": a feature that spends a *shared* resource owned by
+// a different ability (a Lore bard's Cutting Words draining Bardic Inspiration,
+// a monk discipline draining Ki). The host ability itself has `maxUses: 0` — it
+// owns no charges — so the display renders it as its action(s) alone, and the
+// `spendUses.pool` names the resource to drain by title. Optionally rolls a die
+// for display (the spent Bardic Inspiration die) before the reminder.
+export const spendsSharedPool = (opts: {
+  id: string;
+  name: string;
+  cost: ActionCost;
+  costNote?: string;
+  // The pool ability's title to drain, e.g. "Bardic Inspiration", "Ki".
+  pool: string;
+  // Uses to spend (default 1) — a monk discipline may cost several Ki.
+  amount?: number;
+  roll?: { label: string; count?: number; die: DieDefinition };
+  note: string;
+}): FeatureMechanics => ({
+  actions: [
+    {
+      id: opts.id,
+      name: opts.name,
+      cost: opts.cost,
+      ...(opts.costNote ? { costNote: opts.costNote } : {}),
+      effects: [
+        {
+          effect: "spendUses",
+          amount: { fixed: opts.amount ?? 1 },
+          pool: opts.pool,
+        },
+        ...(opts.roll
+          ? [
+              {
+                effect: "roll" as const,
+                label: opts.roll.label,
+                amount: {
+                  fixed: [
+                    opts.roll.count ?? 1,
+                    opts.roll.die,
+                    DieOperation.roll,
+                  ] as DieExpression,
+                },
+              },
+            ]
+          : []),
+        { effect: "remind" as const, note: opts.note },
+      ],
+    },
+  ],
+});
+
 // A superiority-die pool: spend one, roll it, apply the maneuver. Sized per
 // source (battle master d8, Martial Adept d6).
 export const SUPERIORITY = (die: StandardDie): FeatureMechanics => ({

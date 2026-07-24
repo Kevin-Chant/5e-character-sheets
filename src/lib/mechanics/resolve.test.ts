@@ -261,6 +261,83 @@ describe("resolveEffects", () => {
       ),
     ).toThrow(/blocked/);
   });
+
+  describe("cross-pool spend", () => {
+    // A Cutting Words-shaped action: the owning ability is a pool-less action
+    // host, and the spend drains a *different* pool named by title.
+    const withPools = (): { c: Character; host: LimitedUseAbility } => {
+      const c = classed(OfficialClass.Bard, 5);
+      const bardic: LimitedUseAbility = {
+        info: { title: "Bardic Inspiration", titleFormulas: [] },
+        maxUses: 4,
+        recharge: "long",
+        expended: 1,
+      };
+      const host: LimitedUseAbility = {
+        info: { title: "Cutting Words", titleFormulas: [] },
+        maxUses: 0,
+        recharge: "long",
+        expended: 0,
+      };
+      // Host at index 0 (what the context points at), the shared pool at 1.
+      c.limitedUseAbilities = [host, bardic];
+      return { c, host };
+    };
+
+    const spendBardic: Effect = {
+      effect: "spendUses",
+      amount: { fixed: 1 },
+      pool: "Bardic Inspiration",
+    };
+
+    it("drains the named pool, not the owning ability", () => {
+      const { c, host } = withPools();
+      const { updates } = resolveEffects([spendBardic], ctxFor(c, host));
+      // The Bardic Inspiration pool (index 1) advances 1 → 2; the host is left
+      // alone.
+      expect(
+        updateFor(updates, "update_limitedUseAbilities", "1.expended"),
+      ).toBe(2);
+      expect(
+        updateFor(updates, "update_limitedUseAbilities", "0.expended"),
+      ).toBeUndefined();
+    });
+
+    it("gates on the named pool's remaining uses", () => {
+      const { c, host } = withPools();
+      c.limitedUseAbilities[1].expended = 4; // Bardic Inspiration is empty.
+      expect(effectBlocked(spendBardic, ctxFor(c, host))).toBe(
+        "Not enough uses left",
+      );
+    });
+
+    it("reports a missing named pool by name", () => {
+      const { c, host } = withPools();
+      c.limitedUseAbilities = [host]; // No Bardic Inspiration on the sheet.
+      expect(effectBlocked(spendBardic, ctxFor(c, host))).toBe(
+        "No Bardic Inspiration",
+      );
+    });
+
+    it("composes a cross-pool spend with an own-pool effect independently", () => {
+      // Host has its own charges too; spend one of each in a single action.
+      const { c, host } = withPools();
+      host.maxUses = 2;
+      const { updates } = resolveEffects(
+        [
+          { effect: "spendUses", amount: { fixed: 1 } }, // own pool (index 0)
+          spendBardic, // index 1
+        ],
+        ctxFor(c, host),
+      );
+      expect(
+        updateFor(updates, "update_limitedUseAbilities", "0.expended"),
+      ).toBe(1);
+      expect(
+        updateFor(updates, "update_limitedUseAbilities", "1.expended"),
+      ).toBe(2);
+    });
+  });
 });
 
 describe("catalog actions end to end", () => {

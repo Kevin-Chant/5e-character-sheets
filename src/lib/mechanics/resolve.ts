@@ -77,6 +77,27 @@ export function abilityRemainingUses(
 // tests keep one import site.
 export { expendedSpellSlots, totalSpellSlots };
 
+// The pool a `spendUses`/`restoreUses` targets and its list index. A `pool`
+// title names a *different* ability to drain (cross-pool spend — Cutting Words
+// spends Bardic Inspiration); absent, it's the owning ability the context
+// carries. Returns `undefined` when the named pool isn't on the character, so
+// the gate can report it rather than silently draining nothing.
+function poolTarget(
+  effect: { pool?: string },
+  ctx: EffectContext,
+): { ability: LimitedUseAbility; index: number } | undefined {
+  if (effect.pool) {
+    const wanted = effect.pool.trim().toLowerCase();
+    const index = (ctx.character.limitedUseAbilities ?? []).findIndex(
+      (a) => a.info.title.trim().toLowerCase() === wanted,
+    );
+    if (index < 0) return undefined;
+    return { ability: ctx.character.limitedUseAbilities[index], index };
+  }
+  if (!ctx.ability || ctx.abilityIndex === undefined) return undefined;
+  return { ability: ctx.ability, index: ctx.abilityIndex };
+}
+
 // ---------------------------------------------------------------------------
 // Amounts
 
@@ -147,7 +168,7 @@ export function effectBlocked(
   effect: Effect,
   ctx: EffectContext,
 ): string | undefined {
-  const { character, ability } = ctx;
+  const { character } = ctx;
   switch (effect.effect) {
     case "heal":
       return character.currHp >= maxHpValue(character)
@@ -158,16 +179,19 @@ export function effectBlocked(
     case "remind":
       return undefined;
     case "spendUses": {
-      if (!ability) return "No ability pool";
+      const target = poolTarget(effect, ctx);
+      if (!target) return effect.pool ? `No ${effect.pool}` : "No ability pool";
       const amount = staticAmount(effect.amount, ctx);
       if (amount === undefined || amount <= 0) return "Choose an amount";
-      return abilityRemainingUses(ability, character) < amount
+      return abilityRemainingUses(target.ability, character) < amount
         ? "Not enough uses left"
         : undefined;
     }
-    case "restoreUses":
-      if (!ability) return "No ability pool";
-      return ability.expended <= 0 ? "Pool already full" : undefined;
+    case "restoreUses": {
+      const target = poolTarget(effect, ctx);
+      if (!target) return effect.pool ? `No ${effect.pool}` : "No ability pool";
+      return target.ability.expended <= 0 ? "Pool already full" : undefined;
+    }
     case "expendSlot": {
       const level = slotLevelOf(effect, ctx);
       if (level === undefined) return "Choose a slot level";
@@ -211,18 +235,21 @@ export function resolveEffects(
   effects: Effect[],
   ctx: EffectContext,
 ): ResolvedEffects {
-  const { character, ability, abilityIndex } = ctx;
+  const { character } = ctx;
   const out: ResolvedEffects = { updates: [], reminders: [], rolls: [] };
 
-  const usesCursor = () =>
-    charPath(FIELD.limitedUseAbilities).at(abilityIndex!).k("expended");
+  const usesCursor = (index: number) =>
+    charPath(FIELD.limitedUseAbilities).at(index).k("expended");
   const slotCursor = (level: LeveledSpellLevel) =>
     charPath(FIELD.spellSlots).k(level).k("expended");
 
-  // Pools an earlier effect in this batch already touched — later effects
-  // must read through these, not the (stale) character, so an action that
-  // both spends and restores the same pool composes correctly.
-  let usesExpended = ability?.expended;
+  // Running `expended`, keyed by pool index — a batch may touch more than one
+  // pool now (a cross-pool spend), and later effects must read through what an
+  // earlier one already changed, not the stale character, so spend+restore of
+  // the same pool composes correctly.
+  const expendedByIndex = new Map<number, number>();
+  const currentExpended = (index: number, fallback: number) =>
+    expendedByIndex.get(index) ?? fallback;
 
   for (const effect of effects) {
     const blocked = effectBlocked(effect, ctx);
@@ -252,15 +279,22 @@ export function resolveEffects(
         break;
       }
       case "spendUses": {
+        const { ability, index } = poolTarget(effect, ctx)!;
         const amount = rollAmount(effect.amount, ctx, []) ?? 0;
-        usesExpended = (usesExpended ?? 0) + amount;
-        out.updates.push(updateAt(usesCursor(), usesExpended));
+        const next = currentExpended(index, ability.expended) + amount;
+        expendedByIndex.set(index, next);
+        out.updates.push(updateAt(usesCursor(index), next));
         break;
       }
       case "restoreUses": {
+        const { ability, index } = poolTarget(effect, ctx)!;
         const amount = rollAmount(effect.amount, ctx, []) ?? 0;
-        usesExpended = Math.max(0, (usesExpended ?? 0) - amount);
-        out.updates.push(updateAt(usesCursor(), usesExpended));
+        const next = Math.max(
+          0,
+          currentExpended(index, ability.expended) - amount,
+        );
+        expendedByIndex.set(index, next);
+        out.updates.push(updateAt(usesCursor(index), next));
         break;
       }
       case "expendSlot": {

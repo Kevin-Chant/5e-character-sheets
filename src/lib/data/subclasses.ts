@@ -136,11 +136,8 @@ export const SUBCLASSES: SrdSubclass[] = [
             title: "Bonus Proficiencies",
             detail: "Gain proficiency in three skills of your choice.",
           },
-          {
-            title: "Cutting Words",
-            detail:
-              "As a reaction, expend a Bardic Inspiration die to subtract its roll from a creature's attack roll, ability check, or damage roll within 60 ft.",
-          },
+          // Cutting Words is granted as a cross-pool action host (it spends
+          // Bardic Inspiration), see SUBCLASS_POOLS["Lore"] — not a prose row.
         ],
       },
     },

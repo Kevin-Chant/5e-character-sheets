@@ -678,10 +678,16 @@ export type Effect =
   | { effect: "heal"; amount: AmountExpr }
   // Grant temporary HP. Temp HP don't stack: applies only if higher.
   | { effect: "gainTempHp"; amount: AmountExpr }
-  // Spend uses from the owning limited-use ability's pool.
-  | { effect: "spendUses"; amount: AmountExpr }
-  // Regain uses in the owning pool, clamped at its maximum.
-  | { effect: "restoreUses"; amount: AmountExpr }
+  // Spend uses from a limited-use pool. Defaults to the owning ability's own
+  // pool; `pool` names a *different* ability by title (normalized) to spend
+  // from instead — a Lore bard's Cutting Words spending Bardic Inspiration, a
+  // monk discipline spending Ki. The named pool is found on the character at
+  // resolve time, so a feature keeps its own mechanics without owning the
+  // resource it drains.
+  | { effect: "spendUses"; amount: AmountExpr; pool?: string }
+  // Regain uses in a pool (the owning ability's, or `pool` by title), clamped
+  // at its maximum.
+  | { effect: "restoreUses"; amount: AmountExpr; pool?: string }
   // Expend a spell slot (the chosen level unless pinned).
   | { effect: "expendSlot"; level?: LeveledSpellLevel }
   // Restore an expended spell slot. The sheet tracks expended-vs-total, so

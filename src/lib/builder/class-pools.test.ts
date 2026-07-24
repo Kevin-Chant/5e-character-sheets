@@ -306,6 +306,26 @@ describe("builder integration", () => {
     expect(leveled.features.map((f) => f.title)).toContain("Sculpt Spells");
   });
 
+  it("Lore bard gets Cutting Words as a cross-pool action host at 3rd", () => {
+    let c = level1("bard");
+    for (const level of [2, 3])
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Bard as string,
+        ...(level === 3 ? { subclass: "Lore" } : {}),
+      });
+    const cw = pool(c, "Cutting Words");
+    // An action-only host: it owns no charges of its own.
+    expect(calculateCustomFormula(cw.maxUses, c)).toBe(0);
+    const spend = mechanicsForAbility(cw)?.actions?.[0].effects.find(
+      (e) => e.effect === "spendUses",
+    );
+    // Its spend drains the shared Bardic Inspiration pool, not itself.
+    expect(spend && "pool" in spend && spend.pool).toBe("Bardic Inspiration");
+    // And it isn't also a prose feature row (would double it on the sheet).
+    expect(c.features.map((f) => f.title)).not.toContain("Cutting Words");
+  });
+
   it("druid subclass at level 2 grants the Natural Recovery pool (Land)", () => {
     const c = level1("druid");
     const leveled = applyLevelUp(c, {

@@ -51,6 +51,11 @@ export default function LimitedUseAbilitiesDisplay() {
         const { info } = ability;
         const total = calculateCustomFormula(ability.maxUses, character);
         const expended = Math.max(0, Math.min(ability.expended, total));
+        // A pool-less "action host": maxUses 0 means it owns no charges and
+        // just carries actions (a Cutting Words that spends Bardic Inspiration).
+        // Its own counter, recharge label, and reset button are all noise, so
+        // outside edit mode it renders as its actions alone.
+        const actionsOnly = total === 0 && !editMode;
         const name = (
           <TextWithFormulasDisplay
             templateString={info.title}
@@ -85,19 +90,23 @@ export default function LimitedUseAbilitiesDisplay() {
                   {formatSaveEffect(ability.save, character)}
                 </b>
               )}
-              <i className="font-small nowrap">per {ability.recharge}</i>
+              {!actionsOnly && (
+                <i className="font-small nowrap">per {ability.recharge}</i>
+              )}
               <div className="flex">
-                <button
-                  type="button"
-                  aria-label="Reset uses"
-                  title="Reset uses"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setExpended(i, 0);
-                  }}
-                >
-                  <FaArrowRotateLeft />
-                </button>
+                {!actionsOnly && (
+                  <button
+                    type="button"
+                    aria-label="Reset uses"
+                    title="Reset uses"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setExpended(i, 0);
+                    }}
+                  >
+                    <FaArrowRotateLeft />
+                  </button>
+                )}
                 {editMode && (
                   <>
                     <button
@@ -124,7 +133,7 @@ export default function LimitedUseAbilitiesDisplay() {
                 )}
               </div>
             </div>
-            {total > PIP_THRESHOLD ? (
+            {total === 0 ? null : total > PIP_THRESHOLD ? (
               <div className="row limited-use-count">
                 <button
                   type="button"

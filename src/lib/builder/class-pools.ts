@@ -8,6 +8,7 @@ import {
 import {
   normalizeTitle,
   spendRollRemind,
+  spendsSharedPool,
   SUPERIORITY,
 } from "src/lib/mechanics/catalog";
 import { FeatureMechanics } from "src/lib/mechanics/types";
@@ -61,6 +62,17 @@ const atLevel = <T>(level: number, steps: [number, T][]): T => {
 
 const short = () => RestType.shortRest;
 const long = () => RestType.longRest;
+
+// The Bardic Inspiration die by bard level (d6 → d8 → d10 → d12). Exported so
+// the subclass features that *spend* a Bardic Inspiration die (Cutting Words,
+// Combat Inspiration, …) roll the same size the pool grants.
+export const bardicInspirationDie = (level: number): StandardDie =>
+  atLevel(level, [
+    [1, StandardDie.d6],
+    [5, StandardDie.d8],
+    [10, StandardDie.d10],
+    [15, StandardDie.d12],
+  ]);
 const classLevel = (klass: IClass): CustomFormula => ({
   classLevel: klass.id,
 });
@@ -150,12 +162,7 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
             cost: "bonusAction",
             roll: {
               label: "Bardic Inspiration die",
-              die: atLevel(k.level, [
-                [1, StandardDie.d6],
-                [5, StandardDie.d8],
-                [10, StandardDie.d10],
-                [15, StandardDie.d12],
-              ]),
+              die: bardicInspirationDie(k.level),
             },
             note: "Give one creature other than you within 60 ft. the die to add to one d20 roll in the next 10 minutes.",
           }),
@@ -368,6 +375,31 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
       level: 2,
       recharge: long,
       maxUses: () => 1,
+    },
+  ],
+  // College of Lore's Cutting Words is the worked example of a cross-pool
+  // spender: it owns no charges (maxUses 0 → an action-only host), and its
+  // reaction drains the shared Bardic Inspiration pool by title.
+  Lore: [
+    {
+      title: "Cutting Words",
+      detail:
+        "As a reaction when a creature within 60 ft. makes an attack roll, ability check, or damage roll, expend a Bardic Inspiration die and subtract it from the roll.",
+      level: 3,
+      recharge: long,
+      maxUses: () => 0,
+      mechanics: (k) =>
+        spendsSharedPool({
+          id: "cutting-words",
+          name: "Cutting Words",
+          cost: "reaction",
+          pool: "Bardic Inspiration",
+          roll: {
+            label: "Bardic Inspiration die",
+            die: bardicInspirationDie(k.level),
+          },
+          note: "Subtract the roll from the triggering creature's attack roll, ability check, or damage roll.",
+        }),
     },
   ],
   Hexblade: [
