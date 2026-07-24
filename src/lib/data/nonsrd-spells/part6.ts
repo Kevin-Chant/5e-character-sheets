@@ -35,7 +35,7 @@ export const NONSRD_SPELLS_PART6: SrdSpell[] = [
     somatic: true,
     material: "A pinch of sand.",
     classes: ["Artificer", "Bard", "Sorcerer", "Wizard"],
-    desc: "Up to three willing creatures within range fall asleep for the duration, waking early if hurt or physically roused. A target who sleeps the full duration gains the benefit of a short rest and can't be put to sleep by this spell again until it finishes a long rest.",
+    desc: "Up to three willing creatures within range fall unconscious for the duration, waking early if hurt or physically roused. A target who stays unconscious the full duration gains the benefit of a short rest and can't be affected by this spell again until it finishes a long rest.",
   },
   {
     index: "conjure-barrage",
@@ -70,6 +70,7 @@ export const NONSRD_SPELLS_PART6: SrdSpell[] = [
     somatic: false,
     classes: ["Paladin"],
     damageType: "Radiant",
+    baseDamage: "1d4",
     areaOfEffect: "30-foot radius",
     desc: "A 30-foot aura centered on the caster moves with them for the duration; every friendly creature inside it, including the caster, adds 1d4 radiant damage to weapon attacks that hit.",
   },

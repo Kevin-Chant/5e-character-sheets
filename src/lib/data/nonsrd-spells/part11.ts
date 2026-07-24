@@ -53,7 +53,7 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     damageType: "Bludgeoning",
     baseDamage: "10d6",
     areaOfEffect: "10-foot-radius, 30-foot-tall cylinder",
-    desc: "Summon a whirlwind you can move up to 30 feet each turn. Creatures that start there or enter make a Dexterity save, taking bludgeoning damage on a failure. Large or smaller creatures that fail also make a Strength save or get swept up and restrained, rising 5 feet per turn; a restrained creature can try to break free with a Strength or Dexterity check and is flung 3d6 x 10 feet on success. Loose Medium or smaller objects get pulled in too.",
+    desc: "Summon a whirlwind you can move up to 30 feet each turn. Creatures that start there or enter make a Dexterity save, taking bludgeoning damage on a failure. Large or smaller creatures that fail also make a Strength check or get swept up and restrained, rising 5 feet per turn; a restrained creature can try to break free with a Strength or Dexterity check and is flung 3d6 x 10 feet on success. Loose Medium or smaller objects get pulled in too.",
   },
   {
     index: "abi-dalzims-horrid-wilting",
@@ -92,7 +92,7 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     damageType: "Acid",
     baseDamage: "7d6",
     areaOfEffect: "60-foot cone",
-    desc: "Conjure a phantasmal dragon that frightens anyone who sees it (Wisdom save to resist). As a bonus action you can fly it up to 60 feet and unleash a breath weapon in a 60-foot cone dealing 7d6 damage of a type you pick (acid, cold, fire, lightning, necrotic, or poison), halved on a successful Intelligence save. The dragon can't be harmed or destroyed, though a creature can spend an Intelligence check to recognize it as illusory and gain advantage against its effects afterward.",
+    desc: "Conjure a phantasmal dragon that frightens anyone who sees it (Wisdom save to resist). As a bonus action you can fly it up to 60 feet and unleash a breath weapon in a 60-foot cone dealing 7d6 damage of a type you pick (acid, cold, fire, lightning, necrotic, or poison), halved on a successful Intelligence save. The dragon can't be harmed or destroyed, though a creature can spend an action on an Investigation check to recognize it as illusory and gain advantage against its effects afterward.",
   },
   {
     index: "maddening-darkness",
@@ -164,7 +164,7 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     damageType: "Bludgeoning",
     baseDamage: "6d10",
     areaOfEffect: "Wall up to 300 feet long, 300 feet high, and 50 feet thick",
-    desc: "Raise a towering wall of water within sight that deals 6d10 bludgeoning damage on a failed Strength save (half on success) when it appears, then advances 50 feet away from you each round, dealing 5d10 damage the first following round and one fewer die each round after, on a failed Strength check to hold ground. It shrinks and dissipates entirely after six rounds.",
+    desc: "Raise a towering wall of water within sight that deals 6d10 bludgeoning damage on a failed Strength save (half on success) when it appears, then advances 50 feet away from you each round, forcing another Strength save against 5d10 damage that drops by 1d10 each round after. Creatures caught inside can swim free only with a Strength (Athletics) check against your spell save DC, and the wall shrinks away entirely after six rounds.",
   },
   {
     index: "blade-of-disaster",
@@ -181,8 +181,7 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     classes: ["Sorcerer", "Warlock", "Wizard"],
     damageType: "Force",
     baseDamage: "4d12",
-    areaOfEffect: "5-foot radius",
-    desc: "Conjure a blade-shaped rift into the void that you can swing with two melee spell attacks on the turn you cast it and again each following turn, dealing 4d12 force damage per hit, tripling to 12d12 on a roll of 18 or higher on the attack die. As a bonus action you can move the blade up to 30 feet; it passes through creatures and objects without harming them.",
+    desc: "Conjure a blade-shaped rift into the void that you can swing with two melee spell attacks on the turn you cast it and again each following turn, dealing 4d12 force damage per hit, rising to 12d12 on a roll of 18 or higher on the attack die. As a bonus action you can move the blade up to 30 feet to an unoccupied space you can see; it is intangible and passes harmlessly through barriers such as a wall of force.",
   },
   {
     index: "invulnerability",
@@ -216,7 +215,7 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     material: "A caterpillar cocoon.",
     classes: ["Bard", "Sorcerer", "Wizard"],
     save: "WIS",
-    desc: "Reshape up to ten creatures you can see into beast forms of your choosing; unwilling targets get a Wisdom save to resist. Each transformed creature keeps its own mind, hit points, and alignment but uses the new form's statistics and gains temporary hit points equal to that form's hit point maximum, losing the ability to speak, cast spells, or use gear. A subject reverts early if it drops to 0 temporary hit points, or when the spell ends.",
+    desc: "Reshape up to ten creatures you can see into beast forms of your choosing, each of challenge rating no higher than the target's own level or CR; unwilling targets (other than shapechangers, who automatically succeed) get a Wisdom save to resist. Each transformed creature keeps its own mind, alignment, and personality but uses the new form's statistics and gains temporary hit points equal to that form's hit point maximum, losing the ability to speak, cast spells, or use hands. A subject reverts early if it drops to 0 temporary hit points, or when the spell ends.",
   },
   {
     index: "power-word-heal",
@@ -250,6 +249,6 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     damageType: "Psychic",
     baseDamage: "14d6",
     areaOfEffect: "Up to 10 creatures you can see",
-    desc: "Blast up to ten creatures with Intelligence 3 or higher that you can see within range. On a failed Intelligence save a target takes 14d6 psychic damage and is stunned; on success it takes half damage and isn't stunned. A stunned target repeats the save at the end of each of its turns to end the stun.",
+    desc: "Blast up to ten creatures with Intelligence 3 or higher that you can see within range. On a failed Intelligence save a target takes 14d6 psychic damage and is stunned, its head exploding if the damage kills it; on success it takes half damage and isn't stunned. A stunned target repeats the save at the end of each of its turns to end the stun.",
   },
 ];

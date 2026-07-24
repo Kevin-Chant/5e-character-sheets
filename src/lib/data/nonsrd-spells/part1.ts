@@ -211,7 +211,7 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     save: "INT",
     damageType: "Psychic",
     baseDamage: "1d6",
-    desc: "You jab a splinter of psychic force into a creature's mind. On a failed Intelligence save it takes psychic damage (more at higher character levels) and must subtract 1d4 from the next saving throw it makes before the start of your following turn.",
+    desc: "You jab a splinter of psychic force into a creature's mind. On a failed Intelligence save it takes psychic damage (more at higher character levels) and must subtract 1d4 from the next saving throw it makes before the end of your next turn.",
   },
   {
     index: "mold-earth",

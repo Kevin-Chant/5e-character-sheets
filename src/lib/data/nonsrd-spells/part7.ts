@@ -40,7 +40,7 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     damageType: "Fire",
     baseDamage: "2d6",
     areaOfEffect: "5-foot radius",
-    desc: "You conjure six tiny meteors that orbit you for the duration. As a bonus action you can hurl one at a point you can see within 120 feet, where it bursts, dealing 2d6 fire damage to everything within 5 feet that fails a Dexterity save (half on a success). Casting with a higher-level slot adds two extra meteors per slot level above 3rd.",
+    desc: "You conjure six tiny meteors that orbit you for the duration. As a bonus action you can hurl one or two of them at points you can see within 120 feet, each bursting to deal 2d6 fire damage to everything within 5 feet that fails a Dexterity save (half on a success). Casting with a higher-level slot adds two extra meteors per slot level above 3rd.",
   },
   {
     index: "motivational-speech",
@@ -55,7 +55,7 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     verbal: true,
     somatic: false,
     classes: ["Bard", "Cleric"],
-    desc: "Up to five creatures of your choice who can hear you each gain 5 temporary hit points, advantage on Wisdom saving throws, and advantage on their next attack roll after being hit while the effect lasts. The benefit ends for a creature once its temporary hit points are gone. Casting with a 4th-level slot or higher grants 5 additional temporary hit points per slot level above 3rd.",
+    desc: "Up to five creatures of your choice who can hear you each gain 5 temporary hit points and advantage on Wisdom saving throws for 1 hour. The benefit ends early for a creature once its temporary hit points from this spell are gone. Casting with a 4th-level slot or higher grants 5 additional temporary hit points per slot level above 3rd.",
   },
   {
     index: "spirit-shroud",
@@ -72,7 +72,7 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     classes: ["Cleric", "Paladin", "Warlock", "Wizard"],
     baseDamage: "1d8",
     areaOfEffect: "10-foot radius",
-    desc: "Faint, spectral figures surround you for the duration. Any attack you make deals an extra 1d8 damage (your choice of radiant, necrotic, or cold) to a creature you hit within 10 feet of you, and creatures you choose that start their turn in that radius have their speed reduced by 10 feet and can't regain hit points until their next turn starts. The bonus damage increases by 1d8 for every two slot levels above 3rd.",
+    desc: "Faint, spectral figures surround you for the duration. Any attack you make deals an extra 1d8 damage (your choice of radiant, necrotic, or cold) when it hits a creature within 10 feet of you, and that creature can't regain hit points until the start of your next turn. You can also designate creatures you can see that start their turn within 10 feet of you to have their speed reduced by 10 feet until the start of your next turn. The bonus damage increases by 1d8 for every two slot levels above 3rd.",
   },
   {
     index: "summon-fey",
@@ -103,9 +103,10 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     ritual: false,
     verbal: true,
     somatic: true,
-    material: "A vial of blood from a humanoid killed within the past day.",
+    material:
+      "A vial of blood from a humanoid killed within the past 24 hours.",
     classes: ["Warlock", "Wizard"],
-    desc: "You conjure a swarm of hostile lesser demons into unoccupied spaces within range, rolling a d6 to set their number and power: 1–2 summons two demons of CR 1 or lower, 3–4 summons four of CR 1/2 or lower, 5–6 summons eight of CR 1/4 or lower. The demons obey no one and attack the nearest non-demon creatures; alternatively you can use the blood to trace a ward line on the ground that the demons can't cross. Casting at 6th or 7th level doubles the number summoned, and at 8th or 9th level triples it.",
+    desc: "You conjure a swarm of hostile lesser demons into unoccupied spaces within range, rolling a d6 to set their number and power: 1–2 summons two demons of CR 1 or lower, 3–4 summons four of CR 1/2 or lower, 5–6 summons eight of CR 1/4 or lower. The demons obey no one and attack the nearest non-demon creatures; you can also use the blood to draw a circle around yourself that the demons can neither cross, harm, nor target anyone inside. Casting at 6th or 7th level doubles the number summoned, and at 8th or 9th level triples it.",
   },
   {
     index: "summon-shadowspawn",
@@ -122,7 +123,7 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     material:
       "A crystal vial filled with tears, worth at least 300 gp, which the spell consumes.",
     classes: ["Warlock", "Wizard"],
-    desc: "You summon a mournful shadow spirit into an unoccupied space you can see, choosing one of three emotions — Fury, Despair, or Fear — that grants it distinct abilities, including a frightening wail and a chilling melee strike. It acts on your turn under your command and disappears at 0 hit points or when concentration ends; casting with a higher-level slot raises its hit points, attacks, and damage to match that level.",
+    desc: "You summon a mournful shadow spirit into an unoccupied space you can see, choosing one of three emotions — Fury (advantage attacking frightened creatures), Despair (slows nearby foes by 20 feet), or Fear (can hide in dim light or darkness) — that shapes its abilities. It fights with a chilling melee strike, acts on your turn under your command, and disappears at 0 hit points or when concentration ends; casting with a higher-level slot raises its hit points, attacks, and damage to match that level.",
   },
   {
     index: "summon-undead",
@@ -157,7 +158,7 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     damageType: "Thunder",
     baseDamage: "3d10",
     areaOfEffect: "10-foot radius",
-    desc: "You teleport to an unoccupied space you can see within range, optionally bringing one willing creature no larger than Large if there's room for it at the destination. A thunderclap erupts where you left: every other creature within 10 feet of that point must succeed on a Constitution save or take 3d10 thunder damage, half on a success. Damage increases by 1d10 per slot level above 3rd.",
+    desc: "You teleport to an unoccupied space you can see within range, optionally bringing one willing creature your size or smaller if there's room for it at the destination. A thunderclap erupts where you left: every other creature within 10 feet of that point must succeed on a Constitution save or take 3d10 thunder damage, half on a success. Damage increases by 1d10 per slot level above 3rd.",
   },
   {
     index: "tidal-wave",

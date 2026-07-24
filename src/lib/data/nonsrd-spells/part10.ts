@@ -155,7 +155,6 @@ export const NONSRD_SPELLS_PART10: SrdSpell[] = [
     classes: ["Sorcerer", "Warlock", "Wizard"],
     damageType: "Radiant",
     baseDamage: "4d12",
-    areaOfEffect: "120 feet",
     desc: "Conjures seven motes of light orbiting the caster's head, shedding light while they last. As a bonus action, the caster can launch one at a target within 120 feet as a ranged spell attack, dealing radiant damage; the mote is spent whether it hits or misses, and the spell ends once all motes are gone. Casting with a higher-level slot adds two more motes per slot level above 7th.",
   },
   {

@@ -141,7 +141,7 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     verbal: true,
     somatic: true,
     material: "A bit of fur wrapped in a scrap of cloth.",
-    classes: ["Ranger"],
+    classes: ["Druid", "Ranger"],
     desc: "The caster forms a telepathic bond with a willing beast of Intelligence 3 or lower that they touch. For the duration the beast understands the caster's simple telepathic messages and can send back simple feelings, and while within the caster's line of sight it has advantage on attacks against any creature within 5 feet of the caster that the caster can perceive.",
   },
   {

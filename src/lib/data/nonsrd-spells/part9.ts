@@ -74,7 +74,7 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     damageType: "Bludgeoning",
     baseDamage: "4d8",
     areaOfEffect: "40-foot cube",
-    desc: "Reshapes natural, unworked stone across a 40-foot cube, either turning it into thick mud that bogs down movement and can mire creatures, or reversing an existing mud transformation back into solid rock that can crush and restrain anyone caught as it re-forms, dealing bludgeoning damage on a failed save.",
+    desc: "Reshapes natural, unworked stone across a 40-foot cube: rock can be turned to thick mud that slows movement and mires anyone failing a Strength save, or existing mud can be hardened back into rock, trapping inside it anyone who fails a Dexterity save (escape needs a Strength check or enough force to break the stone). Mud shaken loose from a ceiling instead falls, dealing bludgeoning damage halved on a successful save.",
   },
   {
     index: "wall-of-light",
@@ -201,7 +201,7 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     damageType: "Fire",
     baseDamage: "4d8",
     areaOfEffect: "15-foot line",
-    desc: "Wreathes the caster in flame that lights the area, automatically singes anyone who touches or hits them, and grants immunity to fire damage. Once per turn the caster can also lash out a 15-foot line of fire, dealing damage to everyone caught in it who fails a Dexterity save.",
+    desc: "Wreathes the caster in flame that lights the area, singes anyone who moves adjacent to them or ends a turn there, and grants immunity to fire damage plus resistance to cold. Once per turn the caster can also lash out a 15-foot line of fire, dealing damage to everyone caught in it who fails a Dexterity save.",
   },
   {
     index: "investiture-of-ice",
@@ -220,7 +220,7 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     damageType: "Cold",
     baseDamage: "4d6",
     areaOfEffect: "15-foot cone",
-    desc: "Rimes the caster in ice, surrounding them with difficult terrain, granting immunity to cold damage, and letting the caster move freely over ice and snow. Once per turn the caster can also blast a 15-foot cone of freezing wind, dealing cold damage and shoving back anyone who fails a Constitution save.",
+    desc: "Rimes the caster in ice, surrounding them with difficult terrain, granting immunity to cold damage and resistance to fire, and letting the caster move freely over ice and snow. Once per turn the caster can also blast a 15-foot cone of freezing wind, dealing cold damage and halving the speed of anyone who fails a Constitution save.",
   },
   {
     index: "investiture-of-stone",

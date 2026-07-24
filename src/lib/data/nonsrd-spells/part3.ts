@@ -110,6 +110,7 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     verbal: true,
     somatic: true,
     classes: ["Sorcerer", "Wizard"],
+    save: "CON",
     damageType: "Poison",
     baseDamage: "2d8",
     desc: "A ranged spell attack sends out a sickly green ray, dealing poison damage on a hit and forcing the target to make a Constitution save or be poisoned until the end of your next turn.",
@@ -164,7 +165,7 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     classes: ["Artificer", "Druid", "Ranger", "Wizard"],
     save: "DEX",
     areaOfEffect: "5-foot-radius circle",
-    desc: "Rigs an invisible trap in a spot you touch. The first creature entering the area must succeed on a Dexterity save or be hoisted and restrained; a restrained creature (or another creature) can free it with a successful Strength check against your spell save DC.",
+    desc: "Rigs an invisible trap in a spot you touch. The first creature entering the area must succeed on a Dexterity save or be hoisted upside down and restrained; the restrained creature can retry the save at the end of each of its turns, or another creature can free it with a successful Intelligence (Arcana) check against your spell save DC.",
   },
   {
     index: "tashas-caustic-brew",
@@ -184,7 +185,7 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Acid",
     baseDamage: "2d4",
     areaOfEffect: "30-foot line, 5 feet wide",
-    desc: "Sprays a corrosive stream down a line in front of you; anyone caught in it makes a Dexterity save, taking acid damage on a failure or half as much on a success. You can repeat the save against anyone still in the line at the start of each of your later turns while you maintain concentration.",
+    desc: "Sprays a corrosive stream down a line in front of you; anyone caught in it makes a Dexterity save or gets coated in acid, taking the damage at the start of each of its turns until it spends an action scraping the acid off or the spell ends.",
   },
   {
     index: "thunderous-smite",
@@ -220,7 +221,7 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     classes: ["Sorcerer", "Warlock", "Wizard"],
     damageType: "Lightning",
     baseDamage: "1d12",
-    desc: "A ranged spell attack lashes a target with a crackling beam of lightning, and while you keep concentrating you can deal the same damage again automatically at the start of each of your turns as long as the target stays within range and you don't have disadvantage on the attack.",
+    desc: "A ranged spell attack lashes a target with a crackling beam of lightning, and while you keep concentrating you can use your action on later turns to automatically deal the same damage again, as long as the target stays within range and in your sight.",
   },
   {
     index: "wrathful-smite",

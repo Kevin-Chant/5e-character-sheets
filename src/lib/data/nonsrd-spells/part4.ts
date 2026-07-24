@@ -152,7 +152,7 @@ export const NONSRD_SPELLS_PART4: SrdSpell[] = [
     level: 2,
     school: "Enchantment",
     castingTime:
-      "1 reaction, which you take when you speak to at least one other creature",
+      "1 reaction, which you take when you speak to another creature",
     range: "Self",
     duration: "Instantaneous",
     concentration: false,
@@ -233,6 +233,6 @@ export const NONSRD_SPELLS_PART4: SrdSpell[] = [
     damageType: "Bludgeoning",
     baseDamage: "2d6",
     areaOfEffect: "5-foot-square patch of ground",
-    desc: "You cause a hand of animated soil and stone to burst from an unoccupied patch of ground you can see within range. A creature within 5 feet of the hand must succeed on a Strength save or take 2d6 bludgeoning damage and be restrained. On later turns you can use your action to deal more damage to the restrained target or move the hand (and anyone it holds) up to 5 feet. The restrained creature or a helper can use an action to make a Strength check against your spell save DC to break free.",
+    desc: "You cause a hand of compacted soil to rise from an unoccupied patch of ground you can see within range and reach for a creature within 5 feet of it. On a failed Strength save the target takes 2d6 bludgeoning damage and is restrained; as an action you can have the hand crush the restrained target for another Strength save (2d6 bludgeoning, or half on a success), or redirect/move the hand, which releases the current target. A restrained creature can use its action to attempt a Strength check against your spell save DC to break free.",
   },
 ];
