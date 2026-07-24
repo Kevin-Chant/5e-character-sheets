@@ -21,7 +21,7 @@ export const WARLOCK_SUBCLASS_SPELLS: SubclassSpellTable = {
     1: ["create-or-destroy-water", "thunderwave"],
     3: ["gust-of-wind", "silence"],
     5: ["lightning-bolt", "sleet-storm"],
-    7: ["control-water", "conjure-elemental"],
+    7: ["control-water", "summon-elemental"],
     9: ["bigbys-hand", "cone-of-cold"],
   },
   Fiend: {

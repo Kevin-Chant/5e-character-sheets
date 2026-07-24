@@ -5,6 +5,7 @@ import { CLERIC_SUBCLASS_SPELLS } from "./cleric";
 import { SORCERER_SUBCLASS_SPELLS } from "./sorcerer";
 import { RANGER_SUBCLASS_SPELLS } from "./ranger";
 import { ARTIFICER_SUBCLASS_SPELLS } from "./artificer";
+import { DRUID_SUBCLASS_SPELLS } from "./druid";
 
 // Class index -> subclass name -> class level -> spell indices.
 export const SUBCLASS_SPELLS: Record<string, SubclassSpellTable> = {
@@ -14,4 +15,5 @@ export const SUBCLASS_SPELLS: Record<string, SubclassSpellTable> = {
   sorcerer: SORCERER_SUBCLASS_SPELLS,
   ranger: RANGER_SUBCLASS_SPELLS,
   artificer: ARTIFICER_SUBCLASS_SPELLS,
+  druid: DRUID_SUBCLASS_SPELLS,
 };

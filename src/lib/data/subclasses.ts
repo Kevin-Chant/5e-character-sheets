@@ -282,7 +282,7 @@ export const SUBCLASSES: SrdSubclass[] = [
       summary:
         "A cleric of the death domain who reaps foes with enhanced necromancy.",
       grants: {
-        spellIndices: ["false-life", "inflict-wounds"],
+        spellIndices: ["false-life", "ray-of-sickness"],
         features: [
           {
             title: "Reaper",
@@ -449,6 +449,11 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Stars",
       summary:
         "A reader of constellations who draws starlight into a luminous battle form.",
+      grants: {
+        // Star Map: Guidance as a known cantrip, Guiding Bolt always prepared.
+        // A one-off grant at the choice level, not a growing circle table.
+        spellIndices: ["guidance", "guiding-bolt"],
+      },
     },
     {
       name: "Wildfire",
@@ -856,6 +861,9 @@ export const SUBCLASSES: SrdSubclass[] = [
               "When damage would drop you to 0 hit points, you can make a Charisma save to drop to 1 instead. Once per long rest.",
           },
         ],
+        // Eyes of the Dark hands out Darkness itself, not just the ability to
+        // pay sorcery points for it.
+        spellIndices: ["darkness"],
       },
     },
     {

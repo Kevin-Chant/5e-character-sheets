@@ -11,6 +11,7 @@ import {
   optionGroup,
   optionSpellIndicesAt,
 } from "./chosen-options";
+import { getSrdSpell } from "src/lib/spells/srd-spells";
 
 const withClass = (...classes: Partial<IClass>[]): Character => {
   const c = structuredClone(defaultCharacter);
@@ -183,5 +184,25 @@ describe("chosenIn", () => {
       "Twinned Spell",
       "Quickened Spell",
     ]);
+  });
+});
+
+// The same join the subclass-spell registry is guarded on: an option that
+// grants spells by index hands out nothing at all if the index is misspelled,
+// and nothing else fails.
+describe("option spell grants", () => {
+  it("only names spell indices that resolve in the bundled catalog", () => {
+    for (const group of OPTION_GROUPS)
+      for (const option of group.options) {
+        const indices = [
+          ...(option.spellIndices?.always ?? []),
+          ...Object.values(option.spellIndices?.byLevel ?? {}).flat(),
+        ];
+        for (const index of indices)
+          expect(
+            getSrdSpell(index),
+            `${group.category}/${option.name}: "${index}" is not in the catalog`,
+          ).toBeDefined();
+      }
   });
 });

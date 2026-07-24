@@ -7,7 +7,7 @@ export const SORCERER_SUBCLASS_SPELLS: SubclassSpellTable = {
     1: ["arms-of-hadar", "dissonant-whispers", "mind-sliver"],
     3: ["calm-emotions", "detect-thoughts"],
     5: ["hunger-of-hadar", "sending"],
-    7: ["black-tentacles"],
+    7: ["black-tentacles", "summon-aberration"],
     9: ["telepathic-bond", "telekinesis"],
   },
   // Level 1 (alarm, protection-from-evil-and-good) is already granted inline
@@ -15,7 +15,7 @@ export const SORCERER_SUBCLASS_SPELLS: SubclassSpellTable = {
   "Clockwork Soul": {
     3: ["aid", "lesser-restoration"],
     5: ["dispel-magic", "protection-from-energy"],
-    7: ["freedom-of-movement"],
+    7: ["freedom-of-movement", "summon-construct"],
     9: ["greater-restoration", "wall-of-force"],
   },
 };

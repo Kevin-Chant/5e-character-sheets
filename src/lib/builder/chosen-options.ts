@@ -639,7 +639,31 @@ const GENIE_KIND: OptionDef[] = [
   },
 ];
 
+// A Divine Soul's affinity, chosen at 1st level. Each one grants a single
+// always-known bonus spell that doesn't count against spells known — the only
+// mechanical difference between the five, so they carry no feature prose.
+const DIVINE_SOUL_AFFINITY: OptionDef[] = [
+  { name: "Good", spellIndices: { always: ["cure-wounds"] } },
+  { name: "Evil", spellIndices: { always: ["inflict-wounds"] } },
+  { name: "Law", spellIndices: { always: ["bless"] } },
+  { name: "Chaos", spellIndices: { always: ["bane"] } },
+  {
+    name: "Neutrality",
+    spellIndices: { always: ["protection-from-evil-and-good"] },
+  },
+];
+
 export const OPTION_GROUPS: OptionGroup[] = [
+  {
+    category: "divineAffinity",
+    label: "Divine Affinity",
+    summary:
+      "Your affinity grants one bonus spell, always known and not counted against your spells known.",
+    className: OfficialClass.Sorcerer,
+    subclass: "Divine Soul",
+    known: [[1, 1]],
+    options: DIVINE_SOUL_AFFINITY,
+  },
   {
     category: "landTerrain",
     label: "Land's Circle Spells",

@@ -17,12 +17,19 @@ export const RANGER_SUBCLASS_SPELLS: SubclassSpellTable = {
     13: ["banishment"],
     17: ["teleportation-circle"],
   },
+  // The 11th-level entry is Fey Reinforcements, not the archetype table — it
+  // grants Summon Fey on the same terms, so it rides along here.
   "Fey Wanderer": {
     3: ["charm-person"],
     5: ["misty-step"],
     9: ["dispel-magic"],
+    11: ["summon-fey"],
     13: ["dimension-door"],
     17: ["mislead"],
+  },
+  // No archetype spell table; Draconic Gift hands out one cantrip at 3rd.
+  Drakewarden: {
+    3: ["thaumaturgy"],
   },
   Swarmkeeper: {
     3: ["faerie-fire", "mage-hand"],
