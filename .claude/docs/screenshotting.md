@@ -29,20 +29,23 @@ Two conventions matter and are easy to get wrong:
 
 ## Flags
 
-| Flag               | Purpose                                                                                                                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--fixture <name>` | Seed `src/lib/fixtures/<name>.json` into localStorage (local store)                                                                                                            |
-| `--open`           | After seeding, click the character to open its sheet                                                                                                                           |
-| `--route <path>`   | Route to visit (default `/`)                                                                                                                                                   |
-| `--out <file>`     | Output PNG path — point this at the scratchpad                                                                                                                                 |
-| `--viewport WxH`   | Viewport size (default `1280x900`)                                                                                                                                             |
-| `--no-full`        | Capture only the viewport instead of the full scroll height                                                                                                                    |
-| `--base <url>`     | Dev server URL (default `http://localhost:3000`)                                                                                                                               |
-| `--seed <int>`     | Make `Math.random` deterministic — reproducible dice rolls                                                                                                                     |
-| `--steps <json>`   | Array of interaction steps run in order before capture (see below)                                                                                                             |
-| `--steps-file <p>` | Same as `--steps`, read from a JSON file                                                                                                                                       |
-| `--storage <file>` | Persist localStorage across runs (loaded before, saved after) — drive long flows like repeated level-ups in incremental batches. Wins over `--fixture`; `--open` works with it |
-| `--dump <file>`    | After the steps, dump the stored characters as JSON — diff real saved state instead of eyeballing pixels                                                                       |
+| Flag                | Purpose                                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--fixture <name>`  | Seed `src/lib/fixtures/<name>.json` into localStorage (local store)                                                                                                            |
+| `--open`            | After seeding, click the character to open its sheet                                                                                                                           |
+| `--route <path>`    | Route to visit (default `/`)                                                                                                                                                   |
+| `--out <file>`      | Output PNG path — point this at the scratchpad                                                                                                                                 |
+| `--viewport WxH`    | Viewport size (default `1280x900`)                                                                                                                                             |
+| `--no-full`         | Capture only the viewport instead of the full scroll height                                                                                                                    |
+| `--base <url>`      | Dev server URL (default `http://localhost:3000`)                                                                                                                               |
+| `--seed <int>`      | Make `Math.random` deterministic — reproducible dice rolls                                                                                                                     |
+| `--steps <json>`    | Array of interaction steps run in order before capture (see below)                                                                                                             |
+| `--steps-file <p>`  | Same as `--steps`, read from a JSON file                                                                                                                                       |
+| `--storage <file>`  | Persist localStorage across runs (loaded before, saved after) — drive long flows like repeated level-ups in incremental batches. Wins over `--fixture`; `--open` works with it |
+| `--dump <file>`     | After the steps, dump the stored characters as JSON — diff real saved state instead of eyeballing pixels                                                                       |
+| `--snapshot`        | Print the accessibility tree (roles + accessible names) instead of capturing — **the way to find a selector**, see below                                                       |
+| `--snapshot-of <s>` | Scope `--snapshot` to a selector, e.g. `".modal-content"`                                                                                                                      |
+| `--probe 'a,b'`     | Per selector: box, stacking-relevant computed styles, and what actually sits on top — see "Layering questions" below                                                           |
 
 Available fixtures: `empty-level-1`, `full-caster-wizard`, `martial-fighter`,
 `multiclass`.
@@ -61,12 +64,21 @@ opens. Each step is an object with exactly one action key:
 | `{"press":"<key>"}`               | Keyboard press, e.g. `"Enter"`, `"Escape"`   |
 | `{"wait":300}`                    | Wait N ms                                    |
 | `{"wait":"<selector>"}`           | Wait until the selector is visible           |
+| `{"shot":"<name>"}`               | Capture here and carry on                    |
 
-A failing step reports its index and selector, so flows are debuggable. Prefer
-stable selectors — `aria-label` (buttons carry them, e.g. `Roll Greatsword`,
-`Edit spell`) and component classes (`.roll-go`, `.roll-modal`) — over brittle
-text. Pair with **`--no-full`** (modals are viewport-fixed, so full-page capture
-misplaces them) and **`--seed`** for reproducible dice.
+A failing step reports its index and selector, and the output carries a
+`FAILED: …` summary line at **both ends** so it survives being read through
+`head` or `tail` — Playwright's own diagnosis (which elements a `text=` matched,
+what intercepted a click) is in the middle and is almost always the answer.
+Prefer stable selectors — `aria-label` (buttons carry them, e.g. `Roll
+Greatsword`, `Edit spell`) and component classes (`.roll-go`, `.roll-modal`) —
+over brittle text. Pair with **`--no-full`** (modals are viewport-fixed, so
+full-page capture misplaces them) and **`--seed`** for reproducible dice.
+
+**`{"shot":"<name>"}` gives one boot many frames.** Each run is a cold browser
+launch, so capturing five states used to mean five runs. A mid-flow shot writes
+next to `--out` with the name inserted: `--out flow.png` yields
+`flow.step1.png`, `flow.review.png`, … and the final capture keeps `flow.png`.
 
 Example — open the damage roll dialog for an attack and roll it:
 
@@ -79,6 +91,53 @@ pnpm screenshot --fixture martial-fighter --open --no-full --seed 7 \
 Multi-step flows compose naturally — e.g. enter edit mode, open the SRD picker,
 search, and pick a spell: `[{"click":"[aria-label=\"Browse SRD\"]"},
 {"fill":[".add-spell input","fireball"]},{"click":"text=Fireball"}]`.
+
+## Finding a selector: `--snapshot`, don't guess
+
+The single most common way these runs fail is a guessed selector — `text=` does
+**substring** matching, so `text=Adv.` also hits "Disadv." and
+`text="Create new character"` matches both the sidebar button and the picker
+card (a strict-mode violation). Grepping the source for a component name doesn't
+help either: the served bundle is minified.
+
+Ask the page instead:
+
+```bash
+pnpm screenshot --fixture martial-fighter --open --snapshot-of "#detail" --snapshot
+```
+
+prints a YAML accessibility tree — every role and accessible name, i.e. exactly
+what is clickable and what to call it. `--snapshot`/`--probe` runs skip the PNG
+unless you also pass `--out`, so they're cheap questions rather than captures.
+Steps run first, so you can snapshot _inside_ a modal you just opened.
+
+## Layering questions: `--probe`, not a PNG
+
+A screenshot can't tell you _why_ something is covered, and reasoning about it
+from `index.css` is error-prone (a `z-index` on an unpositioned element is
+inert; a parent can trap a child in its own stacking context). `--probe` asks
+the browser:
+
+```bash
+pnpm screenshot --fixture martial-fighter --open --probe '#nav,.modal-content,#sidebar' \
+  --steps '[{"click":"[aria-label=\"Level up this character\"]"},{"wait":800}]'
+```
+
+```
+#nav
+  box      1280x80 at 0,0
+  styles   position: static; z-index: 2; …
+  topmost  div.modal-background
+```
+
+`topmost` is the useful field: `self` means a click at the element's centre
+reaches it, anything else names what's covering it. The line above is the whole
+diagnosis of "the modal backdrop now covers the nav" — and `position: static`
+next to `z-index: 2` says that z-index was never doing anything.
+
+Playwright's click failures report the same fact from the other direction
+(`<div id="sidebar-scrim"></div> intercepts pointer events`), which is worth
+remembering when a step times out: it's usually a real overlay, not a flake.
 
 ## Gotcha: the sheet scrolls _inside_ `#detail`, so `--full` caps at the viewport
 

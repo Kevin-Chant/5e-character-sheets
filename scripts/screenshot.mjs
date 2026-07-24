@@ -28,6 +28,23 @@
 //   {"press":"<key>"}               keyboard press (e.g. "Enter", "Escape")
 //   {"wait":300}                    wait N ms
 //   {"wait":"<selector>"}           wait until the selector is visible
+//   {"shot":"<name>"}               capture here and carry on — one run, many frames
+//
+// Finding a selector without guessing:
+//   --snapshot         print the accessibility tree (roles + accessible names) after
+//                      the steps, and exit without capturing unless --out was given.
+//                      This is the answer to "what can I click and what is it called";
+//                      source-grepping for a component name doesn't work (the served
+//                      bundle is minified), and a substring `text=` match is the most
+//                      common way these runs fail.
+//   --snapshot-of <s>  scope the snapshot to a selector (e.g. ".modal-content").
+//
+// Checking layout rather than looking at it:
+//   --probe 'a,b,c'    for each comma-separated selector, print the box, the
+//                      stacking-relevant computed styles, and — the useful bit —
+//                      what `elementFromPoint` returns at its centre, i.e. what
+//                      would actually receive a click there. A PNG can't tell you
+//                      why something is covered; this can.
 //
 // Long multi-run flows (e.g. walking the level-up wizard many times):
 //   --storage <file>   persist localStorage across runs: loaded before the page
@@ -71,6 +88,23 @@ const steps = JSON.parse(
     : flag("steps", "[]"),
 );
 
+// Where a mid-flow `{"shot":"name"}` lands: alongside --out, with the name
+// inserted before the extension. So --out flow.png yields flow.builder.png,
+// flow.review.png, … and the final capture keeps the plain --out path.
+const shotPath = (name) => {
+  const ext = path.extname(out);
+  return path.join(
+    path.dirname(out),
+    `${path.basename(out, ext)}.${name}${ext}`,
+  );
+};
+
+async function capture(page, file) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  await page.screenshot({ path: file, fullPage });
+  console.log(`Saved ${file} (${page.url()})`);
+}
+
 // Run one declarative step against the page. Kept small and explicit so a step
 // list reads like the flow it performs.
 async function runStep(page, step) {
@@ -82,7 +116,64 @@ async function runStep(page, step) {
   if (typeof step.wait === "number") return page.waitForTimeout(step.wait);
   if (typeof step.wait === "string")
     return page.waitForSelector(step.wait, { state: "visible" });
+  if (typeof step.shot === "string") return capture(page, shotPath(step.shot));
   throw new Error(`Unrecognized step: ${JSON.stringify(step)}`);
+}
+
+// The stacking-relevant styles plus what actually sits on top. `topmost` is the
+// point of the whole thing: z-index alone doesn't answer "is this covered",
+// because an unpositioned element ignores it and a parent can trap it in its own
+// stacking context — but `elementFromPoint` reports the truth for a real click.
+async function probe(page, selectors) {
+  const results = await page.evaluate((list) => {
+    const describe = (el) =>
+      !el
+        ? "(none)"
+        : el.tagName.toLowerCase() +
+          (el.id ? `#${el.id}` : "") +
+          (typeof el.className === "string" && el.className
+            ? `.${el.className.trim().split(/\s+/).join(".")}`
+            : "");
+    return list.map((selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return { selector, missing: true };
+      const box = el.getBoundingClientRect();
+      const s = getComputedStyle(el);
+      const cx = Math.round(box.left + box.width / 2);
+      const cy = Math.round(box.top + box.height / 2);
+      const top = document.elementFromPoint(cx, cy);
+      return {
+        selector,
+        box: `${Math.round(box.width)}x${Math.round(box.height)} at ${Math.round(box.left)},${Math.round(box.top)}`,
+        styles: [
+          "position",
+          "z-index",
+          "display",
+          "visibility",
+          "opacity",
+          "transform",
+          "isolation",
+        ]
+          .map((p) => `${p}: ${s.getPropertyValue(p)}`)
+          .join("; "),
+        // "self" means a click at the centre reaches this element (or its own
+        // child); anything else names what's covering it.
+        topmost: el.contains(top) ? "self" : describe(top),
+      };
+    });
+  }, selectors);
+
+  console.log("\n--- probe ---");
+  for (const r of results) {
+    if (r.missing) {
+      console.log(`${r.selector}: NOT FOUND`);
+      continue;
+    }
+    console.log(`${r.selector}`);
+    console.log(`  box      ${r.box}`);
+    console.log(`  styles   ${r.styles}`);
+    console.log(`  topmost  ${r.topmost}`);
+  }
 }
 
 const isUp = async (url) => {
@@ -171,9 +262,26 @@ async function ensureServer() {
     }
   }
 
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  await page.screenshot({ path: out, fullPage });
-  console.log(`Saved ${out} (${page.url()})`);
+  if (has("snapshot")) {
+    const scope = flag("snapshot-of", "body");
+    console.log(`\n--- accessibility tree (${scope}) ---`);
+    console.log(await page.locator(scope).first().ariaSnapshot());
+  }
+
+  const probeArg = flag("probe");
+  if (probeArg)
+    await probe(
+      page,
+      probeArg
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+
+  // A --snapshot/--probe run is a question, not a capture, so it skips the PNG
+  // unless an --out was actually asked for.
+  if (!(has("snapshot") || probeArg) || args.includes("--out"))
+    await capture(page, out);
 
   if (storageFile) {
     const entries = await page.evaluate(() => {
@@ -202,7 +310,16 @@ async function ensureServer() {
   await browser.close();
   if (devProc) devProc.kill();
 })().catch((err) => {
-  console.error(err);
+  // Playwright's own message is the diagnosis — a strict-mode violation names
+  // every element that matched, a failed click names what intercepted it — but
+  // it can run to fifty lines of retry log, and these runs get read through a
+  // pipe. So: full detail in the middle, and a one-line summary at *both* ends,
+  // which is the only way `head` and `tail` both come away with the answer.
+  const headline = err.message.split("\n").find((l) => l.trim()) ?? "failed";
+  console.error(`\nFAILED: ${headline}\n`);
+  console.error(err.message);
+  if (err.stack) console.error(err.stack.split("\n").slice(1).join("\n"));
+  console.error(`\nFAILED: ${headline}`);
   if (devProc) devProc.kill();
   process.exit(1);
 });
