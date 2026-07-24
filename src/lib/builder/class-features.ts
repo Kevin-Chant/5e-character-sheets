@@ -269,11 +269,7 @@ export const CLASS_FEATURES: Partial<
         detail:
           "Add half your proficiency bonus to ability checks you aren't proficient in.",
       },
-      {
-        title: "Song of Rest",
-        detail:
-          "Allies who hear you perform during a short rest regain an extra 1d6 HP (d8 at 9th, d10 at 13th, d12 at 17th level).",
-      },
+      // Song of Rest comes from CLASS_POOLS as an at-will action host.
     ],
     3: [
       {
@@ -375,11 +371,7 @@ export const CLASS_FEATURES: Partial<
       },
     ],
     3: [
-      {
-        title: "Deflect Missiles",
-        detail:
-          "Use your reaction to reduce ranged weapon damage by 1d10 + DEX + monk level; at 0, catch and throw it back for 1 ki.",
-      },
+      // Deflect Missiles comes from CLASS_POOLS as an at-will action host.
     ],
     4: [
       {

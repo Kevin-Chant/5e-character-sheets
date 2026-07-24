@@ -125,8 +125,12 @@ export const spendsSharedPool = (opts: {
   name: string;
   cost: ActionCost;
   costNote?: string;
-  // The pool ability's title to drain, e.g. "Bardic Inspiration", "Ki".
-  pool: string;
+  // The pool ability's title to drain, e.g. "Bardic Inspiration", "Ki". Omit
+  // for an at-will feature that costs nothing and only rolls a die — a Spores
+  // druid's Halo of Spores, Song of Rest, Deflect Missiles. Those have no pool
+  // of their own *and* drain nobody else's, which previously left them with
+  // nowhere to live: `LimitedUseAbility` assumes a finite `maxUses`.
+  pool?: string;
   // Uses to spend (default 1) — a monk discipline may cost several Ki.
   amount?: number;
   roll?: { label: string; count?: number; die: DieDefinition };
@@ -139,11 +143,15 @@ export const spendsSharedPool = (opts: {
       cost: opts.cost,
       ...(opts.costNote ? { costNote: opts.costNote } : {}),
       effects: [
-        {
-          effect: "spendUses",
-          amount: { fixed: opts.amount ?? 1 },
-          pool: opts.pool,
-        },
+        ...(opts.pool
+          ? [
+              {
+                effect: "spendUses" as const,
+                amount: { fixed: opts.amount ?? 1 },
+                pool: opts.pool,
+              },
+            ]
+          : []),
         ...(opts.roll
           ? [
               {
@@ -164,6 +172,20 @@ export const spendsSharedPool = (opts: {
     },
   ],
 });
+
+// An at-will feature that costs no resource and just rolls its die: Halo of
+// Spores, Song of Rest, Deflect Missiles. Same machinery as a shared-pool
+// spender minus the spend — named separately so the call sites read honestly,
+// since "spendsSharedPool with no pool" describes the implementation rather
+// than the feature.
+export const atWillAction = (opts: {
+  id: string;
+  name: string;
+  cost: ActionCost;
+  costNote?: string;
+  roll?: { label: string; count?: number; die: DieDefinition };
+  note: string;
+}): FeatureMechanics => spendsSharedPool(opts);
 
 // A superiority-die pool: spend one, roll it, apply the maneuver. Sized per
 // source (battle master d8, Martial Adept d6).
@@ -1086,5 +1108,71 @@ export function classDamageRiders(character: Character): ActiveRider[] {
       },
     });
 
+  // Ranger archetype strikes: all three scale on *ranger* level at 11th, and
+  // all three are subclass-gated, so — like Divine Strike — they can't live in
+  // the static title-keyed map. Table-driven because the shape is identical;
+  // only the die, type, and prose differ.
+  const ranger = levelOf(OfficialClass.Ranger);
+  const conclave = character.class.find(
+    (k) => k.name === OfficialClass.Ranger,
+  )?.subclass;
+  const strikeOf = conclave ? RANGER_ARCHETYPE_STRIKES[conclave] : undefined;
+  if (ranger >= 3 && strikeOf) {
+    const stepped = ranger >= 11;
+    out.push({
+      source: strikeOf.source,
+      rider: {
+        rider: "extraDamage",
+        amount: [
+          stepped ? (strikeOf.at11.dice ?? 1) : 1,
+          stepped ? (strikeOf.at11.die ?? strikeOf.die) : strikeOf.die,
+          DieOperation.roll,
+        ],
+        damageType: strikeOf.type,
+        declareAt: "on-hit",
+        optional: true,
+        oncePerTurn: true,
+        note: strikeOf.note,
+      },
+    });
+  }
+
   return out;
 }
+
+// The three ranger archetypes whose signature strike is level-scaled extra
+// damage, starting at one die at 3rd. They step differently at 11th — two grow
+// the *die* (1d4→1d6, 1d6→1d8) and one the *count* (1d8→2d8) — so `at11` names
+// whichever half moves and leaves the other at its base.
+const RANGER_ARCHETYPE_STRIKES: Record<
+  string,
+  {
+    source: string;
+    die: StandardDie;
+    at11: { die?: StandardDie; dice?: number };
+    type: DamageType;
+    note: string;
+  }
+> = {
+  "Fey Wanderer": {
+    source: "Dreadful Strikes",
+    die: StandardDie.d4,
+    at11: { die: StandardDie.d6 },
+    type: DamageType.Psychic,
+    note: "On a hit with a weapon, once per turn per creature.",
+  },
+  "Horizon Walker": {
+    source: "Planar Warrior",
+    die: StandardDie.d8,
+    at11: { dice: 2 },
+    type: DamageType.Force,
+    note: "Bonus action to mark the target; the attack's damage becomes force.",
+  },
+  Swarmkeeper: {
+    source: "Gathered Swarm",
+    die: StandardDie.d6,
+    at11: { die: StandardDie.d8 },
+    type: DamageType.Piercing,
+    note: "Once per turn, on a hit — if you chose the swarm's damage option rather than moving or shoving the target.",
+  },
+};

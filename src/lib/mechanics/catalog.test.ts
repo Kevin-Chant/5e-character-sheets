@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { LimitedUseAbility } from "src/lib/types";
+import { Character, LimitedUseAbility } from "src/lib/types";
 import {
+  DamageType,
+  DieOperation,
+  OfficialClass,
+  StandardDie,
+} from "src/lib/data/data-definitions";
+import { defaultCharacter } from "src/lib/data/default-data";
+import { randomUUID } from "src/lib/browser";
+import {
+  classDamageRiders,
   FEATURE_MECHANICS,
   mechanicsForAbility,
   mechanicsForTitle,
@@ -125,6 +134,98 @@ describe("catalog integrity", () => {
         if (needsAmount)
           expect(action.choose?.amount, `${key}/${action.id}`).toBe("uses");
       }
+    }
+  });
+});
+
+// The ranger archetype strikes are the only riders that scale on class level
+// *and* gate on the subclass, so they're baked at roll time rather than living
+// in the title-keyed map. Two of the three step their die at 11th and one steps
+// its count, which is the part worth pinning down.
+describe("ranger archetype strikes", () => {
+  const ranger = (subclass: string, level: number): Character => {
+    const c = structuredClone(defaultCharacter);
+    c.class = [
+      {
+        id: randomUUID(),
+        name: OfficialClass.Ranger,
+        level,
+        subclass,
+      },
+    ];
+    return c;
+  };
+
+  const strike = (subclass: string, level: number) =>
+    classDamageRiders(ranger(subclass, level)).find((r) =>
+      ["Dreadful Strikes", "Planar Warrior", "Gathered Swarm"].includes(
+        r.source,
+      ),
+    );
+
+  const amountOf = (subclass: string, level: number) => {
+    const rider = strike(subclass, level);
+    if (rider?.rider.rider !== "extraDamage") return undefined;
+    return rider.rider.amount;
+  };
+
+  it("offers nothing before 3rd level", () => {
+    expect(strike("Gloom Stalker", 2)).toBeUndefined();
+    expect(strike("Fey Wanderer", 2)).toBeUndefined();
+  });
+
+  it("offers nothing for an archetype without a scaled strike", () => {
+    expect(strike("Hunter", 11)).toBeUndefined();
+    expect(strike("Beast Master", 11)).toBeUndefined();
+  });
+
+  it("steps the die at 11th for Dreadful Strikes and Gathered Swarm", () => {
+    expect(amountOf("Fey Wanderer", 3)).toEqual([
+      1,
+      StandardDie.d4,
+      DieOperation.roll,
+    ]);
+    expect(amountOf("Fey Wanderer", 11)).toEqual([
+      1,
+      StandardDie.d6,
+      DieOperation.roll,
+    ]);
+    expect(amountOf("Swarmkeeper", 10)).toEqual([
+      1,
+      StandardDie.d6,
+      DieOperation.roll,
+    ]);
+    expect(amountOf("Swarmkeeper", 11)).toEqual([
+      1,
+      StandardDie.d8,
+      DieOperation.roll,
+    ]);
+  });
+
+  it("steps the count at 11th for Planar Warrior", () => {
+    expect(amountOf("Horizon Walker", 10)).toEqual([
+      1,
+      StandardDie.d8,
+      DieOperation.roll,
+    ]);
+    expect(amountOf("Horizon Walker", 11)).toEqual([
+      2,
+      StandardDie.d8,
+      DieOperation.roll,
+    ]);
+  });
+
+  it("types each strike and keeps them opt-in", () => {
+    for (const [subclass, type] of [
+      ["Fey Wanderer", DamageType.Psychic],
+      ["Horizon Walker", DamageType.Force],
+      ["Swarmkeeper", DamageType.Piercing],
+    ] as const) {
+      const rider = strike(subclass, 11);
+      if (rider?.rider.rider !== "extraDamage") throw new Error("no rider");
+      expect(rider.rider.damageType).toBe(type);
+      expect(rider.rider.optional).toBe(true);
+      expect(rider.rider.oncePerTurn).toBe(true);
     }
   });
 });

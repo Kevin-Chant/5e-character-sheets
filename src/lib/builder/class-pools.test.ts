@@ -326,20 +326,24 @@ describe("builder integration", () => {
     expect(c.features.map((f) => f.title)).not.toContain("Cutting Words");
   });
 
-  it("every action-host pool (maxUses 0) resolves to a cross-pool spend", () => {
-    // A maxUses-0 pool owns no charges, so it only makes sense if it carries an
-    // action that drains some *other* named pool.
+  it("every action-host pool (maxUses 0) carries an action, and any spend names another pool", () => {
+    // A maxUses-0 pool owns no charges, so it's only meaningful as a carrier
+    // for actions. Two kinds qualify: a cross-pool spender (Cutting Words
+    // draining Bardic Inspiration) and an at-will feature that spends nothing
+    // and just rolls (Halo of Spores). What must never happen is a spend with
+    // no `pool` — that would silently drain the empty host itself.
     for (const [subclass, defs] of Object.entries(SUBCLASS_POOLS))
       for (const def of defs) {
         const k = klass(OfficialClass.Bard, 20);
         if (calculateCustomFormula(def.maxUses(k), blank()) !== 0) continue;
-        const spend = def
-          .mechanics?.(k)
-          ?.actions?.[0].effects.find((e) => e.effect === "spendUses");
-        expect(
-          spend && "pool" in spend && spend.pool,
-          `${subclass} / ${def.title}`,
-        ).toBeTruthy();
+        const actions = def.mechanics?.(k)?.actions ?? [];
+        expect(actions.length, `${subclass} / ${def.title}`).toBeGreaterThan(0);
+        for (const effect of actions.flatMap((a) => a.effects))
+          if (effect.effect === "spendUses")
+            expect(
+              "pool" in effect && effect.pool,
+              `${subclass} / ${def.title}`,
+            ).toBeTruthy();
       }
   });
 
@@ -781,5 +785,72 @@ describe("syncMartialArts", () => {
     c.attacks = [];
     syncMartialArts(c, klass(OfficialClass.Fighter, 20));
     expect(c.attacks).toHaveLength(0);
+  });
+});
+
+// Pool-less at-will features: no charges of their own, no shared pool to
+// drain, just a level-scaled die. These had nowhere to live while every
+// limited-use ability was assumed to have a finite maximum.
+describe("at-will action hosts", () => {
+  // Build at level 1 and advance, so the result reflects what a real sheet
+  // gets: pools synced *and* the feature prose the same levels grant.
+  const levelTo = (classIndex: string, to: number): Character => {
+    let c = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex,
+      scoreMethod: "manual",
+      baseStats: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+    });
+    for (let next = 2; next <= to; next++)
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: c.class[0].name,
+      });
+    return c;
+  };
+
+  const hostIn = (c: Character, title: string) =>
+    c.limitedUseAbilities.find((a) => a.info.title === title);
+
+  it("grants a bard Song of Rest as an action host, not prose", () => {
+    const c = levelTo("bard", 2);
+    const host = hostIn(c, "Song of Rest");
+    expect(host).toBeDefined();
+    expect(calculateCustomFormula(host!.maxUses, c)).toBe(0);
+    expect(c.features.map((f) => f.title)).not.toContain("Song of Rest");
+  });
+
+  it("scales the Song of Rest die with bard level", () => {
+    // The die sits at index 1 of the roll effect's [count, die, roll] tuple.
+    const dieAt = (level: number) => {
+      const roll = mechanicsForAbility(
+        hostIn(levelTo("bard", level), "Song of Rest")!,
+      )?.actions?.[0].effects.find((e) => e.effect === "roll");
+      return (roll as unknown as { amount: { fixed: [number, StandardDie] } })
+        .amount.fixed[1];
+    };
+    expect([dieAt(2), dieAt(9), dieAt(13), dieAt(17)]).toEqual([
+      StandardDie.d6,
+      StandardDie.d8,
+      StandardDie.d10,
+      StandardDie.d12,
+    ]);
+  });
+
+  it("spends nothing when used", () => {
+    const c = levelTo("bard", 2);
+    const effects =
+      mechanicsForAbility(hostIn(c, "Song of Rest")!)?.actions?.[0].effects ??
+      [];
+    expect(effects.some((e) => e.effect === "spendUses")).toBe(false);
+    expect(effects.some((e) => e.effect === "roll")).toBe(true);
+  });
+
+  it("grants a monk Deflect Missiles at 3rd, replacing the prose row", () => {
+    expect(hostIn(levelTo("monk", 2), "Deflect Missiles")).toBeUndefined();
+    const c = levelTo("monk", 3);
+    expect(hostIn(c, "Deflect Missiles")).toBeDefined();
+    expect(c.features.map((f) => f.title)).not.toContain("Deflect Missiles");
   });
 });

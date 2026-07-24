@@ -1,4 +1,4 @@
-import { SkillName } from "src/lib/data/data-definitions";
+import { DamageType, SkillName, StatKey } from "src/lib/data/data-definitions";
 import { SrdSubclass } from "src/lib/builder/types";
 import { SUBCLASS_FEATURES } from "src/lib/data/subclass-features";
 
@@ -687,6 +687,8 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Gloom Stalker",
       summary:
         "An ambusher of the dark, striking hard from unseen and dread-inducing.",
+      // Dread Ambusher's initiative bonus — the rest of the feature is prose.
+      levelEffects: { 3: { initiativeAbility: StatKey.wis } },
     },
     {
       name: "Horizon Walker",
@@ -751,6 +753,8 @@ export const SUBCLASSES: SrdSubclass[] = [
     {
       name: "Swashbuckler",
       summary: "A dashing duelist who fights with panache and mobility.",
+      // Rakish Audacity's initiative bonus; its Sneak Attack clause is prose.
+      levelEffects: { 3: { initiativeAbility: StatKey.cha } },
     },
     {
       name: "Thief",
@@ -791,6 +795,8 @@ export const SUBCLASSES: SrdSubclass[] = [
           },
         ],
       },
+      // Dragon Wings: a flying speed equal to the walking speed it's read from.
+      levelEffects: { 14: { speeds: { fly: "walk" } } },
     },
     {
       name: "Wild Magic",
@@ -882,6 +888,16 @@ export const SUBCLASSES: SrdSubclass[] = [
               "After casting a spell of 1st level or higher, you can use a bonus action to fly 10 feet without provoking opportunity attacks.",
           },
         ],
+      },
+      // Heart of the Storm's resistances, then Wind Soul's upgrade to immunity
+      // plus a flying speed. Merging, not replacing: the 6th-level resistances
+      // stay listed, which is harmless once the immunity supersedes them.
+      levelEffects: {
+        6: { resistances: [DamageType.Lightning, DamageType.Thunder] },
+        18: {
+          immunities: [DamageType.Lightning, DamageType.Thunder],
+          speeds: { fly: 60 },
+        },
       },
     },
     {

@@ -4,7 +4,7 @@ import {
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { CustomFormula } from "src/lib/types";
+import { CustomFormula, Speeds } from "src/lib/types";
 import { emptyLevelChoices, LevelChoices } from "src/lib/builder/level-grants";
 
 // ---------------------------------------------------------------------------
@@ -100,6 +100,33 @@ export interface SrdClass {
   features: RaceTrait[];
 }
 
+// The mechanical (non-prose, non-proficiency) effects a class or subclass level
+// confers. Everything here is *idempotent by construction* — a set, a max, or a
+// uniq'd list — because `applyClassLevel` re-runs a level freely and a grant
+// that accumulated would double on the second pass.
+//
+// This is the home for the handful of grants that aren't features, spells, or
+// proficiencies: the ones that write to a specific character field. Prose still
+// describes them; this is what makes the number on the sheet move.
+export interface LevelEffects {
+  // Saving-throw proficiencies gained outright (a monk's Diamond Soul).
+  savingThrows?: StatKey[];
+  // Damage resistances / immunities gained (Storm Sorcery's Heart of the
+  // Storm). Strings, matching `DamageModifiers` — `DamageType` values are the
+  // convention, but the field is free-text on the sheet.
+  resistances?: string[];
+  immunities?: string[];
+  vulnerabilities?: string[];
+  // Movement speeds, in feet. `"walk"` copies the character's current walking
+  // speed, which is how most flight grants are worded ("a flying speed equal to
+  // your current speed"). A speed is only ever raised, never lowered.
+  speeds?: Partial<Record<keyof Speeds, number | "walk">>;
+  // An ability modifier added to the initiative formula (a Gloom Stalker's
+  // Dread Ambusher, a Swashbuckler's Rakish Audacity). Folded in the same way
+  // Alert's flat +5 is, and guarded against double-application.
+  initiativeAbility?: StatKey;
+}
+
 // A class's subclass ("Divine Domain", "Sorcerous Origin", "Otherworldly
 // Patron", …). Every official subclass is listed by name so the builder can
 // offer the full catalog. `grants` carries the *level-1* mechanics and is only
@@ -139,6 +166,11 @@ export interface SrdSubclass {
   // features here as well as in `grants.features` is harmless, and new entries
   // don't have to be split across the two shapes.
   levelFeatures?: Record<number, RaceTrait[]>;
+  // The `levelFeatures` counterpart for effects that write to a character field
+  // rather than adding prose — see `LevelEffects`. Keyed by class level, so a
+  // grant that arrives long after the subclass is chosen (Dragon Wings at 14th)
+  // has a home; `grants` only ever fires at the choice level.
+  levelEffects?: Record<number, LevelEffects>;
 }
 
 // The mechanical grants a feat applies on top of its `effect` prose. Only the

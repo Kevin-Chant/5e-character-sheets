@@ -139,11 +139,8 @@ export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
   },
   Spores: {
     2: [
-      {
-        title: "Halo of Spores",
-        detail:
-          "As a reaction, when a creature moves within 10 ft. of you or starts its turn there, deal necrotic damage to it (1d4, rising to 1d6 at 6th level, 1d8 at 10th, and 1d10 at 14th) unless it succeeds on a Constitution save against your spell save DC.",
-      },
+      // Halo of Spores is granted as a pool-less action host by SUBCLASS_POOLS,
+      // not as prose here — listing it in both would show it twice.
       {
         title: "Symbiotic Entity",
         detail:

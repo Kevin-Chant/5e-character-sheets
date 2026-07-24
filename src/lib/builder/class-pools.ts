@@ -1,4 +1,5 @@
 import {
+  DieOperation,
   OfficialClass,
   Operation,
   RestType,
@@ -6,6 +7,7 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 import {
+  atWillAction,
   normalizeTitle,
   spendRollRemind,
   spendsSharedPool,
@@ -207,6 +209,35 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
         ],
       }),
     },
+    // Song of Rest owns no resource and drains none — it's an at-will die that
+    // happens to scale. `maxUses: 0` renders it as its action alone (see the
+    // action-host pattern), which is the only reason it can live here at all.
+    {
+      title: "Song of Rest",
+      detail:
+        "Allies who hear you perform during a short rest regain extra hit points.",
+      level: 2,
+      recharge: short,
+      maxUses: () => 0,
+      // d6 → d8 (9th) → d10 (13th) → d12 (17th).
+      mechanics: (k) =>
+        atWillAction({
+          id: "song-of-rest",
+          name: "Perform",
+          cost: "special",
+          costNote: "during a short rest",
+          roll: {
+            label: "Song of Rest die",
+            die: atLevel(k.level, [
+              [2, StandardDie.d6],
+              [9, StandardDie.d8],
+              [13, StandardDie.d10],
+              [17, StandardDie.d12],
+            ]),
+          },
+          note: "Each ally who hears the performance and spends at least one hit die to regain HP recovers this much extra.",
+        }),
+    },
   ],
   [OfficialClass.Cleric]: [
     {
@@ -273,6 +304,46 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
         dc: saveDcFormula(StatKey.wis),
         note: "Ki save DC. Stunning Strike calls for a CON save.",
       },
+    },
+    // Deflect Missiles: the reaction itself is free (spending 1 ki to throw the
+    // missile back is a separate choice the prompt names), so it's an at-will
+    // host rather than a Ki spender.
+    {
+      title: "Deflect Missiles",
+      detail:
+        "As a reaction, reduce the damage of a ranged weapon attack that hits you.",
+      level: 3,
+      recharge: short,
+      maxUses: () => 0,
+      mechanics: (k) => ({
+        actions: [
+          {
+            id: "deflect-missiles",
+            name: "Deflect",
+            cost: "reaction",
+            effects: [
+              {
+                effect: "roll",
+                label: "Damage reduction",
+                amount: {
+                  fixed: {
+                    operation: Operation.addition,
+                    operands: [
+                      [1, StandardDie.d10, DieOperation.roll],
+                      StatKey.dex,
+                      k.level,
+                    ],
+                  },
+                },
+              },
+              {
+                effect: "remind",
+                note: "Reduce the damage by this much. If it drops to 0 you can catch the missile, and may spend 1 ki to throw it back as a ranged attack (20/60) with a monk weapon's damage die.",
+              },
+            ],
+          },
+        ],
+      }),
     },
   ],
   [OfficialClass.Paladin]: [
@@ -348,6 +419,37 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
 // pools like the battle master's superiority dice. Titles match the mechanics
 // catalog so the pools arrive with their actions.
 export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
+  // Another pool-less at-will (see Song of Rest): a free reaction whose only
+  // number is a die that grows with druid level.
+  Spores: [
+    {
+      title: "Halo of Spores",
+      detail:
+        "As a reaction, damage a creature that comes within 10 ft. of you or starts its turn there.",
+      level: 2,
+      recharge: long,
+      maxUses: () => 0,
+      // 1d4 → 1d6 (6th) → 1d8 (10th) → 1d10 (14th).
+      mechanics: (k) =>
+        atWillAction({
+          id: "halo-of-spores",
+          name: "Halo of Spores",
+          cost: "reaction",
+          costNote:
+            "when a creature comes within 10 ft. or starts its turn there",
+          roll: {
+            label: "Necrotic damage",
+            die: atLevel(k.level, [
+              [2, StandardDie.d4],
+              [6, StandardDie.d6],
+              [10, StandardDie.d8],
+              [14, StandardDie.d10],
+            ]),
+          },
+          note: "The target takes this necrotic damage unless it succeeds on a Constitution save against your spell save DC. While Symbiotic Entity is active, roll the damage twice and keep the higher.",
+        }),
+    },
+  ],
   "Battle Master": [
     {
       title: "Superiority Dice",

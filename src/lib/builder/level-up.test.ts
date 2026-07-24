@@ -691,3 +691,50 @@ describe("applyLevelUp — ability scores a class feature grants", () => {
     expect(char.stats.str).toBe(startingStr);
   });
 });
+
+// `LevelEffects` — the grants that write to a character field rather than
+// adding prose. The unit tests in level-effects.test.ts cover the applier; this
+// checks the wiring, i.e. that levelling actually reaches it.
+describe("applyLevelUp — level effects", () => {
+  // Advance a fresh level-1 character to `to`, keeping the subclass set.
+  const levelTo = (classIndex: string, subclass: string, to: number) => {
+    let char = level1(classIndex);
+    for (let next = 2; next <= to; next++)
+      char = applyLevelUp(char, {
+        ...defaultLevelUpState(char),
+        className: char.class[0].name,
+        subclass,
+      });
+    return char;
+  };
+
+  it("gives a Storm Sorcerer its resistances at 6th, not before", () => {
+    const at5 = levelTo("sorcerer", "Storm Sorcery", 5);
+    expect(at5.damageModifiers.resistances).not.toContain(DamageType.Lightning);
+    const at6 = levelTo("sorcerer", "Storm Sorcery", 6);
+    expect(at6.damageModifiers.resistances).toEqual(
+      expect.arrayContaining([DamageType.Lightning, DamageType.Thunder]),
+    );
+  });
+
+  it("adds a Gloom Stalker's Wisdom to initiative exactly once", () => {
+    const at5 = levelTo("ranger", "Gloom Stalker", 5);
+    // Levels 4 and 5 re-run the subclass's effects; the modifier must not stack.
+    expect(
+      JSON.stringify(at5.initiativeFormula).split(StatKey.wis).length - 1,
+    ).toBe(1);
+  });
+
+  it("leaves a subclass with no effects entirely alone", () => {
+    const hunter = levelTo("ranger", "Hunter", 5);
+    expect(hunter.initiativeFormula).toBeUndefined();
+  });
+
+  it("grants a monk every saving throw at 14th", () => {
+    const at13 = levelTo("monk", "Open Hand", 13);
+    expect(at13.proficiencies.savingThrows[StatKey.cha]).toBeFalsy();
+    const at14 = levelTo("monk", "Open Hand", 14);
+    for (const stat of Object.values(StatKey))
+      expect(at14.proficiencies.savingThrows[stat]).toBe(true);
+  });
+});

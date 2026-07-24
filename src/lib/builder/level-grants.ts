@@ -41,6 +41,10 @@ import {
   subclassSpellIndicesAt,
 } from "src/lib/builder/subclasses";
 import { addSrdSpell, addSrdSpellOnce } from "src/lib/builder/grant-spells";
+import {
+  applyLevelEffects,
+  levelEffectsAt,
+} from "src/lib/builder/level-effects";
 import { SrdSubclass } from "src/lib/builder/types";
 
 // ---------------------------------------------------------------------------
@@ -255,6 +259,13 @@ export function applyClassLevel(
     level,
   ))
     addSrdSpellOnce(char, index, className);
+
+  // 2d. Effects this level writes straight to a character field — save
+  //     proficiencies, resistances, speeds, an initiative modifier (see
+  //     `LevelEffects`). Base-class and subclass entries both land here, after
+  //     the subclass is set above so the level it's chosen picks up its own.
+  for (const effects of levelEffectsAt(className, klass.subclass, level))
+    applyLevelEffects(char, effects);
 
   // 2b. Ability scores a class feature raises outright (Primal Champion's +4).
   //     Runs after the prose above, because the same feature is what lifts the
