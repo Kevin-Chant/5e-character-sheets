@@ -10,6 +10,16 @@ import { NONSRD_SPELLS_PART8 } from "./part8";
 import { NONSRD_SPELLS_PART9 } from "./part9";
 import { NONSRD_SPELLS_PART10 } from "./part10";
 import { NONSRD_SPELLS_PART11 } from "./part11";
+import { GAP_SPELLS_L0 } from "./gap-L0";
+import { GAP_SPELLS_L1 } from "./gap-L1";
+import { GAP_SPELLS_L2 } from "./gap-L2";
+import { GAP_SPELLS_L3 } from "./gap-L3";
+import { GAP_SPELLS_L4 } from "./gap-L4";
+import { GAP_SPELLS_L5 } from "./gap-L5";
+import { GAP_SPELLS_L6 } from "./gap-L6";
+import { GAP_SPELLS_L7 } from "./gap-L7";
+import { GAP_SPELLS_L8 } from "./gap-L8";
+import { GAP_SPELLS_L9 } from "./gap-L9";
 
 // Non-SRD spells — the ~165 official spells (PHB/XGE/TCE/…) that aren't in the
 // open-license SRD 5.1 the `srd-spells.json` snapshot covers. Unearthed Arcana
@@ -37,4 +47,14 @@ export const NONSRD_SPELLS: SrdSpell[] = [
   ...NONSRD_SPELLS_PART9,
   ...NONSRD_SPELLS_PART10,
   ...NONSRD_SPELLS_PART11,
+  ...GAP_SPELLS_L0,
+  ...GAP_SPELLS_L1,
+  ...GAP_SPELLS_L2,
+  ...GAP_SPELLS_L3,
+  ...GAP_SPELLS_L4,
+  ...GAP_SPELLS_L5,
+  ...GAP_SPELLS_L6,
+  ...GAP_SPELLS_L7,
+  ...GAP_SPELLS_L8,
+  ...GAP_SPELLS_L9,
 ];
