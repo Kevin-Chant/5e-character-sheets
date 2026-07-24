@@ -329,6 +329,56 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
+  // Spell-damage riders (see the `spellDamage` kind). `appliesTo` is a formality
+  // the `spellDamageRiders` collector ignores — it keys off the rider kind and
+  // the roll dialog scopes by the cast — so ["damage"] is convention only.
+
+  // Potent Spellcasting (cleric domains without Divine Strike, druid Land at
+  // 14th): +WIS to the damage of any cantrip. Unconditional, so auto-applied.
+  "potent spellcasting": {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: { rider: "spellDamage", value: StatKey.wis, scope: "cantrip" },
+      },
+    ],
+  },
+
+  // Empowered Evocation (wizard 10): +INT to one damage roll of a wizard
+  // evocation spell. The sheet can't see a spell's school, so it opts in.
+  "empowered evocation": {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "spellDamage",
+          value: StatKey.int,
+          scope: "any",
+          optional: true,
+          note: "A wizard evocation spell.",
+        },
+      },
+    ],
+  },
+
+  // Radiant Soul (Celestial warlock 6): once per turn, +CHA to one spell that
+  // deals radiant or fire damage. Type + once-per-turn are the player's to
+  // confirm, so it opts in.
+  "radiant soul": {
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "spellDamage",
+          value: StatKey.cha,
+          scope: "any",
+          optional: true,
+          note: "Once per turn, to a spell that deals radiant or fire damage.",
+        },
+      },
+    ],
+  },
+
   // Reckless Attack (barbarian 2): still advisory — it's a choice you make on
   // your turn, and it hands attackers advantage against you in return, which no
   // sheet should quietly opt you into. The `requires` clause is what stops the

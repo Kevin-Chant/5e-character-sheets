@@ -843,6 +843,34 @@ type RollRiderKind =
         // offered as a toggle. Same die as above.
         bonus?: { dice: number; label: string };
       };
+    }
+  // Extra damage folded into a *spell's* damage — the mirror image of
+  // `extraDamage`, gated to spell damage instead of weapon attacks. Potent
+  // Spellcasting (+WIS to cantrip damage), Empowered Evocation (+INT), a
+  // Celestial warlock's Radiant Soul (+CHA). A flat modifier, not dice — it's
+  // added once to the spell's damage total and doesn't inflate on a crit, the
+  // same way a weapon's Dueling +2 stays flat. Kept a distinct kind (not a
+  // scoped `extraDamage`) so the two collectors never cross: `extraDamage`
+  // never touches a spell, `spellDamage` never touches a weapon. `RollKind`
+  // can't tell a cantrip from a leveled spell from healing, which is exactly
+  // why this carries its own `scope` rather than riding the `damage` kind.
+  | {
+      rider: "spellDamage";
+      // The flat modifier added to the spell's damage total (usually a
+      // spellcasting ability modifier).
+      value: CustomFormula;
+      // Which casts it applies to. Cleric Potent Spellcasting is cantrip-only;
+      // Empowered Evocation is leveled; a type-scoped one is `any`.
+      scope: "cantrip" | "leveled" | "any";
+      // The extra damage's type. Omit to fold into the spell's own damage line.
+      damageType?: DamageType;
+      // The player confirms eligibility the sheet can't see (a spell's school,
+      // its damage type, once-per-turn) — offered as a checkbox rather than
+      // applied silently. Potent Spellcasting is unconditional (auto); the
+      // school/type-scoped ones opt in.
+      optional?: boolean;
+      // Condition/reminder shown by the checkbox.
+      note?: string;
     };
 
 export interface FeatureRider {

@@ -71,6 +71,29 @@ export function extraDamageRiders(character: Character): ActiveRider[] {
   return out;
 }
 
+// The `spellDamage` riders in play: authored ones on features / limited-use
+// abilities / chosen options, keyed by title on the same catalog. The mirror of
+// `extraDamageRiders` for the spell side — kept just as separate, so a spell
+// bonus never leaks onto a weapon and vice versa. The roll dialog scopes these
+// by the cast (cantrip vs leveled) and folds them into spell damage only.
+export function spellDamageRiders(character: Character): ActiveRider[] {
+  const out: ActiveRider[] = [];
+  const collect = (entry: FeatureMechanics | undefined, source: string) =>
+    entry?.riders?.forEach((r) => {
+      if (r.rider.rider === "spellDamage") out.push({ source, rider: r.rider });
+    });
+  character.features.forEach((f) =>
+    collect(FEATURE_MECHANICS[normalizeTitle(f.title)], f.title.trim()),
+  );
+  character.limitedUseAbilities.forEach((a) =>
+    collect(mechanicsForAbility(a), a.info.title.trim()),
+  );
+  character.chosenOptions?.forEach((o) =>
+    collect(FEATURE_MECHANICS[normalizeTitle(o.name)], o.name.trim()),
+  );
+  return out;
+}
+
 // Adjust one rolled die: reroll-below first (RAW: you must keep the new
 // roll), then minimum-die floors the result. `reroll` re-rolls the same die.
 export function adjustDieRoll(

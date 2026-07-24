@@ -16,7 +16,9 @@ import {
   extrasForAttack,
   resolveDamage,
   slotDiceCount,
+  spellExtrasForCast,
 } from "./attack-roll";
+import { Spell } from "src/lib/types";
 
 // The damage arithmetic behind the roll dialog, now that it's out of the
 // component. Dice are pinned to their maximum so totals are exact.
@@ -87,6 +89,67 @@ describe("extrasForAttack", () => {
     expect(
       extrasForAttack(c, GREATSWORD, undefined).map((e) => e.source),
     ).toEqual(["Dueling"]);
+  });
+});
+
+describe("spellExtrasForCast", () => {
+  const spell = { spellcastingClass: "x" } as unknown as Spell;
+  const clericWithWis = (): Character => {
+    const c = character();
+    c.stats.wis = 18; // +4
+    c.features = [{ title: "Potent Spellcasting", titleFormulas: [] }];
+    return c;
+  };
+
+  it("is empty for a weapon — a spell bonus must never ride a weapon", () => {
+    expect(spellExtrasForCast(clericWithWis(), undefined, true)).toEqual([]);
+  });
+
+  it("applies a cantrip-scoped bonus only on a cantrip", () => {
+    const c = clericWithWis();
+    expect(spellExtrasForCast(c, spell, true).map((e) => e.source)).toEqual([
+      "Potent Spellcasting",
+    ]);
+    // A leveled cast: the cantrip-only bonus drops out.
+    expect(spellExtrasForCast(c, spell, false)).toEqual([]);
+  });
+
+  it("marks Potent Spellcasting auto and Empowered Evocation opt-in", () => {
+    const c = character();
+    c.features = [
+      { title: "Potent Spellcasting", titleFormulas: [] },
+      { title: "Empowered Evocation", titleFormulas: [] },
+    ];
+    const cantrip = spellExtrasForCast(c, spell, true);
+    expect(cantrip.find((e) => e.source === "Potent Spellcasting")?.optIn).toBe(
+      false,
+    );
+    // Empowered Evocation is `any` scope, so present on the cantrip too, opt-in.
+    expect(cantrip.find((e) => e.source === "Empowered Evocation")?.optIn).toBe(
+      true,
+    );
+  });
+
+  it("folds a spell bonus through resolveDamage as a flat, non-crit extra", () => {
+    maxRolls();
+    const c = clericWithWis();
+    const extras = spellExtrasForCast(c, spell, true);
+    const fireBolt: CustomFormulaWithDamage = {
+      [DamageType.Fire]: [1, StandardDie.d10, DieOperation.roll],
+    };
+    const { total, extras: results } = resolveDamage({
+      character: c,
+      map: fireBolt,
+      extras,
+      chosen: new Set(),
+      riders: [],
+      applyTotals: (t) => t,
+    });
+    // 1d10 max (10) + WIS (+4), applied once.
+    expect(total).toBe(14);
+    expect(results).toEqual([
+      expect.objectContaining({ source: "Potent Spellcasting", total: 4 }),
+    ]);
   });
 });
 

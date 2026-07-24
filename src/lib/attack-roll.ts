@@ -16,7 +16,7 @@ import {
   rollFormula,
 } from "src/lib/roll";
 import { ActiveRider } from "src/lib/mechanics/types";
-import { extraDamageRiders } from "src/lib/mechanics/riders";
+import { extraDamageRiders, spellDamageRiders } from "src/lib/mechanics/riders";
 import {
   AttackContext,
   needsOptIn,
@@ -82,6 +82,44 @@ export function extrasForAttack(
       ? [{ source: r.source, rider: r.rider, optIn: needsOptIn(r, context) }]
       : [],
   );
+}
+
+/**
+ * The spell-damage extras that apply to this cast, as `ExtraDamageEntry`s so
+ * they render and resolve through the very same path as a weapon's extra damage
+ * (a checkbox for the opt-in ones, a flat "+N — source" line in the result).
+ *
+ * Scoped by the cast: a cleric's Potent Spellcasting (`cantrip`) shows only on a
+ * cantrip, Empowered Evocation (`leveled`) only on a slotted spell. The rider's
+ * flat `value` becomes the entry's `amount`, so it carries no dice and never
+ * inflates on a crit — the mirror of a flat weapon bonus like Dueling.
+ *
+ * Only ever collected on the spell path, so it can't touch a weapon; likewise
+ * `extrasForAttack` returns nothing for a spell. The two never cross.
+ */
+export function spellExtrasForCast(
+  character: Character,
+  spell: Spell | undefined,
+  isCantrip: boolean,
+): ExtraDamageEntry[] {
+  if (!spell) return [];
+  const scopeMatches = (scope: "cantrip" | "leveled" | "any") =>
+    scope === "any" || (scope === "cantrip" ? isCantrip : !isCantrip);
+  return spellDamageRiders(character).flatMap((r) => {
+    if (r.rider.rider !== "spellDamage" || !scopeMatches(r.rider.scope))
+      return [];
+    // Re-expressed as an on-hit `extraDamage` so the existing UI/resolver apply
+    // — a flat modifier, so no crit inflation.
+    const rider: ExtraDamageRider = {
+      rider: "extraDamage",
+      amount: r.rider.value,
+      declareAt: "on-hit",
+      ...(r.rider.damageType ? { damageType: r.rider.damageType } : {}),
+      ...(r.rider.optional ? { optional: true } : {}),
+      ...(r.rider.note ? { note: r.rider.note } : {}),
+    };
+    return [{ source: r.source, rider, optIn: !!r.rider.optional }];
+  });
 }
 
 // Dice a slot-powered rider contributes at a chosen slot level: `diceAtMin` at

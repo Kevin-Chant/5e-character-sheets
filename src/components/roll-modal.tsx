@@ -24,6 +24,7 @@ import {
   extrasForAttack,
   resolveDamage,
   slotDiceCount,
+  spellExtrasForCast,
 } from "src/lib/attack-roll";
 import { spellHealingAtLevel } from "src/lib/spells/spell-scaling";
 import { remainingHitDice } from "src/lib/rules";
@@ -416,8 +417,14 @@ function EffectControls({
   // declared alongside the to-hit roll, so they're excluded here (none exist
   // yet). The rest are declared on the hit, i.e. with the damage roll.
   const extras = useMemo(
-    () => extrasForAttack(character, damage, spell, context),
-    [character, damage, spell, context],
+    () => [
+      ...extrasForAttack(character, damage, spell, context),
+      // Spell-damage bonuses (Potent Spellcasting, Empowered Evocation) ride the
+      // same rendering/resolution; `extrasForAttack` is empty for a spell and
+      // this is empty for a weapon, so the two never overlap.
+      ...spellExtrasForCast(character, spell, isCantrip),
+    ],
+    [character, damage, spell, context, isCantrip],
   );
   // Opt-in extras (Sneak Attack, Divine Smite, Rage) start unchecked; the ones
   // the weapon's tags fully settle apply on their own. Keyed by source.
@@ -764,7 +771,10 @@ function EffectControls({
                 );
                 return (
                   <span key={e.source} className="roll-part">
-                    +{e.total} {e.damageType ?? "(weapon type)"} — {e.source}
+                    +{e.total}{" "}
+                    {e.damageType ??
+                      (spell ? "(spell's type)" : "(weapon type)")}{" "}
+                    — {e.source}
                     {parts ? ` (${parts})` : ""}
                   </span>
                 );
