@@ -7,6 +7,7 @@ import {
   OPTION_GROUPS,
   availableOptionGroups,
   chosenIn,
+  optionFeaturesFor,
   optionGroup,
   optionSpellIndicesAt,
 } from "./chosen-options";
@@ -142,6 +143,17 @@ describe("optionSpellIndicesAt", () => {
         20,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("optionFeaturesFor", () => {
+  it("returns a pick's features only for its own class", () => {
+    // Draconic Ancestry carries no features, so this is a shape check against a
+    // real group: an unknown class yields nothing, the right class yields its
+    // (here empty) feature list without throwing.
+    const picks = [{ category: "draconicAncestry", name: "Red (fire)" }];
+    expect(optionFeaturesFor(picks, OfficialClass.Wizard)).toEqual([]);
+    expect(optionFeaturesFor(picks, OfficialClass.Sorcerer)).toEqual([]);
   });
 });
 

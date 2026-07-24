@@ -24,6 +24,7 @@ import { statCapFor } from "src/lib/rules";
 import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
 import {
   newOptionPicksAt,
+  optionFeaturesFor,
   optionGroup,
   optionSpellIndicesAt,
   OptionGroup,
@@ -358,6 +359,19 @@ export function applyClassLevel(
     level,
   ))
     addSrdSpellOnce(char, index, className);
+
+  // 9c. Feature prose a sub-choice confers (a Totem Warrior's totem, a Storm
+  //     Herald's environment). De-duplicated by title so re-running a level is
+  //     safe.
+  const haveFeature = new Set(
+    char.features.map((f) => f.title.trim().toLowerCase()),
+  );
+  for (const f of optionFeaturesFor(char.chosenOptions ?? [], className)) {
+    const key = f.title.trim().toLowerCase();
+    if (haveFeature.has(key)) continue;
+    haveFeature.add(key);
+    char.features.push(text(f.title, f.detail));
+  }
 
   // 10. Damage resistances a chosen option confers (draconic ancestry). Raw
   //     characters from legacy flows may lack `damageModifiers` entirely.

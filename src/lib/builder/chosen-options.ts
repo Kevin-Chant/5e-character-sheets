@@ -1,5 +1,6 @@
 import { DamageType, OfficialClass } from "src/lib/data/data-definitions";
 import { Character, ChosenOption } from "src/lib/types";
+import { RaceTrait } from "src/lib/builder/types";
 
 // The closed option lists a class lets you pick a fixed number of things from:
 // Metamagic, Battle Master maneuvers, Pact Boon. Distinct from `features`
@@ -29,6 +30,11 @@ export interface OptionDef {
     always?: string[];
     byLevel?: Record<number, string[]>;
   };
+  // Feature prose this pick grants — the counterpart to `spellIndices` for a
+  // sub-choice that confers a *feature* rather than a spell (a Totem Warrior's
+  // totem, a Storm Herald's environment). Granted when the option is picked,
+  // de-duplicated by title against the character's features.
+  features?: RaceTrait[];
 }
 
 export interface OptionGroup {
@@ -84,6 +90,23 @@ export function optionSpellIndicesAt(
     for (const idx of spells.always ?? []) out.push(idx);
     for (const [lvl, indices] of Object.entries(spells.byLevel ?? {}))
       if (classLevel >= Number(lvl)) out.push(...indices);
+  }
+  return out;
+}
+
+// The feature prose a character's sub-choices grant, for options whose group
+// belongs to `className`. Granted once when picked; the builder de-duplicates by
+// title, so calling every level-up is safe.
+export function optionFeaturesFor(
+  picks: ChosenOption[],
+  className: string,
+): RaceTrait[] {
+  const out: RaceTrait[] = [];
+  for (const pick of picks) {
+    const group = optionGroup(pick.category);
+    if (!group || group.className !== className) continue;
+    const def = group.options.find((o) => o.name === pick.name);
+    if (def?.features) out.push(...def.features);
   }
   return out;
 }
