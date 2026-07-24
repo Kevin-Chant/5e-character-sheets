@@ -12,6 +12,7 @@ import {
   optionSpellIndicesAt,
 } from "./chosen-options";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
+import { CLASS_POOLS, SUBCLASS_POOLS } from "src/lib/builder/class-pools";
 
 const withClass = (...classes: Partial<IClass>[]): Character => {
   const c = structuredClone(defaultCharacter);
@@ -204,5 +205,39 @@ describe("option spell grants", () => {
             `${group.category}/${option.name}: "${index}" is not in the catalog`,
           ).toBeDefined();
       }
+  });
+});
+
+// An option that spends a resource names its pool by title. A typo there is
+// silent — `spendUses` finds no pool and the button does nothing — so the join
+// is guarded the same way the spell-index one is.
+describe("option action hosts", () => {
+  const poolTitles = new Set(
+    [
+      ...Object.values(CLASS_POOLS).flat(),
+      ...Object.values(SUBCLASS_POOLS).flat(),
+    ].map((p) => p.title.toLowerCase()),
+  );
+
+  it("only drains pools that some class actually grants", () => {
+    for (const group of OPTION_GROUPS)
+      for (const option of group.options) {
+        if (!option.action) continue;
+        expect(
+          poolTitles.has(option.action.pool.toLowerCase()),
+          `${group.category}/${option.name}: no pool titled "${option.action.pool}"`,
+        ).toBe(true);
+      }
+  });
+
+  it("gives every metamagic option a sorcery-point cost", () => {
+    const metamagic = optionGroup("metamagic")!;
+    for (const option of metamagic.options) {
+      expect(option.action, option.name).toBeDefined();
+      expect(option.action!.pool).toBe("Sorcery Points");
+    }
+    // Twinned Spell's cost is the spell's level, which only the player knows.
+    const twinned = metamagic.options.find((o) => o.name === "Twinned Spell");
+    expect(twinned!.action!.amount).toBe("choose");
   });
 });

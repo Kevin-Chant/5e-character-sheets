@@ -3,6 +3,7 @@ import {
   ArmorType,
   OfficialClass,
   Operation,
+  RestType,
   SkillName,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -46,6 +47,7 @@ import {
   levelEffectsAt,
 } from "src/lib/builder/level-effects";
 import { SrdSubclass } from "src/lib/builder/types";
+import { spendsSharedPool } from "src/lib/mechanics/catalog";
 
 // ---------------------------------------------------------------------------
 // The single place that knows what reaching a class level grants.
@@ -93,6 +95,57 @@ export const emptyLevelChoices = (): LevelChoices => ({
   chosenOptions: {},
   multiclassSkills: [],
 });
+
+const slugId = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+// Create the action hosts a character's *chosen options* confer — a picked
+// Metamagic that spends Sorcery Points, an Elemental Discipline that spends Ki.
+// Same `maxUses: 0` host shape the subclass action hosts use, so it needs no
+// new UI: the pick appears in the limited-use list as its action alone.
+//
+// Lives here rather than in `class-pools.ts` to avoid an import cycle — pools
+// sit below `chosen-options` in the import graph, and this needs both.
+//
+// Unlike class pools these key off a player choice, not a level, so a host is
+// created once and then left alone (a hand-edit sticks) and is never removed:
+// un-picking an option is rare enough that silently deleting a row the player
+// may have edited is the worse failure.
+export function syncOptionHosts(char: Character): void {
+  char.limitedUseAbilities ??= [];
+  const known = new Set(
+    char.limitedUseAbilities.map((a) => a.info.title.trim().toLowerCase()),
+  );
+  for (const chosen of char.chosenOptions ?? []) {
+    const def = optionGroup(chosen.category)?.options.find(
+      (o) => o.name === chosen.name,
+    );
+    if (!def?.action) continue;
+    if (known.has(chosen.name.trim().toLowerCase())) continue;
+    known.add(chosen.name.trim().toLowerCase());
+    const { note, ...rest } = def.action;
+    char.limitedUseAbilities.push({
+      info: {
+        title: chosen.name,
+        titleFormulas: [],
+        detail: def.summary ?? note,
+        detailFormulas: [],
+      },
+      maxUses: 0,
+      recharge: RestType.longRest, // irrelevant for a 0-use host
+      expended: 0,
+      mechanics: spendsSharedPool({
+        id: slugId(chosen.name),
+        name: chosen.name,
+        note,
+        ...rest,
+      }),
+    });
+  }
+}
 
 const text = (title: string, detail?: string): TextComponent =>
   detail
@@ -370,6 +423,11 @@ export function applyClassLevel(
       });
     }
   }
+
+  // 9a. Action hosts for picks that spend a resource (a Metamagic draining
+  //     Sorcery Points). Runs after step 9 so a pick made in this same level-up
+  //     already has its host; idempotent, so re-running a level is safe.
+  syncOptionHosts(char);
 
   // 9b. Spells a *sub-choice inside the subclass* grants (a Land druid's chosen
   //     terrain, a Genie warlock's kind). Re-evaluated every level so

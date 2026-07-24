@@ -738,3 +738,59 @@ describe("applyLevelUp — level effects", () => {
       expect(at14.proficiencies.savingThrows[stat]).toBe(true);
   });
 });
+
+// A picked option that spends a resource becomes a `maxUses: 0` action host,
+// so it reaches the play-mode sheet with no new UI (see `syncOptionHosts`).
+describe("applyLevelUp — option action hosts", () => {
+  const sorcererWith = (...metamagic: string[]) => {
+    let char = level1("sorcerer");
+    for (let next = 2; next <= 3; next++)
+      char = applyLevelUp(char, {
+        ...defaultLevelUpState(char),
+        className: "Sorcerer",
+        chosenOptions: next === 3 ? { metamagic } : {},
+      });
+    return char;
+  };
+
+  it("hosts a picked metamagic as an action that drains Sorcery Points", () => {
+    const char = sorcererWith("Quickened Spell");
+    const host = char.limitedUseAbilities.find(
+      (a) => a.info.title === "Quickened Spell",
+    );
+    expect(host).toBeDefined();
+    expect(calculateCustomFormula(host!.maxUses, char)).toBe(0);
+    const spend = host!.mechanics?.actions?.[0].effects.find(
+      (e) => e.effect === "spendUses",
+    );
+    expect(spend && "pool" in spend && spend.pool).toBe("Sorcery Points");
+    // 2 points for Quickened, per the PHB.
+    expect(spend && "amount" in spend && spend.amount).toEqual({ fixed: 2 });
+  });
+
+  it("offers a free-typed amount for Twinned Spell", () => {
+    const char = sorcererWith("Twinned Spell");
+    const host = char.limitedUseAbilities.find(
+      (a) => a.info.title === "Twinned Spell",
+    );
+    expect(host!.mechanics?.actions?.[0].choose?.amount).toBe("uses");
+  });
+
+  it("creates no host for an option that spends nothing", () => {
+    const char = level1("druid");
+    expect(
+      char.limitedUseAbilities.some((a) => a.info.title === "Arctic"),
+    ).toBe(false);
+  });
+
+  it("does not duplicate a host when a level is re-applied", () => {
+    let char = sorcererWith("Subtle Spell");
+    char = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Sorcerer",
+    });
+    expect(
+      char.limitedUseAbilities.filter((a) => a.info.title === "Subtle Spell"),
+    ).toHaveLength(1);
+  });
+});

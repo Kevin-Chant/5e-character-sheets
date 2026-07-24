@@ -1,5 +1,9 @@
-import { DamageType, OfficialClass } from "src/lib/data/data-definitions";
-import { Character, ChosenOption } from "src/lib/types";
+import {
+  DamageType,
+  OfficialClass,
+  StandardDie,
+} from "src/lib/data/data-definitions";
+import { ActionCost, Character, ChosenOption } from "src/lib/types";
 import { RaceTrait } from "src/lib/builder/types";
 
 // The closed option lists a class lets you pick a fixed number of things from:
@@ -35,6 +39,21 @@ export interface OptionDef {
   // totem, a Genie's kind). Granted when the option is picked, de-duplicated by
   // title against the character's features.
   features?: RaceTrait[];
+  // A resource this pick lets you spend, surfaced as a play-mode button. The
+  // pick becomes a `maxUses: 0` action host (the same shape a Lore bard's
+  // Cutting Words uses) titled after the option, so a chosen Metamagic or
+  // Elemental Discipline actually drains Sorcery Points or Ki instead of just
+  // naming a cost in prose. `pool` is the *other* ability's title.
+  action?: {
+    cost: ActionCost;
+    costNote?: string;
+    pool: string;
+    // Fixed cost, or `"choose"` when only the player knows it (Twinned Spell
+    // costs the spell's level).
+    amount?: number | "choose";
+    roll?: { label: string; die: StandardDie; count?: number };
+    note: string;
+  };
   // Features gated by the owning class's level — for a *single* sub-choice that
   // then unlocks features across several levels (a Storm Herald's environment
   // shapes its aura at 3rd, then Storm Soul/Shielding Storm/Raging Storm at
@@ -776,41 +795,90 @@ export const OPTION_GROUPS: OptionGroup[] = [
         name: "Careful Spell",
         summary:
           "Spend 1 sorcery point to let up to your Charisma modifier of creatures automatically succeed on the spell's saving throw.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 1,
+          note: "Choose up to your Charisma modifier of creatures; each automatically succeeds on its saving throw against the spell.",
+        },
       },
       {
         name: "Distant Spell",
         summary:
           "Spend 1 sorcery point to double a spell's range, or to give a touch spell a range of 30 feet.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 1,
+          note: "Double the spell's range, or give a touch spell a range of 30 feet.",
+        },
       },
       {
         name: "Empowered Spell",
         summary:
           "Spend 1 sorcery point to reroll up to your Charisma modifier of a spell's damage dice, keeping the new rolls.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 1,
+          note: "Reroll up to your Charisma modifier of the spell's damage dice; you must keep the new rolls.",
+        },
       },
       {
         name: "Extended Spell",
         summary:
           "Spend 1 sorcery point to double a spell's duration, to a maximum of 24 hours.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 1,
+          note: "Double the spell's duration, to a maximum of 24 hours.",
+        },
       },
       {
         name: "Heightened Spell",
         summary:
           "Spend 3 sorcery points to give one target disadvantage on its first saving throw against the spell.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 3,
+          note: "One target of the spell has disadvantage on its first saving throw against it.",
+        },
       },
       {
         name: "Quickened Spell",
         summary:
           "Spend 2 sorcery points to cast a 1-action spell as a bonus action instead.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 2,
+          note: "Cast a spell with a casting time of 1 action as a bonus action instead.",
+        },
       },
       {
         name: "Subtle Spell",
         summary:
           "Spend 1 sorcery point to cast without verbal or somatic components.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 1,
+          note: "Cast the spell without verbal or somatic components.",
+        },
       },
       {
         name: "Twinned Spell",
         summary:
           "Spend sorcery points equal to the spell's level (1 for a cantrip) to target a second creature with a single-target spell.",
+        action: {
+          cost: "free",
+          costNote: "costs the spell's level",
+          pool: "Sorcery Points",
+          amount: "choose",
+          note: "Target a second creature with a single-target spell. Costs the spell's level, or 1 for a cantrip.",
+        },
       },
     ],
   },
@@ -834,6 +902,13 @@ export const OPTION_GROUPS: OptionGroup[] = [
         name: "Pact of the Tome",
         summary:
           "Gain a Book of Shadows holding three cantrips from any class's list, castable at will.",
+      },
+      {
+        // Tasha's, so a paraphrase of mechanical facts only — and the
+        // prerequisite of three TCE invocations, which is why it matters here.
+        name: "Pact of the Talisman",
+        summary:
+          "Hang a talisman on a creature; while worn, it can add 1d4 to one failed ability check per long rest.",
       },
     ],
   },

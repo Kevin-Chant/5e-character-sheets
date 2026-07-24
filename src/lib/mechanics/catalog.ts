@@ -132,7 +132,10 @@ export const spendsSharedPool = (opts: {
   // nowhere to live: `LimitedUseAbility` assumes a finite `maxUses`.
   pool?: string;
   // Uses to spend (default 1) — a monk discipline may cost several Ki.
-  amount?: number;
+  // `"choose"` offers a free-typed amount instead, capped at the pool's
+  // remaining uses: Twinned Spell costs the spell's level, which the sheet
+  // can't know, so the player says.
+  amount?: number | "choose";
   roll?: { label: string; count?: number; die: DieDefinition };
   note: string;
 }): FeatureMechanics => ({
@@ -142,12 +145,18 @@ export const spendsSharedPool = (opts: {
       name: opts.name,
       cost: opts.cost,
       ...(opts.costNote ? { costNote: opts.costNote } : {}),
+      ...(opts.amount === "choose"
+        ? { choose: { amount: "uses" as const } }
+        : {}),
       effects: [
         ...(opts.pool
           ? [
               {
                 effect: "spendUses" as const,
-                amount: { fixed: opts.amount ?? 1 },
+                amount:
+                  opts.amount === "choose"
+                    ? { chosenAmount: true as const }
+                    : { fixed: opts.amount ?? 1 },
                 pool: opts.pool,
               },
             ]
