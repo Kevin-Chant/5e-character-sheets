@@ -609,6 +609,13 @@ export const SUBCLASSES: SrdSubclass[] = [
       // SUBCLASS_ACTION_HOSTS["Devotion"] — not prose grants.
       grants: {
         spellIndices: ["protection-from-evil-and-good", "sanctuary"],
+        // Oath spells always prepared as the paladin levels.
+        spellIndicesByLevel: {
+          5: ["lesser-restoration", "zone-of-truth"],
+          9: ["beacon-of-hope", "dispel-magic"],
+          13: ["freedom-of-movement", "guardian-of-faith"],
+          17: ["commune", "flame-strike"],
+        },
       },
     },
   ]),

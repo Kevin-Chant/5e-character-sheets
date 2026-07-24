@@ -38,6 +38,7 @@ import {
 import {
   getSubclassByName,
   subclassFeaturesAt,
+  subclassSpellIndicesAt,
 } from "src/lib/builder/subclasses";
 import { addSrdSpell, addSrdSpellOnce } from "src/lib/builder/grant-spells";
 import { SrdSubclass } from "src/lib/builder/types";
@@ -243,6 +244,17 @@ export function applyClassLevel(
     knownFeatures.add(f.title.trim().toLowerCase());
     char.features.push(text(f.title, f.detail));
   }
+
+  // 2c. The subclass's by-level spell grants (oath spells at 5/9/13/17, a
+  //     patron's expanded list). Idempotent, so re-running a level is safe;
+  //     runs after the subclass is set above so a subclass chosen this level
+  //     picks up its choice-level tier too.
+  for (const index of subclassSpellIndicesAt(
+    className.toLowerCase(),
+    klass.subclass,
+    level,
+  ))
+    addSrdSpellOnce(char, index, className);
 
   // 2b. Ability scores a class feature raises outright (Primal Champion's +4).
   //     Runs after the prose above, because the same feature is what lifts the

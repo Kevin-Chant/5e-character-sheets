@@ -118,10 +118,16 @@ export interface SrdSubclass {
     features?: RaceTrait[];
     // Partial so a subclass only names the proficiency categories it touches.
     proficiencies?: Partial<ProficiencyGrants>;
-    // SRD spell indices granted/always-prepared at level 1 (e.g. cleric domain
-    // spells). Only spells present in the bundled SRD catalog are auto-added;
-    // any non-SRD domain spells are named in a feature detail instead.
+    // Spell indices granted/always-prepared at the choice level (e.g. cleric
+    // domain spells). Resolved against the whole bundled catalog — SRD *and*
+    // non-SRD — so a subclass's non-SRD spells now grant too.
     spellIndices?: string[];
+    // Spell indices granted as the class *levels*, keyed by class level — a
+    // paladin's oath spells at 5/9/13/17, a warlock patron's expanded list, a
+    // cleric domain's higher-level domain spells. Applied idempotently every
+    // level-up (like the sub-choice grants), so re-running a level never doubles
+    // a spell. Absent indices (still not in the catalog) are silently skipped.
+    spellIndicesByLevel?: Record<number, string[]>;
   };
   // Feature prose the subclass grants **at each level**, keyed by class level —
   // the subclass counterpart to `CLASS_FEATURES`. `grants` fires only once, at

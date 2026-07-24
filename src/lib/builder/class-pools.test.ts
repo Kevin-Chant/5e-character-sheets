@@ -671,6 +671,35 @@ describe("builder integration", () => {
     expect(mechanicsForAbility(curse)?.actions).toBeDefined();
   });
 
+  it("grants a subclass's by-level spells as the class levels (Devotion oath)", () => {
+    const spellNames = (c: Character) =>
+      Object.values(c.spells)
+        .flat()
+        .map((s) => s.info.title.toLowerCase());
+    let c = level1("paladin");
+    // 2nd (subclass choice), then up to 5th.
+    for (const level of [2, 3, 4, 5])
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Paladin as string,
+        ...(level === 3 ? { subclass: "Devotion" } : {}),
+      });
+    // 3rd-level oath spells (choice-level grant) and the 5th-level tier are in;
+    // the 9th-level tier is not yet.
+    expect(spellNames(c)).toContain("sanctuary");
+    expect(spellNames(c)).toContain("zone of truth");
+    expect(spellNames(c)).not.toContain("beacon of hope");
+
+    // Level to 9th: the next tier unlocks, without duplicating earlier ones.
+    for (let l = 6; l <= 9; l++)
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Paladin as string,
+      });
+    expect(spellNames(c)).toContain("beacon of hope");
+    expect(spellNames(c).filter((n) => n === "zone of truth")).toHaveLength(1);
+  });
+
   it("paladin Vengeance at 3 grants oath features and spells", () => {
     let c = level1("paladin");
     for (const subclass of [undefined, "Vengeance"]) {

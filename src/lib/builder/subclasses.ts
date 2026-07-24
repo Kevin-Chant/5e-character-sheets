@@ -29,3 +29,20 @@ export const subclassFeaturesAt = (
   (level != null
     ? getSubclassByName(classIndex, name)?.levelFeatures?.[level]
     : undefined) ?? [];
+
+// The spell indices a subclass grants by the time `level` is reached: every
+// `grants.spellIndicesByLevel` tier at or below it (an oath's spells unlock at
+// 3/5/9/13/17). Cumulative, so the builder can grant idempotently every
+// level-up without missing a tier reached in one jump.
+export const subclassSpellIndicesAt = (
+  classIndex?: string,
+  name?: string,
+  level?: number,
+): string[] => {
+  const table = getSubclassByName(classIndex, name)?.grants
+    ?.spellIndicesByLevel;
+  if (!table || level == null) return [];
+  return Object.entries(table)
+    .filter(([lvl]) => level >= Number(lvl))
+    .flatMap(([, indices]) => indices);
+};
