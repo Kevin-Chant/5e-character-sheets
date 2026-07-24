@@ -62,6 +62,20 @@ describe("the non-SRD spell catalog", () => {
     }
   });
 
+  it("keeps any authored mechanics block consistent with the spell", () => {
+    for (const s of NONSRD_SPELLS) {
+      if (!s.mechanics) continue;
+      expect(s.mechanics.level, `${s.name} mechanics.level`).toBe(s.level);
+      // A structured block should model the damage/healing the flat facts claim
+      // (and vice versa — no phantom damage block on a utility spell).
+      if (s.baseDamage)
+        expect(
+          s.mechanics.damage?.length || s.mechanics.damageTable,
+          `${s.name}: has baseDamage but no mechanics damage`,
+        ).toBeTruthy();
+    }
+  });
+
   it("is reachable through the merged catalog by index", () => {
     for (const s of NONSRD_SPELLS)
       expect(getSrdSpell(s.index), s.name)?.toBeDefined();
