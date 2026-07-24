@@ -25,6 +25,7 @@ import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
 import {
   newOptionPicksAt,
   optionGroup,
+  optionSpellIndicesAt,
   OptionGroup,
   resistancesFromOptions,
 } from "src/lib/builder/chosen-options";
@@ -37,7 +38,7 @@ import {
   getSubclassByName,
   subclassFeaturesAt,
 } from "src/lib/builder/subclasses";
-import { addSrdSpell } from "src/lib/builder/grant-spells";
+import { addSrdSpell, addSrdSpellOnce } from "src/lib/builder/grant-spells";
 import { SrdSubclass } from "src/lib/builder/types";
 
 // ---------------------------------------------------------------------------
@@ -345,6 +346,18 @@ export function applyClassLevel(
       });
     }
   }
+
+  // 9b. Spells a *sub-choice inside the subclass* grants (a Land druid's chosen
+  //     terrain, a Genie warlock's kind). Re-evaluated every level so
+  //     level-gated circle/expanded spells unlock over time; granted
+  //     idempotently, so re-running a level can't stack duplicates. Runs after
+  //     step 9 so a pick made in this same level-up is already recorded.
+  for (const index of optionSpellIndicesAt(
+    char.chosenOptions ?? [],
+    className,
+    level,
+  ))
+    addSrdSpellOnce(char, index, className);
 
   // 10. Damage resistances a chosen option confers (draconic ancestry). Raw
   //     characters from legacy flows may lack `damageModifiers` entirely.

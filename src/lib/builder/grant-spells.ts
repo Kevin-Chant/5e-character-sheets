@@ -29,3 +29,22 @@ export function addSrdSpell(
   const bucket = (char.spells[srd.level as keyof typeof char.spells] ??= []);
   bucket.push(spell);
 }
+
+/**
+ * Like `addSrdSpell`, but a no-op if the spell is already in its bucket for this
+ * class. Used by the sub-choice spell grants (a Land druid's terrain spells),
+ * which are re-evaluated on every level-up — so re-running a level can't stack
+ * duplicate copies the way a plain `addSrdSpell` would.
+ */
+export function addSrdSpellOnce(
+  char: Character,
+  index: string,
+  className: string,
+): void {
+  const srd = getSrdSpell(index);
+  if (!srd) return;
+  const bucket = char.spells[srd.level as keyof typeof char.spells] ?? [];
+  const name = srd.name.trim().toLowerCase();
+  if (bucket.some((s) => s.info.title.trim().toLowerCase() === name)) return;
+  addSrdSpell(char, index, className);
+}

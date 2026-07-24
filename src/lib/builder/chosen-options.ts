@@ -18,6 +18,17 @@ export interface OptionDef {
   // option has the same effect (a ranger's favored enemy) — those describe it
   // once on the group instead.
   summary?: string;
+  // SRD spell indices this pick grants (always-prepared / known), gated by the
+  // owning class's level. This is what makes a *sub-choice inside a subclass*
+  // drive content: a Land druid's terrain sets its circle spells, a Genie
+  // warlock's kind sets its expanded list. `byLevel` unlocks spells as the class
+  // levels (Circle Spells at 3/5/7/9); `always` are granted the moment the
+  // option is picked. Spells absent from the bundled SRD are silently skipped
+  // (the prose feature still names them), exactly as `grants.spellIndices` does.
+  spellIndices?: {
+    always?: string[];
+    byLevel?: Record<number, string[]>;
+  };
 }
 
 export interface OptionGroup {
@@ -52,6 +63,31 @@ export function resistancesFromOptions(picks: ChosenOption[]): DamageType[] {
   return out;
 }
 
+// The SRD spell indices a character's sub-choices grant at a given class level:
+// every `always` index of a picked option, plus each `byLevel` tier the class
+// level has reached. Only options whose group belongs to `className` count, so a
+// druid's terrain pick isn't consulted while leveling a warlock dip. The builder
+// grants these idempotently (`addSrdSpellOnce`), so calling at each level-up is
+// safe — the list is cumulative and the same spell never lands twice.
+export function optionSpellIndicesAt(
+  picks: ChosenOption[],
+  className: string,
+  classLevel: number,
+): string[] {
+  const out: string[] = [];
+  for (const pick of picks) {
+    const group = optionGroup(pick.category);
+    if (!group || group.className !== className) continue;
+    const def = group.options.find((o) => o.name === pick.name);
+    const spells = def?.spellIndices;
+    if (!spells) continue;
+    for (const idx of spells.always ?? []) out.push(idx);
+    for (const [lvl, indices] of Object.entries(spells.byLevel ?? {}))
+      if (classLevel >= Number(lvl)) out.push(...indices);
+  }
+  return out;
+}
+
 // The count from a step table at a level: the last entry the level has reached,
 // or 0 before the first. Mirrors `atLevel` in class-pools.ts, but zero-based —
 // "you don't have this feature yet" is a real answer here.
@@ -61,7 +97,113 @@ const knownAt = (level: number, steps: [number, number][]): number => {
   return value;
 };
 
+// A Land druid's terrain, chosen at 3rd — the worked example of a sub-choice
+// that *gates spell grants*: the pick sets which circle spells become
+// always-prepared, unlocking two at each of 3rd/5th/7th/9th level. The spells
+// land in the spellbook via `optionSpellIndicesAt`; the "Circle Spells" prose
+// row still names the whole progression. All eight are SRD, so all are granted.
+const LAND_TERRAIN: OptionDef[] = [
+  {
+    name: "Arctic",
+    spellIndices: {
+      byLevel: {
+        3: ["hold-person", "spike-growth"],
+        5: ["sleet-storm", "slow"],
+        7: ["freedom-of-movement", "ice-storm"],
+        9: ["commune-with-nature", "cone-of-cold"],
+      },
+    },
+  },
+  {
+    name: "Coast",
+    spellIndices: {
+      byLevel: {
+        3: ["mirror-image", "misty-step"],
+        5: ["water-breathing", "water-walk"],
+        7: ["control-water", "freedom-of-movement"],
+        9: ["conjure-elemental", "scrying"],
+      },
+    },
+  },
+  {
+    name: "Desert",
+    spellIndices: {
+      byLevel: {
+        3: ["blur", "silence"],
+        5: ["create-food-and-water", "protection-from-energy"],
+        7: ["blight", "hallucinatory-terrain"],
+        9: ["insect-plague", "wall-of-stone"],
+      },
+    },
+  },
+  {
+    name: "Forest",
+    spellIndices: {
+      byLevel: {
+        3: ["barkskin", "spider-climb"],
+        5: ["call-lightning", "plant-growth"],
+        7: ["divination", "freedom-of-movement"],
+        9: ["commune-with-nature", "tree-stride"],
+      },
+    },
+  },
+  {
+    name: "Grassland",
+    spellIndices: {
+      byLevel: {
+        3: ["invisibility", "pass-without-trace"],
+        5: ["daylight", "haste"],
+        7: ["divination", "freedom-of-movement"],
+        9: ["dream", "insect-plague"],
+      },
+    },
+  },
+  {
+    name: "Mountain",
+    spellIndices: {
+      byLevel: {
+        3: ["spider-climb", "spike-growth"],
+        5: ["lightning-bolt", "meld-into-stone"],
+        7: ["stone-shape", "stoneskin"],
+        9: ["passwall", "wall-of-stone"],
+      },
+    },
+  },
+  {
+    name: "Swamp",
+    spellIndices: {
+      byLevel: {
+        3: ["darkness", "acid-arrow"],
+        5: ["water-walk", "stinking-cloud"],
+        7: ["freedom-of-movement", "locate-creature"],
+        9: ["insect-plague", "scrying"],
+      },
+    },
+  },
+  {
+    name: "Underdark",
+    spellIndices: {
+      byLevel: {
+        3: ["spider-climb", "web"],
+        5: ["gaseous-form", "stinking-cloud"],
+        7: ["greater-invisibility", "stone-shape"],
+        9: ["cloudkill", "insect-plague"],
+      },
+    },
+  },
+];
+
 export const OPTION_GROUPS: OptionGroup[] = [
+  {
+    category: "landTerrain",
+    label: "Land's Circle Spells",
+    summary:
+      "Your chosen land grants always-prepared circle spells that don't count against your prepared total, two unlocking at each of 3rd, 5th, 7th, and 9th druid level.",
+    className: OfficialClass.Druid,
+    subclass: "Land",
+    known: [[3, 1]],
+    options: LAND_TERRAIN,
+  },
   // The two ranger lists are the only groups available at level 1, which makes
   // them the only ones the character-creation wizard ever prompts for — the
   // rest all start at class level 3.

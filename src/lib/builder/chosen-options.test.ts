@@ -8,6 +8,7 @@ import {
   availableOptionGroups,
   chosenIn,
   optionGroup,
+  optionSpellIndicesAt,
 } from "./chosen-options";
 
 const withClass = (...classes: Partial<IClass>[]): Character => {
@@ -104,6 +105,43 @@ describe("the option catalog", () => {
   it("looks a group up by category", () => {
     expect(optionGroup("metamagic")?.label).toBe("Metamagic");
     expect(optionGroup("nope")).toBeUndefined();
+  });
+});
+
+describe("optionSpellIndicesAt", () => {
+  const forest = [{ category: "landTerrain", name: "Forest" }];
+
+  it("unlocks a terrain's spells as the class levels", () => {
+    // 3rd: the two 3rd-level circle spells only.
+    expect(optionSpellIndicesAt(forest, OfficialClass.Druid, 3)).toEqual([
+      "barkskin",
+      "spider-climb",
+    ]);
+    // 7th: everything through the 7th-level tier, cumulative.
+    expect(optionSpellIndicesAt(forest, OfficialClass.Druid, 7)).toEqual([
+      "barkskin",
+      "spider-climb",
+      "call-lightning",
+      "plant-growth",
+      "divination",
+      "freedom-of-movement",
+    ]);
+  });
+
+  it("consults only picks whose group belongs to the class being leveled", () => {
+    // The same terrain pick contributes nothing while leveling a warlock dip.
+    expect(optionSpellIndicesAt(forest, OfficialClass.Warlock, 9)).toEqual([]);
+  });
+
+  it("is empty before the first tier and for an option with no spells", () => {
+    expect(optionSpellIndicesAt(forest, OfficialClass.Druid, 2)).toEqual([]);
+    expect(
+      optionSpellIndicesAt(
+        [{ category: "metamagic", name: "Twinned Spell" }],
+        OfficialClass.Sorcerer,
+        20,
+      ),
+    ).toEqual([]);
   });
 });
 

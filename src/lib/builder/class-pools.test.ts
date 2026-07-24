@@ -348,6 +348,39 @@ describe("builder integration", () => {
     expect(third.features.map((f) => f.title)).toContain("Circle Spells");
   });
 
+  it("a Land druid's terrain sub-choice grants circle spells that grow with level", () => {
+    const spellTitles = (c: Character) =>
+      Object.values(c.spells)
+        .flat()
+        .map((s) => s.info.title.toLowerCase());
+    let c = level1("druid");
+    // 2nd: choose Circle of the Land. 3rd: choose the terrain (Forest).
+    c = applyLevelUp(c, {
+      ...defaultLevelUpState(c),
+      className: OfficialClass.Druid as string,
+      subclass: "Land",
+    });
+    c = applyLevelUp(c, {
+      ...defaultLevelUpState(c),
+      className: OfficialClass.Druid as string,
+      chosenOptions: { landTerrain: ["Forest"] },
+    });
+    // The two 3rd-level Forest spells are now in the spellbook…
+    expect(spellTitles(c)).toContain("barkskin");
+    expect(spellTitles(c)).toContain("spider climb");
+    // …but not yet a 5th-level-tier one.
+    expect(spellTitles(c)).not.toContain("call lightning");
+
+    // Level to 5th: the next tier unlocks, and nothing is duplicated.
+    for (let i = 0; i < 2; i++)
+      c = applyLevelUp(c, {
+        ...defaultLevelUpState(c),
+        className: OfficialClass.Druid as string,
+      });
+    expect(spellTitles(c)).toContain("call lightning");
+    expect(spellTitles(c).filter((t) => t === "barkskin")).toHaveLength(1);
+  });
+
   it("fighter subclass at level 3 applies riders (Champion) ", () => {
     let c = level1("fighter");
     for (const subclass of [undefined, "Champion"]) {
