@@ -35,8 +35,11 @@ describe("the non-SRD spell catalog", () => {
 
   it("derives each index from the name as a slug", () => {
     for (const s of NONSRD_SPELLS) {
+      // Apostrophes are dropped rather than hyphenated, so "Aganazzar's
+      // Scorcher" → "aganazzars-scorcher" (the wikidot URL convention).
       const slug = s.name
         .toLowerCase()
+        .replace(/['’]/g, "")
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
       expect(s.index, s.name).toBe(slug);
