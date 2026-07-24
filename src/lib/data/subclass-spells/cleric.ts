@@ -28,7 +28,7 @@ export const CLERIC_SUBCLASS_SPELLS: SubclassSpellTable = {
   Nature: {
     3: ["barkskin", "spike-growth"],
     5: ["plant-growth", "wind-wall"],
-    7: ["dominate-beast"],
+    7: ["dominate-beast", "grasping-vine"],
     9: ["insect-plague", "tree-stride"],
   },
   Tempest: {
@@ -76,13 +76,13 @@ export const CLERIC_SUBCLASS_SPELLS: SubclassSpellTable = {
   Peace: {
     3: ["aid", "warding-bond"],
     5: ["beacon-of-hope", "sending"],
-    7: [],
+    7: ["aura-of-purity", "resilient-sphere"],
     9: ["greater-restoration", "telepathic-bond"],
   },
   Twilight: {
     3: ["moonbeam", "see-invisibility"],
-    5: ["tiny-hut"],
-    7: [],
+    5: ["aura-of-vitality", "tiny-hut"],
+    7: ["aura-of-life", "greater-invisibility"],
     9: ["circle-of-power", "mislead"],
   },
   Arcana: {

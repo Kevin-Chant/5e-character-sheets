@@ -28,7 +28,7 @@ export const ARTIFICER_SUBCLASS_SPELLS: SubclassSpellTable = {
     3: ["heroism", "shield"],
     5: ["branding-smite", "warding-bond"],
     9: ["aura-of-vitality", "conjure-barrage"],
-    13: ["fire-shield"],
+    13: ["aura-of-purity", "fire-shield"],
     17: ["banishing-smite", "mass-cure-wounds"],
   },
 };

@@ -49,7 +49,7 @@ export const WARLOCK_SUBCLASS_SPELLS: SubclassSpellTable = {
     1: ["shield", "wrathful-smite"],
     3: ["blur", "branding-smite"],
     5: ["blink", "elemental-weapon"],
-    7: ["phantasmal-killer"],
+    7: ["phantasmal-killer", "staggering-smite"],
     9: ["banishing-smite", "cone-of-cold"],
   },
   Undead: {
@@ -63,7 +63,7 @@ export const WARLOCK_SUBCLASS_SPELLS: SubclassSpellTable = {
     1: ["false-life", "ray-of-sickness"],
     3: ["blindness-deafness", "silence"],
     5: ["feign-death", "speak-with-dead"],
-    7: ["death-ward"],
+    7: ["aura-of-life", "death-ward"],
     9: ["contagion", "legend-lore"],
   },
 };

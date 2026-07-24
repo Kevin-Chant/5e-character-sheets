@@ -56,7 +56,7 @@ export const PALADIN_SUBCLASS_SPELLS: SubclassSpellTable = {
     3: ["alarm", "detect-magic"],
     5: ["moonbeam", "see-invisibility"],
     9: ["counterspell", "nondetection"],
-    13: ["banishment"],
+    13: ["aura-of-purity", "banishment"],
     17: ["hold-monster", "scrying"],
   },
 };
