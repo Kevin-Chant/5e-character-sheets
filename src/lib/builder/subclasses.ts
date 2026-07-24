@@ -1,5 +1,6 @@
 import { SUBCLASSES } from "src/lib/data/subclasses";
 import { RaceTrait, SrdSubclass } from "src/lib/builder/types";
+import { SUBCLASS_SPELLS } from "src/lib/data/subclass-spells";
 
 export { SUBCLASSES };
 
@@ -39,10 +40,20 @@ export const subclassSpellIndicesAt = (
   name?: string,
   level?: number,
 ): string[] => {
-  const table = getSubclassByName(classIndex, name)?.grants
-    ?.spellIndicesByLevel;
-  if (!table || level == null) return [];
-  return Object.entries(table)
-    .filter(([lvl]) => level >= Number(lvl))
-    .flatMap(([, indices]) => indices);
+  if (level == null || !classIndex || !name) return [];
+  const tiersOf = (table?: Record<number, string[]>): string[] =>
+    table
+      ? Object.entries(table)
+          .filter(([lvl]) => level >= Number(lvl))
+          .flatMap(([, indices]) => indices)
+      : [];
+  // Inline `grants.spellIndicesByLevel` plus the per-class registry, which is
+  // where most subclass spell lists live (one file per class, for parallel
+  // authoring).
+  return [
+    ...tiersOf(
+      getSubclassByName(classIndex, name)?.grants?.spellIndicesByLevel,
+    ),
+    ...tiersOf(SUBCLASS_SPELLS[classIndex]?.[name]),
+  ];
 };
