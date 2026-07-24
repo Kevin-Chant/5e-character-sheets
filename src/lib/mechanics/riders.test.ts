@@ -4,6 +4,7 @@ import {
   DamageType,
   DieOperation,
   OfficialClass,
+  StatKey,
 } from "src/lib/data/data-definitions";
 import { rollD20Check } from "src/lib/roll";
 import { Character, DieExpression } from "src/lib/types";
@@ -19,6 +20,11 @@ import {
   ridersFor,
 } from "./riders";
 import { ActiveRider } from "./types";
+import { attackContext } from "./conditions";
+import {
+  WEAPON_PRESETS,
+  buildAttackFromPreset,
+} from "src/lib/data/weapon-presets";
 
 // A single-class character at a given level, for the level-scaled damage riders.
 const asClass = (name: OfficialClass, level: number): Character => {
@@ -162,6 +168,20 @@ describe("fighting style numerics", () => {
     expect(flatBonusRiders(ridersFor(c, "check")).optional).toHaveLength(0);
   });
 
+  it("Archery applies on its own once the weapon says it's ranged", () => {
+    const c = withFeatures("Archery");
+    const bow = attackContext(
+      buildAttackFromPreset(
+        WEAPON_PRESETS.flatMap((g) => g.options).find(
+          (w) => w.name === "Longbow",
+        )!,
+      ),
+    );
+    const { always, optional } = flatBonusRiders(ridersFor(c, "attack"), bow);
+    expect(always.map((r) => r.source)).toEqual(["Archery"]);
+    expect(optional).toHaveLength(0);
+  });
+
   it("Dueling is an opt-in flat +2 of extra damage", () => {
     const c = withFeatures("Dueling");
     const extras = extraDamageRiders(c).filter((r) => r.source === "Dueling");
@@ -267,12 +287,18 @@ describe("extraDamageRiders", () => {
     });
   });
 
-  it("scales Rage damage +2/+3/+4 by barbarian level, always-on", () => {
+  it("scales Rage damage +2/+3/+4 by barbarian level, opt-in on melee STR hits", () => {
     const rage = (level: number) => {
       const [r] = extraDamageRiders(asClass(OfficialClass.Barbarian, level));
       expect(r.source).toBe("Rage");
-      expect(r.rider).toMatchObject({ declareAt: "on-hit" });
-      expect((r.rider as { optional?: boolean }).optional).toBeUndefined();
+      // Opt-in because *whether you're raging* is a state the sheet doesn't
+      // track; the weapon half of the condition is decidable and lives in
+      // `requires`, which is what keeps it off a bow entirely.
+      expect(r.rider).toMatchObject({
+        declareAt: "on-hit",
+        optional: true,
+        requires: { tags: ["melee"], ability: [StatKey.str] },
+      });
       return (r.rider as { amount: number }).amount;
     };
     expect(rage(2)).toBe(2);

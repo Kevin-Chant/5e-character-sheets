@@ -9,6 +9,7 @@ import {
 } from "src/lib/data/data-definitions";
 import { Character, TextComponent } from "src/lib/types";
 import { grantArmor } from "src/lib/builder/level-grants";
+import { statCapFor } from "src/lib/rules";
 import { addSrdSpell } from "src/lib/builder/grant-spells";
 
 const text = (title: string, detail?: string): TextComponent =>
@@ -60,8 +61,13 @@ export function applyFeat(
   const raisedStat = feat.abilityIncrease
     ? (state.featAbilityChoice ?? feat.abilityIncrease.from[0])
     : undefined;
+  // A half-feat's +1 obeys the same ceiling an ASI does — Resilient can't take
+  // a 20 to 21 any more than a straight increase can.
   if (feat.abilityIncrease && raisedStat)
-    char.stats[raisedStat] += feat.abilityIncrease.by;
+    char.stats[raisedStat] = Math.min(
+      char.stats[raisedStat] + feat.abilityIncrease.by,
+      statCapFor(char, raisedStat),
+    );
 
   const g = feat.grants;
   if (!g) return;

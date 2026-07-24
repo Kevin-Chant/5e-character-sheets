@@ -1,6 +1,7 @@
 import { randomUUID } from "src/lib/browser";
 import {
   Attack,
+  AttackTag,
   CustomFormula,
   GroupedOptionsList,
   WeaponRange,
@@ -262,6 +263,77 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
   },
 ];
 
+// The properties that can't be derived from a preset's other fields. Everything
+// else falls out: `melee`/`ranged` from the group the weapon sits in, `thrown`
+// from a melee weapon having a range, `finesse` from its ability, `versatile`
+// from having a second die. Kept as one table rather than a field on all 37
+// presets so the derivable majority stays noise-free — `weapon-presets.test.ts`
+// asserts every name here is a real weapon.
+const EXTRA_PROPERTIES: Record<string, AttackTag[]> = {
+  // Simple melee
+  Club: ["light"],
+  Dagger: ["light"],
+  Greatclub: ["two-handed"],
+  Handaxe: ["light"],
+  "Light Hammer": ["light"],
+  Quarterstaff: [],
+  Spear: [],
+  // Simple ranged
+  "Light Crossbow": ["two-handed", "loading", "ammunition"],
+  Dart: [],
+  Shortbow: ["two-handed", "ammunition"],
+  Sling: ["ammunition"],
+  // Martial melee
+  Glaive: ["heavy", "reach", "two-handed"],
+  Greataxe: ["heavy", "two-handed"],
+  Greatsword: ["heavy", "two-handed"],
+  Halberd: ["heavy", "reach", "two-handed"],
+  Lance: ["reach"],
+  Maul: ["heavy", "two-handed"],
+  Pike: ["heavy", "reach", "two-handed"],
+  Scimitar: ["light"],
+  Whip: ["reach"],
+  // Martial ranged
+  Blowgun: ["loading", "ammunition"],
+  "Hand Crossbow": ["light", "loading", "ammunition"],
+  "Heavy Crossbow": ["heavy", "two-handed", "loading", "ammunition"],
+  Longbow: ["heavy", "two-handed", "ammunition"],
+  Net: ["thrown"],
+};
+
+// Which group each weapon came from, so melee/ranged is derived from the SRD's
+// own categorisation rather than restated per weapon.
+const RANGED_GROUPS = new Set(
+  WEAPON_PRESETS.filter((g) => g.label.includes("Ranged")).flatMap((g) =>
+    g.options.map((w) => w.name),
+  ),
+);
+
+/**
+ * The weapon properties an attack built from this preset carries.
+ *
+ * `twoHanded` is the versatile-weapon variant: wielding a longsword two-handed
+ * makes that *attack* two-handed, which is what Great Weapon Fighting and
+ * Dueling actually key off — so the tag belongs to the attack, not the weapon.
+ */
+export function weaponTags(
+  weapon: WeaponPreset,
+  twoHanded = false,
+): AttackTag[] {
+  const ranged = RANGED_GROUPS.has(weapon.name);
+  const tags = new Set<AttackTag>(EXTRA_PROPERTIES[weapon.name] ?? []);
+  tags.add(ranged ? "ranged" : "melee");
+  // A melee weapon with a range is one you can throw; a ranged weapon's range
+  // is just its range.
+  if (!ranged && weapon.range) tags.add("thrown");
+  if (weapon.ability === "finesse") tags.add("finesse");
+  if (weapon.damage?.versatileDie) {
+    tags.add("versatile");
+    if (twoHanded) tags.add("two-handed");
+  }
+  return [...tags];
+}
+
 // Weapon-proficiency typeahead: the broad categories plus every preset's name.
 export const DEFAULT_WEAPONS: GroupedOptionsList<string> = [
   { label: "Weapon Types", options: ["Simple Weapons", "Martial Weapons"] },
@@ -291,6 +363,7 @@ export function buildAttackFromPreset(
     bonus: { operation: Operation.addition, operands: [ability, PB] },
     formula: {},
     ...(weapon.range ? { range: weapon.range } : {}),
+    tags: weaponTags(weapon, twoHanded),
   };
   if (weapon.damage) {
     const die = twoHandedDie ?? weapon.damage.die;

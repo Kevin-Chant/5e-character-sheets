@@ -36,6 +36,11 @@ export const grantsForLevelUp = (character: Character, state: LevelUpState) =>
     targetClassLevel(character, state),
     state.subclass ??
       character.class.find((k) => k.name === state.className)?.subclass,
+    // Reaching level 1 in a class when the sheet already has one is a
+    // multiclass — derived from the same facts `applyClassLevel` uses rather
+    // than from `isNewMulticlass`, so picking an absent class without ticking
+    // that flag can't offer one allowance and apply another.
+    targetClassLevel(character, state) === 1 && character.class.length > 0,
   );
 
 // Whether the target class still needs a subclass at the level being reached.

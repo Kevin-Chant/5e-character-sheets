@@ -12,6 +12,10 @@ import { SettingsContextProvider } from "src/lib/hooks/use-settings";
 import { writeLocalStorage } from "src/lib/local-storage";
 import { Character, CustomFormulaWithDamage, SaveEffect } from "src/lib/types";
 import { RollSpec } from "src/lib/hooks/use-roller";
+import {
+  WEAPON_PRESETS,
+  buildAttackFromPreset,
+} from "src/lib/data/weapon-presets";
 import RollModal from "./roll-modal";
 
 // The roll dialog reads the character and the open roll request from context
@@ -156,5 +160,62 @@ describe("RollModal — save-based attacks", () => {
     expect(
       screen.queryByRole("checkbox", { name: /Critical/ }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("RollModal — weapon conditions", () => {
+  // The rider conditions read the attack's tags; these come off the real preset
+  // catalog rather than being hand-written, so a change to the SRD data can't
+  // quietly make this test assert something the app doesn't do.
+  const preset = (name: string) =>
+    WEAPON_PRESETS.flatMap((g) => g.options).find((w) => w.name === name)!;
+  const longbow = () => buildAttackFromPreset(preset("Longbow"));
+  const greatsword = () => buildAttackFromPreset(preset("Greatsword"));
+
+  beforeEach(() => {
+    character.features = [{ title: "Archery", titleFormulas: [] }];
+  });
+  afterEach(() => {
+    character.features = [];
+  });
+
+  it("folds Archery into the to-hit modifier on a tagged ranged weapon", () => {
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD, attack: longbow() });
+    // +2 applied without asking — the whole point of tagging the weapon.
+    expect(screen.getByText("d20 +9")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: /Archery/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("doesn't offer Archery at all on a melee weapon", () => {
+    open({
+      kind: "attack",
+      toHit: 7,
+      damage: GREATSWORD,
+      attack: greatsword(),
+    });
+    expect(screen.getByText("d20 +7")).toBeInTheDocument();
+    expect(screen.queryByText(/Archery/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to an opt-in tick on an untagged attack", async () => {
+    // No `attack` at all — a spell attack, or a sheet whose weapon predates
+    // tags. The sheet can't tell, so it asks, exactly as it always did.
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD });
+    expect(screen.getByText("d20 +7")).toBeInTheDocument();
+    const tick = screen.getByRole("checkbox", { name: /Archery/ });
+    await userEvent.click(tick);
+    expect(screen.getByText("d20 +9")).toBeInTheDocument();
+  });
+});
+
+describe("RollModal — result breakdowns", () => {
+  it("names the flat modifier alongside the dice", async () => {
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD });
+    await userEvent.click(screen.getByRole("button", { name: "Roll Damage" }));
+    // 2d6 (maxed to 6 each) + STR 5 = 17 — and the +5 is written out, not left
+    // for the player to infer from "(6 + 6)".
+    expect(screen.getByText(/6 \+ 6 \+ 5/)).toBeInTheDocument();
   });
 });

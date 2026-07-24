@@ -111,6 +111,86 @@ export function ChipMultiSelect<T extends string>({
   );
 }
 
+// One option in a `SingleChoice`.
+export interface SingleOption {
+  value: string;
+  label: string;
+  // Shown beside the radio, or under the select once chosen — so picking from a
+  // dropdown doesn't cost you the explanation the radio list gave for free.
+  summary?: ReactNode;
+}
+
+// The list length past which a radio list becomes a dropdown. Four is where a
+// column of radios stops being scannable at a glance and starts being a wall:
+// a ranger's fourteen favored enemies, a druid's seven terrains.
+const DROPDOWN_THRESHOLD = 3;
+
+/**
+ * Pick exactly one option, rendered by how many there are.
+ *
+ * Three or fewer stay radios — every option visible, one click to choose. More
+ * than that collapses to a `<select>`, with the chosen option's summary kept
+ * below it. One component rather than a judgement call per step, so the wizard
+ * is consistent and a list that grows past the threshold changes shape on its
+ * own.
+ */
+export function SingleChoice({
+  options,
+  value,
+  onChange,
+  name,
+  placeholder = "Choose…",
+}: {
+  options: SingleOption[];
+  value?: string;
+  onChange: (next: string | undefined) => void;
+  // Radio-group name; required so two groups on one step don't share state.
+  name: string;
+  placeholder?: string;
+}) {
+  if (options.length > DROPDOWN_THRESHOLD) {
+    const chosen = options.find((o) => o.value === value);
+    return (
+      <>
+        <select
+          className="builder-input"
+          value={value ?? ""}
+          aria-label={name}
+          onChange={(e) => onChange(e.target.value || undefined)}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {chosen?.summary && (
+          <p className="text-muted builder-hint">{chosen.summary}</p>
+        )}
+      </>
+    );
+  }
+  return (
+    <div className="column">
+      {options.map((o) => (
+        <label key={o.value} className="builder-radio">
+          <input
+            type="radio"
+            name={name}
+            checked={value === o.value}
+            onChange={() => onChange(o.value)}
+          />
+          <span>
+            {o.label}
+            {o.summary && <span className="text-muted"> {o.summary}</span>}
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 // A labelled section wrapper used throughout the steps.
 export function Field({
   label,

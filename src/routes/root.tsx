@@ -36,7 +36,7 @@ import NavOverflowMenu from "src/components/nav-overflow-menu";
 import PresenceRoster from "src/components/presence-roster";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 
-function Sidebar() {
+function Sidebar({ close }: { close: () => void }) {
   const { datastore } = useDatastoreSelector();
   const { characters, deleteCharacter, characterLoading } = useDatastore();
   const { character, dispatch } = useCharacter();
@@ -56,56 +56,72 @@ function Sidebar() {
     : datastore.savedSheetsCopy;
 
   return (
-    <div id="sidebar">
-      <div id="sidebar-content" className="margin-small">
-        <b>{charactersNavText}</b>
-        <hr></hr>
-        <ul className="character-list">
-          {characterLoading && (
-            <div>
-              Loading <Spinner />
-            </div>
-          )}
-          {characters.map((characterEntry) => {
-            const isSameCharacter = characterEntry.uuid === character?.uuid;
-            return (
-              <li key={characterEntry.uuid} className="row space-between">
-                <Link
-                  className="no-underline font-black"
-                  to="/sheet"
-                  onClick={() => {
-                    if (!isSameCharacter) {
-                      dispatch(loadPersistedCharacter(characterEntry));
+    // The drawer is a temporary overlay, so a click anywhere outside it means
+    // "I'm done here" — same dismissal the modals offer.
+    <>
+      <div id="sidebar-scrim" onClick={close} />
+      <div id="sidebar">
+        <div id="sidebar-content" className="margin-small">
+          <b>{charactersNavText}</b>
+          <hr></hr>
+          <ul className="character-list">
+            {characterLoading && (
+              <div>
+                Loading <Spinner />
+              </div>
+            )}
+            {characters.map((characterEntry) => {
+              const isSameCharacter = characterEntry.uuid === character?.uuid;
+              return (
+                <li key={characterEntry.uuid} className="row space-between">
+                  <Link
+                    className="no-underline font-black"
+                    to="/sheet"
+                    onClick={() => {
+                      if (!isSameCharacter) {
+                        dispatch(loadPersistedCharacter(characterEntry));
+                      }
+                      // Picking a sheet is the drawer's whole job — leaving it
+                      // open just covers the sheet you asked for.
+                      close();
+                    }}
+                  >
+                    <p className={classNames({ bold: isSameCharacter })}>
+                      {getRole(characterEntry.uuid) === "host" && (
+                        <FaTowerBroadcast
+                          className="margin-small"
+                          title="Live sharing session in progress"
+                        />
+                      )}
+                      {characterEntry.name}
+                    </p>
+                  </Link>
+                  <button
+                    className="icon-btn btn-danger"
+                    onClick={() =>
+                      deleteCharacterAndRefocus(characterEntry.uuid)
                     }
-                  }}
-                >
-                  <p className={classNames({ bold: isSameCharacter })}>
-                    {getRole(characterEntry.uuid) === "host" && (
-                      <FaTowerBroadcast
-                        className="margin-small"
-                        title="Live sharing session in progress"
-                      />
-                    )}
-                    {characterEntry.name}
-                  </p>
-                </Link>
-                <button
-                  className="icon-btn btn-danger"
-                  onClick={() => deleteCharacterAndRefocus(characterEntry.uuid)}
-                >
-                  <FaTrash />
-                </button>
-              </li>
-            );
-          })}
-          {datastore?.createCharacter && (
-            <button className="btn-primary" onClick={openBuilder}>
-              Create new character
-            </button>
-          )}
-        </ul>
+                  >
+                    <FaTrash />
+                  </button>
+                </li>
+              );
+            })}
+            {datastore?.createCharacter && (
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  close();
+                  openBuilder();
+                }}
+              >
+                Create new character
+              </button>
+            )}
+          </ul>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -330,7 +346,7 @@ export default function Root() {
         <ShareModal onClose={() => setShareModalOpen(false)} />
       )}
       <div className="flex">
-        {showSidebar && <Sidebar />}
+        {showSidebar && <Sidebar close={() => setShowSidebar(false)} />}
         <div id="detail">
           <Outlet />
         </div>

@@ -401,6 +401,11 @@ export interface Attack {
   save?: SaveEffect;
   // Optional weapon range; when present, shown as a tooltip on the attack name.
   range?: WeaponRange;
+  // The weapon properties riders key off (see `AttackTag`). Seeded by
+  // `buildAttackFromPreset` and editable; **absent means "unknown"**, not
+  // "none" — a rider whose condition can't be decided falls back to an opt-in
+  // prompt, which is how every hand-authored attack behaved before tags existed.
+  tags?: AttackTag[];
 }
 
 // A pool of ammunition (arrows, bolts, …). The entry owns which weapons it
@@ -717,8 +722,50 @@ export interface AbilityAction {
 // covers every non-attack d20 (ability checks, saves, initiative).
 export type RollKind = "check" | "attack" | "damage" | "healing" | "hitDie";
 
+// The weapon properties a rider can key off. These are the 5e properties that
+// actually gate a feature ("melee weapon attack using Strength", "ranged
+// weapons only", "a two-handed or versatile melee weapon") — not the whole
+// property list, which the sheet has no use for.
+//
+// `melee`/`ranged` describe how the attack is *made*, so a thrown handaxe is
+// tagged both `melee` (it's a melee weapon) and `thrown`; Rage excludes the
+// latter, Archery requires `ranged` without `thrown`.
+export type AttackTag =
+  | "melee"
+  | "ranged"
+  | "thrown"
+  | "finesse"
+  | "heavy"
+  | "light"
+  | "two-handed"
+  | "versatile"
+  | "reach"
+  | "loading"
+  | "ammunition";
+
+// The weapon shape a rider needs to apply. Every clause must hold; a clause the
+// attack carries no information about is *unknown* rather than false, which is
+// what turns an auto-applied rider back into an opt-in prompt (see
+// `riderEligibility` in `mechanics/conditions.ts`).
+export interface RiderCondition {
+  // Tags the attack must all have (Rage: melee).
+  tags?: AttackTag[];
+  // Tags the attack must have at least one of (Sneak Attack: finesse or ranged).
+  anyTags?: AttackTag[];
+  // Tags that disqualify it (Archery: not a thrown melee weapon).
+  without?: AttackTag[];
+  // The ability the attack must use (Rage: Strength). A finesse attack resolves
+  // to max(STR, DEX), so which one is "used" is unknowable — deliberately so.
+  ability?: StatKey[];
+}
+
 // A modifier a feature applies to matching rolls — the roll-side closed set.
-export type RollRider =
+//
+// Every variant may carry `requires`: the weapon shape it applies to. Intersected
+// once here rather than repeated per variant — it is orthogonal to the kind.
+export type RollRider = RollRiderKind & { requires?: RiderCondition };
+
+type RollRiderKind =
   // The roll's total can't come out below this (Durable).
   | { rider: "minimumTotal"; value: CustomFormula }
   // Individual dice below this count as this (Reliable Talent's 10).
@@ -730,10 +777,10 @@ export type RollRider =
   | {
       rider: "bonus";
       value: CustomFormula;
-      // Conditional bonuses — Archery's "ranged weapons only" — depend on
-      // weapon properties the sheet doesn't model, so they're offered as an
-      // opt-in checkbox on the roll rather than folded silently. Omit for an
-      // unconditional bonus, which folds into the modifier with no prompt.
+      // Forces the opt-in checkbox even when `requires` is satisfied — for a
+      // condition that isn't about the weapon at all (Foe Slayer's "against a
+      // favored enemy, and not if you added it to the damage instead"). A bonus
+      // with neither `optional` nor an undecidable `requires` folds silently.
       optional?: boolean;
       // The condition, shown alongside the checkbox.
       note?: string;

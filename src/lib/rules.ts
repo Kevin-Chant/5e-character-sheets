@@ -68,6 +68,28 @@ export function modifier(stat: number) {
   return Math.floor((stat - 10) / 2);
 }
 
+// The 5e ceiling on an ability score: 20, "unless a feature says otherwise".
+export const DEFAULT_STAT_CAP = 20;
+
+// Features that raise a score's ceiling above 20, keyed by the bare feature
+// title the builder grants (the same convention the mechanics catalog matches
+// riders by). A function of the *character* rather than a constant because the
+// exceptions are real: a barbarian 20 caps STR and CON at 24, and pinning 20
+// into the ASI picker would have to be torn out again the moment Primal
+// Champion's +4 lands.
+const RAISED_CAPS: { feature: string; stats: StatKey[]; cap: number }[] = [
+  { feature: "Primal Champion", stats: [StatKey.str, StatKey.con], cap: 24 },
+];
+
+export function statCapFor(character: Character, stat: StatKey): number {
+  const titles = new Set(character.features.map((f) => f.title.trim()));
+  let cap = DEFAULT_STAT_CAP;
+  for (const raised of RAISED_CAPS)
+    if (raised.stats.includes(stat) && titles.has(raised.feature))
+      cap = Math.max(cap, raised.cap);
+  return cap;
+}
+
 export function getPB(character: Character) {
   // != null (not truthiness) so an explicit override of 0 is honored.
   if (character.pbOverride != null) {
@@ -78,14 +100,13 @@ export function getPB(character: Character) {
   }
 }
 
+// How many faces a die has, whether it's a standard "d8" or a custom shape.
+export function dieFaces(die: DieDefinition): number {
+  return isStandardDie(die) ? parseInt(die.replace("d", "")) : die.numFaces;
+}
+
 export function averageDie(die: DieDefinition, rounder = Math.round) {
-  let numFaces;
-  if (isStandardDie(die)) {
-    numFaces = parseInt(die.replace("d", ""));
-  } else {
-    numFaces = die.numFaces;
-  }
-  return rounder((numFaces + 1) / 2);
+  return rounder((dieFaces(die) + 1) / 2);
 }
 
 export function rollDie(die: DieDefinition) {
@@ -375,6 +396,42 @@ export function getHpFormula(character: Character): CustomFormula {
       }),
     ),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Rolled hit points.
+//
+// `getHpFormula` derives max HP from the class list using *average* dice, and
+// `applyLevelUp` rebuilds it from scratch every level — so a rolled result has
+// nowhere to live unless it's carried as a flat term on top. These two keep
+// that term: `hpAdjustmentOf` reads back what earlier rolls left behind (which
+// would otherwise be wiped by the next level-up's rebuild), and
+// `withHpAdjustment` re-applies the running total.
+//
+// The shape is always `getHpFormula(...) + <number>`, so reading it back is a
+// structural check rather than a search.
+// ---------------------------------------------------------------------------
+
+export function hpAdjustmentOf(formula: CustomFormula | undefined): number {
+  if (
+    typeof formula === "object" &&
+    formula !== null &&
+    "operation" in formula &&
+    formula.operation === Operation.addition &&
+    Array.isArray(formula.operands) &&
+    formula.operands.length === 2 &&
+    typeof formula.operands[1] === "number"
+  )
+    return formula.operands[1];
+  return 0;
+}
+
+export function withHpAdjustment(
+  base: CustomFormula,
+  adjustment: number,
+): CustomFormula {
+  if (adjustment === 0) return base;
+  return { operation: Operation.addition, operands: [base, adjustment] };
 }
 
 // The standard 5e save DC: 8 + proficiency bonus + a governing ability modifier.

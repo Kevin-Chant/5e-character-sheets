@@ -12,6 +12,7 @@ import {
   CritMode,
   CritSpec,
   critDiceCount,
+  formatRollBreakdown,
   rollD20Check,
   rollFormula,
 } from "src/lib/roll";
@@ -36,6 +37,11 @@ import {
   ridersFor,
 } from "src/lib/mechanics/riders";
 import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
+import {
+  AttackContext,
+  applicableRiders,
+  attackContext,
+} from "src/lib/mechanics/conditions";
 import {
   DieOperation,
   LeveledSpellLevel,
@@ -63,6 +69,17 @@ const ordinalSlot = (n: number) =>
 
 const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
+// The " — 4 + 3 + 2" suffix on a result line, or nothing when the total needs
+// no explaining.
+const breakdown = (total: number, dice: number[], crit?: CritSpec) => {
+  const parts = formatRollBreakdown(total, dice, crit);
+  return parts ? ` — ${parts}` : "";
+};
+
+// "We know nothing about the weapon" — a stable identity so the memoized rider
+// lists in the controls don't churn on every render.
+const NO_CONTEXT: AttackContext = {};
+
 // Short in-dialog wording for each crit flavor, so the player can see which
 // house rule is in force without opening Settings.
 const CRIT_MODE_LABELS: Record<CritMode, string> = {
@@ -84,9 +101,18 @@ export default function RollModal() {
   // exploding-crits count carried over from the to-hit roll.
   const [critical, setCritical] = useState(false);
   const [extraSets, setExtraSets] = useState(0);
-  if (!request || !character) return <></>;
-
-  const { spec } = request;
+  // The weapon properties the rider conditions read. Derived once for both
+  // halves of an attack, so the to-hit and damage sections agree about which
+  // riders are in play.
+  const spec = request?.spec;
+  const context = useMemo(
+    () =>
+      spec?.kind === "attack" && spec.attack
+        ? attackContext(spec.attack)
+        : NO_CONTEXT,
+    [spec],
+  );
+  if (!request || !character || !spec) return <></>;
   return (
     <Shell label={request.label} close={closeRoller}>
       {spec.kind === "check" && (
@@ -106,6 +132,7 @@ export default function RollModal() {
               label="To Hit"
               modifier={spec.toHit}
               isAttack
+              context={context}
               onCrit={(crit, explosions) => {
                 setCritical(crit);
                 setExtraSets(explosions);
@@ -118,6 +145,7 @@ export default function RollModal() {
             damage={spec.damage}
             spell={spec.spell}
             save={spec.save}
+            context={context}
             titled={spec.toHit !== undefined || spec.save !== undefined}
             critical={critical}
             extraSets={extraSets}
@@ -194,12 +222,17 @@ function CheckControls({
   modifier,
   label,
   isAttack = false,
+  context = NO_CONTEXT,
   onCrit,
 }: {
   character: Character;
   modifier: number;
   label?: string;
   isAttack?: boolean;
+  // The weapon being attacked with, as the rider conditions see it. Empty for a
+  // plain check (and for a spell attack), which leaves every weapon condition
+  // undecided — the pre-tags behaviour.
+  context?: AttackContext;
   // Reports whether this roll was a critical hit (and how many exploding-crit
   // repeats followed), so the damage half can inflate its dice. Re-rolling
   // reports the new verdict (including "not a crit").
@@ -208,18 +241,27 @@ function CheckControls({
   const {
     settings: { criticalsOnAllRolls, explodingCriticals },
   } = useSettings();
+  // Riders the weapon rules out (Archery on a greatsword, Reckless Attack's
+  // note on a bow) are dropped before anything else looks at them.
   const riders = useMemo(
-    () => ridersFor(character, isAttack ? "attack" : "check"),
-    [character, isAttack],
+    () =>
+      applicableRiders(
+        ridersFor(character, isAttack ? "attack" : "check"),
+        context,
+      ),
+    [character, isAttack, context],
   );
   const [result, setResult] = useState<ReturnType<typeof rollD20Check> | null>(
     null,
   );
   // Flat `bonus` riders fold into the modifier rather than the total — a d20
   // check's total can legitimately be negative, so `applyTotalRiders` (which
-  // floors at 0) is the wrong tool here. Unconditional ones always apply;
-  // conditional ones (Archery) wait for the player to tick them.
-  const { always, optional } = useMemo(() => flatBonusRiders(riders), [riders]);
+  // floors at 0) is the wrong tool here. Ones the weapon settles apply on their
+  // own (Archery, once the bow is tagged); the rest wait for a tick.
+  const { always, optional } = useMemo(
+    () => flatBonusRiders(riders, context),
+    [riders, context],
+  );
   const [chosenBonuses, setChosenBonuses] = useState<Set<string>>(new Set());
   const activeBonus = riderFlatBonus(
     [...always, ...optional.filter((r) => chosenBonuses.has(r.source))],
@@ -339,6 +381,7 @@ function EffectControls({
   damage,
   spell,
   save,
+  context = NO_CONTEXT,
   titled,
   critical = false,
   extraSets = 0,
@@ -350,6 +393,8 @@ function EffectControls({
   // Present on a save-based attack; used only to show what a successful save
   // leaves of the rolled damage.
   save?: SaveEffect;
+  // The weapon being attacked with, as the rider conditions see it.
+  context?: AttackContext;
   titled?: boolean;
   critical?: boolean;
   extraSets?: number;
@@ -371,11 +416,11 @@ function EffectControls({
   // declared alongside the to-hit roll, so they're excluded here (none exist
   // yet). The rest are declared on the hit, i.e. with the damage roll.
   const extras = useMemo(
-    () => extrasForAttack(character, damage, spell),
-    [character, damage, spell],
+    () => extrasForAttack(character, damage, spell, context),
+    [character, damage, spell, context],
   );
-  // Opt-in extras (Sneak Attack, Divine Smite) start unchecked; always-on ones
-  // (Rage damage) apply unconditionally. Keyed by source.
+  // Opt-in extras (Sneak Attack, Divine Smite, Rage) start unchecked; the ones
+  // the weapon's tags fully settle apply on their own. Keyed by source.
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const { dispatch } = useCharacter();
 
@@ -450,7 +495,10 @@ function EffectControls({
       ? { mode: criticalDamageMode, extraSets }
       : undefined;
   const rollDamageEffect = () => {
-    const damageRiders = ridersFor(character, "damage");
+    const damageRiders = applicableRiders(
+      ridersFor(character, "damage"),
+      context,
+    );
     setDamageResult(
       resolveDamage({
         character,
@@ -467,7 +515,8 @@ function EffectControls({
                 withBonus: smiteBonus,
               }
             : undefined,
-        applyTotals: (t) => applyTotalRiders(t, damageRiders, character),
+        applyTotals: (t) =>
+          applyTotalRiders(t, damageRiders, character, context),
       }),
     );
   };
@@ -537,9 +586,7 @@ function EffectControls({
               <span className="roll-total font-large">{healResult.total}</span>
               <span className="roll-part muted">
                 HP
-                {healResult.dice.length > 0
-                  ? ` — dice: ${healResult.dice.join(" + ")}`
-                  : ""}
+                {breakdown(healResult.total, healResult.dice)}
               </span>
             </div>
           )}
@@ -553,7 +600,7 @@ function EffectControls({
           </p>
           {extras.length > 0 && (
             <div className="column roll-extras">
-              {extras.map(({ source, rider }) => {
+              {extras.map(({ source, rider, optIn }) => {
                 const toggle = (checked: boolean) =>
                   setChosen((prev) => {
                     const next = new Set(prev);
@@ -632,7 +679,7 @@ function EffectControls({
                   );
                 }
                 const label = `${source} (+${formatCustomFormula(rider.amount, character, false)}${rider.oncePerTurn ? ", once/turn" : ""})`;
-                return rider.optional ? (
+                return optIn ? (
                   <div key={source} className="column roll-extra">
                     <label className="row roll-extra-toggle">
                       <input
@@ -696,18 +743,32 @@ function EffectControls({
                   {damageOnSave(damageResult.total, save.onSuccess)}
                 </span>
               )}
-              {damageResult.parts.map((p) => (
-                <span key={p.damageType} className="roll-part">
-                  {p.total} {p.damageType}
-                  {p.dice.length > 1 ? ` (${p.dice.join(" + ")})` : ""}
-                </span>
-              ))}
-              {damageResult.extras.map((e) => (
-                <span key={e.source} className="roll-part">
-                  +{e.total} {e.damageType ?? "(weapon type)"} — {e.source}
-                  {e.dice.length > 1 ? ` (${e.dice.join(" + ")})` : ""}
-                </span>
-              ))}
+              {damageResult.parts.map((p) => {
+                const parts = formatRollBreakdown(
+                  p.total,
+                  p.dice,
+                  damageResult.critical,
+                );
+                return (
+                  <span key={p.damageType} className="roll-part">
+                    {p.total} {p.damageType}
+                    {parts ? ` (${parts})` : ""}
+                  </span>
+                );
+              })}
+              {damageResult.extras.map((e) => {
+                const parts = formatRollBreakdown(
+                  e.total,
+                  e.dice,
+                  damageResult.critical,
+                );
+                return (
+                  <span key={e.source} className="roll-part">
+                    +{e.total} {e.damageType ?? "(weapon type)"} — {e.source}
+                    {parts ? ` (${parts})` : ""}
+                  </span>
+                );
+              })}
               {smiteActive &&
                 (smiteSpent ? (
                   <span className="roll-part muted">
@@ -805,7 +866,7 @@ function HitDieControls({
         <div className="column roll-result">
           <span className="roll-total font-large">{healing}</span>
           <span className="roll-part muted">
-            HP — dice: {result.dice.join(" + ")}
+            HP{breakdown(result.total, result.dice)}
             {healing > result.total && " (Durable minimum)"}
           </span>
           {result.applied !== null ? (
@@ -854,9 +915,9 @@ function FormulaControls({
       {result && (
         <div className="column roll-result">
           <span className="roll-total font-large">{result.total}</span>
-          {result.dice.length > 0 && (
+          {formatRollBreakdown(result.total, result.dice) && (
             <span className="roll-part muted">
-              dice: {result.dice.join(" + ")}
+              {formatRollBreakdown(result.total, result.dice)}
             </span>
           )}
         </div>

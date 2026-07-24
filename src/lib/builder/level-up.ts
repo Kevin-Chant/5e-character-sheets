@@ -1,5 +1,6 @@
-import { cloneDeep } from "lodash";
+import { clamp, cloneDeep } from "lodash";
 import {
+  ArmorType,
   HIT_DICE,
   OfficialClass,
   SkillName,
@@ -8,7 +9,16 @@ import {
 } from "src/lib/data/data-definitions";
 import { Character, IClass, TextComponent } from "src/lib/types";
 import { randomUUID } from "src/lib/browser";
-import { averageDie, getHitDice, getHpFormula, modifier } from "src/lib/rules";
+import {
+  averageDie,
+  dieFaces,
+  getHitDice,
+  getHpFormula,
+  hpAdjustmentOf,
+  modifier,
+  statCapFor,
+  withHpAdjustment,
+} from "src/lib/rules";
 
 import {
   applyClassLevel,
@@ -111,6 +121,12 @@ export interface LevelUpState extends LevelChoices {
   isNewMulticlass: boolean;
   // ASI vs feat at an ASI level.
   advancement: "asi" | "feat";
+  // How this level's hit points are determined. "average" is the fixed value
+  // most tables use by default; "roll" takes the player's rolled `hpRoll`.
+  hpMethod: "average" | "roll";
+  // The die result the player rolled, when `hpMethod` is "roll". Clamped to the
+  // hit die's faces on apply — a typo'd 40 on a d8 is a typo, not a house rule.
+  hpRoll?: number;
   // Ability-score deltas (an ASI spends +2 total). Keyed by stat.
   asi: Partial<Record<StatKey, number>>;
   featIndex?: string;
@@ -147,6 +163,7 @@ export function defaultLevelUpState(character: Character): LevelUpState {
     className: primary,
     isNewMulticlass: false,
     advancement: "asi",
+    hpMethod: "average",
     asi: {},
     ...emptyFeatChoices(),
     newSpells: {},
@@ -207,11 +224,24 @@ export function applyLevelUp(
   // 3. Recompute derived numbers. HP/hit dice/PB/spell slots all read from the
   //    updated class list, so we just refresh the stored formulas + bump the
   //    current HP by this level's average gain.
-  char.maxHp = getHpFormula(char);
-  char.totalHitDice = getHitDice(char);
   const gainedDie =
     HIT_DICE[asOfficialClass(state.className) ?? OfficialClass.Fighter];
-  char.currHp += Math.max(1, averageDie(gainedDie, Math.ceil) + conMod);
+  const average = averageDie(gainedDie, Math.ceil);
+  // A rolled result is carried as a flat term on the HP formula, since the
+  // formula itself is average-based and gets rebuilt from the class list here.
+  // The running total from earlier rolls is read back off the old formula first
+  // — rebuilding without it would silently undo every previous roll.
+  const priorAdjustment = hpAdjustmentOf(char.maxHp);
+  const rolled =
+    state.hpMethod === "roll"
+      ? clamp(Math.floor(state.hpRoll ?? average), 1, dieFaces(gainedDie))
+      : average;
+  char.maxHp = withHpAdjustment(
+    getHpFormula(char),
+    priorAdjustment + (rolled - average),
+  );
+  char.totalHitDice = getHitDice(char);
+  char.currHp += Math.max(1, rolled + conMod);
 
   // 4. Ensure the class is registered for spellcasting (new caster multiclass).
   if (
@@ -226,8 +256,16 @@ export function applyLevelUp(
 
   // 5. Ability Score Improvement or feat.
   if (state.advancement === "asi") {
-    for (const [stat, delta] of Object.entries(state.asi))
-      char.stats[stat as StatKey] += delta ?? 0;
+    // Capped at 20 — or higher where a feature says so (see `statCapFor`). The
+    // cap is applied here as well as in the picker so a stale state or a raise
+    // that lands in the same level-up can't push a score past its ceiling.
+    for (const [stat, delta] of Object.entries(state.asi)) {
+      const key = stat as StatKey;
+      char.stats[key] = Math.min(
+        char.stats[key] + (delta ?? 0),
+        statCapFor(char, key),
+      );
+    }
   } else if (state.featIndex) {
     const feat = getFeat(state.featIndex);
     if (feat) applyFeat(char, feat, state);
@@ -251,4 +289,117 @@ export function applyLevelUp(
       char.features.push(text(f.title.trim(), f.detail.trim()));
 
   return char;
+}
+
+// ---------------------------------------------------------------------------
+// What the level actually gave you.
+//
+// The review step used to list only the *choices you made* — class, subclass,
+// ASI, feat — which is the smaller half of a level-up. Everything `applyLevelUp`
+// grants on your behalf (feature prose, a new pool, a bigger Rage die, spell
+// slots, expertise) went by unseen, so "Confirm level up" was a leap.
+//
+// It's a diff of the before/after character rather than a second reading of the
+// grant tables, which is the point: `applyClassLevel` grows, subclasses get
+// added, pools re-derive — and a diff reports all of it without being taught
+// about any of it. The cost is that it describes *outcomes*, not rules, which is
+// exactly what a review screen wants.
+// ---------------------------------------------------------------------------
+
+export interface LevelUpSummary {
+  /** Feature prose that wasn't on the sheet before. */
+  features: string[];
+  /** Limited-use pools gained, e.g. "Rage (3 uses)". */
+  abilities: string[];
+  /** Pools that were already there but grew or changed. */
+  changedAbilities: string[];
+  /** Spells learned this level, by name. */
+  spells: string[];
+  /** New proficiencies, expertise and languages, already labelled. */
+  proficiencies: string[];
+  /** Attacks the level added (a monk's re-derived Unarmed Strike). */
+  attacks: string[];
+  /** Hit points gained. */
+  hp: number;
+}
+
+const titlesOf = (items: { title: string }[]) =>
+  items.map((i) => i.title.trim());
+
+// A pool's user-visible identity: title plus size, so a Rage that went 2 → 3
+// reads as a change rather than being silently equal.
+const poolLabel = (a: Character["limitedUseAbilities"][number]) =>
+  `${a.info.title.trim()}`;
+
+export function summarizeLevelUp(
+  before: Character,
+  after: Character,
+): LevelUpSummary {
+  const hadFeature = new Set(titlesOf(before.features));
+  const features = titlesOf(after.features).filter((t) => !hadFeature.has(t));
+
+  const beforePools = new Map(
+    before.limitedUseAbilities.map((a) => [poolLabel(a), a] as const),
+  );
+  const abilities: string[] = [];
+  const changedAbilities: string[] = [];
+  for (const a of after.limitedUseAbilities) {
+    const label = poolLabel(a);
+    const prior = beforePools.get(label);
+    if (!prior) abilities.push(label);
+    // `maxUses` is a formula, so compare the stored expression: a pool whose
+    // size re-derived (Rage 2 → 3, superiority dice d8 → d10) shows up here.
+    else if (JSON.stringify(prior.maxUses) !== JSON.stringify(a.maxUses))
+      changedAbilities.push(label);
+  }
+
+  const hadSpell = new Set(
+    Object.values(before.spells).flatMap((list) =>
+      (list ?? []).map((s) => s.info.title.trim()),
+    ),
+  );
+  const spells = Object.values(after.spells)
+    .flatMap((list) => (list ?? []).map((s) => s.info.title.trim()))
+    .filter((t) => !hadSpell.has(t));
+
+  const proficiencies: string[] = [];
+  const skills = after.proficiencies.skills;
+  for (const skill of Object.keys(skills) as (keyof typeof skills)[]) {
+    if (skills[skill] && !before.proficiencies.skills[skill])
+      proficiencies.push(skill);
+    if (
+      after.proficiencies.expertise[skill] &&
+      !before.proficiencies.expertise[skill]
+    )
+      proficiencies.push(`${skill} (expertise)`);
+  }
+  // The rest of `otherProficiencies` is four differently-shaped lists; flatten
+  // each to labelled strings so the diff is one set operation, not four.
+  const flattenOther = (p: Character["otherProficiencies"]): string[] => [
+    ...p.languages.map((l) => `${l} (language)`),
+    ...(Object.keys(p.armor) as ArmorType[])
+      .filter((a) => p.armor[a])
+      .map((a) => `${a} armor`),
+    ...p.weapons,
+    ...p.toolsAndOther.map((t) => t.title.trim()),
+  ];
+  const hadOther = new Set(flattenOther(before.otherProficiencies));
+  proficiencies.push(
+    ...flattenOther(after.otherProficiencies).filter((p) => !hadOther.has(p)),
+  );
+
+  const hadAttack = new Set(before.attacks.map((a) => a.name.trim()));
+  const attacks = after.attacks
+    .map((a) => a.name.trim())
+    .filter((n) => !hadAttack.has(n));
+
+  return {
+    features,
+    abilities,
+    changedAbilities,
+    spells,
+    proficiencies,
+    attacks,
+    hp: after.currHp - before.currHp,
+  };
 }

@@ -1,3 +1,4 @@
+import classNames from "classnames";
 import React from "react";
 import { FIELD, Operation, StatKey } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
@@ -12,7 +13,26 @@ import { getFieldValue } from "src/lib/fields";
 import { FaPencil } from "react-icons/fa6";
 import { useSave } from "./modals/modal-container";
 import { fromStack, updateAt } from "src/lib/cursor";
-import { Attack, CustomFormula, SaveEffect } from "src/lib/types";
+import { Attack, AttackTag, CustomFormula, SaveEffect } from "src/lib/types";
+
+// The weapon properties the roll dialog reads to decide which features apply
+// (see `mechanics/conditions.ts`). Offered as chips rather than derived, because
+// a hand-authored attack has no preset to derive from — and leaving them all off
+// is a real answer: an attack with no tags stays "unknown", so every conditional
+// feature is offered as a tick, exactly as it was before tags existed.
+const TAG_LABELS: [AttackTag, string][] = [
+  ["melee", "Melee"],
+  ["ranged", "Ranged"],
+  ["thrown", "Thrown"],
+  ["finesse", "Finesse"],
+  ["two-handed", "Two-handed"],
+  ["versatile", "Versatile"],
+  ["heavy", "Heavy"],
+  ["light", "Light"],
+  ["reach", "Reach"],
+  ["loading", "Loading"],
+  ["ammunition", "Ammunition"],
+];
 
 // What switching an attack back to "to hit" seeds when it has no bonus yet —
 // the same STR + proficiency a melee weapon preset builds.
@@ -97,6 +117,17 @@ export default function EditAttack() {
             ...(longNum === undefined ? {} : { long: longNum }),
           };
     dispatch(updateAt(attackCursor.k("range"), value));
+  };
+
+  // Whole-value again: toggling a chip rewrites the list. Emptying it clears
+  // the field entirely rather than storing `[]`, so "no tags" and "unknown" stay
+  // the same state — an attack that says nothing about itself.
+  const toggleTag = (tag: AttackTag) => {
+    const current: AttackTag[] = attack.tags ?? [];
+    const next = current.includes(tag)
+      ? current.filter((t) => t !== tag)
+      : [...current, tag];
+    dispatch(updateAt(attackCursor.k("tags"), next.length ? next : undefined));
   };
 
   const onSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -248,6 +279,32 @@ export default function EditAttack() {
             }
           />
         </label>
+      </fieldset>
+      <fieldset className="attack-tags">
+        <legend className="field-label">Weapon properties</legend>
+        <p className="text-muted font-small">
+          Used to work out which of your features apply to this attack — Archery
+          on a ranged weapon, Rage on a melee Strength hit. Leave blank and
+          you&apos;ll be asked each time instead.
+        </p>
+        <div className="builder-chips">
+          {TAG_LABELS.map(([tag, label]) => (
+            <button
+              key={tag}
+              type="button"
+              className={classNames("builder-chip", {
+                selected: attack.tags?.includes(tag),
+              })}
+              aria-pressed={!!attack.tags?.includes(tag)}
+              onClick={(e) => {
+                e.preventDefault();
+                toggleTag(tag);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </fieldset>
       <button className="btn-primary" onClick={onSubmit}>
         Save

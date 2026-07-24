@@ -178,17 +178,27 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   },
 
   // Great Weapon Fighting style: reroll 1s and 2s on damage dice once, keeping
-  // the new roll. Fidelity gap: RAW requires a two-handed/versatile melee
-  // weapon; the sheet applies it to all damage rolls.
+  // the new roll. RAW wants a two-handed or versatile melee weapon, which the
+  // attack's tags now settle — a versatile weapon swung one-handed is correctly
+  // excluded, since `buildAttackFromPreset` only tags the (2H) variant.
   "great weapon fighting": {
     riders: [
-      { appliesTo: ["damage"], rider: { rider: "rerollBelow", threshold: 2 } },
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "rerollBelow",
+          threshold: 2,
+          requires: { tags: ["melee", "two-handed"] },
+        },
+      },
     ],
   },
 
-  // Archery style: +2 to attack rolls with ranged weapons. Opt-in rather than
-  // folded silently — the sheet doesn't model whether a given attack is with a
-  // ranged weapon (a thrown melee weapon has a range too), so the player says.
+  // Archery style: +2 to attack rolls with ranged weapons. Now applies on its
+  // own for a tagged attack, and falls back to an opt-in checkbox on an
+  // untagged one. A thrown *melee* weapon is excluded by the `ranged` tag
+  // alone — it's tagged `melee`+`thrown` — which is also RAW: Archery is a
+  // property of the weapon, not of the throw.
   archery: {
     riders: [
       {
@@ -196,8 +206,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
         rider: {
           rider: "bonus",
           value: 2,
-          optional: true,
           note: "ranged weapons only",
+          requires: { tags: ["ranged"] },
         },
       },
     ],
@@ -206,7 +216,9 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   // Dueling style: +2 damage with a one-handed melee weapon while no other
   // weapon is held. An `extraDamage` rider rather than a `bonus` one because
   // that's the shape the damage section already offers opt-in — and a flat
-  // amount correctly stays flat on a crit (only dice double).
+  // amount correctly stays flat on a crit (only dice double). Tags rule out the
+  // two-handed case; "no other weapon held" stays the player's call, so it
+  // remains `optional`.
   dueling: {
     riders: [
       {
@@ -217,6 +229,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
           declareAt: "on-hit",
           optional: true,
           note: "one-handed melee weapon, no other weapon held",
+          requires: { tags: ["melee"], without: ["two-handed"] },
         },
       },
     ],
@@ -265,9 +278,10 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Reckless Attack (barbarian 2): advisory, since it applies only to melee
-  // Strength attacks and hands attackers advantage against you in return —
-  // conditions the roll dialog can't see, so it's surfaced as a note.
+  // Reckless Attack (barbarian 2): still advisory — it's a choice you make on
+  // your turn, and it hands attackers advantage against you in return, which no
+  // sheet should quietly opt you into. The `requires` clause is what stops the
+  // note appearing on a longbow shot, where it isn't even an option.
   "reckless attack": {
     riders: [
       {
@@ -275,6 +289,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
         rider: {
           rider: "advantage",
           note: "Advantage on melee Strength attacks this turn — but attack rolls against you have advantage until your next turn.",
+          requires: { tags: ["melee"], ability: [StatKey.str] },
         },
       },
     ],
@@ -836,12 +851,19 @@ export function classDamageRiders(character: Character): ActiveRider[] {
         optional: true,
         oncePerTurn: true,
         note: "Finesse or ranged weapon, with advantage on the attack or an ally within 5 ft of the target (and not disadvantage).",
+        // The weapon half is decidable; the advantage/ally half never is, so it
+        // stays opt-in — the condition only hides it on a weapon that could
+        // never qualify (a greatsword).
+        requires: { anyTags: ["finesse", "ranged"] },
       },
     });
 
-  // Rage damage (barbarian): +2/+3/+4 by level, always applied on qualifying
-  // hits. Advisory note for the conditions the sheet can't see (raging, and a
-  // melee weapon attack using Strength).
+  // Rage damage (barbarian): +2/+3/+4 by level. The weapon half of the
+  // condition (melee, Strength, not thrown) is decidable from the attack's tags
+  // and hides this entirely on a bow; **whether you are raging is not** — it's a
+  // resource you spend, and the sheet tracks uses, not an active state (see the
+  // conditions/VTT-layer boundary). So it's `optional`: offered, unticked, on
+  // the attacks it could apply to, rather than silently added to every hit.
   const barb = levelOf(OfficialClass.Barbarian);
   if (barb > 0)
     out.push({
@@ -850,7 +872,12 @@ export function classDamageRiders(character: Character): ActiveRider[] {
         rider: "extraDamage",
         amount: barb >= 16 ? 4 : barb >= 9 ? 3 : 2,
         declareAt: "on-hit",
-        note: "While raging, on melee weapon attacks using Strength.",
+        optional: true,
+        note: "While raging.",
+        // `thrown` isn't excluded: a handaxe is tagged melee+thrown because it
+        // *can* be thrown, and one sheet entry covers both uses — which swing
+        // this was is exactly the sort of thing the opt-in tick already asks.
+        requires: { tags: ["melee"], ability: [StatKey.str] },
       },
     });
 
@@ -869,6 +896,7 @@ export function classDamageRiders(character: Character): ActiveRider[] {
         declareAt: "on-hit",
         optional: true,
         note: "On a melee weapon hit. Expends a spell slot.",
+        requires: { tags: ["melee"] },
         slot: {
           minLevel: 1,
           die: StandardDie.d8,

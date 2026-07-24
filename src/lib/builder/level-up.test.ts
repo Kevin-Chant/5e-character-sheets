@@ -14,12 +14,14 @@ import {
   defaultLevelUpState,
   isCasterClass,
   spellListFilterFor,
+  summarizeLevelUp,
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import { isAsiLevel, subclassDueAt } from "src/lib/builder/class-features";
 import { chosenIn, newOptionPicksAt } from "src/lib/builder/chosen-options";
 import { expertiseDueAt } from "src/lib/builder/class-features";
-import { getPB } from "src/lib/rules";
+import { getPB, hpAdjustmentOf, statCapFor } from "src/lib/rules";
+import { FEATS } from "src/lib/builder/feats";
 import { calculateCustomFormula } from "src/lib/formula";
 import { PB } from "src/lib/data/data-definitions";
 
@@ -131,6 +133,98 @@ describe("applyLevelUp — multiclassing", () => {
     );
     // Multiclass hit dice: one d10 + one d6.
     expect(leveled.totalHitDice).toEqual({ d10: 1, d6: 1 });
+  });
+
+  // PHB p.163: joining a class grants a defined subset of its proficiencies,
+  // never the full level-1 list.
+  describe("proficiencies", () => {
+    const multiclassInto = (
+      from: string,
+      className: string,
+      extra: Record<string, unknown> = {},
+    ) => {
+      const char = level1(from);
+      return applyLevelUp(char, {
+        ...defaultLevelUpState(char),
+        className,
+        isNewMulticlass: true,
+        ...extra,
+      });
+    };
+
+    it("grants the multiclass armor subset, not the class's full list", () => {
+      const leveled = multiclassInto("wizard", "Fighter");
+      expect(leveled.otherProficiencies.armor).toMatchObject({
+        [ArmorType.Light]: true,
+        [ArmorType.Medium]: true,
+        [ArmorType.Shields]: true,
+        // A fighter starting at level 1 gets heavy armor; multiclassing doesn't.
+        [ArmorType.Heavy]: false,
+      });
+      expect(leveled.otherProficiencies.weapons).toEqual(
+        expect.arrayContaining(["Simple Weapons", "Martial Weapons"]),
+      );
+    });
+
+    it("grants nothing at all for wizard and sorcerer", () => {
+      const char = level1("fighter");
+      const leveled = applyLevelUp(char, {
+        ...defaultLevelUpState(char),
+        className: "Wizard",
+        isNewMulticlass: true,
+      });
+      expect(leveled.otherProficiencies.armor).toEqual(
+        char.otherProficiencies.armor,
+      );
+      expect(leveled.otherProficiencies.weapons).toEqual(
+        char.otherProficiencies.weapons,
+      );
+    });
+
+    it("grants the rogue's tools and one chosen skill from its list", () => {
+      const leveled = multiclassInto("wizard", "Rogue", {
+        multiclassSkills: [SkillName.Stealth],
+      });
+      expect(leveled.proficiencies.skills[SkillName.Stealth]).toBe(true);
+      expect(
+        leveled.otherProficiencies.toolsAndOther.map((t) => t.title),
+      ).toContain("Thieves' Tools");
+      expect(leveled.otherProficiencies.armor[ArmorType.Medium]).toBe(false);
+    });
+
+    it("ignores skill picks the class's list doesn't offer, and over-picks", () => {
+      const leveled = multiclassInto("wizard", "Rogue", {
+        // Arcana isn't on the rogue list; two picks where one is allowed.
+        multiclassSkills: [
+          SkillName.Arcana,
+          SkillName.Stealth,
+          SkillName.Acrobatics,
+        ],
+      });
+      // Unpicked skills are simply absent from the map, not stored as false.
+      expect(leveled.proficiencies.skills[SkillName.Arcana]).toBeFalsy();
+      expect(leveled.proficiencies.skills[SkillName.Stealth]).toBe(true);
+      expect(leveled.proficiencies.skills[SkillName.Acrobatics]).toBeFalsy();
+    });
+
+    it("caps a multiclass bard at one instrument, not the class's three", () => {
+      const leveled = multiclassInto("fighter", "Bard", {
+        toolChoices: ["Lute", "Drum", "Flute"],
+      });
+      const tools = leveled.otherProficiencies.toolsAndOther.map(
+        (t) => t.title,
+      );
+      expect(tools).toContain("Lute");
+      expect(tools).not.toContain("Drum");
+      expect(tools).not.toContain("Flute");
+    });
+
+    it("leaves creation's full level-1 grant alone", () => {
+      // The same fighter built as a *first* class keeps heavy armor.
+      expect(level1("fighter").otherProficiencies.armor[ArmorType.Heavy]).toBe(
+        true,
+      );
+    });
   });
 });
 
@@ -385,5 +479,182 @@ describe("level-up choices added by the coverage audit", () => {
       chosenOptions: { draconicAncestry: ["White (cold)"] },
     });
     expect(leveled.damageModifiers.resistances).toContain(DamageType.Cold);
+  });
+});
+
+describe("summarizeLevelUp", () => {
+  // The review step's "You gain" list. It's a diff of the applied character
+  // rather than a second reading of the grant tables, so these assert the shape
+  // of what a player is told, not which table it came from.
+  const levelTo = (
+    char: Parameters<typeof applyLevelUp>[0],
+    className: string,
+  ) => applyLevelUp(char, { ...defaultLevelUpState(char), className });
+
+  it("reports the hit points the level added", () => {
+    const before = level1("fighter");
+    const after = levelTo(before, "Fighter");
+    expect(summarizeLevelUp(before, after).hp).toBe(
+      after.currHp - before.currHp,
+    );
+    expect(summarizeLevelUp(before, after).hp).toBeGreaterThan(0);
+  });
+
+  it("names the features a level grants, and nothing already on the sheet", () => {
+    const before = level1("fighter");
+    // Fighter 2 grants Action Surge — a pool, so it lands in `abilities`.
+    const after = levelTo(before, "Fighter");
+    const summary = summarizeLevelUp(before, after);
+    const named = [...summary.features, ...summary.abilities];
+    expect(named.length).toBeGreaterThan(0);
+    // Level-1 features (Second Wind, Fighting Style) were already there.
+    expect(named).not.toContain("Second Wind");
+  });
+
+  it("reports a pool that grew rather than listing it as new", () => {
+    const l1 = level1("barbarian");
+    // Barbarian 3 → Rage count is unchanged; 6 bumps it. Walk up to a level
+    // where the pool re-derives and check it reads as changed, not new.
+    let char = l1;
+    for (let i = 0; i < 5; i++) char = levelTo(char, "Barbarian");
+    const summary = summarizeLevelUp(l1, char);
+    expect(summary.abilities).not.toContain("Rage");
+    expect(summary.changedAbilities).toContain("Rage");
+  });
+
+  it("is empty-ish for a level that grants nothing but hit points", () => {
+    // Fighter 5 → 6 is an ASI level with no new feature prose of its own.
+    let char = level1("fighter");
+    for (let i = 0; i < 4; i++) char = levelTo(char, "Fighter");
+    const summary = summarizeLevelUp(char, levelTo(char, "Fighter"));
+    expect(summary.hp).toBeGreaterThan(0);
+    expect(summary.spells).toEqual([]);
+  });
+
+  it("lists newly learned spells by name", () => {
+    const before = level1("wizard");
+    const after = applyLevelUp(before, {
+      ...defaultLevelUpState(before),
+      className: "Wizard",
+      newSpells: { 1: ["magic-missile"] },
+    });
+    expect(summarizeLevelUp(before, after).spells).toContain("Magic Missile");
+  });
+});
+
+describe("applyLevelUp — the 20 cap on ability scores", () => {
+  const at = (str: number) => {
+    const char = level1("fighter");
+    char.stats.str = str;
+    return char;
+  };
+
+  it("won't take a score past 20", () => {
+    const char = at(19);
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      advancement: "asi",
+      asi: { [StatKey.str]: 2 },
+    });
+    expect(leveled.stats.str).toBe(20);
+  });
+
+  it("honors a feature that raises the ceiling", () => {
+    const char = at(22);
+    // A barbarian 20's Primal Champion puts STR and CON's maximum at 24.
+    char.features.push({ title: "Primal Champion", titleFormulas: [] });
+    expect(statCapFor(char, StatKey.str)).toBe(24);
+    expect(statCapFor(char, StatKey.dex)).toBe(20);
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      advancement: "asi",
+      asi: { [StatKey.str]: 2 },
+    });
+    expect(leveled.stats.str).toBe(24);
+  });
+
+  it("caps a half-feat's increase too", () => {
+    const char = at(20);
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      advancement: "feat",
+      // Athlete is a half-feat offering +1 STR.
+      featIndex: FEATS.find((f) => f.name === "Athlete")?.index,
+      featAbilityChoice: StatKey.str,
+    });
+    expect(leveled.stats.str).toBe(20);
+  });
+});
+
+describe("applyLevelUp — rolled hit points", () => {
+  // The fixture rolls CON 14 (+2) and levels a d10 fighter, average 6.
+  const fighter = () => level1("fighter");
+
+  it("uses the fixed average by default", () => {
+    const char = fighter();
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+    });
+    expect(leveled.currHp).toBe(char.currHp + 8); // 6 average + 2 CON
+    expect(hpAdjustmentOf(leveled.maxHp)).toBe(0);
+  });
+
+  it("uses the rolled value and carries the difference on max HP", () => {
+    const char = fighter();
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      hpMethod: "roll",
+      hpRoll: 9,
+    });
+    expect(leveled.currHp).toBe(char.currHp + 11); // 9 rolled + 2 CON
+    // Max HP is average-derived, so the +3 over average rides on top.
+    expect(hpAdjustmentOf(leveled.maxHp)).toBe(3);
+  });
+
+  it("accumulates adjustments across levels instead of wiping them", () => {
+    const char = fighter();
+    const once = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      hpMethod: "roll",
+      hpRoll: 10,
+    });
+    const twice = applyLevelUp(once, {
+      ...defaultLevelUpState(once),
+      className: "Fighter",
+      hpMethod: "roll",
+      hpRoll: 1,
+    });
+    // +4 over average, then -5 under it.
+    expect(hpAdjustmentOf(once.maxHp)).toBe(4);
+    expect(hpAdjustmentOf(twice.maxHp)).toBe(-1);
+  });
+
+  it("clamps a roll to the hit die's faces", () => {
+    const char = fighter();
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      hpMethod: "roll",
+      hpRoll: 40, // a typo, not a house rule — a d10 caps at 10
+    });
+    expect(leveled.currHp).toBe(char.currHp + 12);
+  });
+
+  it("never gains less than 1 HP, even on a bad roll with a CON penalty", () => {
+    const char = fighter();
+    char.stats.con = 6; // -2
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+      hpMethod: "roll",
+      hpRoll: 1,
+    });
+    expect(leveled.currHp).toBe(char.currHp + 1);
   });
 });

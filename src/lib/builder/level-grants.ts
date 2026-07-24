@@ -25,6 +25,11 @@ import {
   OptionGroup,
   resistancesFromOptions,
 } from "src/lib/builder/chosen-options";
+import {
+  multiclassProficienciesFor,
+  multiclassSkillOptions,
+  multiclassToolOptions,
+} from "src/lib/builder/multiclass";
 import { getSubclassByName } from "src/lib/builder/subclasses";
 import { addSrdSpell } from "src/lib/builder/grant-spells";
 import { SrdSubclass } from "src/lib/builder/types";
@@ -61,6 +66,11 @@ export interface LevelChoices {
   invocations: string[];
   // Picks from the class's closed option lists, keyed by category.
   chosenOptions: Record<string, string[]>;
+  // Skills picked from a multiclass proficiency grant (bard/ranger/rogue).
+  // Only the level-up wizard ever fills this: at creation the first class is
+  // never a multiclass, and its full skill allowance is part of the
+  // proficiency aggregate `buildCharacter` owns.
+  multiclassSkills: SkillName[];
 }
 
 export const emptyLevelChoices = (): LevelChoices => ({
@@ -68,6 +78,7 @@ export const emptyLevelChoices = (): LevelChoices => ({
   toolChoices: [],
   invocations: [],
   chosenOptions: {},
+  multiclassSkills: [],
 });
 
 const text = (title: string, detail?: string): TextComponent =>
@@ -123,6 +134,21 @@ function applySubclassGrant(
     addSrdSpell(char, index, className);
 }
 
+// The tool picks a class level offers, narrowed to the multiclass allowance
+// when the class is being joined rather than started in. Shared by the apply
+// and read sides so the wizard can't offer three instruments and then grant one
+// (or the reverse).
+function multiclassAwareToolChoices(
+  className: string,
+  level: number,
+  isMulticlassEntry: boolean,
+): { choose: number; from: string[] } | undefined {
+  if (!isMulticlassEntry) return toolChoicesFor(className, level);
+  const choose = multiclassProficienciesFor(className).chooseTools;
+  if (choose === 0) return undefined;
+  return { choose, from: multiclassToolOptions(className) };
+}
+
 /**
  * Apply everything reaching `klass.level` in `klass.name` grants.
  *
@@ -142,6 +168,39 @@ export function applyClassLevel(
 ): void {
   const className = klass.name;
   const level = klass.level;
+  // Reaching level 1 in a class that isn't the character's first is a
+  // multiclass, and RAW grants a much smaller proficiency subset than the
+  // class's own level-1 list. Derived from the class list rather than passed in
+  // by the caller, so neither wizard can forget to say so: at creation
+  // `char.class` holds exactly the class being built.
+  const isMulticlassEntry = level === 1 && char.class[0]?.id !== klass.id;
+
+  // 0. Multiclass proficiencies (PHB p.163). Runs ahead of the numbered grants
+  //    because expertise (step 6) may double a skill granted right here — a
+  //    rogue joined at 3rd picks a skill *and* two expertises in one step.
+  if (isMulticlassEntry) {
+    const mc = multiclassProficienciesFor(className);
+    grantArmor(char.otherProficiencies.armor, mc.armor);
+    char.otherProficiencies.weapons = uniq([
+      ...char.otherProficiencies.weapons,
+      ...mc.weapons,
+    ]);
+    const knownTools = new Set(
+      char.otherProficiencies.toolsAndOther.map((t) =>
+        t.title.trim().toLowerCase(),
+      ),
+    );
+    for (const t of mc.tools)
+      if (!knownTools.has(t.trim().toLowerCase()))
+        char.otherProficiencies.toolsAndOther.push(text(t));
+    if (mc.chooseSkills > 0) {
+      const options = multiclassSkillOptions(className);
+      for (const skill of choices.multiclassSkills
+        .filter((s) => options.includes(s))
+        .slice(0, mc.chooseSkills))
+        char.proficiencies.skills[skill] = true;
+    }
+  }
 
   // 1. Subclass, and its grants, at the level it's chosen.
   if (choices.subclass) {
@@ -194,12 +253,18 @@ export function applyClassLevel(
       if (char.proficiencies.skills[skill])
         char.proficiencies.expertise[skill] = true;
 
-  // 7. Tool proficiencies chosen from the class's list.
-  const offeredTools = toolChoicesFor(className, level);
+  // 7. Tool proficiencies chosen from the class's list. A multiclass entry hits
+  //    this table too (it's keyed to level 1), but its allowance is the smaller
+  //    multiclass one — a bard joined at 3rd brings one instrument, not three.
+  const offeredTools = multiclassAwareToolChoices(
+    className,
+    level,
+    isMulticlassEntry,
+  );
   if (offeredTools) {
-    const picked = choices.toolChoices.filter((t) =>
-      offeredTools.from.includes(t),
-    );
+    const picked = choices.toolChoices
+      .filter((t) => offeredTools.from.includes(t))
+      .slice(0, offeredTools.choose);
     const known = new Set(
       char.otherProficiencies.toolsAndOther.map((t) =>
         t.title.trim().toLowerCase(),
@@ -283,6 +348,9 @@ export interface LevelGrants {
   toolChoices?: { choose: number; from: string[] };
   // Closed option lists with how many *new* picks this level allows.
   optionPicks: { group: OptionGroup; count: number }[];
+  // Skill picks owed by a multiclass proficiency grant, with the list they come
+  // from. Absent unless this level is a multiclass entry.
+  multiclassSkills?: { choose: number; from: SkillName[] };
 }
 
 // Everything reaching `level` in `className` offers the player. `subclass` is
@@ -292,7 +360,11 @@ export function grantsAt(
   className: string,
   level: number,
   subclass?: string,
+  isMulticlassEntry = false,
 ): LevelGrants {
+  const mcSkills = isMulticlassEntry
+    ? multiclassProficienciesFor(className).chooseSkills
+    : 0;
   return {
     subclassDue: subclassDueAt(className, level),
     asiDue: isAsiLevel(className, level),
@@ -300,8 +372,18 @@ export function grantsAt(
     expertise: expertiseDueAt(className, level),
     invocations:
       className === OfficialClass.Warlock ? newInvocationsAt(level) : 0,
-    toolChoices: toolChoicesFor(className, level),
+    toolChoices: multiclassAwareToolChoices(
+      className,
+      level,
+      isMulticlassEntry,
+    ),
     optionPicks: newOptionPicksAt(className, level, subclass),
+    ...(mcSkills > 0 && {
+      multiclassSkills: {
+        choose: mcSkills,
+        from: multiclassSkillOptions(className),
+      },
+    }),
   };
 }
 
@@ -312,4 +394,5 @@ export const hasFeatureChoices = (g: LevelGrants): boolean =>
   g.invocations > 0 ||
   g.expertise > 0 ||
   !!g.toolChoices ||
+  !!g.multiclassSkills ||
   g.optionPicks.length > 0;

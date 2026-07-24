@@ -12,7 +12,12 @@ import {
   searchSrdSpells,
   SrdSpell,
 } from "src/lib/spells/srd-spells";
-import { ChipMultiSelect, Field, STAT_LABEL } from "./builder-common";
+import {
+  ChipMultiSelect,
+  Field,
+  SingleChoice,
+  STAT_LABEL,
+} from "./builder-common";
 
 // Domain-aware pickers for the two wizards — the widgets that know about
 // spells, feats, languages and class option lists. Split from
@@ -128,6 +133,7 @@ export function ChosenOptionPicker({
 }) {
   const known = new Set(alreadyKnown);
   const atLimit = picked.length >= count;
+  const offered = group.options.filter((option) => !known.has(option.name));
   return (
     <Field
       label={group.label}
@@ -136,10 +142,25 @@ export function ChosenOptionPicker({
       {group.summary && (
         <p className="text-muted builder-hint">{group.summary}</p>
       )}
-      <div className="column invocation-options">
-        {group.options
-          .filter((option) => !known.has(option.name))
-          .map((option) => {
+      {/* Picking one of many is a single choice, so it gets the shared widget
+          that decides between radios and a dropdown by list length — a ranger's
+          fourteen favored enemies were fourteen checkboxes. Multi-pick groups
+          (two maneuvers, three metamagics) stay checkboxes: the cap and the
+          running count are the point there, and a multi-select does neither. */}
+      {count === 1 ? (
+        <SingleChoice
+          name={group.label}
+          value={picked[0]}
+          onChange={(next) => onChange(next ? [next] : [])}
+          options={offered.map((option) => ({
+            value: option.name,
+            label: option.name,
+            summary: option.summary,
+          }))}
+        />
+      ) : (
+        <div className="column invocation-options">
+          {offered.map((option) => {
             const checked = picked.includes(option.name);
             return (
               <label key={option.name} className="row invocation-option">
@@ -164,7 +185,8 @@ export function ChosenOptionPicker({
               </label>
             );
           })}
-      </div>
+        </div>
+      )}
     </Field>
   );
 }

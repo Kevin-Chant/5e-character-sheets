@@ -839,3 +839,90 @@ export const isAsiLevel = (className: string, level: number): boolean => {
   const extra = (oc && EXTRA_ASI_LEVELS[oc]) || [];
   return BASE_ASI_LEVELS.includes(level) || extra.includes(level);
 };
+
+// ---------------------------------------------------------------------------
+// Spells known / cantrips known (PHB class tables; Artificer from TCE).
+//
+// The wizards used to disagree about these: creation enforced the level-1
+// counts from `SrdClass.spellcasting`, level-up printed "counts aren't
+// enforced" and let you take as many as you liked. That block of data only
+// exists at level 1, which is why the level-up half never had anything to
+// enforce against — these tables are the missing half.
+//
+// Both answers are "how many *new* ones does this level grant", not a running
+// total, because that's the question the level-up step asks. A `null` means
+// "don't enforce": the class prepares from its whole list (cleric, druid,
+// paladin) or isn't an official class the tables cover.
+// ---------------------------------------------------------------------------
+
+// Cantrips known, as breakpoints: the count changes at a handful of levels, so
+// listing the level it changes at reads better than twenty-entry arrays.
+const CANTRIPS_KNOWN: Partial<Record<OfficialClass, Record<number, number>>> = {
+  [OfficialClass.Artificer]: { 1: 2, 6: 3, 10: 4, 14: 5 },
+  [OfficialClass.Bard]: { 1: 2, 4: 3, 10: 4 },
+  [OfficialClass.Cleric]: { 1: 3, 4: 4, 10: 5 },
+  [OfficialClass.Druid]: { 1: 2, 4: 3, 10: 4 },
+  [OfficialClass.Sorcerer]: { 1: 4, 4: 5, 10: 6 },
+  [OfficialClass.Warlock]: { 1: 2, 4: 3, 10: 4 },
+  [OfficialClass.Wizard]: { 1: 3, 4: 4, 10: 5 },
+  // Paladin and Ranger learn no cantrips at all.
+};
+
+// Spells known by class level (index 0 = level 1) for the classes that have a
+// fixed repertoire. Prepared casters are deliberately absent — see above.
+const SPELLS_KNOWN: Partial<Record<OfficialClass, number[]>> = {
+  // prettier-ignore
+  [OfficialClass.Bard]: [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
+  // prettier-ignore
+  [OfficialClass.Sorcerer]: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15],
+  // prettier-ignore
+  [OfficialClass.Warlock]: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
+  // Rangers get no spells until 2nd level, which the leading 0 encodes.
+  // prettier-ignore
+  [OfficialClass.Ranger]: [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11],
+};
+
+// A wizard doesn't have a spells-known table — the spellbook grows by a fixed
+// two spells per level, on top of the six it starts with.
+const WIZARD_SPELLBOOK_START = 6;
+const WIZARD_SPELLBOOK_PER_LEVEL = 2;
+
+const asOfficial = (className: string): OfficialClass | undefined =>
+  Object.values(OfficialClass).find((c) => c === className);
+
+// Total cantrips known at `level`, or null for a class that learns none.
+export function cantripsKnownAt(
+  className: string,
+  level: number,
+): number | null {
+  const oc = asOfficial(className);
+  const table = oc && CANTRIPS_KNOWN[oc];
+  if (!table) return null;
+  let known = 0;
+  for (const [at, count] of Object.entries(table))
+    if (level >= Number(at)) known = count;
+  return known;
+}
+
+// How many *new* cantrips reaching `level` grants. Level 1 counts as a full
+// grant, which is what a multiclass entry needs.
+export function newCantripsAt(className: string, level: number): number | null {
+  const now = cantripsKnownAt(className, level);
+  if (now === null) return null;
+  const before = level <= 1 ? 0 : (cantripsKnownAt(className, level - 1) ?? 0);
+  return Math.max(0, now - before);
+}
+
+// How many *new* leveled spells reaching `level` grants, or null when the class
+// prepares from its full list and there's nothing to enforce.
+export function newSpellsAt(className: string, level: number): number | null {
+  const oc = asOfficial(className);
+  if (!oc) return null;
+  if (oc === OfficialClass.Wizard)
+    return level <= 1 ? WIZARD_SPELLBOOK_START : WIZARD_SPELLBOOK_PER_LEVEL;
+  const table = SPELLS_KNOWN[oc];
+  if (!table) return null;
+  const now = table[level - 1] ?? table[table.length - 1];
+  const before = level <= 1 ? 0 : (table[level - 2] ?? 0);
+  return Math.max(0, now - before);
+}

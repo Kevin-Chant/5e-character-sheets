@@ -271,6 +271,7 @@ export default function DefenceAndEquipmentPanel() {
                         toHit={attackBonus}
                         save={attack.save}
                         damage={attack.formula}
+                        attack={attack}
                       />
                     )}
                   </td>

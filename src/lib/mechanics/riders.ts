@@ -8,6 +8,7 @@ import {
   RACE_MECHANICS,
 } from "./catalog";
 import { ActiveRider, FeatureMechanics, RollKind } from "./types";
+import { AttackContext, needsOptIn } from "./conditions";
 
 // The roll-time interpreter: collects the riders in play for a roll and
 // applies them. Die-level adjustments (rerolls, minimum dice) hook into
@@ -116,10 +117,16 @@ export interface FlatBonusRider {
 }
 
 // The `bonus` riders in play, split by whether the sheet can apply them on its
-// own. Unconditional ones fold silently; `optional` ones name a condition the
-// sheet can't verify (Archery's ranged-weapons-only) and are offered as a
-// checkbox, in the same spirit as an opt-in `extraDamage`.
-export function flatBonusRiders(riders: ActiveRider[]): {
+// own. The split is `needsOptIn`'s: a bonus whose condition the attack settles
+// (Archery on a weapon tagged `ranged`) folds silently, while one the sheet
+// can't verify — an untagged attack, or a condition that was never about the
+// weapon — is offered as a checkbox, in the same spirit as an opt-in
+// `extraDamage`. The default empty context is "we know nothing about the
+// attack", which puts every conditional bonus back on a prompt.
+export function flatBonusRiders(
+  riders: ActiveRider[],
+  context: AttackContext = {},
+): {
   always: FlatBonusRider[];
   optional: FlatBonusRider[];
 } {
@@ -129,7 +136,7 @@ export function flatBonusRiders(riders: ActiveRider[]): {
     if (r.rider.rider !== "bonus") continue;
     // Narrowed here so the dialog can read `value`/`note` without re-casting.
     const entry = { source: r.source, rider: r.rider };
-    (r.rider.optional ? optional : always).push(entry);
+    (needsOptIn(r, context) ? optional : always).push(entry);
   }
   return { always, optional };
 }
@@ -160,10 +167,11 @@ export function applyTotalRiders(
   total: number,
   riders: ActiveRider[],
   character: Character,
+  context: AttackContext = {},
 ): number {
   return (
     Math.max(total, riderMinimumTotal(riders, character)) +
-    riderFlatBonus(flatBonusRiders(riders).always, character)
+    riderFlatBonus(flatBonusRiders(riders, context).always, character)
   );
 }
 

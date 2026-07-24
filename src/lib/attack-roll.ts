@@ -17,6 +17,11 @@ import {
 } from "src/lib/roll";
 import { ActiveRider } from "src/lib/mechanics/types";
 import { extraDamageRiders } from "src/lib/mechanics/riders";
+import {
+  AttackContext,
+  needsOptIn,
+  riderEligibility,
+} from "src/lib/mechanics/conditions";
 import { availableSpellSlots } from "src/lib/rules";
 import { spellDamageAtLevel } from "src/lib/spells/spell-scaling";
 
@@ -40,6 +45,15 @@ export type SlotScaling = NonNullable<ExtraDamageRider["slot"]>;
 export interface ExtraDamageEntry {
   source: string;
   rider: ExtraDamageRider;
+  /**
+   * Whether the player has to tick this one, rather than it applying on its own.
+   *
+   * Resolved here, once, from the attack's weapon properties — the component
+   * shouldn't be re-deciding it. Two things force the tick: a condition that
+   * isn't about the weapon at all ("while raging", "with advantage on the
+   * attack"), and a weapon condition an untagged attack can't settle.
+   */
+  optIn: boolean;
 }
 
 /**
@@ -48,16 +62,24 @@ export interface ExtraDamageEntry {
  * Gated to weapon attacks — a fixed `damage` map with no `spell` — so a rogue's
  * Sneak Attack can never attach itself to a fireball. `before-attack` riders
  * are excluded because they'd be declared alongside the to-hit roll, not here.
+ *
+ * `context` narrows further by the weapon itself: a rider whose condition the
+ * attack's tags rule out (Rage on a longbow, Sneak Attack with a greatsword) is
+ * dropped rather than offered unticked — the dialog shouldn't list a choice that
+ * isn't one.
  */
 export function extrasForAttack(
   character: Character,
   damage: CustomFormulaWithDamage | undefined,
   spell: Spell | undefined,
+  context: AttackContext = {},
 ): ExtraDamageEntry[] {
   if (spell || !damage) return [];
   return extraDamageRiders(character).flatMap((r) =>
-    r.rider.rider === "extraDamage" && r.rider.declareAt !== "before-attack"
-      ? [{ source: r.source, rider: r.rider }]
+    r.rider.rider === "extraDamage" &&
+    r.rider.declareAt !== "before-attack" &&
+    riderEligibility(r, context) !== "no"
+      ? [{ source: r.source, rider: r.rider, optIn: needsOptIn(r, context) }]
       : [],
   );
 }
@@ -124,7 +146,8 @@ export interface ResolveDamageInput {
  * Roll an attack's damage: the weapon/spell's own dice, then every extra in
  * play, then the total-level riders.
  *
- * Always-on extras apply unconditionally; opt-in ones only when ticked. The
+ * Extras the sheet can verify apply on their own; `optIn` ones only when ticked.
+ * The
  * slot-powered extra rolls its display dice here but does *not* spend the slot
  * — that's an explicit, separate commit, so re-rolling stays free.
  */
@@ -142,8 +165,8 @@ export function resolveDamage({
 
   const results: ExtraResult[] = extras
     .filter(
-      ({ source, rider }) =>
-        !rider.slot && (!rider.optional || chosen.has(source)),
+      ({ source, rider, optIn }) =>
+        !rider.slot && (!optIn || chosen.has(source)),
     )
     .map(({ source, rider }) => {
       const dice: number[] = [];

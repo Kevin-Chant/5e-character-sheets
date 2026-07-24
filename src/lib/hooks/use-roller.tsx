@@ -1,6 +1,7 @@
 import React, { useContext, useState } from "react";
 import { StandardDie } from "src/lib/data/data-definitions";
 import {
+  Attack,
   CustomFormula,
   CustomFormulaWithDamage,
   SaveEffect,
@@ -25,12 +26,19 @@ export type RollSpec =
   // `save` is the alternative to `toHit` — the target rolls instead of the
   // character, so the dialog shows the DC and (for `onSuccess: "half"`) the
   // halved damage alongside the full total.
+  // `attack` is the sheet entry this came from, carried purely for its weapon
+  // properties: the roll dialog reads `tags` and the to-hit formula's ability to
+  // decide which riders apply (Archery on a bow, Rage on a melee Strength hit).
+  // Absent for a spell attack, whose riders stay undecidable by design — a
+  // fighting style is a *weapon* feature, so "unknown" correctly leaves it as a
+  // prompt rather than auto-applying it to Fire Bolt.
   | {
       kind: "attack";
       toHit?: number;
       save?: SaveEffect;
       damage?: CustomFormulaWithDamage;
       spell?: Spell;
+      attack?: Attack;
     };
 
 export interface RollRequest {

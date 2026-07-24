@@ -1,6 +1,7 @@
 import { FaDiceD20 } from "react-icons/fa6";
 import { StandardDie } from "src/lib/data/data-definitions";
 import {
+  Attack,
   CustomFormula,
   CustomFormulaWithDamage,
   SaveEffect,
@@ -26,6 +27,9 @@ interface RollButtonProps {
   save?: SaveEffect;
   damage?: CustomFormulaWithDamage;
   spell?: Spell;
+  // The sheet entry a weapon attack came from — supplies the weapon properties
+  // that decide which riders apply. See `RollSpec`'s attack variant.
+  attack?: Attack;
 }
 
 // A reusable die-icon button that opens the roll dialog. Works in play mode — it
@@ -39,6 +43,7 @@ export default function RollButton({
   save,
   damage,
   spell,
+  attack,
 }: RollButtonProps) {
   const { openRoller } = useRoller();
   const { editMode } = useEditMode();
@@ -56,7 +61,7 @@ export default function RollButton({
         : hitDie
           ? { kind: "hitDie", die: hitDie }
           : isAttack
-            ? { kind: "attack", toHit, save, damage, spell }
+            ? { kind: "attack", toHit, save, damage, spell, attack }
             : undefined;
   if (!spec) return <></>;
 

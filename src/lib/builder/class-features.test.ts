@@ -7,7 +7,9 @@ import {
   FIGHTING_STYLES,
   fightingStyleDueAt,
   invocationsKnownAt,
+  newCantripsAt,
   newInvocationsAt,
+  newSpellsAt,
 } from "./class-features";
 
 describe("fighting styles", () => {
@@ -101,5 +103,59 @@ describe("per-level class features", () => {
           expect(titles, `${cls} ${lvl}`).not.toContain(pooled);
       }
     }
+  });
+});
+
+describe("spells known / cantrips known progression", () => {
+  it("reports new cantrips only at the levels the count changes", () => {
+    expect(newCantripsAt(OfficialClass.Bard, 1)).toBe(2); // 0 → 2
+    expect(newCantripsAt(OfficialClass.Bard, 2)).toBe(0);
+    expect(newCantripsAt(OfficialClass.Bard, 4)).toBe(1); // 2 → 3
+    expect(newCantripsAt(OfficialClass.Bard, 10)).toBe(1); // 3 → 4
+    expect(newCantripsAt(OfficialClass.Bard, 11)).toBe(0);
+  });
+
+  it("gives half-casters no cantrips at all", () => {
+    expect(newCantripsAt(OfficialClass.Paladin, 4)).toBeNull();
+    expect(newCantripsAt(OfficialClass.Ranger, 4)).toBeNull();
+  });
+
+  it("walks the known-caster spell tables one level at a time", () => {
+    expect(newSpellsAt(OfficialClass.Sorcerer, 1)).toBe(2);
+    expect(newSpellsAt(OfficialClass.Sorcerer, 2)).toBe(1);
+    // The sorcerer's repertoire stops growing at 17th.
+    expect(newSpellsAt(OfficialClass.Sorcerer, 18)).toBe(0);
+    expect(newSpellsAt(OfficialClass.Bard, 10)).toBe(2); // 12 → 14
+    expect(newSpellsAt(OfficialClass.Warlock, 11)).toBe(1);
+  });
+
+  it("gives a ranger nothing at 1st and two spells at 2nd", () => {
+    expect(newSpellsAt(OfficialClass.Ranger, 1)).toBe(0);
+    expect(newSpellsAt(OfficialClass.Ranger, 2)).toBe(2);
+  });
+
+  it("grows a wizard's spellbook by two a level, six at the first", () => {
+    expect(newSpellsAt(OfficialClass.Wizard, 1)).toBe(6);
+    expect(newSpellsAt(OfficialClass.Wizard, 2)).toBe(2);
+    expect(newSpellsAt(OfficialClass.Wizard, 17)).toBe(2);
+  });
+
+  it("leaves prepared casters unenforced", () => {
+    for (const c of [
+      OfficialClass.Cleric,
+      OfficialClass.Druid,
+      OfficialClass.Paladin,
+    ])
+      expect(newSpellsAt(c, 5)).toBeNull();
+    // …and an unknown/homebrew class too.
+    expect(newSpellsAt("Blood Hunter", 5)).toBeNull();
+  });
+
+  it("never returns a negative grant at any level of any class", () => {
+    for (const c of Object.values(OfficialClass))
+      for (let lvl = 1; lvl <= 20; lvl++) {
+        expect(newSpellsAt(c, lvl) ?? 0).toBeGreaterThanOrEqual(0);
+        expect(newCantripsAt(c, lvl) ?? 0).toBeGreaterThanOrEqual(0);
+      }
   });
 });

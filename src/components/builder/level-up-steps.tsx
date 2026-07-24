@@ -1,15 +1,26 @@
 import { Character } from "src/lib/types";
 import {
+  HIT_DICE,
   REAL_SKILLS,
   OfficialClass,
   SkillName,
   StatKey,
   spellLevelLabel,
 } from "src/lib/data/data-definitions";
-import { getPB, isPreparedCaster, maxSpellLevelForClass } from "src/lib/rules";
+import {
+  averageDie,
+  dieFaces,
+  getPB,
+  isPreparedCaster,
+  maxSpellLevelForClass,
+  modifier,
+  statCapFor,
+} from "src/lib/rules";
 import {
   ELDRITCH_INVOCATIONS,
   getFightingStyle,
+  newCantripsAt,
+  newSpellsAt,
 } from "src/lib/builder/class-features";
 import {
   LevelUpState,
@@ -19,6 +30,7 @@ import {
   emptyFeatChoices,
   isCasterClass,
   spellListFilterFor,
+  summarizeLevelUp,
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import { subclassesForClass } from "src/lib/builder/subclasses";
@@ -30,6 +42,7 @@ import {
   Choice,
   ChoiceGrid,
   Field,
+  SingleChoice,
   STAT_LABEL,
 } from "./builder-common";
 import {
@@ -106,7 +119,62 @@ export function LevelUpClassStep({
           <ChoiceGrid choices={multiclassChoices} />
         </Field>
       )}
+      <HitPointChoice character={character} state={state} patch={patch} />
     </div>
+  );
+}
+
+// Average vs. rolled hit points. Average is the default because it's what most
+// tables use, and a rolled result is entered rather than rolled for you: the
+// roll belongs to the player (and often has the DM watching), so the wizard
+// records it instead of quietly generating one.
+function HitPointChoice({ character, state, patch }: LevelUpStepProps) {
+  const die =
+    HIT_DICE[
+      (Object.values(OfficialClass).find((c) => c === state.className) ??
+        OfficialClass.Fighter) as OfficialClass
+    ];
+  const average = averageDie(die, Math.ceil);
+  const conMod = modifier(character.stats.con);
+  const faces = dieFaces(die);
+  const gained = Math.max(
+    1,
+    (state.hpMethod === "roll" ? (state.hpRoll ?? average) : average) + conMod,
+  );
+
+  return (
+    <Field
+      label="Hit points"
+      hint={`Hit die ${die}, CON ${conMod >= 0 ? "+" : ""}${conMod}. This level adds ${gained} HP.`}
+    >
+      <div className="row">
+        {(["average", "roll"] as const).map((mode) => (
+          <label key={mode} className="builder-radio">
+            <input
+              type="radio"
+              checked={state.hpMethod === mode}
+              onChange={() => patch({ hpMethod: mode })}
+            />
+            {mode === "average" ? `Average (${average})` : "Roll it"}
+          </label>
+        ))}
+      </div>
+      {state.hpMethod === "roll" && (
+        <input
+          className="builder-input"
+          type="number"
+          min={1}
+          max={faces}
+          value={state.hpRoll ?? ""}
+          placeholder={`Your ${die} result`}
+          onChange={(e) =>
+            patch({
+              hpRoll: e.target.value ? Number(e.target.value) : undefined,
+            })
+          }
+        />
+      )}
+    </Field>
   );
 }
 
@@ -153,6 +221,8 @@ export function LevelUpFeatureChoicesStep({
   const newInvocations = grants.invocations;
   const newPicks = grants.optionPicks;
   const newExpertise = grants.expertise;
+  const mcSkills = grants.multiclassSkills;
+  const toolChoices = grants.toolChoices;
   const known = new Set(character.features.map((f) => f.title.trim()));
   // Expertise doubles an existing proficiency, so the options are the skills
   // the character already has — minus the ones already doubled.
@@ -224,6 +294,33 @@ export function LevelUpFeatureChoicesStep({
           </div>
         </Field>
       )}
+      {mcSkills && (
+        <Field
+          label={`Skill proficiency (choose ${mcSkills.choose})`}
+          hint="Multiclassing grants a limited set of proficiencies — the armor, weapons and tools are applied for you; this is the part you choose."
+        >
+          <ChipMultiSelect<SkillName>
+            // Skills already on the sheet are dropped rather than shown and
+            // ignored: picking one would silently waste the grant.
+            options={mcSkills.from.filter(
+              (s) => !character.proficiencies.skills[s],
+            )}
+            selected={state.multiclassSkills}
+            max={mcSkills.choose}
+            onChange={(multiclassSkills) => patch({ multiclassSkills })}
+          />
+        </Field>
+      )}
+      {toolChoices && (
+        <Field label={`Tool proficiency (choose ${toolChoices.choose})`}>
+          <ChipMultiSelect<string>
+            options={toolChoices.from}
+            selected={state.toolChoices}
+            max={toolChoices.choose}
+            onChange={(toolChoices) => patch({ toolChoices })}
+          />
+        </Field>
+      )}
       {newExpertise > 0 && (
         <Field
           label={`Expertise (choose ${newExpertise})`}
@@ -263,7 +360,7 @@ export function LevelUpFeatureChoicesStep({
 // ------------------------------------------------------ ASI / feat step
 // Two independent +1 picks. Choosing the same stat in both columns spends the
 // whole ASI as +2 to one score; choosing two different stats gives +1/+1.
-function AsiPicker({ state, patch }: LevelUpStepProps) {
+function AsiPicker({ character, state, patch }: LevelUpStepProps) {
   // Reconstruct the two +1 slots from the delta record so the radios stay in
   // sync with state.
   const slots: string[] = [];
@@ -280,6 +377,21 @@ function AsiPicker({ state, patch }: LevelUpStepProps) {
     patch({ asi });
   };
 
+  // A stat already at its ceiling isn't offered. The ceiling is per-stat
+  // because a feature can raise it (a barbarian 20's STR and CON go to 24), and
+  // it counts the increase spent in the *other* column — otherwise two +1s
+  // could walk a 19 up to 21 one column at a time.
+  const optionsFor = (idx: number) =>
+    Object.values(StatKey)
+      .filter((s) => {
+        if (slots[idx] === s) return true; // never hide the current pick
+        const spentElsewhere = slots.filter(
+          (v, i) => i !== idx && v === s,
+        ).length;
+        return character.stats[s] + spentElsewhere < statCapFor(character, s);
+      })
+      .map((s) => ({ value: s, label: STAT_LABEL[s] }));
+
   return (
     <div className="builder-asi-columns">
       {[0, 1].map((idx) => (
@@ -287,17 +399,15 @@ function AsiPicker({ state, patch }: LevelUpStepProps) {
           <span className="builder-field-label">
             {idx === 0 ? "First increase (+1)" : "Second increase (+1)"}
           </span>
-          {Object.values(StatKey).map((s) => (
-            <label key={s} className="builder-radio">
-              <input
-                type="radio"
-                name={`asi-slot-${idx}`}
-                checked={slots[idx] === s}
-                onChange={() => setSlot(idx, s)}
-              />
-              {STAT_LABEL[s]}
-            </label>
-          ))}
+          {/* Six abilities is past the point where a radio column reads at a
+              glance, so this lands on the dropdown side of `SingleChoice`. */}
+          <SingleChoice
+            name={`asi-slot-${idx}`}
+            value={slots[idx] || undefined}
+            onChange={(next) => setSlot(idx, next ?? "")}
+            options={optionsFor(idx)}
+            placeholder="No increase"
+          />
         </div>
       ))}
     </div>
@@ -377,6 +487,26 @@ export function LevelUpSpellsStep({
   // Known casters may replace one spell they know each level; prepared casters
   // (cleric, druid, wizard, paladin, artificer) re-prepare daily instead, so
   // there's nothing to swap.
+  // How many new cantrips / spells this level actually grants. Creation has
+  // always enforced its level-1 counts; these are the same limits at level N,
+  // so the two halves of the wizard finally agree. `null` means the class
+  // prepares from its whole list — there's no repertoire to cap.
+  const newLevel = targetClassLevel(character, state);
+  const cantripAllowance = newCantripsAt(state.className, newLevel);
+  const spellAllowance = newSpellsAt(state.className, newLevel);
+  // The allowance is per level, but the picker is split into one list per spell
+  // level, so it's spent across them: three 1st-level picks use up a three-spell
+  // allowance. Each list caps at what's left plus what it already holds.
+  const spentOnLeveled = Object.entries(state.newSpells)
+    .filter(([bucket]) => Number(bucket) > 0)
+    .reduce((n, [, arr]) => n + arr.length, 0);
+  const remainingFor = (numeric: number) =>
+    spellAllowance === null
+      ? null
+      : spellAllowance -
+        spentOnLeveled +
+        (state.newSpells[numeric]?.length ?? 0);
+
   const canSwap = !isPreparedCaster(state.className);
   const knownSpells = canSwap
     ? Object.entries(character.spells).flatMap(([bucket, list]) =>
@@ -395,10 +525,15 @@ export function LevelUpSpellsStep({
   return (
     <div className="builder-step">
       <p className="text-muted builder-hint">
-        Add any new spells you learn this level. Known-spell counts aren&apos;t
-        enforced — pick what fits, and you can always adjust on the sheet. Only
-        SRD spells are searchable here; add spells from other books or homebrew
-        manually from the sheet afterward.
+        {spellAllowance === null
+          ? "This class prepares spells from its whole list, so there's no count to enforce — add anything you want on the sheet."
+          : `This level grants ${spellAllowance} new spell${spellAllowance === 1 ? "" : "s"}${
+              cantripAllowance
+                ? ` and ${cantripAllowance} cantrip${cantripAllowance === 1 ? "" : "s"}`
+                : ""
+            }.`}{" "}
+        Only SRD spells are searchable here; add spells from other books or
+        homebrew manually from the sheet afterward.
       </p>
       {knownSpells.length > 0 && (
         <Field
@@ -425,7 +560,7 @@ export function LevelUpSpellsStep({
             className={filterClass}
             level={0}
             selected={state.newSpells[0] ?? []}
-            max={null}
+            max={cantripAllowance}
             onChange={(indices) => setLevel(0, indices)}
           />
         </Field>
@@ -436,7 +571,7 @@ export function LevelUpSpellsStep({
             className={filterClass}
             level={numeric}
             selected={state.newSpells[numeric] ?? []}
-            max={null}
+            max={remainingFor(numeric)}
             onChange={(indices) => setLevel(numeric, indices)}
           />
         </Field>
@@ -501,11 +636,24 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
   if (isCasterClass(state.className) && newSpellCount > 0)
     rows.push(["New spells", String(newSpellCount)]);
 
+  // What the level *gives* you, as opposed to what you chose above. Diffed off
+  // the same preview the wizard is about to commit, so it can't promise
+  // anything the confirm won't actually do.
+  const summary = summarizeLevelUp(character, preview);
+  const gains: [string, string[]][] = [
+    ["Features", summary.features],
+    ["New abilities", summary.abilities],
+    ["Improved", summary.changedAbilities],
+    ["Attacks", summary.attacks],
+    ["Proficiencies", summary.proficiencies],
+    ["Spells learned", summary.spells],
+  ];
+  const shownGains = gains.filter(([, items]) => items.length > 0);
+
   return (
     <div className="builder-step">
       <p className="text-muted builder-hint">
-        Hit points, hit dice, and spell slots update automatically from your new
-        level.
+        Hit dice and spell slots update automatically from your new level.
       </p>
       <table className="builder-review-table">
         <tbody>
@@ -517,6 +665,25 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
           ))}
         </tbody>
       </table>
+      <Field label="You gain">
+        <ul className="builder-gain-list">
+          {summary.hp > 0 && (
+            <li>
+              <b>+{summary.hp} hit points</b>
+            </li>
+          )}
+          {shownGains.map(([label, items]) => (
+            <li key={label}>
+              <b>{label}:</b> {items.join(", ")}
+            </li>
+          ))}
+        </ul>
+        {shownGains.length === 0 && summary.hp <= 0 && (
+          <p className="text-muted builder-hint">
+            Nothing beyond the numbers above at this level.
+          </p>
+        )}
+      </Field>
     </div>
   );
 }

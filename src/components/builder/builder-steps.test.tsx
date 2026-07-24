@@ -43,7 +43,12 @@ describe("ClassStep", () => {
     expect(screen.getByText("Favored Enemy")).toBeInTheDocument();
     expect(screen.getByText("Natural Explorer")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("checkbox", { name: /Dragons/ }));
+    // Fourteen favored enemies is past `SingleChoice`'s threshold, so the pick
+    // is a dropdown rather than a column of checkboxes.
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Favored Enemy" }),
+      "Dragons",
+    );
     expect(patch).toHaveBeenCalledWith({
       chosenOptions: { favoredEnemy: ["Dragons"] },
     });

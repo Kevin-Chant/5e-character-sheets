@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultCharacter } from "src/lib/data/default-data";
+import { randomUUID } from "src/lib/browser";
 import { validateCharacterData } from "src/lib/fields";
 import { CURRENT_SCHEMA_VERSION, migrateCharacter } from "./migrate-character";
 import { hydrateCharacter } from "./hydrate-character";
@@ -191,6 +192,50 @@ describe("migrateCharacter", () => {
     expect(migrated.equipment[0].attunement).toBeUndefined();
     const [valid] = validateCharacterData(migrated);
     expect(valid).toBe(true);
+  });
+});
+
+describe("v11 — backfilling weapon tags onto stored attacks", () => {
+  const withAttacks = (attacks: unknown[]) => ({
+    ...structuredClone(defaultCharacter),
+    schemaVersion: 10,
+    attacks,
+  });
+
+  it("tags an attack whose name matches a weapon preset", () => {
+    const migrated = migrateCharacter(
+      withAttacks([
+        { id: randomUUID(), name: "Longbow", formula: {} },
+        { id: randomUUID(), name: "Greatsword", formula: {} },
+      ]),
+    );
+    expect(migrated.attacks[0].tags).toContain("ranged");
+    expect(migrated.attacks[1].tags).toEqual(
+      expect.arrayContaining(["melee", "heavy", "two-handed"]),
+    );
+  });
+
+  it("understands the picker's (2H) versatile variant", () => {
+    const migrated = migrateCharacter(
+      withAttacks([{ id: randomUUID(), name: "Longsword (2H)", formula: {} }]),
+    );
+    expect(migrated.attacks[0].tags).toContain("two-handed");
+  });
+
+  it("leaves an unrecognised attack untagged rather than guessing", () => {
+    const migrated = migrateCharacter(
+      withAttacks([{ id: randomUUID(), name: "Sword of Bees", formula: {} }]),
+    );
+    expect(migrated.attacks[0].tags).toBeUndefined();
+  });
+
+  it("is idempotent — hand-set tags survive", () => {
+    const migrated = migrateCharacter(
+      withAttacks([
+        { id: randomUUID(), name: "Longbow", formula: {}, tags: ["melee"] },
+      ]),
+    );
+    expect(migrated.attacks[0].tags).toEqual(["melee"]);
   });
 });
 

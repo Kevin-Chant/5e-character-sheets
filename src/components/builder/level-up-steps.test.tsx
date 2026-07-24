@@ -10,7 +10,12 @@ import {
   LevelUpState,
 } from "src/lib/builder/level-up";
 import { Character } from "src/lib/types";
-import { LevelUpFeatureChoicesStep } from "./level-up-steps";
+import {
+  LevelUpAdvancementStep,
+  LevelUpClassStep,
+  LevelUpFeatureChoicesStep,
+  LevelUpSpellsStep,
+} from "./level-up-steps";
 
 // The wizard steps are plain props components — no context — so they render
 // directly. These cover the seam the unit tests can't: that a level's grants
@@ -156,5 +161,126 @@ describe("LevelUpFeatureChoicesStep", () => {
       />,
     );
     expect(within(container).queryAllByRole("checkbox")).toHaveLength(0);
+  });
+});
+
+describe("LevelUpAdvancementStep — the ability score ceiling", () => {
+  const renderAsi = (
+    character: Character,
+    state: Partial<LevelUpState> = {},
+  ) => {
+    const patch = vi.fn();
+    render(
+      <LevelUpAdvancementStep
+        character={character}
+        state={{ ...defaultLevelUpState(character), ...state }}
+        patch={patch}
+      />,
+    );
+    return patch;
+  };
+
+  it("doesn't offer a stat that's already at 20", () => {
+    const char = level1("fighter");
+    char.stats.str = 20;
+    renderAsi(char, { advancement: "asi" });
+    expect(screen.queryByRole("option", { name: "Strength" })).toBeNull();
+    // The others are still on offer.
+    expect(
+      screen.getAllByRole("option", { name: "Dexterity" }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("still offers a 20 when a feature raised its ceiling", () => {
+    const char = level1("fighter");
+    char.stats.str = 20;
+    char.features.push({ title: "Primal Champion", titleFormulas: [] });
+    renderAsi(char, { advancement: "asi" });
+    expect(
+      screen.getAllByRole("option", { name: "Strength" }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("drops a stat from the second column once the first spends it to the cap", () => {
+    const char = level1("fighter");
+    char.stats.str = 19;
+    renderAsi(char, { advancement: "asi", asi: { str: 1 } });
+    // 19 + the +1 already taken = 20, so the remaining column can't add more.
+    // The one already-picked column still shows it, hence exactly one option.
+    expect(screen.getAllByRole("option", { name: "Strength" })).toHaveLength(1);
+  });
+});
+
+describe("LevelUpClassStep — hit points", () => {
+  const renderClassStep = (
+    character: Character,
+    state: Partial<LevelUpState> = {},
+  ) => {
+    const patch = vi.fn();
+    render(
+      <LevelUpClassStep
+        character={character}
+        state={{ ...defaultLevelUpState(character), ...state }}
+        patch={patch}
+      />,
+    );
+    return patch;
+  };
+
+  it("defaults to the average and says what the level adds", () => {
+    const char = level1("fighter"); // d10, CON 14 (+2)
+    renderClassStep(char, { className: OfficialClass.Fighter });
+    expect(screen.getByLabelText(/Average \(6\)/)).toBeChecked();
+    expect(screen.getByText(/This level adds 8 HP/)).toBeInTheDocument();
+  });
+
+  it("switches to a rolled value", async () => {
+    const char = level1("fighter");
+    const patch = renderClassStep(char, { className: OfficialClass.Fighter });
+    await userEvent.click(screen.getByLabelText(/Roll it/));
+    expect(patch).toHaveBeenCalledWith({ hpMethod: "roll" });
+  });
+
+  it("bounds the roll input by the hit die", () => {
+    const char = level1("fighter");
+    renderClassStep(char, {
+      className: OfficialClass.Fighter,
+      hpMethod: "roll",
+    });
+    const input = screen.getByPlaceholderText(/Your d10 result/);
+    expect(input).toHaveAttribute("max", "10");
+    expect(input).toHaveAttribute("min", "1");
+  });
+});
+
+describe("LevelUpSpellsStep — known-spell counts", () => {
+  it("states the allowance for a known caster", () => {
+    const char = level1("bard");
+    render(
+      <LevelUpSpellsStep
+        character={char}
+        state={{ ...defaultLevelUpState(char), className: OfficialClass.Bard }}
+        patch={vi.fn()}
+      />,
+    );
+    // Bard 1 → 2 knows 5 spells where it knew 4: one new spell, no new cantrip.
+    expect(screen.getByText(/grants 1 new spell/)).toBeInTheDocument();
+  });
+
+  it("tells a prepared caster there's nothing to enforce", () => {
+    const char = level1("cleric");
+    render(
+      <LevelUpSpellsStep
+        character={char}
+        state={{
+          ...defaultLevelUpState(char),
+          className: OfficialClass.Cleric,
+        }}
+        patch={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(/prepares spells from its whole list/),
+    ).toBeInTheDocument();
   });
 });

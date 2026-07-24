@@ -251,6 +251,12 @@
                 },
                 "save": {
                     "$ref": "#/definitions/SaveEffect"
+                },
+                "tags": {
+                    "items": {
+                        "$ref": "#/definitions/AttackTag"
+                    },
+                    "type": "array"
                 }
             },
             "required": [
@@ -259,6 +265,22 @@
                 "name"
             ],
             "type": "object"
+        },
+        "AttackTag": {
+            "enum": [
+                "ammunition",
+                "finesse",
+                "heavy",
+                "light",
+                "loading",
+                "melee",
+                "ranged",
+                "reach",
+                "thrown",
+                "two-handed",
+                "versatile"
+            ],
+            "type": "string"
         },
         "Ceil": {
             "properties": {
@@ -1169,6 +1191,35 @@
             ],
             "type": "object"
         },
+        "RiderCondition": {
+            "properties": {
+                "ability": {
+                    "items": {
+                        "$ref": "#/definitions/StatKey"
+                    },
+                    "type": "array"
+                },
+                "anyTags": {
+                    "items": {
+                        "$ref": "#/definitions/AttackTag"
+                    },
+                    "type": "array"
+                },
+                "tags": {
+                    "items": {
+                        "$ref": "#/definitions/AttackTag"
+                    },
+                    "type": "array"
+                },
+                "without": {
+                    "items": {
+                        "$ref": "#/definitions/AttackTag"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
         "RollKind": {
             "enum": [
                 "attack",
@@ -1182,181 +1233,265 @@
         "RollRider": {
             "anyOf": [
                 {
-                    "properties": {
-                        "rider": {
-                            "const": "minimumTotal",
-                            "type": "string"
-                        },
-                        "value": {
-                            "$ref": "#/definitions/CustomFormula"
-                        }
-                    },
-                    "required": [
-                        "rider",
-                        "value"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "properties": {
-                        "rider": {
-                            "const": "minimumDie",
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "number"
-                        }
-                    },
-                    "required": [
-                        "rider",
-                        "value"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "properties": {
-                        "rider": {
-                            "const": "rerollBelow",
-                            "type": "string"
-                        },
-                        "threshold": {
-                            "type": "number"
-                        }
-                    },
-                    "required": [
-                        "rider",
-                        "threshold"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "properties": {
-                        "note": {
-                            "type": "string"
-                        },
-                        "optional": {
-                            "type": "boolean"
-                        },
-                        "rider": {
-                            "const": "bonus",
-                            "type": "string"
-                        },
-                        "value": {
-                            "$ref": "#/definitions/CustomFormula"
-                        }
-                    },
-                    "required": [
-                        "rider",
-                        "value"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "properties": {
-                        "rider": {
-                            "const": "critRange",
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "number"
-                        }
-                    },
-                    "required": [
-                        "rider",
-                        "value"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "properties": {
-                        "note": {
-                            "type": "string"
-                        },
-                        "rider": {
-                            "const": "advantage",
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "note",
-                        "rider"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "properties": {
-                        "amount": {
-                            "$ref": "#/definitions/CustomFormula"
-                        },
-                        "damageType": {
-                            "$ref": "#/definitions/DamageType"
-                        },
-                        "declareAt": {
-                            "enum": [
-                                "after-damage",
-                                "before-attack",
-                                "on-hit"
-                            ],
-                            "type": "string"
-                        },
-                        "note": {
-                            "type": "string"
-                        },
-                        "oncePerTurn": {
-                            "type": "boolean"
-                        },
-                        "optional": {
-                            "type": "boolean"
-                        },
-                        "rider": {
-                            "const": "extraDamage",
-                            "type": "string"
-                        },
-                        "slot": {
+                    "allOf": [
+                        {
                             "properties": {
-                                "bonus": {
-                                    "properties": {
-                                        "dice": {
-                                            "type": "number"
-                                        },
-                                        "label": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "dice",
-                                        "label"
-                                    ],
-                                    "type": "object"
+                                "rider": {
+                                    "const": "minimumTotal",
+                                    "type": "string"
                                 },
-                                "diceAtMin": {
-                                    "type": "number"
+                                "value": {
+                                    "$ref": "#/definitions/CustomFormula"
+                                }
+                            },
+                            "required": [
+                                "rider",
+                                "value"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
+                                "rider": {
+                                    "const": "minimumDie",
+                                    "type": "string"
                                 },
-                                "die": {
-                                    "$ref": "#/definitions/DieDefinition"
-                                },
-                                "maxDice": {
-                                    "type": "number"
-                                },
-                                "minLevel": {
+                                "value": {
                                     "type": "number"
                                 }
                             },
                             "required": [
-                                "diceAtMin",
-                                "die",
-                                "maxDice",
-                                "minLevel"
+                                "rider",
+                                "value"
                             ],
                             "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
                         }
-                    },
-                    "required": [
-                        "amount",
-                        "declareAt",
-                        "rider"
-                    ],
-                    "type": "object"
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
+                                "rider": {
+                                    "const": "rerollBelow",
+                                    "type": "string"
+                                },
+                                "threshold": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "rider",
+                                "threshold"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
+                                "note": {
+                                    "type": "string"
+                                },
+                                "optional": {
+                                    "type": "boolean"
+                                },
+                                "rider": {
+                                    "const": "bonus",
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "$ref": "#/definitions/CustomFormula"
+                                }
+                            },
+                            "required": [
+                                "rider",
+                                "value"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
+                                "rider": {
+                                    "const": "critRange",
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "rider",
+                                "value"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
+                                "note": {
+                                    "type": "string"
+                                },
+                                "rider": {
+                                    "const": "advantage",
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "note",
+                                "rider"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
+                                "amount": {
+                                    "$ref": "#/definitions/CustomFormula"
+                                },
+                                "damageType": {
+                                    "$ref": "#/definitions/DamageType"
+                                },
+                                "declareAt": {
+                                    "enum": [
+                                        "after-damage",
+                                        "before-attack",
+                                        "on-hit"
+                                    ],
+                                    "type": "string"
+                                },
+                                "note": {
+                                    "type": "string"
+                                },
+                                "oncePerTurn": {
+                                    "type": "boolean"
+                                },
+                                "optional": {
+                                    "type": "boolean"
+                                },
+                                "rider": {
+                                    "const": "extraDamage",
+                                    "type": "string"
+                                },
+                                "slot": {
+                                    "properties": {
+                                        "bonus": {
+                                            "properties": {
+                                                "dice": {
+                                                    "type": "number"
+                                                },
+                                                "label": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "dice",
+                                                "label"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "diceAtMin": {
+                                            "type": "number"
+                                        },
+                                        "die": {
+                                            "$ref": "#/definitions/DieDefinition"
+                                        },
+                                        "maxDice": {
+                                            "type": "number"
+                                        },
+                                        "minLevel": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "required": [
+                                        "diceAtMin",
+                                        "die",
+                                        "maxDice",
+                                        "minLevel"
+                                    ],
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "amount",
+                                "declareAt",
+                                "rider"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
                 }
             ]
         },

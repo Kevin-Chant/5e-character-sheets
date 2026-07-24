@@ -35,6 +35,13 @@ its `roll` `DieOperation` is a fixed stub. Real randomness lives in
   `OPERATORS` for the arithmetic — so a rolled result composes exactly like the
   displayed formula, just with real dice. They collect the individual dice for
   the breakdown.
+- `formatRollBreakdown(total, dice, crit?)` writes a result out as its parts —
+  `"4 + 6 + 5"` rather than the old `"(4 + 6)"` against a total of 15, which left
+  the reader to infer the modifier. The flat term is **derived** (`total` minus
+  the dice) rather than tracked through the evaluator, which buys the property
+  that matters: the parts always add up to the total shown. Under the `total`
+  crit flavor the multiplier is factored out (`"(4 + 6 + 5) ×2"`) instead of
+  being smuggled into the flat term. Every result line in the dialog uses it.
 - `rollD20Check(modifier, mode)` handles d20 checks: one d20, or two keeping the
   higher (`advantage`) / lower (`disadvantage`), plus a flat modifier.
 
@@ -60,6 +67,16 @@ Every roll consults the character's **riders** for its kind — rerolls, minimum
 dice, crit range, minimums — via `ridersFor` (see
 [`ability-mechanics.md`](./ability-mechanics.md)); `rollFormula`/`rollDamage`/
 `rollD20Check` all take the active rider list.
+
+For a weapon attack that list is then filtered by the weapon itself. The dialog
+derives an `AttackContext` from `spec.attack` (the sheet entry the die button
+came from) and runs every collected rider through `applicableRiders` /
+`needsOptIn`: riders the weapon rules out are never shown, ones it settles apply
+silently, and ones it can't settle stay a checkbox. `spec.attack` is deliberately
+absent for a **spell** attack — a fighting style is a weapon feature, so leaving
+a spell's context unknown correctly keeps Archery a prompt on Fire Bolt rather
+than auto-applying it. See
+[`ability-mechanics.md`](./ability-mechanics.md#weapon-conditions-requires-and-the-three-valued-answer).
 
 - **`attack`** (from `toHit`/`save` and/or `damage`/`spell`) → **one dialog with
   both steps**: an optional _To Hit_ section (`d20 + toHit`, adv/dis) — or a

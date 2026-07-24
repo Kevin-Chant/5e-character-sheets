@@ -8,13 +8,14 @@ and undo, and homebrew can eventually author them like catalog content.
 
 ## The files
 
-| File           | Role                                                                                                                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `types.ts`     | Re-exports the data model + `ACTION_COST_LABELS`. **The types themselves live in `src/lib/types.ts`** — the character model embeds them (`LimitedUseAbility.mechanics`), and types.ts can't import from here |
-| `riders.ts`    | Roll-time interpreter: `ridersFor` collects, `adjustDieRoll`/`applyTotalRiders` apply                                                                                                                        |
-| `resolve.ts`   | Write-side interpreter: `actionBlocked` gates, `resolveEffects` emits reducer updates                                                                                                                        |
-| `catalog.ts`   | Bundled mechanics for well-known features, keyed by normalized title (plus `RACE_MECHANICS`); `mechanicsForAbility` resolves ability → mechanics                                                             |
-| `authoring.ts` | Homebrew editor helpers: the `SimpleAmount` codec, `deriveChoose`, effect factories                                                                                                                          |
+| File            | Role                                                                                                                                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `types.ts`      | Re-exports the data model + `ACTION_COST_LABELS`. **The types themselves live in `src/lib/types.ts`** — the character model embeds them (`LimitedUseAbility.mechanics`), and types.ts can't import from here |
+| `riders.ts`     | Roll-time interpreter: `ridersFor` collects, `adjustDieRoll`/`applyTotalRiders` apply                                                                                                                        |
+| `conditions.ts` | Which riders apply to _this_ attack: `attackContext` reads the weapon, `applicableRiders` filters, `needsOptIn` decides prompt-vs-automatic                                                                  |
+| `resolve.ts`    | Write-side interpreter: `actionBlocked` gates, `resolveEffects` emits reducer updates                                                                                                                        |
+| `catalog.ts`    | Bundled mechanics for well-known features, keyed by normalized title (plus `RACE_MECHANICS`); `mechanicsForAbility` resolves ability → mechanics                                                             |
+| `authoring.ts`  | Homebrew editor helpers: the `SimpleAmount` codec, `deriveChoose`, effect factories                                                                                                                          |
 
 ## Homebrew: the `mechanics` field
 
@@ -125,6 +126,46 @@ bridge — the same one Durable detection and the builder already use — and ca
 be replaced by a structured field on the character later without touching the
 interpreters.
 
+### Weapon conditions: `requires` and the three-valued answer
+
+Every rider may carry `requires: RiderCondition` — the weapon shape it applies
+to, in terms of `AttackTag`s (`melee`, `ranged`, `thrown`, `finesse`, `heavy`,
+`two-handed`, …) and the ability the to-hit roll uses. `Attack.tags` supplies the
+weapon half; `buildAttackFromPreset` seeds it from the SRD catalog (melee/ranged
+from the weapon's group, `thrown` from a melee weapon having a range, `finesse`
+from its ability, `two-handed` from the versatile _(2H)_ variant), a v11
+migration backfills existing sheets by weapon name, and the attack editor offers
+the tags as chips for hand-authored entries.
+
+`conditionEligibility` answers **`yes` / `no` / `unknown`**, and the third value
+is the whole design:
+
+- **`no`** — the rider is dropped entirely (`applicableRiders`). A longbow's roll
+  dialog shouldn't mention Rage; a greatsword's shouldn't mention Sneak Attack.
+- **`yes`** — the sheet can see the condition holds, so it applies _silently_.
+  This is what turned Archery from a checkbox you ticked on every bow shot into
+  a +2 that's simply there.
+- **`unknown`** — the attack carries no tags (every hand-authored one, and
+  everything predating the field), so the rider falls back to an opt-in
+  checkbox. **Absent tags mean "unknown", never "none"**, which is what makes
+  this backwards-compatible by construction: an untagged attack behaves exactly
+  as the sheet did before conditions existed.
+
+A decidable `no` beats any number of unknowns, so a rider is still hidden when
+one clause is settled against it and another is ambiguous.
+
+`optional` now means something narrower and orthogonal: **a condition that isn't
+about the weapon at all**, and so can never become decidable — "while raging",
+"against a favored enemy", "with no other weapon held". `needsOptIn` is the
+union of the two: an explicit `optional`, or an `unknown` weapon condition.
+
+Rage is the clearest case of the split. Its weapon half (`melee`, Strength) is
+`requires`, so it never appears on a bow; _whether you are raging_ is `optional`,
+because active conditions are deliberately not modelled (see the
+non-goals in the project notes) — the sheet tracks Rage's uses, not its state.
+Reckless Attack keeps its advisory `advantage` note for the same reason, but the
+note now only shows up on attacks it could actually apply to.
+
 ### Flat `bonus` riders and the two conditional shapes
 
 A `bonus` rider is a flat addition. Where it lands depends on the roll kind, and
@@ -142,15 +183,17 @@ the split matters:
 The two numeric fighting styles show the two shapes a conditional bonus takes,
 and which to reach for:
 
-| Style   | Modelled as               | Why                                                                                     |
-| ------- | ------------------------- | --------------------------------------------------------------------------------------- |
-| Archery | `bonus`, `optional`       | It's a to-hit bonus, and the sheet can't tell a ranged weapon from a thrown melee one   |
-| Dueling | `extraDamage`, `optional` | It's damage; that section already offers opt-in, and a flat amount stays flat on a crit |
+| Style   | Modelled as                            | Why                                                                                     |
+| ------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
+| Archery | `bonus` + `requires: {tags:[ranged]}`  | It's a to-hit bonus, and the weapon's tags settle it                                    |
+| Dueling | `extraDamage`, `optional` + `requires` | It's damage; a flat amount stays flat on a crit, and "no other weapon held" stays yours |
 
-Both are opt-in rather than always-on for the same reason Sneak Attack is: the
-eligibility is a weapon property the sheet doesn't model. (Defense and Great
-Weapon Fighting stay auto-applied — the former folds +1 into `acFormula` at
-grant time, the latter is an unconditional reroll rider.)
+Archery is the case that motivated `requires`: it _was_ opt-in only because the
+sheet couldn't tell a ranged weapon from a thrown melee one, and now it can.
+Dueling keeps its tick because tags rule out the two-handed case but not the
+"no other weapon held" one. (Defense folds +1 into `acFormula` at grant time;
+Great Weapon Fighting is a reroll rider now gated on a two-handed melee weapon
+rather than applying to every damage roll.)
 
 ### `extraDamage`: the one contextual rider
 

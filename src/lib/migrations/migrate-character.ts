@@ -1,6 +1,13 @@
 import { defaultCharacter } from "src/lib/data/default-data";
 import { randomUUID } from "src/lib/browser";
+import { WEAPON_PRESETS, weaponTags } from "src/lib/data/weapon-presets";
 import { CURRENT_SCHEMA_VERSION } from "./version";
+
+// --- v11 helper: look a stored attack's name up in the weapon catalog ------
+const PRESETS_BY_NAME = new Map(
+  WEAPON_PRESETS.flatMap((g) => g.options).map((w) => [w.name, w] as const),
+);
+const presetByName = (name: string) => PRESETS_BY_NAME.get(name);
 
 // A migration upgrades a plain character object from version `to - 1` to `to`.
 // Migrations are PURE and APPEND-ONLY: never edit a shipped migration, only add
@@ -408,6 +415,36 @@ const migrations: Migration[] = [
           return equippable ? { ...item, equippable: true } : item;
         });
       filled.schemaVersion = 10;
+      return filled;
+    },
+  },
+  {
+    // Attacks gained `tags` — the weapon properties that decide which features
+    // apply to a roll (Archery on a ranged weapon, Rage on a melee Strength
+    // hit). New attacks get them from `buildAttackFromPreset`; this backfills
+    // the ones already on people's sheets by matching the attack's name against
+    // the preset catalog, including the "(2H)" versatile variant the picker
+    // creates. A name that isn't a known weapon is left untagged, which is a
+    // real answer — "unknown" means every conditional feature is offered as a
+    // prompt, exactly as it behaved before tags existed.
+    to: 11,
+    migrate: (character) => {
+      if (!character || typeof character !== "object") return character;
+      const filled = { ...character };
+      if (Array.isArray(filled.attacks))
+        filled.attacks = filled.attacks.map((attack: any) => {
+          if (!attack || typeof attack !== "object") return attack;
+          if (attack.tags !== undefined) return attack; // idempotent
+          const name = String(attack.name ?? "").trim();
+          const twoHanded = name.endsWith("(2H)");
+          const preset = presetByName(
+            twoHanded ? name.slice(0, -4).trim() : name,
+          );
+          return preset
+            ? { ...attack, tags: weaponTags(preset, twoHanded) }
+            : attack;
+        });
+      filled.schemaVersion = 11;
       return filled;
     },
   },

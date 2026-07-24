@@ -158,6 +158,39 @@ export function rollDamage(
   );
 }
 
+/**
+ * A rolled total written out as its parts: each die as it landed, then
+ * everything else as one flat term.
+ *
+ * The dice alone never explained a total — "17 slashing (4 + 6)" left the
+ * reader to work out where the other 7 came from — so the flat remainder is
+ * named rather than implied. It's derived (`total` minus the dice) instead of
+ * tracked through the evaluator, which guarantees the property that matters:
+ * **the breakdown always adds up to the total shown.**
+ *
+ * Under the `total` crit flavor the whole expression is doubled, so the
+ * multiplier is factored out and shown rather than smuggled into the flat term.
+ * Returns undefined when there's only one term — "12 (12)" is noise.
+ */
+export function formatRollBreakdown(
+  total: number,
+  dice: number[],
+  crit?: CritSpec,
+): string | undefined {
+  const multiplier = crit?.mode === "total" ? 1 + critSets(crit) : 1;
+  const base = total / multiplier;
+  const flat = base - dice.reduce((sum, d) => sum + d, 0);
+  const terms = [
+    ...dice.map(String),
+    ...(flat !== 0 ? [signedTerm(flat)] : []),
+  ];
+  if (terms.length < 2) return undefined;
+  const joined = terms.join(" + ").replace(/\+ -/g, "- ");
+  return multiplier > 1 ? `(${joined}) ×${multiplier}` : joined;
+}
+
+const signedTerm = (n: number) => (n < 0 ? `-${Math.abs(n)}` : String(n));
+
 export type CheckMode = "normal" | "advantage" | "disadvantage";
 
 export interface CheckRollResult {

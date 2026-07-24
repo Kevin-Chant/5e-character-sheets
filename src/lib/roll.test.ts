@@ -11,6 +11,7 @@ import { defaultCharacter } from "src/lib/data/default-data";
 import {
   critDiceCount,
   damageHasDice,
+  formatRollBreakdown,
   formulaHasDice,
   rollD20Check,
   rollDamage,
@@ -233,5 +234,44 @@ describe("rollFormula", () => {
     expect(fire.total).toBeLessThanOrEqual(12);
     expect(cold.total).toBeGreaterThanOrEqual(1);
     expect(cold.total).toBeLessThanOrEqual(4);
+  });
+});
+
+describe("formatRollBreakdown", () => {
+  it("names the flat modifier instead of leaving it implied", () => {
+    // 2d6+5 landing 4 and 6: the old display showed "(4 + 6)" against a total
+    // of 15, leaving the +5 to be inferred.
+    expect(formatRollBreakdown(15, [4, 6])).toBe("4 + 6 + 5");
+  });
+
+  it("always adds up to the total it explains", () => {
+    // The property the whole helper rests on — it derives the flat term rather
+    // than tracking it, so the parts can never disagree with the number above.
+    const sumOf = (parts: string) => eval(parts.replace(/×/g, "*")) as number;
+    const cases: [number, number[]][] = [
+      [15, [4, 6]],
+      [3, [5]],
+      [22, [1, 1, 6]],
+      [-2, [1]],
+    ];
+    for (const [total, dice] of cases)
+      expect(sumOf(formatRollBreakdown(total, dice)!)).toBe(total);
+  });
+
+  it("writes a negative modifier as a subtraction", () => {
+    expect(formatRollBreakdown(3, [5])).toBe("5 - 2");
+  });
+
+  it("says nothing when there is only one term", () => {
+    expect(formatRollBreakdown(7, [7])).toBeUndefined();
+    expect(formatRollBreakdown(4, [])).toBeUndefined();
+  });
+
+  it("factors out the multiplier under the double-the-total crit flavor", () => {
+    // 2d6+5 rolling 4 and 6 = 15, doubled to 30. Showing "4 + 6 + 20" would be
+    // arithmetically true and completely misleading.
+    expect(formatRollBreakdown(30, [4, 6], { mode: "total" })).toBe(
+      "(4 + 6 + 5) \u00d72",
+    );
   });
 });

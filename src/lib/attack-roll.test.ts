@@ -52,6 +52,9 @@ const entry = (
     declareAt: "on-hit",
     ...rider,
   } as ExtraDamageEntry["rider"],
+  // These tests exercise the arithmetic, not the eligibility rules: the entry
+  // arrives already resolved, so `optIn` just mirrors what the rider asked for.
+  optIn: !!rider.optional,
 });
 
 const resolve = (over: Partial<Parameters<typeof resolveDamage>[0]> = {}) =>

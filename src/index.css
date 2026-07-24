@@ -53,6 +53,16 @@
   --radius-lg: 14px;
   --shadow-1: 0 1px 2px hsla(0, 0%, 0%, 0.08), 0 1px 3px hsla(0, 0%, 0%, 0.06);
   --shadow-2: 0 2px 6px hsla(0, 0%, 0%, 0.12), 0 1px 2px hsla(0, 0%, 0%, 0.08);
+
+  /* Stacking order. One scale, in one place: the character drawer used to sit
+     at 4 while `.modal-container` sat at 1, so it floated *over* the character
+     builder and stayed undimmed by its backdrop. Layered widgets (popovers,
+     tooltips) sit above modals on purpose — they're opened from inside them.
+     The nav isn't in the scale: it has no `position`, so its z-index is inert
+     and it simply paints in document order (under any fixed overlay). */
+  --z-sidebar: 20;
+  --z-modal: 30;
+  --z-popover: 60;
 }
 
 /* Dark palette: applied via OS preference (unless forced light) or an
@@ -235,7 +245,7 @@ p {
   right: 0.15rem;
   /* No z-index: being absolutely positioned already lifts it above the box's
      in-flow content. A positive z-index here would promote it into the root
-     stacking context and let it paint over modals (which sit at z-index 1). */
+     stacking context and let it paint over modals (see --z-modal). */
 }
 .level-up-btn {
   opacity: 0.65;
@@ -2385,7 +2395,7 @@ button.slot-pip:hover:not(:disabled) {
    decoupled from the (narrow) pill so long text reads as a comfortable column. */
 .popover-container {
   position: fixed;
-  z-index: 10;
+  z-index: var(--z-popover);
   width: max-content;
   max-width: min(340px, 90vw);
   background: var(--popover-bg);
@@ -2434,7 +2444,7 @@ button.slot-pip:hover:not(:disabled) {
 
 .modal-container {
   position: fixed; /* Stay in place */
-  z-index: 1; /* Sit on top */
+  z-index: var(--z-modal);
   left: 0;
   top: 0;
   width: 100%; /* Full width */
@@ -2506,6 +2516,15 @@ button.slot-pip:hover:not(:disabled) {
   height: 80px;
 }
 
+/* Catches clicks outside the drawer so it dismisses like a modal. Deliberately
+   transparent — the drawer is a lightweight sheet-switcher, not a modal step,
+   so dimming the whole app for it would overstate it. */
+#sidebar-scrim {
+  position: fixed;
+  inset: 80px 0 0 0;
+  z-index: calc(var(--z-sidebar) - 1);
+}
+
 /* The character list is a temporary drawer that overlays the sheet rather than
    squeezing it — pushing it aside stole ~270px and forced the three panels to
    stack (or overflow). Fixed-position, below the 80px nav, floating over the
@@ -2515,7 +2534,7 @@ button.slot-pip:hover:not(:disabled) {
   top: 80px;
   left: 0;
   bottom: 0;
-  z-index: 4;
+  z-index: var(--z-sidebar);
   overflow-y: auto;
   border-right: 2px solid var(--border);
   background-color: var(--surface);
@@ -2917,7 +2936,8 @@ button.slot-pip:hover:not(:disabled) {
   }
 
   /* The nav is shorter on phones, so drop the overlay drawer to match. */
-  #sidebar {
+  #sidebar,
+  #sidebar-scrim {
     top: 64px;
   }
 
@@ -2952,7 +2972,7 @@ button.slot-pip:hover:not(:disabled) {
 
 .tooltip-bubble {
   position: absolute;
-  z-index: 10;
+  z-index: var(--z-popover);
   white-space: nowrap;
   padding: 0.35rem 0.55rem;
   border-radius: var(--radius);
@@ -4136,4 +4156,23 @@ b.pos-relative.margin-large {
   flex: 0 0 auto;
   padding: 0.3rem 0.55rem;
   line-height: 1;
+}
+
+/* The level-up review's "You gain" list — everything the level grants that the
+   player didn't explicitly pick. Compact, so a feature-heavy level still reads
+   as a glance rather than a page. */
+.builder-gain-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.builder-gain-list li {
+  line-height: 1.4;
+}
+
+/* Weapon-property chips in the attack editor. */
+.attack-tags .builder-chips {
+  margin-top: 0.35rem;
 }
