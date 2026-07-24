@@ -70,10 +70,8 @@ describe("RaceStep", () => {
     renderStep(RaceStep, { raceIndex: "human" });
     expect(screen.queryByText("Feat")).not.toBeInTheDocument();
 
-    renderStep(RaceStep, {
-      raceIndex: "human",
-      subraceIndex: "variant-human",
-    });
+    // Variant Human is its own race now, not a subrace of Human.
+    renderStep(RaceStep, { raceIndex: "variant-human" });
     expect(screen.getAllByText("Feat").length).toBeGreaterThan(0);
   });
 
@@ -114,5 +112,50 @@ describe("BackgroundStep", () => {
   it("offers no tool picks to a class without them", () => {
     renderStep(BackgroundStep, { classIndex: "fighter" });
     expect(screen.queryByText(/Tool proficiencies/)).not.toBeInTheDocument();
+  });
+});
+
+describe("RaceStep — subrace options", () => {
+  // Scope to the Subrace field: the race grid above it now has a Variant Human
+  // card of its own, which a whole-document query would pick up.
+  const subraceCards = () => {
+    const field = screen.getByText("Subrace").closest(".builder-field");
+    return within(field as HTMLElement)
+      .getAllByRole("button")
+      .map((b) => b.textContent ?? "");
+  };
+
+  it("lets a human be a plain SRD human", () => {
+    renderStep(RaceStep, { raceIndex: "human" });
+    // Variant Human used to be Human's only subrace, which made it mandatory.
+    expect(subraceCards().some((t) => t.includes("Variant Human"))).toBe(false);
+    expect(subraceCards().some((t) => t.includes("No subrace"))).toBe(true);
+  });
+
+  it("offers Variant Human as a race in its own right", () => {
+    renderStep(RaceStep, {});
+    expect(
+      screen.getByRole("button", { name: /Variant Human/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("still grants Variant Human its feat and skill pickers", () => {
+    renderStep(RaceStep, { raceIndex: "variant-human" });
+    expect(screen.getAllByText("Feat").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Skill proficiencies (from your race)"),
+    ).toBeInTheDocument();
+  });
+
+  it("preselects 'No subrace' for a race that has none, even with no pick recorded", () => {
+    renderStep(RaceStep, {
+      raceIndex: "custom-lineage",
+      subraceIndex: undefined,
+    });
+    const noSubrace = screen
+      .getAllByRole("button")
+      .find((b) => (b.textContent ?? "").includes("No subrace"));
+    // Leaving it unselected made "Other subrace" read as the only real option.
+    expect(noSubrace?.className).toContain("selected");
   });
 });

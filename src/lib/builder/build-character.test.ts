@@ -363,9 +363,9 @@ describe("wizard choices added by the coverage audit", () => {
   });
 
   it("a Variant Human starts with a feat, applied like any other", () => {
+    // Variant Human is a top-level race, not a subrace of Human.
     const c = level1("fighter", {
-      raceIndex: "human",
-      subraceIndex: "variant-human",
+      raceIndex: "variant-human",
       featIndex: "alert",
     });
     expect(c.features.map((f) => f.title)).toContain("Alert");

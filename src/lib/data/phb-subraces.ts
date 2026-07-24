@@ -1,4 +1,4 @@
-import { REAL_SKILLS, StatKey } from "src/lib/data/data-definitions";
+import { StatKey } from "src/lib/data/data-definitions";
 import { SrdSubrace } from "src/lib/builder/types";
 
 // Player's Handbook subraces that the open-license SRD omits (the SRD ships
@@ -217,27 +217,8 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       ],
     },
   ],
-  human: [
-    {
-      index: "variant-human",
-      name: "Variant Human",
-      // Two +1s in different abilities. Seeded onto STR/DEX and freely
-      // reassignable in the builder's race-bonus editor, which is how every
-      // other racial bonus already works.
-      abilityBonuses: [
-        { stat: StatKey.str, bonus: 1 },
-        { stat: StatKey.dex, bonus: 1 },
-      ],
-      skillChoices: { choose: 1, from: REAL_SKILLS },
-      grantsFeat: true,
-      proficiencies: { armor: [], weapons: [], tools: [], skills: [] },
-      traits: [
-        {
-          title: "Variant Human Traits",
-          detail:
-            "Two different ability scores increase by 1, you gain one skill proficiency of your choice, and you gain one feat.",
-        },
-      ],
-    },
-  ],
+  // Variant Human is deliberately *not* here: as the only entry under Human it
+  // became a forced choice, leaving no way to build a plain SRD human. It's a
+  // top-level race in `nonsrd-races.ts` instead — which also puts it where
+  // players look for it.
 };

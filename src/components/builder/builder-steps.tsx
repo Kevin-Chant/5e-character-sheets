@@ -282,7 +282,13 @@ export function RaceStep({ state, patch }: StepProps) {
                       key: NO_SUBRACE,
                       title: "No subrace",
                       subtitle: "This race has no subrace.",
-                      selected: state.subraceIndex === NO_SUBRACE,
+                      // Also the default when nothing is recorded yet: a race
+                      // with no subraces has nothing to choose, and leaving the
+                      // row blank made "Other subrace" look like the only
+                      // option on offer.
+                      selected:
+                        state.subraceIndex === NO_SUBRACE ||
+                        state.subraceIndex === undefined,
                       onClick: () => pickSubrace(NO_SUBRACE),
                     },
                   ]),

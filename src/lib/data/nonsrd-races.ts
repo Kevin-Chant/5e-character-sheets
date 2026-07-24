@@ -1282,6 +1282,38 @@ export const NONSRD_RACES: SrdRace[] = [
     ],
     subraces: [],
   },
+  // --------------------------------------------------------------- PHB
+  // Variant Human is a *race* here rather than a subrace of Human. As Human's
+  // only subrace it was effectively mandatory — picking Human handed you the
+  // variant with no way back to the SRD human — and it's the form most players
+  // go looking for by name anyway.
+  {
+    index: "variant-human",
+    name: "Variant Human",
+    size: "Medium",
+    speed: 30,
+    // Two +1s in different abilities. Seeded onto STR/DEX and freely
+    // reassignable in the builder's race-bonus editor, which is how every
+    // other racial bonus already works.
+    abilityBonuses: [
+      { stat: StatKey.str, bonus: 1 },
+      { stat: StatKey.dex, bonus: 1 },
+    ],
+    languages: ["Common"],
+    languageChoices: 1,
+    skillChoices: { choose: 1, from: REAL_SKILLS },
+    grantsFeat: true,
+    proficiencies: noProf(),
+    traits: [
+      {
+        title: "Variant Human Traits",
+        detail:
+          "Two different ability scores increase by 1, you gain one skill proficiency of your choice, and you gain one feat.",
+      },
+    ],
+    subraces: [],
+  },
+
   // ------------------------------------------------------------- Tasha's
   {
     index: "custom-lineage",
