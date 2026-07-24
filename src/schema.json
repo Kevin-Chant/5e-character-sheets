@@ -627,6 +627,9 @@
                         "effect": {
                             "const": "spendUses",
                             "type": "string"
+                        },
+                        "pool": {
+                            "type": "string"
                         }
                     },
                     "required": [
@@ -642,6 +645,9 @@
                         },
                         "effect": {
                             "const": "restoreUses",
+                            "type": "string"
+                        },
+                        "pool": {
                             "type": "string"
                         }
                     },
@@ -1480,6 +1486,52 @@
                                 "amount",
                                 "declareAt",
                                 "rider"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
+                                "damageType": {
+                                    "$ref": "#/definitions/DamageType"
+                                },
+                                "note": {
+                                    "type": "string"
+                                },
+                                "optional": {
+                                    "type": "boolean"
+                                },
+                                "rider": {
+                                    "const": "spellDamage",
+                                    "type": "string"
+                                },
+                                "scope": {
+                                    "enum": [
+                                        "any",
+                                        "cantrip",
+                                        "leveled"
+                                    ],
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "$ref": "#/definitions/CustomFormula"
+                                }
+                            },
+                            "required": [
+                                "rider",
+                                "scope",
+                                "value"
                             ],
                             "type": "object"
                         },

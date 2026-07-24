@@ -72,6 +72,19 @@ allowance is spent:
 `applyLevelUp` de-duplicates against what the character already knows, so
 re-running a level-up can't double an entry.
 
+**A sub-choice can gate content, not just record a pick.** Two `OptionGroup`
+fields turn a pick into grants: `resistances` (Draconic Ancestry → a damage
+resistance) and, on each `OptionDef`, `spellIndices` — `always` spells granted
+the moment it's picked, `byLevel` ones unlocking as the owning class levels.
+This is what makes a **nested subclass sub-choice** drive spells: a Land druid's
+`landTerrain` pick sets its circle spells (two at each of 3rd/5th/7th/9th).
+`optionSpellIndicesAt` returns what a character's picks are due at a class level
+(only picks whose group belongs to that class, so a druid's terrain isn't read
+while leveling a warlock dip); step 9b of `applyClassLevel` grants them through
+the idempotent `addSrdSpellOnce`, so re-running a level can't stack duplicates.
+Spells absent from the bundled SRD are skipped, exactly as `grants.spellIndices`
+does — the prose feature still names them.
+
 ## Save DCs (`SaveEffect`)
 
 Non-spell DCs live in one shared shape, `SaveEffect` in `src/lib/types.ts`,
@@ -297,6 +310,37 @@ Two-pass contract in `resolve.ts`, and the reason for it:
 `plusLevelOf`/`levelMultiplier` for class-level references, since catalog data
 can't know the sheet's per-class UUIDs), `chosenAmount`, `chosenAmountDice`
 ("spend N, roll N d6" — Healing Light), `chosenLevel`, `byChosenLevel` tables.
+
+### Cross-pool spend: `spendUses`/`restoreUses` with a `pool`
+
+`spendUses`/`restoreUses` default to the owning ability's pool, but an optional
+`pool?: string` names a **different** ability by title to drain — a Lore bard's
+Cutting Words spends Bardic Inspiration, a monk discipline spends Ki. The host
+feature owns no charges of its own: it's a `maxUses: 0` limited-use ability, an
+_action host_, which `limited-use-abilities-display` renders as its action(s)
+alone (no counter, recharge label, or reset). `spendsSharedPool` (catalog)
+builds one; the builder grants it as a `SUBCLASS_POOLS` entry with
+`maxUses: () => 0` and prunes the feature's prose row so it isn't shown twice.
+`resolveEffects` tracks `expended` per pool index, so one action touching two
+pools composes; a `pool` that isn't on the sheet is reported by name, not
+silently drained. `class-pools.test.ts` asserts every `maxUses: 0` host's action
+really does name a pool to spend.
+
+## Spell-damage riders (`spellDamage`)
+
+The mirror of `extraDamage` for the spell side. `extraDamage` is gated to weapon
+attacks by design, and `RollKind` can't tell a cantrip from a leveled spell from
+healing — so a plain `bonus` would wrongly buff Cure Wounds. `spellDamage`
+carries a flat `value`, a `scope` (`cantrip` / `leveled` / `any`) the roll
+dialog matches to the actual cast, and an `optional` flag for what the sheet
+can't see (a spell's school, its damage type, once-per-turn). Its own collector
+`spellDamageRiders` keeps it strictly apart from `extraDamageRiders`, so a spell
+bonus never touches a weapon and vice versa; `spellExtrasForCast` re-expresses
+each as an on-hit `extraDamage` entry so it renders and resolves through the
+identical path (a checkbox for opt-in, a "+N — source" result line). A flat
+value has no dice, so it doesn't inflate on a crit. Catalog entries by title:
+Potent Spellcasting (+WIS cantrips, auto), Empowered Evocation (+INT, opt-in),
+Radiant Soul, Elemental Affinity, Alchemical Savant, Arcane Firearm (+1d8, dice).
 
 ## Subclasses grant through two shapes
 
