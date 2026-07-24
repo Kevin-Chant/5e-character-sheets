@@ -11,12 +11,16 @@ import {
 import { upperFirst } from "lodash";
 import { calculateCustomFormula } from "src/lib/formula";
 import {
+  classById,
   classNameForId,
   expendedSpellSlots,
   getDefaultSpellSlots,
   getPactSlotInfo,
   isSpellcastingClass,
+  preparedSpellCount,
+  preparedSpellsFor,
 } from "src/lib/rules";
+import classNames from "classnames";
 import { Character, SpellCastingClass } from "src/lib/types";
 import { charPath, updateAt } from "src/lib/cursor";
 import SpellList from "./display/spell-list";
@@ -62,6 +66,49 @@ function PactSlots({ character }: SpellsTableProps) {
             )
           }
         />
+      </div>
+    </div>
+  );
+}
+
+// "How many spells can I have prepared?" — the number a cleric, druid, wizard,
+// paladin or artificer needs at every long rest, and the one part of their
+// spellcasting the sheet never showed. Rendered per class, since a
+// cleric/wizard multiclass prepares from two separate allowances.
+function PreparedCounts({ character }: SpellsTableProps) {
+  const rows = character.spellcastingClasses
+    .map((entry) => {
+      const klass = classById(character, entry.classId);
+      const allowance = klass ? preparedSpellCount(character, klass) : null;
+      if (!klass || allowance === null) return undefined;
+      return {
+        id: klass.id,
+        name: klass.name,
+        allowance,
+        prepared: preparedSpellsFor(character, klass.id),
+      };
+    })
+    .filter((r) => r !== undefined);
+  if (rows.length === 0) return <></>;
+
+  return (
+    <div className="spell-banner rounded-border-box">
+      <p className="title">Prepared</p>
+      <div className="prepared-counts">
+        {rows.map((row) => (
+          <span
+            key={row.id}
+            className={classNames("prepared-count", {
+              // Over the limit is the actionable state — you have to put one
+              // back. Under is normal: you can prepare fewer than your maximum.
+              over: row.prepared > row.allowance,
+            })}
+            title={`${row.name}: ${row.prepared} of ${row.allowance} prepared`}
+          >
+            {rows.length > 1 && <b>{row.name} </b>}
+            {row.prepared} / {row.allowance}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -114,6 +161,7 @@ function SpellsTable({ character }: SpellsTableProps) {
   return (
     <div className="spell-area">
       <PactSlots character={character} />
+      <PreparedCounts character={character} />
       <div className="spell-levels">
         <div className="spell-level-card">
           <div className="spell-level-header">

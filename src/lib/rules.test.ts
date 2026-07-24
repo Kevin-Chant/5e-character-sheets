@@ -23,8 +23,12 @@ import {
   totalSpellSlots,
   weightInUnit,
   weightToLb,
+  getSpellcastingAbility,
+  preparedSpellCount,
+  preparedSpellsFor,
 } from "./rules";
 import { Character, EquipmentItem } from "./types";
+import { UUID } from "crypto";
 import {
   calculateCustomFormula,
   describeSaveEffect,
@@ -372,5 +376,62 @@ describe("spell slot accounting", () => {
     c.spellSlots[3].expended = -2;
     expect(expendedSpellSlots(c, 3)).toBe(0);
     expect(availableSpellSlots(c, 3)).toBe(totalSpellSlots(c, 3));
+  });
+});
+
+describe("preparedSpellCount", () => {
+  // A prepared caster of `level` with the given spellcasting stat.
+  const caster = (name: OfficialClass, level: number, statValue: number) => {
+    const char = structuredClone(defaultCharacter);
+    const klass = { id: randomUUID(), name, level };
+    char.class = [klass];
+    char.spellcastingClasses = [{ classId: klass.id }];
+    const stat = getSpellcastingAbility(name);
+    char.stats = { ...char.stats, [stat]: statValue };
+    return { char, klass };
+  };
+
+  it("is ability modifier + level for a full prepared caster", () => {
+    const { char, klass } = caster(OfficialClass.Cleric, 5, 16); // WIS +3
+    expect(preparedSpellCount(char, klass)).toBe(8);
+  });
+
+  it("halves the level for the two half-casters, rounding opposite ways", () => {
+    // Paladin 5, CHA 16 (+3): 3 + floor(5/2) = 5.
+    const pal = caster(OfficialClass.Paladin, 5, 16);
+    expect(preparedSpellCount(pal.char, pal.klass)).toBe(5);
+    // Artificer 5, INT 16 (+3): 3 + ceil(5/2) = 6.
+    const art = caster(OfficialClass.Artificer, 5, 16);
+    expect(preparedSpellCount(art.char, art.klass)).toBe(6);
+  });
+
+  it("never drops below 1, even with a penalty to the casting stat", () => {
+    const { char, klass } = caster(OfficialClass.Wizard, 1, 6); // INT -2
+    expect(preparedSpellCount(char, klass)).toBe(1);
+  });
+
+  it("returns null for a class with a fixed repertoire", () => {
+    const { char, klass } = caster(OfficialClass.Bard, 5, 16);
+    expect(preparedSpellCount(char, klass)).toBeNull();
+  });
+
+  it("counts only this class's ticked leveled spells", () => {
+    const { char, klass } = caster(OfficialClass.Cleric, 5, 16);
+    const other = randomUUID();
+    const spell = (prepared: boolean, classId: UUID) => ({
+      info: { title: "X", titleFormulas: [] },
+      level: 1,
+      spellcastingClass: classId,
+      prepared,
+    });
+    char.spells = {
+      // Cantrips are always available — never counted.
+      0: [spell(true, klass.id)],
+      1: [spell(true, klass.id), spell(false, klass.id), spell(true, other)],
+      2: [spell(true, klass.id)],
+    } as typeof char.spells;
+    // One at level 1 and one at level 2: the unticked one, the other class's,
+    // and the cantrip are all excluded.
+    expect(preparedSpellsFor(char, klass.id)).toBe(2);
   });
 });

@@ -14,6 +14,7 @@ import {
   isPreparedCaster,
   maxSpellLevelForClass,
   modifier,
+  preparedSpellCount,
   statCapFor,
 } from "src/lib/rules";
 import {
@@ -507,6 +508,12 @@ export function LevelUpSpellsStep({
         spentOnLeveled +
         (state.newSpells[numeric]?.length ?? 0);
 
+  // For a prepared caster the useful number isn't "spells learned" but "spells
+  // preparable" — read off the preview so it's the allowance at the *new* level.
+  const preparedAllowance = targetKlass
+    ? preparedSpellCount(preview, targetKlass)
+    : null;
+
   const canSwap = !isPreparedCaster(state.className);
   const knownSpells = canSwap
     ? Object.entries(character.spells).flatMap(([bucket, list]) =>
@@ -526,7 +533,11 @@ export function LevelUpSpellsStep({
     <div className="builder-step">
       <p className="text-muted builder-hint">
         {spellAllowance === null
-          ? "This class prepares spells from its whole list, so there's no count to enforce — add anything you want on the sheet."
+          ? `This class prepares spells from its whole list rather than learning a fixed set${
+              preparedAllowance === null
+                ? ""
+                : `, and can have ${preparedAllowance} prepared at this level`
+            } — add anything you want on the sheet.`
           : `This level grants ${spellAllowance} new spell${spellAllowance === 1 ? "" : "s"}${
               cantripAllowance
                 ? ` and ${cantripAllowance} cantrip${cantripAllowance === 1 ? "" : "s"}`

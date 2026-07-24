@@ -4,6 +4,7 @@ import {
   OfficialClass,
   Operation,
   SkillName,
+  StatKey,
 } from "src/lib/data/data-definitions";
 import { Character, IClass, TextComponent } from "src/lib/types";
 import {
@@ -14,10 +15,12 @@ import {
   getFightingStyle,
   isAsiLevel,
   newInvocationsAt,
+  statGrantsAt,
   subclassDueAt,
   syncMartialArts,
   toolChoicesFor,
 } from "src/lib/builder/class-features";
+import { statCapFor } from "src/lib/rules";
 import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
 import {
   newOptionPicksAt,
@@ -217,6 +220,19 @@ export function applyClassLevel(
   //    hides that seam).
   for (const f of classFeaturesAt(className, level))
     char.features.push(text(f.title, f.detail));
+
+  // 2b. Ability scores a class feature raises outright (Primal Champion's +4).
+  //     Runs after the prose above, because the same feature is what lifts the
+  //     ceiling `statCapFor` reads — grant the +4 first and it would clip at 20.
+  const statGrants = statGrantsAt(className, level);
+  if (statGrants)
+    for (const [stat, delta] of Object.entries(statGrants)) {
+      const key = stat as StatKey;
+      char.stats[key] = Math.min(
+        char.stats[key] + (delta ?? 0),
+        statCapFor(char, key),
+      );
+    }
 
   // 3. Limited-use pools, re-derived for the new level (Rage count, Ki points,
   //    …), then the racial ones whose mechanics scale on total character level.

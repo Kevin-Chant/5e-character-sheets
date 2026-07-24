@@ -1482,6 +1482,22 @@ button:active:not(:disabled) {
   margin-bottom: 0.5rem;
 }
 
+/* Prepared-spell allowance, mirroring the encumbrance readout: quiet until
+   you're over the limit, which is the only state you have to act on. */
+.prepared-counts {
+  display: flex;
+  flex-direction: row;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.prepared-count {
+  font-variant-numeric: tabular-nums;
+}
+.prepared-count.over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .spell-slot-tracker {
   display: flex;
   flex-direction: row;

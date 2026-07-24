@@ -62,6 +62,10 @@ export interface SrdRace {
   languageChoices?: number;
   // Race-granted skill proficiency choices (Half-Elf Skill Versatility).
   skillChoices?: { choose: number; from: SkillName[] };
+  // Races whose grant is "darkvision OR a skill" (Custom Lineage) put the
+  // darkvision range here; the skill side is the `skillChoices` above. Present
+  // means the wizard must ask which, and neither is granted by default.
+  darkvisionOrSkill?: number;
   // The race grants a feat at level 1 (Custom Lineage). See the same flag on
   // `SrdSubrace` for the Variant Human path.
   grantsFeat?: boolean;
@@ -218,6 +222,9 @@ export interface BuilderState extends LevelChoices {
   raceBonuses: RaceBonus[];
   // Chosen skills for a race `skillChoices` grant (Half-Elf).
   raceSkillChoices: SkillName[];
+  // For a `darkvisionOrSkill` race, true when the player took the darkvision
+  // side of the choice instead of the skill.
+  raceTookDarkvision: boolean;
   // Free-text extra languages chosen for race `languageChoices`.
   raceLanguageChoices: string[];
 
@@ -260,7 +267,13 @@ export interface BuilderState extends LevelChoices {
   cantripIndices: string[];
   levelOneSpellIndices: string[];
 
-  // Equipment.
+  // Equipment. The PHB alternative to the class package is rolling for gold and
+  // buying your own kit; "gold" replaces the *class* loadout only, since your
+  // background's equipment comes with you either way.
+  startingWealth: "equipment" | "gold";
+  // The rolled (or hand-entered) gold, when `startingWealth` is "gold". Held in
+  // state rather than rolled during the build, which re-runs on every keystroke.
+  startingGold?: number;
   acceptClassEquipment: boolean;
   // Per class starting-equipment option (keyed by its index in
   // `startingEquipmentOptions`) → the chosen choice index. Absent = the first
@@ -300,6 +313,7 @@ export function defaultBuilderState(): BuilderState {
     customSubraceName: "",
     raceBonuses: [],
     raceSkillChoices: [],
+    raceTookDarkvision: false,
     raceLanguageChoices: [],
     classIsCustom: false,
     customClassName: "",
@@ -329,6 +343,7 @@ export function defaultBuilderState(): BuilderState {
     backgroundLanguageChoices: [],
     cantripIndices: [],
     levelOneSpellIndices: [],
+    startingWealth: "equipment",
     acceptClassEquipment: true,
     classEquipmentChoices: {},
     classWeaponChoices: {},

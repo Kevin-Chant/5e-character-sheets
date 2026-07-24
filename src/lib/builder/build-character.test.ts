@@ -3,10 +3,16 @@ import {
   Alignment,
   ArmorType,
   DamageType,
+  OfficialClass,
   SkillName,
   StandardDie,
 } from "src/lib/data/data-definitions";
 import { buildCharacter } from "src/lib/builder/build-character";
+import {
+  describeStartingWealth,
+  rollStartingWealth,
+  startingWealthFor,
+} from "src/lib/builder/equipment";
 import { BuilderState, defaultBuilderState } from "src/lib/builder/types";
 import { defaultCharacter } from "src/lib/data/default-data";
 import { chosenIn } from "src/lib/builder/chosen-options";
@@ -427,5 +433,111 @@ describe("the unified grant path", () => {
     // Domain spells land in the spell buckets, which buildSpells fills first.
     const first = (c.spells[1] ?? []).map((s) => s.info.title);
     expect(first).toEqual(expect.arrayContaining(["Bless", "Cure Wounds"]));
+  });
+});
+
+describe("Custom Lineage's darkvision-or-skill choice", () => {
+  const customLineage = (extra = {}) =>
+    buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "fighter",
+      raceIndex: "custom-lineage",
+      scoreMethod: "manual",
+      baseStats: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+      ...extra,
+    });
+
+  it("grants the skill and no darkvision when the skill is chosen", () => {
+    const char = customLineage({
+      raceTookDarkvision: false,
+      raceSkillChoices: [SkillName.Arcana],
+    });
+    expect(char.proficiencies.skills[SkillName.Arcana]).toBe(true);
+    // The trait prose mentions darkvision as one of the two options, so
+    // scanning it used to hand the sense out to everyone.
+    expect(char.senses.darkvision).toBeUndefined();
+  });
+
+  it("grants darkvision and forfeits the skill when darkvision is chosen", () => {
+    const char = customLineage({
+      raceTookDarkvision: true,
+      // A skill left over from flipping the choice must not leak through.
+      raceSkillChoices: [SkillName.Arcana],
+    });
+    expect(char.senses.darkvision).toBe(60);
+    expect(char.proficiencies.skills[SkillName.Arcana]).toBeFalsy();
+  });
+
+  it("leaves an ordinary darkvision race alone", () => {
+    const dwarf = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "fighter",
+      raceIndex: "dwarf",
+      scoreMethod: "manual",
+      baseStats: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+    });
+    expect(dwarf.senses.darkvision).toBe(60);
+  });
+});
+
+describe("starting wealth", () => {
+  const withWealth = (extra = {}) =>
+    buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "fighter",
+      scoreMethod: "manual",
+      baseStats: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+      ...extra,
+    });
+
+  it("takes the class equipment by default", () => {
+    const char = withWealth();
+    expect(char.equipment.length).toBeGreaterThan(0);
+    expect(char.coins.GP ?? 0).toBe(0);
+  });
+
+  it("swaps the class package for gold when that's chosen", () => {
+    const char = withWealth({ startingWealth: "gold", startingGold: 150 });
+    expect(char.coins.GP).toBe(150);
+    // No class loadout — and so no weapon attacks derived from it.
+    expect(char.attacks).toEqual([]);
+  });
+
+  it("keeps background equipment and adds its coin on top", () => {
+    const char = withWealth({
+      startingWealth: "gold",
+      startingGold: 100,
+      backgroundName: "Acolyte", // grants 15 gp
+      acceptBackgroundEquipment: true,
+    });
+    expect(char.equipment.length).toBeGreaterThan(0);
+    expect(char.coins.GP).toBe(115);
+  });
+});
+
+describe("starting wealth tables", () => {
+  it("rolls within the class's range", () => {
+    for (const c of Object.values(OfficialClass)) {
+      const w = startingWealthFor(c)!;
+      const rolled = rollStartingWealth(w);
+      expect(rolled).toBeGreaterThanOrEqual(w.dice * 1 * w.multiplier);
+      expect(rolled).toBeLessThanOrEqual(w.dice * 4 * w.multiplier);
+    }
+  });
+
+  it("keeps the monk's 5d4 unmultiplied", () => {
+    expect(startingWealthFor(OfficialClass.Monk)).toEqual({
+      dice: 5,
+      multiplier: 1,
+    });
+    expect(describeStartingWealth(startingWealthFor(OfficialClass.Monk)!)).toBe(
+      "5d4 gp",
+    );
+    expect(
+      describeStartingWealth(startingWealthFor(OfficialClass.Rogue)!),
+    ).toBe("4d4 × 10 gp");
   });
 });

@@ -926,3 +926,26 @@ export function newSpellsAt(className: string, level: number): number | null {
   const before = level <= 1 ? 0 : (table[level - 2] ?? 0);
   return Math.max(0, now - before);
 }
+
+// ---------------------------------------------------------------------------
+// Ability-score increases granted by a class feature (as opposed to an ASI the
+// player spends). Rare enough to be a two-entry table, but they can't be left
+// to the player: the feature also raises the score's ceiling, so a barbarian
+// 20's +4 is the difference between STR 20 and STR 24.
+// ---------------------------------------------------------------------------
+
+const STAT_GRANTS: Partial<
+  Record<OfficialClass, Record<number, Partial<Record<StatKey, number>>>>
+> = {
+  [OfficialClass.Barbarian]: {
+    20: { [StatKey.str]: 4, [StatKey.con]: 4 }, // Primal Champion
+  },
+};
+
+export function statGrantsAt(
+  className: string,
+  level: number,
+): Partial<Record<StatKey, number>> | undefined {
+  const oc = Object.values(OfficialClass).find((c) => c === className);
+  return oc ? STAT_GRANTS[oc]?.[level] : undefined;
+}

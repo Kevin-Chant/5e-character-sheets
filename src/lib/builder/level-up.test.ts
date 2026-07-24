@@ -658,3 +658,36 @@ describe("applyLevelUp — rolled hit points", () => {
     expect(leveled.currHp).toBe(char.currHp + 1);
   });
 });
+
+describe("applyLevelUp — ability scores a class feature grants", () => {
+  it("applies Primal Champion's +4 and lets it exceed 20", () => {
+    let char = level1("barbarian");
+    char.stats.str = 18;
+    char.stats.con = 20;
+    // Advance to barbarian 20, where Primal Champion lands.
+    while ((char.class[0]?.level ?? 0) < 20)
+      char = applyLevelUp(char, {
+        ...defaultLevelUpState(char),
+        className: "Barbarian",
+        advancement: "asi",
+        asi: {},
+      });
+    expect(char.features.map((f) => f.title)).toContain("Primal Champion");
+    // 18 + 4 = 22, and 20 + 4 clipped at the feature's own raised ceiling.
+    expect(char.stats.str).toBe(22);
+    expect(char.stats.con).toBe(24);
+  });
+
+  it("leaves other classes' scores alone at 20", () => {
+    let char = level1("fighter");
+    const startingStr = char.stats.str;
+    while ((char.class[0]?.level ?? 0) < 20)
+      char = applyLevelUp(char, {
+        ...defaultLevelUpState(char),
+        className: "Fighter",
+        advancement: "asi",
+        asi: {},
+      });
+    expect(char.stats.str).toBe(startingStr);
+  });
+});

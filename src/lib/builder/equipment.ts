@@ -1,4 +1,5 @@
 import { ArmorMechanics, Attack } from "src/lib/types";
+import { OfficialClass } from "src/lib/data/data-definitions";
 import {
   WEAPON_PRESETS,
   WeaponPreset,
@@ -294,4 +295,60 @@ export function resolveClassLoadout(
   });
 
   return { equipment, attacks, armor, shield };
+}
+
+// ---------------------------------------------------------------------------
+// Starting wealth (PHB p.143; Artificer from TCE).
+//
+// The PHB alternative to taking your class's equipment package: roll for gold
+// and buy your own kit. Every class rolls some number of d4s times 10 — except
+// the monk, whose 5d4 is famously *not* multiplied.
+// ---------------------------------------------------------------------------
+
+export interface StartingWealth {
+  dice: number;
+  multiplier: number;
+}
+
+export const STARTING_WEALTH: Record<OfficialClass, StartingWealth> = {
+  [OfficialClass.Artificer]: { dice: 5, multiplier: 10 },
+  [OfficialClass.Barbarian]: { dice: 2, multiplier: 10 },
+  [OfficialClass.Bard]: { dice: 5, multiplier: 10 },
+  [OfficialClass.Cleric]: { dice: 5, multiplier: 10 },
+  [OfficialClass.Druid]: { dice: 2, multiplier: 10 },
+  [OfficialClass.Fighter]: { dice: 5, multiplier: 10 },
+  // The monk's 5d4 gp is the one entry with no ×10 — poverty is the point.
+  [OfficialClass.Monk]: { dice: 5, multiplier: 1 },
+  [OfficialClass.Paladin]: { dice: 5, multiplier: 10 },
+  [OfficialClass.Ranger]: { dice: 5, multiplier: 10 },
+  [OfficialClass.Rogue]: { dice: 4, multiplier: 10 },
+  [OfficialClass.Sorcerer]: { dice: 3, multiplier: 10 },
+  [OfficialClass.Warlock]: { dice: 4, multiplier: 10 },
+  [OfficialClass.Wizard]: { dice: 4, multiplier: 10 },
+};
+
+export const startingWealthFor = (
+  className?: string,
+): StartingWealth | undefined =>
+  Object.values(OfficialClass).find((c) => c === className)
+    ? STARTING_WEALTH[className as OfficialClass]
+    : undefined;
+
+// "5d4 × 10 gp", or "5d4 gp" where there's no multiplier.
+export const describeStartingWealth = (w: StartingWealth): string =>
+  `${w.dice}d4${w.multiplier > 1 ? ` × ${w.multiplier}` : ""} gp`;
+
+// A real d4. Local like `ability-scores.ts`'s roller, and deliberately *not*
+// `rules.rollDie` — that one is a deterministic stub for the formula engine
+// (it returns 1 for every standard die), so wealth rolled through it would
+// always come out minimum.
+const rollD4 = (): number => Math.floor(Math.random() * 4) + 1;
+
+// Rolls the wealth. Kept out of `buildCharacter` deliberately: the builder is
+// pure and re-runs on every keystroke, so a roll living there would reshuffle
+// the player's gold as they typed. The wizard rolls once, into state.
+export function rollStartingWealth(w: StartingWealth): number {
+  let total = 0;
+  for (let i = 0; i < w.dice; i++) total += rollD4();
+  return total * w.multiplier;
 }

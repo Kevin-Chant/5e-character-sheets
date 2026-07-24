@@ -1293,10 +1293,12 @@ export const NONSRD_RACES: SrdRace[] = [
     abilityBonuses: [{ stat: StatKey.str, bonus: 2 }],
     languages: ["Common"],
     languageChoices: 1,
-    // RAW this is "darkvision 60 ft OR one skill proficiency". The sheet offers
-    // the skill and names darkvision in the trait text — set it under Senses if
-    // that's the pick instead.
+    // "Darkvision 60 ft OR one skill proficiency" — a real either/or, so the
+    // wizard asks and grants exactly one. (It used to offer the skill *and*
+    // hand out darkvision anyway, since the trait text below mentions it and
+    // senses are seeded by scanning that text.)
     skillChoices: { choose: 1, from: REAL_SKILLS },
+    darkvisionOrSkill: 60,
     grantsFeat: true,
     proficiencies: noProf(),
     traits: [

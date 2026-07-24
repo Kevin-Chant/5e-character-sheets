@@ -699,6 +699,61 @@ export function isPreparedCaster(className: ClassName): boolean {
   return isOfficialClass(className) && PREPARED_CASTER_CLASSES.has(className);
 }
 
+// How much of its class level a prepared caster counts toward the allowance.
+// Full casters use the whole level; the half-casters use half — rounded *down*
+// for the paladin and *up* for the artificer, which is a genuine asymmetry
+// between the PHB and Tasha's rather than a typo.
+const PREPARED_LEVEL_DIVISOR: Partial<
+  Record<OfficialClass, (level: number) => number>
+> = {
+  [OfficialClass.Cleric]: (l) => l,
+  [OfficialClass.Druid]: (l) => l,
+  [OfficialClass.Wizard]: (l) => l,
+  [OfficialClass.Paladin]: (l) => Math.floor(l / 2),
+  [OfficialClass.Artificer]: (l) => Math.ceil(l / 2),
+};
+
+/**
+ * How many spells this class can have prepared: its spellcasting modifier plus
+ * (some fraction of) its level, minimum 1. Returns null for a class that has a
+ * fixed repertoire instead — there's no preparing to do.
+ *
+ * This is the number a prepared caster needs at every long rest, and it was the
+ * one piece of their spellcasting the sheet never showed. Note the RAW wrinkle
+ * it doesn't model: domain/oath/circle spells are *always* prepared and don't
+ * count against the limit, but the sheet has no "always prepared" flag — so the
+ * count reflects the boxes actually ticked.
+ */
+export function preparedSpellCount(
+  character: Character,
+  klass: IClass,
+): number | null {
+  if (!isPreparedCaster(klass.name)) return null;
+  const oc = isOfficialClass(klass.name) ? klass.name : undefined;
+  const fromLevel = oc && PREPARED_LEVEL_DIVISOR[oc];
+  if (!fromLevel) return null;
+  const ability = spellcastingAbilityFor(character, klass.id);
+  return Math.max(
+    1,
+    modifier(character.stats[ability]) + fromLevel(klass.level),
+  );
+}
+
+// Spells currently ticked as prepared for a class, across every leveled bucket
+// (cantrips are always available and never counted).
+export function preparedSpellsFor(character: Character, classId: UUID): number {
+  return Object.entries(character.spells)
+    .filter(([bucket]) => Number(bucket) > 0)
+    .reduce(
+      (n, [, list]) =>
+        n +
+        (list ?? []).filter(
+          (s) => s.prepared && s.spellcastingClass === classId,
+        ).length,
+      0,
+    );
+}
+
 // The character's spellcasting classes that are official 5e classes (so their
 // SRD spell lists are known). Custom classes are omitted — callers treat an
 // empty result as "don't restrict".

@@ -28,7 +28,10 @@ import {
 import { subclassesForClass } from "src/lib/builder/subclasses";
 import { PHB_BACKGROUNDS, getBackground } from "src/lib/builder/backgrounds";
 import {
+  describeStartingWealth,
   parseEquipmentOption,
+  rollStartingWealth,
+  startingWealthFor,
   weaponSlotsForText,
   weaponsInCategory,
 } from "src/lib/builder/equipment";
@@ -320,15 +323,44 @@ export function RaceStep({ state, patch }: StepProps) {
         const subrace = getSubrace(race, state.subraceIndex);
         const skillChoices = race?.skillChoices ?? subrace?.skillChoices;
         if (!skillChoices) return null;
+        // Custom Lineage's grant is darkvision *or* a skill, so the skill
+        // picker only appears once that side is chosen.
+        const eitherOr = race?.darkvisionOrSkill;
         return (
-          <Field label="Skill proficiencies (from your race)">
-            <ChipMultiSelect<SkillName>
-              options={skillChoices.from}
-              selected={state.raceSkillChoices}
-              max={skillChoices.choose}
-              onChange={(raceSkillChoices) => patch({ raceSkillChoices })}
-            />
-          </Field>
+          <>
+            {eitherOr && (
+              <Field
+                label="Darkvision or a skill"
+                hint="Your lineage grants one of the two."
+              >
+                <div className="row">
+                  {[
+                    { took: true, label: `Darkvision ${eitherOr} ft` },
+                    { took: false, label: "One skill proficiency" },
+                  ].map((opt) => (
+                    <label key={opt.label} className="builder-radio">
+                      <input
+                        type="radio"
+                        checked={state.raceTookDarkvision === opt.took}
+                        onChange={() => patch({ raceTookDarkvision: opt.took })}
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+            )}
+            {!(eitherOr && state.raceTookDarkvision) && (
+              <Field label="Skill proficiencies (from your race)">
+                <ChipMultiSelect<SkillName>
+                  options={skillChoices.from}
+                  selected={state.raceSkillChoices}
+                  max={skillChoices.choose}
+                  onChange={(raceSkillChoices) => patch({ raceSkillChoices })}
+                />
+              </Field>
+            )}
+          </>
         );
       })()}
 
@@ -1146,9 +1178,62 @@ export function EquipmentStep({ state, patch }: StepProps) {
     picks[slot] = name;
     patch({ classWeaponChoices: { ...state.classWeaponChoices, [i]: picks } });
   };
+  const wealth = startingWealthFor(klass?.name);
+  const tookGold = state.startingWealth === "gold";
   return (
     <div className="builder-step">
-      {klass && (
+      {wealth && (
+        <Field
+          label="Class equipment or starting gold"
+          hint={`The PHB alternative: forgo your class's package and roll ${describeStartingWealth(wealth)} to buy your own. Your background's equipment comes with you either way.`}
+        >
+          <div className="row">
+            {(
+              [
+                ["equipment", "Take the equipment"],
+                ["gold", "Roll for gold"],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={value} className="builder-radio">
+                <input
+                  type="radio"
+                  checked={state.startingWealth === value}
+                  onChange={() => patch({ startingWealth: value })}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          {tookGold && (
+            <div className="builder-roll-buttons">
+              <input
+                className="builder-input"
+                type="number"
+                min={0}
+                value={state.startingGold ?? ""}
+                placeholder={`Your ${describeStartingWealth(wealth)} result`}
+                onChange={(e) =>
+                  patch({
+                    startingGold: e.target.value
+                      ? Number(e.target.value)
+                      : undefined,
+                  })
+                }
+              />
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() =>
+                  patch({ startingGold: rollStartingWealth(wealth) })
+                }
+              >
+                Roll
+              </button>
+            </div>
+          )}
+        </Field>
+      )}
+      {klass && !tookGold && (
         <label className="builder-check-row">
           <input
             type="checkbox"
@@ -1166,6 +1251,7 @@ export function EquipmentStep({ state, patch }: StepProps) {
         </label>
       )}
       {klass &&
+        !tookGold &&
         state.acceptClassEquipment &&
         parsedOptions.map((opt, i) => {
           if (opt.kind !== "choice") return null;

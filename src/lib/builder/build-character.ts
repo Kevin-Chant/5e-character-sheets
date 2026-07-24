@@ -286,7 +286,14 @@ function guidedCharacter(state: BuilderState): Character {
   // race object keeps only identity — languages/traits are seeded into their own
   // homes (below) rather than mirrored here.
   char.speeds = { walk: subrace?.speed ?? race?.speed ?? 30 };
-  const darkvision = darkvisionFromTraits(raceTraits);
+  // A `darkvisionOrSkill` race decides by the player's pick rather than by its
+  // trait text — the text names darkvision as one of two options, and scanning
+  // it would grant the sense to everyone, including those who took the skill.
+  const darkvision = race?.darkvisionOrSkill
+    ? state.raceTookDarkvision
+      ? race.darkvisionOrSkill
+      : undefined
+    : darkvisionFromTraits(raceTraits);
   char.senses = darkvision !== undefined ? { darkvision } : {};
   char.race = {
     name: baseRaceName,
@@ -299,7 +306,10 @@ function guidedCharacter(state: BuilderState): Character {
     char.proficiencies.savingThrows[stat] = true;
   const skills = uniq([
     ...state.classSkillChoices,
-    ...state.raceSkillChoices,
+    // Taking the darkvision side of an either/or forfeits the skill.
+    ...(race?.darkvisionOrSkill && state.raceTookDarkvision
+      ? []
+      : state.raceSkillChoices),
     ...(race?.proficiencies.skills ?? []),
     ...(subrace?.proficiencies.skills ?? []),
     ...(background?.skills ?? []),
@@ -377,7 +387,8 @@ function guidedCharacter(state: BuilderState): Character {
   // the scaffold), so we just tag the granted armor/shield items and mark them
   // equipped — equipping/unequipping then drives AC with no formula rewrite.
   const classItems: EquipmentItem[] = [];
-  if (state.acceptClassEquipment && klass) {
+  const tookGold = state.startingWealth === "gold";
+  if (state.acceptClassEquipment && klass && !tookGold) {
     const loadout = resolveClassLoadout(
       klass.startingEquipment,
       klass.startingEquipmentOptions,
@@ -403,6 +414,13 @@ function guidedCharacter(state: BuilderState): Character {
   }
   otherLines.push(...state.extraEquipment.filter((l) => l.trim()));
   char.equipment = [...classItems, ...otherLines.map((l) => equipmentItem(l))];
+  // Rolled starting wealth stacks with a background's coin rather than
+  // replacing it — the trade was class equipment for gold.
+  if (tookGold && state.startingGold)
+    char.coins = {
+      ...char.coins,
+      GP: (char.coins.GP ?? 0) + state.startingGold,
+    };
 
   // Everything reaching class level 1 grants — the class's and subclass's
   // features, pools, fighting style, expertise, tool picks, chosen options.
