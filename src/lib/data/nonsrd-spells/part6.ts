@@ -1,4 +1,6 @@
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import type { SrdSpell } from "src/lib/spells/srd-spells";
+import { auto, saveHalf, spellMech } from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 6. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
@@ -20,6 +22,14 @@ export const NONSRD_SPELLS_PART6: SrdSpell[] = [
     damageType: "Radiant",
     baseDamage: "3d8",
     desc: "The caster's next melee weapon hit before the spell ends adds 3d8 radiant damage, and the target must succeed on a Constitution save or go blind for the duration, repeating the save at the end of each of its turns to end the blindness early.",
+    // The save only gates blindness; the bonus damage lands automatically once
+    // the triggering melee hit connects (that attack roll is outside this
+    // spell), same pattern as Branding Smite. No "At Higher Levels" text.
+    mechanics: spellMech({
+      level: 3,
+      resolution: auto(),
+      damage: [{ type: DamageType.Radiant, base: "3d8" }],
+    }),
   },
   {
     index: "catnap",
@@ -55,6 +65,16 @@ export const NONSRD_SPELLS_PART6: SrdSpell[] = [
     baseDamage: "3d8",
     areaOfEffect: "60-foot cone",
     desc: "Hurling a weapon or piece of ammunition conjures a volley of duplicate weapons that fill a 60-foot cone; each creature caught in it makes a Dexterity save, taking 3d8 damage of a type matching the weapon on a failure, or half as much on a success.",
+    // Damage type actually matches whatever weapon/ammunition is thrown
+    // (piercing, bludgeoning, or slashing) — there's no "matches weapon"
+    // DamageType, so this models Piercing (the common case: an arrow/bolt) as
+    // a representative type for the roll dialog. No "At Higher Levels" text,
+    // so no scale.
+    mechanics: spellMech({
+      level: 3,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Piercing, base: "3d8" }],
+    }),
   },
   {
     index: "crusaders-mantle",
@@ -125,6 +145,11 @@ export const NONSRD_SPELLS_PART6: SrdSpell[] = [
     baseDamage: "3d12",
     areaOfEffect: "20-foot cube",
     desc: "Ground within a 20-foot cube you can see erupts violently; each creature there makes a Dexterity save, taking 3d12 bludgeoning damage on a failure (half on a success), and the area becomes difficult terrain. Damage rises by 1d12 per slot level above 3rd.",
+    mechanics: spellMech({
+      level: 3,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Bludgeoning, base: "3d12", scale: "1d12" }],
+    }),
   },
   {
     index: "fast-friends",
@@ -257,5 +282,14 @@ export const NONSRD_SPELLS_PART6: SrdSpell[] = [
     damageType: "Necrotic",
     baseDamage: "4d8",
     desc: "You take 4d8 necrotic damage that can't be reduced in any way, and a creature you can see within range regains hit points equal to twice that amount. Casting with a slot above 3rd adds 1d8 to your necrotic damage (and so to the healing) per level.",
+    // No attack/save gates this — the caster automatically takes the
+    // necrotic damage. The healing (2x the damage roll) isn't a separately
+    // rolled die, so it isn't modeled as a `healing` block here; the roll
+    // dialog shows the damage roll, which doubles cleanly by hand.
+    mechanics: spellMech({
+      level: 3,
+      resolution: auto(),
+      damage: [{ type: DamageType.Necrotic, base: "4d8", scale: "1d8" }],
+    }),
   },
 ];

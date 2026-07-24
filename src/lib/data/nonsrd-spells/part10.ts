@@ -1,4 +1,6 @@
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import type { SrdSpell } from "src/lib/spells/srd-spells";
+import { attack, auto, save, spellMech } from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 10. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
@@ -39,6 +41,14 @@ export const NONSRD_SPELLS_PART10: SrdSpell[] = [
     damageType: "Psychic",
     baseDamage: "5d10",
     desc: "Surrounds one target with a terrifying illusory barrier it cannot see or hear past. It takes psychic damage whether or not it makes its Intelligence save (restrained on a fail), and takes double that damage and ends the spell if it forces its way through the barrier or attacks through it. Creatures immune to being charmed auto-succeed.",
+    // Base 5d10 hits regardless of the save; the 10d10 "breaks the barrier"
+    // spike is a conditional doubling (not an upcast/level scale), so it's
+    // left to `desc` rather than modelled here.
+    mechanics: spellMech({
+      level: 6,
+      resolution: save(StatKey.int),
+      damage: [{ type: DamageType.Psychic, base: "5d10" }],
+    }),
   },
   {
     index: "primordial-ward",
@@ -122,6 +132,13 @@ export const NONSRD_SPELLS_PART10: SrdSpell[] = [
     damageType: "Force",
     baseDamage: "2d12",
     desc: "Turns the caster into a martial combatant: 50 temporary hit points, proficiency with all weapons/armor/shields, advantage on weapon attack rolls, an extra weapon attack each Attack action (unless already having Extra Attack), and extra force damage on each weapon hit. Spells can't be cast while transformed, and when it ends the caster must succeed a DC 15 Constitution save or gain a level of exhaustion.",
+    // No to-hit/save of its own — the extra force damage rides along on a
+    // (separately rolled) weapon attack that already hit.
+    mechanics: spellMech({
+      level: 6,
+      resolution: auto(),
+      damage: [{ type: DamageType.Force, base: "2d12" }],
+    }),
   },
   {
     index: "create-magen",
@@ -156,6 +173,13 @@ export const NONSRD_SPELLS_PART10: SrdSpell[] = [
     damageType: "Radiant",
     baseDamage: "4d12",
     desc: "Conjures seven motes of light orbiting the caster's head, shedding light while they last. As a bonus action, the caster can launch one at a target within 120 feet as a ranged spell attack, dealing radiant damage; the mote is spent whether it hits or misses, and the spell ends once all motes are gone. Casting with a higher-level slot adds two more motes per slot level above 7th.",
+    // Upcasting adds more motes to launch, not more damage per mote, so no
+    // damage scale.
+    mechanics: spellMech({
+      level: 7,
+      resolution: attack("ranged"),
+      damage: [{ type: DamageType.Radiant, base: "4d12" }],
+    }),
   },
   {
     index: "draconic-transformation",
@@ -213,5 +237,10 @@ export const NONSRD_SPELLS_PART10: SrdSpell[] = [
     damageType: "Force",
     baseDamage: "3d10",
     desc: "Conjures a spectral force sword that immediately makes a melee spell attack against a target within 5 feet, dealing force damage on a hit. Each later turn, the caster can spend a bonus action to fly the sword up to 20 feet and attack again with it.",
+    mechanics: spellMech({
+      level: 7,
+      resolution: attack("melee"),
+      damage: [{ type: DamageType.Force, base: "3d10" }],
+    }),
   },
 ];

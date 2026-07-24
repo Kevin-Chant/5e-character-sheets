@@ -1,3 +1,11 @@
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
+import {
+  attack,
+  auto,
+  roll,
+  saveHalf,
+  spellMech,
+} from "src/lib/spells/nonsrd-mechanics";
 import type { SrdSpell } from "src/lib/spells/srd-spells";
 
 // Non-SRD spells, part 5. Mechanical facts with ORIGINAL paraphrased
@@ -20,6 +28,11 @@ export const NONSRD_SPELLS_PART5: SrdSpell[] = [
     damageType: "Psychic",
     baseDamage: "3d8",
     desc: "A jolt of psychic force strikes one creature's mind; a failed Wisdom save means it takes damage and the caster senses its exact location for as long as concentration holds, even through invisibility, as long as both stay on the same plane. A success halves the damage and blocks the tracking effect. Casting with a higher slot adds 1d8 more damage.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: saveHalf(StatKey.wis),
+      damage: [{ type: DamageType.Psychic, base: "3d8", scale: "1d8" }],
+    }),
   },
   {
     index: "nathairs-mischief",
@@ -93,6 +106,11 @@ export const NONSRD_SPELLS_PART5: SrdSpell[] = [
     baseDamage: "3d8",
     areaOfEffect: "30-foot cone",
     desc: "A blast of freezing cold sweeps out from the caster in a cone; creatures that fail a Constitution save take cold damage and find their speed reduced to 0 by encasing ice for up to a minute (an action can break the ice early), while a success only halves the damage and skips the restraint. A higher slot adds 1d8 more damage.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: saveHalf(StatKey.con),
+      damage: [{ type: DamageType.Cold, base: "3d8", scale: "1d8" }],
+    }),
   },
   {
     index: "shadow-blade",
@@ -110,6 +128,21 @@ export const NONSRD_SPELLS_PART5: SrdSpell[] = [
     damageType: "Psychic",
     baseDamage: "2d8",
     desc: "The caster shapes a blade of solidified shadow that behaves as a finesse, light, thrown (range 20/60) melee weapon dealing psychic damage, granting advantage on attacks against a target in dim light or darkness. It vanishes if released and can be re-formed with a bonus action while concentration lasts. A higher slot raises the damage: 3d8 with a 3rd- or 4th-level slot, 4d8 with a 5th- or 6th-level slot, 5d8 with a 7th-level or higher slot.",
+    mechanics: {
+      ...spellMech({
+        level: 2,
+        resolution: attack("melee"),
+        damage: [{ type: DamageType.Psychic, base: "2d8" }],
+      }),
+      // Damage jumps in slot-level pairs rather than a flat per-slot step, so a
+      // sparse table (not a `scale` increment) captures it exactly.
+      damageTable: {
+        2: [{ damageType: DamageType.Psychic, formula: roll("2d8") }],
+        3: [{ damageType: DamageType.Psychic, formula: roll("3d8") }],
+        5: [{ damageType: DamageType.Psychic, formula: roll("4d8") }],
+        7: [{ damageType: DamageType.Psychic, formula: roll("5d8") }],
+      },
+    },
   },
   {
     index: "skywrite",
@@ -145,6 +178,11 @@ export const NONSRD_SPELLS_PART5: SrdSpell[] = [
     baseDamage: "3d6",
     areaOfEffect: "5-foot-radius sphere",
     desc: "A hail of enchanted snowballs bursts at a point the caster chooses; creatures in the sphere take cold damage on a failed Dexterity save, or half as much on a success. A higher slot adds 1d6 more damage.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Cold, base: "3d6", scale: "1d6" }],
+    }),
   },
   {
     index: "summon-beast",
@@ -181,6 +219,12 @@ export const NONSRD_SPELLS_PART5: SrdSpell[] = [
     damageType: "Psychic",
     baseDamage: "3d6",
     desc: "The caster lashes at a target's mind; on a failed Intelligence save it takes psychic damage, loses its reaction until the end of its next turn, and on that next turn may use only one of a movement, an action, or a bonus action (its choice). A success only halves the damage and removes the other penalties. A higher slot lets the caster strike one additional creature within 30 feet of another target.",
+    // Higher slots add extra targets, not extra damage, so there's no `scale`.
+    mechanics: spellMech({
+      level: 2,
+      resolution: saveHalf(StatKey.int),
+      damage: [{ type: DamageType.Psychic, base: "3d6" }],
+    }),
   },
   {
     index: "vortex-warp",
@@ -233,6 +277,13 @@ export const NONSRD_SPELLS_PART5: SrdSpell[] = [
     baseDamage: "2d6",
     areaOfEffect: "10-foot-radius sphere",
     desc: "A wave of decay sweeps through a sphere, dealing necrotic damage to creatures that fail a Constitution save (half on a success) and withering nonmagical plants there; one creature in the area may then spend a Hit Die to regain hit points equal to the roll plus the caster's spellcasting ability modifier. A higher slot adds 1d6 more damage and lets one additional creature spend a Hit Die per slot level above 2nd.",
+    // The healing is a target's own (variable-size) Hit Die, not a fixed spell
+    // die, so only the damage half is modelled here.
+    mechanics: spellMech({
+      level: 2,
+      resolution: saveHalf(StatKey.con),
+      damage: [{ type: DamageType.Necrotic, base: "2d6", scale: "1d6" }],
+    }),
   },
   {
     index: "ashardalons-stride",
@@ -251,6 +302,11 @@ export const NONSRD_SPELLS_PART5: SrdSpell[] = [
     baseDamage: "1d6",
     areaOfEffect: "5-foot radius around the caster",
     desc: "The caster's speed increases by 20 feet and their movement no longer provokes opportunity attacks for the duration, while a trail of fire follows them; any creature within 5 feet of the caster takes fire damage once per turn. A higher slot adds 1d6 more damage and 5 more feet of speed per slot level above 3rd.",
+    mechanics: spellMech({
+      level: 3,
+      resolution: auto(),
+      damage: [{ type: DamageType.Fire, base: "1d6", scale: "1d6" }],
+    }),
   },
   {
     index: "aura-of-vitality",
@@ -267,5 +323,10 @@ export const NONSRD_SPELLS_PART5: SrdSpell[] = [
     classes: ["Cleric", "Druid", "Paladin"],
     areaOfEffect: "30-foot radius",
     desc: "The caster surrounds themselves with a healing aura that moves with them; as a bonus action on each of their turns while it lasts, they can restore 2d6 hit points to one creature (including themselves) within the aura.",
+    mechanics: spellMech({
+      level: 3,
+      resolution: auto(),
+      healing: { base: "2d6" },
+    }),
   },
 ];

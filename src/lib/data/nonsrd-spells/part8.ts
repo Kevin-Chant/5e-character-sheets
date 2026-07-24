@@ -1,4 +1,11 @@
 import type { SrdSpell } from "src/lib/spells/srd-spells";
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
+import {
+  spellMech,
+  saveHalf,
+  save,
+  attack,
+} from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 8. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
@@ -55,6 +62,13 @@ export const NONSRD_SPELLS_PART8: SrdSpell[] = [
     baseDamage: "8d8",
     areaOfEffect: "40-foot-radius, 20-foot-high cylinder",
     desc: "You launch one piece of ammunition or a thrown weapon skyward, and it multiplies into a hail of duplicates that crash down through a 40-foot-wide, 20-foot-tall cylinder anywhere within 150 feet. Everyone caught inside rolls a Dexterity save, taking 8d8 damage of the launched item's type on a failure or half that on a success.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: saveHalf(StatKey.dex),
+      // Damage type actually matches whatever ammunition/weapon is used; Piercing
+      // stands in as the typical case (arrows/bolts) so the dice still roll.
+      damage: [{ type: DamageType.Piercing, base: "8d8" }],
+    }),
   },
   {
     index: "control-winds",
@@ -107,6 +121,11 @@ export const NONSRD_SPELLS_PART8: SrdSpell[] = [
     baseDamage: "4d10",
     areaOfEffect: "30-foot-radius, 40-foot-high cylinder",
     desc: "Fills a 30-foot-radius, 40-foot-tall cylinder with searing daylight that you can relocate up to 60 feet as a bonus action while staying within 60 feet of it. Anyone who enters the cylinder, or ends a turn inside it, must make a Constitution save, taking 4d10 radiant damage on a failure or half on a success, and the save repeats each time a creature is exposed.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: saveHalf(StatKey.con),
+      damage: [{ type: DamageType.Radiant, base: "4d10" }],
+    }),
   },
   {
     index: "destructive-wave",
@@ -142,6 +161,11 @@ export const NONSRD_SPELLS_PART8: SrdSpell[] = [
     damageType: "Necrotic",
     baseDamage: "4d8",
     desc: "A ribbon of shadowy energy lashes a target within 60 feet, who makes a Dexterity save; success deals 2d8 necrotic damage and ends the spell, while failure deals 4d8 immediately and lets you spend your action on each later turn to inflict another 4d8, so long as the target stays within range and in your sight. You heal for half of any necrotic damage the spell deals, and the effect ends early if you act otherwise, the target gains total cover, or it moves out of range. A higher-level slot adds 1d8 to every hit.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Necrotic, base: "4d8", scale: "1d8" }],
+    }),
   },
   {
     index: "far-step",
@@ -193,6 +217,11 @@ export const NONSRD_SPELLS_PART8: SrdSpell[] = [
     damageType: "Fire",
     baseDamage: "8d6",
     desc: "Wreathes a creature you can see within 90 feet in magical fire; it makes a Dexterity save, taking 8d6 fire damage on a failure (half on a success) and, if it failed, continuing to burn for the spell's duration, casting light and taking 4d6 fire damage at the end of each of its turns unless it then succeeds on a repeated save. The flames resist ordinary attempts to douse them, and a target reduced to 0 hit points by this fire is burned to ash.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Fire, base: "8d6" }],
+    }),
   },
   {
     index: "infernal-calling",
@@ -229,6 +258,11 @@ export const NONSRD_SPELLS_PART8: SrdSpell[] = [
     baseDamage: "6d6",
     areaOfEffect: "30-foot radius",
     desc: "Churns a 30-foot-radius pool of water, five feet deep, into difficult terrain around a point you can see within range. Any creature that starts its turn inside must succeed on a Strength save or take 6d6 bludgeoning damage and get dragged 10 feet toward the center.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: save(StatKey.str),
+      damage: [{ type: DamageType.Bludgeoning, base: "6d6" }],
+    }),
   },
   {
     index: "negative-energy-flood",
@@ -281,6 +315,11 @@ export const NONSRD_SPELLS_PART8: SrdSpell[] = [
     damageType: "Force",
     baseDamage: "6d10",
     desc: "You vanish and reappear in a blur, making a melee spell attack against up to five creatures you can see within 30 feet, each hit dealing 6d10 force damage. Afterward you teleport to an open space within 5 feet of any creature you targeted, hit or missed.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: attack("melee"),
+      damage: [{ type: DamageType.Force, base: "6d10" }],
+    }),
   },
   {
     index: "summon-celestial",

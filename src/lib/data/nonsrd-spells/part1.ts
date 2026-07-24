@@ -1,4 +1,6 @@
 import type { SrdSpell } from "src/lib/spells/srd-spells";
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
+import { spellMech, save, attack } from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 1. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
@@ -39,6 +41,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     damageType: "Thunder",
     baseDamage: "1d8",
     desc: "You make a melee weapon attack against a creature within 5 feet, and on a hit it takes normal weapon damage and hums with a booming charge until the start of your next turn. If it willingly moves before then, it takes 1d8 thunder damage (more at higher character levels) and the charge ends.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: attack("melee"),
+      damage: [{ type: DamageType.Thunder, base: "1d8", scale: "1d8" }],
+      driver: "character",
+    }),
   },
   {
     index: "control-flames",
@@ -74,6 +82,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     baseDamage: "1d8",
     areaOfEffect: "5-foot cube",
     desc: "You conjure a bonfire that fills a 5-foot cube within range for the duration. Any creature there when it appears, that enters the space, or that ends its turn there must succeed on a Dexterity save or take fire damage, with the damage rising at higher character levels.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.dex),
+      damage: [{ type: DamageType.Fire, base: "1d8", scale: "1d8" }],
+      driver: "character",
+    }),
   },
   {
     index: "friends",
@@ -108,6 +122,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     damageType: "Cold",
     baseDamage: "1d6",
     desc: "You numb a creature within range with biting frost. On a failed Constitution save it takes cold damage (more at higher character levels) and has disadvantage on the next weapon attack roll it makes before the end of its next turn.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.con),
+      damage: [{ type: DamageType.Cold, base: "1d6", scale: "1d6" }],
+      driver: "character",
+    }),
   },
   {
     index: "green-flame-blade",
@@ -125,6 +145,13 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     classes: ["Artificer", "Sorcerer", "Warlock", "Wizard"],
     damageType: "Fire",
     desc: "You make a melee weapon attack against a creature within 5 feet; on a hit it takes normal weapon damage, and green fire then leaps to a second creature within 5 feet of the first, dealing fire damage equal to your spellcasting ability modifier. At higher character levels the leaping fire also deals bonus dice of fire damage.",
+    // Base damage to the second creature is spellcasting-modifier-only (no
+    // dice) below 5th level, so there's no clean `NdM` to encode; the roll
+    // dialog still shows the attack with no damage total.
+    mechanics: spellMech({
+      level: 0,
+      resolution: attack("melee"),
+    }),
   },
   {
     index: "gust",
@@ -160,6 +187,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     damageType: "Poison",
     baseDamage: "1d6",
     desc: "You conjure a swarm of biting vermin onto a creature within range. On a failed Constitution save it takes poison damage (more at higher character levels) and, if able to move, is forced 5 feet in a randomly determined direction without provoking opportunity attacks.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.con),
+      damage: [{ type: DamageType.Poison, base: "1d6", scale: "1d6" }],
+      driver: "character",
+    }),
   },
   {
     index: "lightning-lure",
@@ -178,6 +211,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     damageType: "Lightning",
     baseDamage: "1d8",
     desc: "You lash a visible creature within 15 feet with crackling lightning. On a failed Strength save it is yanked up to 10 feet straight toward you, and if it ends that pull within 5 feet of you it takes lightning damage, with the damage rising at higher character levels.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.str),
+      damage: [{ type: DamageType.Lightning, base: "1d8", scale: "1d8" }],
+      driver: "character",
+    }),
   },
   {
     index: "magic-stone",
@@ -194,6 +233,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     classes: ["Artificer", "Druid", "Warlock"],
     damageType: "Bludgeoning",
     desc: "You bless up to three pebbles so that, for the duration, a creature can throw one or fire it from a sling as a spell attack that deals bludgeoning damage plus your spellcasting ability modifier. If someone else makes the attack, they still use your modifier rather than their own. Each enchanted stone loses its magic once it is used to attack, and recasting the spell ends the effect on any stones from an earlier casting.",
+    // Damage is dice-plus-modifier (1d6 + spellcasting modifier) with no
+    // character-level scaling, so there's no clean `NdM` to encode.
+    mechanics: spellMech({
+      level: 0,
+      resolution: attack("ranged"),
+    }),
   },
   {
     index: "mind-sliver",
@@ -212,6 +257,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     damageType: "Psychic",
     baseDamage: "1d6",
     desc: "You jab a splinter of psychic force into a creature's mind. On a failed Intelligence save it takes psychic damage (more at higher character levels) and must subtract 1d4 from the next saving throw it makes before the end of your next turn.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.int),
+      damage: [{ type: DamageType.Psychic, base: "1d6", scale: "1d6" }],
+      driver: "character",
+    }),
   },
   {
     index: "mold-earth",
@@ -245,6 +296,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     damageType: "Acid",
     baseDamage: "1d10",
     desc: "You briefly transform a hand or your teeth into a natural weapon and make a melee spell attack against a creature within 5 feet, dealing acid damage on a hit (more at higher character levels) before the transformation reverts.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: attack("melee"),
+      damage: [{ type: DamageType.Acid, base: "1d10", scale: "1d10" }],
+      driver: "character",
+    }),
   },
   {
     index: "sapping-sting",
@@ -263,6 +320,12 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     damageType: "Necrotic",
     baseDamage: "1d4",
     desc: "You strike a creature within range with draining necrotic force. On a failed Constitution save it takes necrotic damage (more at higher character levels) and falls prone.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.con),
+      damage: [{ type: DamageType.Necrotic, base: "1d4", scale: "1d4" }],
+      driver: "character",
+    }),
   },
   {
     index: "shape-water",
@@ -298,5 +361,11 @@ export const NONSRD_SPELLS_PART1: SrdSpell[] = [
     baseDamage: "1d6",
     areaOfEffect: "5-foot radius",
     desc: "Spectral blades spring up around you. Every other creature within 5 feet of you must succeed on a Dexterity save or take force damage, with the damage rising at higher character levels.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.dex),
+      damage: [{ type: DamageType.Force, base: "1d6", scale: "1d6" }],
+      driver: "character",
+    }),
   },
 ];

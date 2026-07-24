@@ -1,3 +1,10 @@
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
+import {
+  attack,
+  auto,
+  saveHalf,
+  spellMech,
+} from "src/lib/spells/nonsrd-mechanics";
 import type { SrdSpell } from "src/lib/spells/srd-spells";
 
 // Non-SRD spells, part 7. Mechanical facts with ORIGINAL paraphrased
@@ -21,6 +28,11 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     baseDamage: "4d8",
     areaOfEffect: "10-foot radius",
     desc: "Your next ranged weapon attack before the spell ends becomes a bolt of lightning: on a hit it deals 4d8 lightning damage (half on a miss), and every other creature within 10 feet of the target must succeed on a Dexterity save or take 2d8 lightning damage, half on a success. Both damage rolls increase by 1d8 per slot level above 3rd.",
+    mechanics: spellMech({
+      level: 3,
+      resolution: attack("ranged"),
+      damage: [{ type: DamageType.Lightning, base: "4d8", scale: "1d8" }],
+    }),
   },
   {
     index: "melfs-minute-meteors",
@@ -41,6 +53,11 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     baseDamage: "2d6",
     areaOfEffect: "5-foot radius",
     desc: "You conjure six tiny meteors that orbit you for the duration. As a bonus action you can hurl one or two of them at points you can see within 120 feet, each bursting to deal 2d6 fire damage to everything within 5 feet that fails a Dexterity save (half on a success). Casting with a higher-level slot adds two extra meteors per slot level above 3rd.",
+    mechanics: spellMech({
+      level: 3,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Fire, base: "2d6" }],
+    }),
   },
   {
     index: "motivational-speech",
@@ -159,6 +176,11 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     baseDamage: "3d10",
     areaOfEffect: "10-foot radius",
     desc: "You teleport to an unoccupied space you can see within range, optionally bringing one willing creature your size or smaller if there's room for it at the destination. A thunderclap erupts where you left: every other creature within 10 feet of that point must succeed on a Constitution save or take 3d10 thunder damage, half on a success. Damage increases by 1d10 per slot level above 3rd.",
+    mechanics: spellMech({
+      level: 3,
+      resolution: saveHalf(StatKey.con),
+      damage: [{ type: DamageType.Thunder, base: "3d10", scale: "1d10" }],
+    }),
   },
   {
     index: "tidal-wave",
@@ -179,6 +201,11 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     baseDamage: "4d8",
     areaOfEffect: "30-foot long, 10-foot wide, 10-foot tall line",
     desc: "You conjure a wave of water that crashes down along a line up to 30 feet long, 10 feet wide, and 10 feet tall. Creatures in the area take 4d8 bludgeoning damage and are knocked prone on a failed Dexterity save, or take half damage and stay standing on a success; the water then spreads out and douses unprotected open flames it passes over.",
+    mechanics: spellMech({
+      level: 3,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Bludgeoning, base: "4d8" }],
+    }),
   },
   {
     index: "tiny-servant",
@@ -246,5 +273,10 @@ export const NONSRD_SPELLS_PART7: SrdSpell[] = [
     damageType: "Force",
     baseDamage: "5d10",
     desc: "You wreathe your weapon in banishing energy: the next time you hit a creature with a weapon attack before the spell ends, it takes an extra 5d10 force damage, and if that drops it to 50 hit points or fewer you banish it. A creature native to another plane is sent home; a creature native to your plane is thrust into a harmless demiplane, incapacitated, until the spell ends, then reappears where it left (or the nearest open space).",
+    mechanics: spellMech({
+      level: 5,
+      resolution: auto(),
+      damage: [{ type: DamageType.Force, base: "5d10" }],
+    }),
   },
 ];

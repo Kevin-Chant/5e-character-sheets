@@ -1,4 +1,12 @@
 import type { SrdSpell } from "src/lib/spells/srd-spells";
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
+import {
+  attack,
+  auto,
+  save,
+  saveHalf,
+  spellMech,
+} from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 3. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
@@ -20,6 +28,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Piercing",
     baseDamage: "1d6",
     desc: "Triggers on your next weapon hit this turn: thorny vines deal the damage and force a Strength save or the target is restrained for the duration. A restrained target takes the same damage again at the start of each of its turns, and a Large or bigger creature saves with advantage.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: save(StatKey.str),
+      damage: [{ type: DamageType.Piercing, base: "1d6", scale: "1d6" }],
+    }),
   },
   {
     index: "frost-fingers",
@@ -39,6 +52,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     baseDamage: "2d8",
     areaOfEffect: "15-foot cone",
     desc: "A blast of frigid air fills the cone, dealing cold damage to everyone in it (half on a successful save) and freezing solid any unattended liquid caught inside.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: saveHalf(StatKey.con),
+      damage: [{ type: DamageType.Cold, base: "2d8", scale: "1d8" }],
+    }),
   },
   {
     index: "hail-of-thorns",
@@ -58,6 +76,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     baseDamage: "1d10",
     areaOfEffect: "5-foot radius around the target",
     desc: "Your next ranged weapon hit this turn also bursts into thorns: everyone else within 5 feet of the target must make a Dexterity save or take the same piercing damage, half on a success.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Piercing, base: "1d10", scale: "1d10" }],
+    }),
   },
   {
     index: "hex",
@@ -76,6 +99,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Necrotic",
     baseDamage: "1d6",
     desc: "Curses a creature you can see: while the curse holds, every attack you land on it adds extra necrotic damage, and it has disadvantage on checks with one ability score you name when you cast the spell. You can shift the curse to a new target if the original drops to 0 hit points.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: auto(),
+      damage: [{ type: DamageType.Necrotic, base: "1d6" }],
+    }),
   },
   {
     index: "ice-knife",
@@ -96,6 +124,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     baseDamage: "2d6",
     areaOfEffect: "5-foot radius around the impact point",
     desc: "A shard of ice flies at a target as a ranged spell attack, dealing piercing damage on a hit, then shatters regardless of whether it hit: the target and anyone within 5 feet of the burst make a Dexterity save, taking cold damage on a failure and half as much on a success.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Cold, base: "2d6", scale: "1d6" }],
+    }),
   },
   {
     index: "ray-of-sickness",
@@ -114,6 +147,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Poison",
     baseDamage: "2d8",
     desc: "A ranged spell attack sends out a sickly green ray, dealing poison damage on a hit and forcing the target to make a Constitution save or be poisoned until the end of your next turn.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: attack("ranged"),
+      damage: [{ type: DamageType.Poison, base: "2d8", scale: "1d8" }],
+    }),
   },
   {
     index: "searing-smite",
@@ -132,6 +170,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Fire",
     baseDamage: "1d6",
     desc: "Your next weapon hit this turn also wreathes the target in flame, dealing extra fire damage immediately and then again at the start of each of its turns unless it beats a Constitution save to snuff the fire out.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: auto(),
+      damage: [{ type: DamageType.Fire, base: "1d6", scale: "1d6" }],
+    }),
   },
   {
     index: "silvery-barbs",
@@ -186,6 +229,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     baseDamage: "2d4",
     areaOfEffect: "30-foot line, 5 feet wide",
     desc: "Sprays a corrosive stream down a line in front of you; anyone caught in it makes a Dexterity save or gets coated in acid, taking the damage at the start of each of its turns until it spends an action scraping the acid off or the spell ends.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: save(StatKey.dex),
+      damage: [{ type: DamageType.Acid, base: "2d4", scale: "2d4" }],
+    }),
   },
   {
     index: "thunderous-smite",
@@ -204,6 +252,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Thunder",
     baseDamage: "2d6",
     desc: "Your next weapon hit this turn booms with thunder, dealing extra thunder damage; the target must also succeed on a Strength save or be shoved 10 feet back and knocked prone.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: auto(),
+      damage: [{ type: DamageType.Thunder, base: "2d6" }],
+    }),
   },
   {
     index: "witch-bolt",
@@ -222,6 +275,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Lightning",
     baseDamage: "1d12",
     desc: "A ranged spell attack lashes a target with a crackling beam of lightning, and while you keep concentrating you can use your action on later turns to automatically deal the same damage again, as long as the target stays within range and in your sight.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: attack("ranged"),
+      damage: [{ type: DamageType.Lightning, base: "1d12", scale: "1d12" }],
+    }),
   },
   {
     index: "wrathful-smite",
@@ -240,6 +298,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Psychic",
     baseDamage: "1d6",
     desc: "Your next weapon hit this turn deals extra psychic damage and forces a Wisdom save or the target is frightened of you for the duration; the frightened creature can retry the save as an action against your spell save DC.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: auto(),
+      damage: [{ type: DamageType.Psychic, base: "1d6" }],
+    }),
   },
   {
     index: "zephyr-strike",
@@ -257,6 +320,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     damageType: "Force",
     baseDamage: "1d8",
     desc: "Wraps you in a gust of wind: your movement no longer provokes opportunity attacks, and once before the spell ends you can give one weapon attack advantage and add extra force damage on a hit, then immediately gain 30 feet of walking speed until the end of that turn.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: auto(),
+      damage: [{ type: DamageType.Force, base: "1d8" }],
+    }),
   },
   {
     index: "aganazzars-scorcher",
@@ -277,6 +345,11 @@ export const NONSRD_SPELLS_PART3: SrdSpell[] = [
     baseDamage: "3d8",
     areaOfEffect: "30-foot line, 5 feet wide",
     desc: "Unleashes a searing line of flame; everyone caught in it makes a Dexterity save, taking fire damage on a failure or half as much on a success.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Fire, base: "3d8", scale: "1d8" }],
+    }),
   },
   {
     index: "air-bubble",

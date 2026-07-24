@@ -1,3 +1,5 @@
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
+import { spellMech, saveHalf, attack } from "src/lib/spells/nonsrd-mechanics";
 import type { SrdSpell } from "src/lib/spells/srd-spells";
 
 // Non-SRD spells, part 11. Mechanical facts with ORIGINAL paraphrased
@@ -54,6 +56,11 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     baseDamage: "10d6",
     areaOfEffect: "10-foot-radius, 30-foot-tall cylinder",
     desc: "Summon a whirlwind you can move up to 30 feet each turn. Creatures that start there or enter make a Dexterity save, taking bludgeoning damage on a failure. Large or smaller creatures that fail also make a Strength check or get swept up and restrained, rising 5 feet per turn; a restrained creature can try to break free with a Strength or Dexterity check and is flung 3d6 x 10 feet on success. Loose Medium or smaller objects get pulled in too.",
+    mechanics: spellMech({
+      level: 7,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Bludgeoning, base: "10d6" }],
+    }),
   },
   {
     index: "abi-dalzims-horrid-wilting",
@@ -74,6 +81,11 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     baseDamage: "12d8",
     areaOfEffect: "30-foot cube",
     desc: "Wring the moisture out of every creature in a 30-foot cube, dealing necrotic damage (half on a successful Constitution save). Constructs and undead are unaffected; plant creatures and water elementals save with disadvantage. Ordinary plants in the area die instantly.",
+    mechanics: spellMech({
+      level: 8,
+      resolution: saveHalf(StatKey.con),
+      damage: [{ type: DamageType.Necrotic, base: "12d8" }],
+    }),
   },
   {
     index: "illusory-dragon",
@@ -93,6 +105,11 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     baseDamage: "7d6",
     areaOfEffect: "60-foot cone",
     desc: "Conjure a phantasmal dragon that frightens anyone who sees it (Wisdom save to resist). As a bonus action you can fly it up to 60 feet and unleash a breath weapon in a 60-foot cone dealing 7d6 damage of a type you pick (acid, cold, fire, lightning, necrotic, or poison), halved on a successful Intelligence save. The dragon can't be harmed or destroyed, though a creature can spend an action on an Investigation check to recognize it as illusory and gain advantage against its effects afterward.",
+    mechanics: spellMech({
+      level: 8,
+      resolution: saveHalf(StatKey.int),
+      damage: [{ type: DamageType.Acid, base: "7d6" }],
+    }),
   },
   {
     index: "maddening-darkness",
@@ -113,6 +130,11 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     baseDamage: "8d8",
     areaOfEffect: "60-foot-radius sphere",
     desc: "Fill a 60-foot sphere with magical darkness that blocks darkvision and suppresses spells of 8th level or lower. Whispers of madness fill the space, and any creature that starts its turn inside must make a Wisdom save, taking psychic damage (half on success).",
+    mechanics: spellMech({
+      level: 8,
+      resolution: saveHalf(StatKey.wis),
+      damage: [{ type: DamageType.Psychic, base: "8d8" }],
+    }),
   },
   {
     index: "mighty-fortress",
@@ -165,6 +187,11 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     baseDamage: "6d10",
     areaOfEffect: "Wall up to 300 feet long, 300 feet high, and 50 feet thick",
     desc: "Raise a towering wall of water within sight that deals 6d10 bludgeoning damage on a failed Strength save (half on success) when it appears, then advances 50 feet away from you each round, forcing another Strength save against 5d10 damage that drops by 1d10 each round after. Creatures caught inside can swim free only with a Strength (Athletics) check against your spell save DC, and the wall shrinks away entirely after six rounds.",
+    mechanics: spellMech({
+      level: 8,
+      resolution: saveHalf(StatKey.str),
+      damage: [{ type: DamageType.Bludgeoning, base: "6d10" }],
+    }),
   },
   {
     index: "blade-of-disaster",
@@ -182,6 +209,11 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     damageType: "Force",
     baseDamage: "4d12",
     desc: "Conjure a blade-shaped rift into the void that you can swing with two melee spell attacks on the turn you cast it and again each following turn, dealing 4d12 force damage per hit, rising to 12d12 on a roll of 18 or higher on the attack die. As a bonus action you can move the blade up to 30 feet to an unoccupied space you can see; it is intangible and passes harmlessly through barriers such as a wall of force.",
+    mechanics: spellMech({
+      level: 9,
+      resolution: attack("melee"),
+      damage: [{ type: DamageType.Force, base: "4d12" }],
+    }),
   },
   {
     index: "invulnerability",
@@ -250,5 +282,10 @@ export const NONSRD_SPELLS_PART11: SrdSpell[] = [
     baseDamage: "14d6",
     areaOfEffect: "Up to 10 creatures you can see",
     desc: "Blast up to ten creatures with Intelligence 3 or higher that you can see within range. On a failed Intelligence save a target takes 14d6 psychic damage and is stunned, its head exploding if the damage kills it; on success it takes half damage and isn't stunned. A stunned target repeats the save at the end of each of its turns to end the stun.",
+    mechanics: spellMech({
+      level: 9,
+      resolution: saveHalf(StatKey.int),
+      damage: [{ type: DamageType.Psychic, base: "14d6" }],
+    }),
   },
 ];

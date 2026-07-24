@@ -1,4 +1,11 @@
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import type { SrdSpell } from "src/lib/spells/srd-spells";
+import {
+  auto,
+  save,
+  saveHalf,
+  spellMech,
+} from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 9. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
@@ -55,6 +62,11 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     baseDamage: "8d6",
     areaOfEffect: "20-foot-radius sphere",
     desc: "Detonates a burst of disruptive mental energy in a 20-foot sphere, dealing psychic damage (half on a successful save) to every creature caught inside. Anyone who fails also has their thoughts scrambled for a minute, subtracting a rolled penalty from attacks, checks, and concentration saves until they shake it off.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: saveHalf(StatKey.int),
+      damage: [{ type: DamageType.Psychic, base: "8d6" }],
+    }),
   },
   {
     index: "transmute-rock",
@@ -75,6 +87,11 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     baseDamage: "4d8",
     areaOfEffect: "40-foot cube",
     desc: "Reshapes natural, unworked stone across a 40-foot cube: rock can be turned to thick mud that slows movement and mires anyone failing a Strength save, or existing mud can be hardened back into rock, trapping inside it anyone who fails a Dexterity save (escape needs a Strength check or enough force to break the stone). Mud shaken loose from a ceiling instead falls, dealing bludgeoning damage halved on a successful save.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Bludgeoning, base: "4d8" }],
+    }),
   },
   {
     index: "wall-of-light",
@@ -95,6 +112,11 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     baseDamage: "4d8",
     areaOfEffect: "60-foot-long, 10-foot-high wall",
     desc: "Erects a shining wall up to 60 feet long that blazes light for a wide radius, scorching creatures with radiant damage and risking blindness when it appears and again at the end of each affected creature's turn if they remain in the light; the caster can also fire a ranged bolt from the wall for the same damage. Damage rises with a higher-level slot.",
+    mechanics: spellMech({
+      level: 5,
+      resolution: saveHalf(StatKey.con),
+      damage: [{ type: DamageType.Radiant, base: "4d8", scale: "1d8" }],
+    }),
   },
   {
     index: "wrath-of-nature",
@@ -146,6 +168,11 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     baseDamage: "6d6",
     areaOfEffect: "Up to six 5-foot-diameter, 30-foot-tall pillars",
     desc: "Thrusts up to six stone pillars from the ground within range, each capable of shoving creatures aside on a failed Dexterity save and crushing anyone pinned against an obstacle for bludgeoning damage; destroying a pillar leaves difficult terrain in the rubble. A higher-level slot produces more pillars.",
+    mechanics: spellMech({
+      level: 6,
+      resolution: save(StatKey.dex),
+      damage: [{ type: DamageType.Bludgeoning, base: "6d6" }],
+    }),
   },
   {
     index: "create-homunculus",
@@ -165,6 +192,11 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     damageType: "Piercing",
     baseDamage: "2d4",
     desc: "Sacrifices some of the caster's own vitality, dealing unavoidable piercing damage, to animate a small construct bound to the caster's life force. The homunculus obeys its creator, can share the caster's senses, and can later be topped up with the caster's own Hit Dice during a long rest; only one may exist at a time, and it perishes if its creator does.",
+    mechanics: spellMech({
+      level: 6,
+      resolution: auto(),
+      damage: [{ type: DamageType.Piercing, base: "2d4" }],
+    }),
   },
   {
     index: "druid-grove",
@@ -202,6 +234,11 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     baseDamage: "4d8",
     areaOfEffect: "15-foot line",
     desc: "Wreathes the caster in flame that lights the area, singes anyone who moves adjacent to them or ends a turn there, and grants immunity to fire damage plus resistance to cold. Once per turn the caster can also lash out a 15-foot line of fire, dealing damage to everyone caught in it who fails a Dexterity save.",
+    mechanics: spellMech({
+      level: 6,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Fire, base: "4d8" }],
+    }),
   },
   {
     index: "investiture-of-ice",
@@ -221,6 +258,11 @@ export const NONSRD_SPELLS_PART9: SrdSpell[] = [
     baseDamage: "4d6",
     areaOfEffect: "15-foot cone",
     desc: "Rimes the caster in ice, surrounding them with difficult terrain, granting immunity to cold damage and resistance to fire, and letting the caster move freely over ice and snow. Once per turn the caster can also blast a 15-foot cone of freezing wind, dealing cold damage and halving the speed of anyone who fails a Constitution save.",
+    mechanics: spellMech({
+      level: 6,
+      resolution: saveHalf(StatKey.con),
+      damage: [{ type: DamageType.Cold, base: "4d6" }],
+    }),
   },
   {
     index: "investiture-of-stone",

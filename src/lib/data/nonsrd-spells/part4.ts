@@ -1,4 +1,11 @@
 import type { SrdSpell } from "src/lib/spells/srd-spells";
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
+import {
+  spellMech,
+  saveHalf,
+  save,
+  auto,
+} from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 4. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
@@ -37,6 +44,11 @@ export const NONSRD_SPELLS_PART4: SrdSpell[] = [
     baseDamage: "4d4",
     areaOfEffect: "5-foot cube",
     desc: "You fill a 5-foot cube with whirling blades. Any creature that enters the space or starts its turn there takes 4d4 slashing damage, plus 2d4 for each slot level above 2nd.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: auto(),
+      damage: [{ type: DamageType.Slashing, base: "4d4", scale: "2d4" }],
+    }),
   },
   {
     index: "cordon-of-arrows",
@@ -93,6 +105,11 @@ export const NONSRD_SPELLS_PART4: SrdSpell[] = [
     baseDamage: "3d6",
     areaOfEffect: "15-foot cone",
     desc: "You touch a willing creature and give it the ability to exhale a 15-foot cone of energy in an acid, cold, fire, lightning, or poison type of your choice as an action. Each creature in the cone makes a Dexterity save, taking 3d6 damage of that type on a failure or half as much on a success; the damage rises by 1d6 per slot level above 2nd.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: saveHalf(StatKey.dex),
+      damage: [{ type: DamageType.Fire, base: "3d6", scale: "1d6" }],
+    }),
   },
   {
     index: "dust-devil",
@@ -113,6 +130,11 @@ export const NONSRD_SPELLS_PART4: SrdSpell[] = [
     baseDamage: "1d8",
     areaOfEffect: "5-foot cube",
     desc: "You conjure a whirling funnel of debris in a 5-foot cube. A creature that ends its turn within 5 feet of it must succeed on a Strength save or take 1d8 bludgeoning damage and be pushed 10 feet away; the damage increases by 1d8 per slot level above 2nd. As a bonus action you can move it up to 30 feet, and it kicks up a swirling cloud of debris when it crosses loose material.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: save(StatKey.str),
+      damage: [{ type: DamageType.Bludgeoning, base: "1d8", scale: "1d8" }],
+    }),
   },
   {
     index: "earthbind",
@@ -179,6 +201,11 @@ export const NONSRD_SPELLS_PART4: SrdSpell[] = [
     classes: ["Druid", "Ranger"],
     areaOfEffect: "5-foot cube",
     desc: "You summon a translucent, animal-shaped spirit that occupies a 5-foot cube. A creature (other than a construct or undead) that enters its space or starts its turn there regains 1d6 hit points, plus 1d6 per slot level above 2nd; you can move it up to 30 feet as a bonus action. It can heal a number of times equal to your spellcasting modifier plus 1 (minimum twice) before disappearing.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: auto(),
+      healing: { base: "1d6", scale: "1d6" },
+    }),
   },
   {
     index: "jims-glowing-coin",
@@ -234,5 +261,10 @@ export const NONSRD_SPELLS_PART4: SrdSpell[] = [
     baseDamage: "2d6",
     areaOfEffect: "5-foot-square patch of ground",
     desc: "You cause a hand of compacted soil to rise from an unoccupied patch of ground you can see within range and reach for a creature within 5 feet of it. On a failed Strength save the target takes 2d6 bludgeoning damage and is restrained; as an action you can have the hand crush the restrained target for another Strength save (2d6 bludgeoning, or half on a success), or redirect/move the hand, which releases the current target. A restrained creature can use its action to attempt a Strength check against your spell save DC to break free.",
+    mechanics: spellMech({
+      level: 2,
+      resolution: save(StatKey.str),
+      damage: [{ type: DamageType.Bludgeoning, base: "2d6" }],
+    }),
   },
 ];

@@ -1,4 +1,11 @@
 import type { SrdSpell } from "src/lib/spells/srd-spells";
+import { DamageType, StatKey } from "src/lib/data/data-definitions";
+import {
+  attack,
+  save,
+  saveHalf,
+  spellMech,
+} from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 2. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
@@ -20,6 +27,12 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     damageType: "Piercing",
     baseDamage: "1d6",
     desc: "A melee spell attack lashes a target with a thorny vine. On a hit it takes 1d6 piercing damage, and if it is Large or smaller it is dragged up to 10 feet toward the caster. Damage rises to 2d6, 3d6, and 4d6 at character levels 5, 11, and 17.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: attack("melee"),
+      damage: [{ type: DamageType.Piercing, base: "1d6", scale: "1d6" }],
+      driver: "character",
+    }),
   },
   {
     index: "thunderclap",
@@ -39,6 +52,12 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     baseDamage: "1d6",
     areaOfEffect: "5-foot radius sphere centered on self",
     desc: "A burst of thunder booms out from the caster, loud enough to be heard 100 feet away. Every other creature within 5 feet must succeed on a Constitution save or take 1d6 thunder damage. Damage rises to 2d6, 3d6, and 4d6 at character levels 5, 11, and 17.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.con),
+      damage: [{ type: DamageType.Thunder, base: "1d6", scale: "1d6" }],
+      driver: "character",
+    }),
   },
   {
     index: "toll-the-dead",
@@ -56,6 +75,10 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     save: "WIS",
     damageType: "Necrotic",
     desc: "A tolling bell sounds around one creature the caster can see. On a failed Wisdom save it takes 1d8 necrotic damage, or 1d12 if it is already missing any hit points; the damage die increases by one at character levels 5, 11, and 17.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.wis),
+    }),
   },
   {
     index: "word-of-radiance",
@@ -75,6 +98,12 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     damageType: "Radiant",
     baseDamage: "1d6",
     desc: "The caster flares with divine light. Each creature of the caster's choice within 5 feet must succeed on a Constitution save or take 1d6 radiant damage. Damage rises to 2d6, 3d6, and 4d6 at character levels 5, 11, and 17.",
+    mechanics: spellMech({
+      level: 0,
+      resolution: save(StatKey.con),
+      damage: [{ type: DamageType.Radiant, base: "1d6", scale: "1d6" }],
+      driver: "character",
+    }),
   },
   {
     index: "absorb-elements",
@@ -127,6 +156,11 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     baseDamage: "2d6",
     areaOfEffect: "10-foot radius sphere centered on self",
     desc: "Dark tendrils lash out from the caster, and every other creature within 10 feet must make a Strength save. On a failure it takes 2d6 necrotic damage and cannot take reactions until its next turn; on a success it takes only half damage. Damage increases by 1d6 per slot level above 1st.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: saveHalf(StatKey.str),
+      damage: [{ type: DamageType.Necrotic, base: "2d6", scale: "1d6" }],
+    }),
   },
   {
     index: "beast-bond",
@@ -161,6 +195,11 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     damageType: "Bludgeoning",
     baseDamage: "3d8",
     desc: "The caster telekinetically flings an unattended object weighing 1 to 5 pounds up to 90 feet in a chosen direction until it hits something or the distance runs out. If it strikes a creature, that creature must succeed on a Dexterity save or both it and the object take 3d8 bludgeoning damage. A higher-level slot lets the object weigh up to 5 more pounds and adds 1d8 damage per slot level above 1st.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: save(StatKey.dex),
+      damage: [{ type: DamageType.Bludgeoning, base: "3d8", scale: "1d8" }],
+    }),
   },
   {
     index: "cause-fear",
@@ -208,6 +247,10 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     somatic: true,
     classes: ["Sorcerer"],
     desc: "A ranged spell attack hurls unstable magic at a target, dealing 2d8 plus 1d6 damage of a type rolled at random from acid, cold, fire, force, lightning, poison, psychic, or thunder. If the two d8s come up matching, the bolt leaps to a new target within 30 feet with a fresh attack roll and damage (and can keep leaping on further matches), though no creature is struck more than once. A higher-level slot adds 1d6 damage of the rolled type per slot level above 1st.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: attack("ranged"),
+    }),
   },
   {
     index: "chromatic-orb",
@@ -226,6 +269,14 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     classes: ["Sorcerer", "Wizard"],
     baseDamage: "3d8",
     desc: "A ranged spell attack hurls a small sphere of energy at a target, its damage type (acid, cold, fire, lightning, poison, or thunder) chosen by the caster when cast. On a hit it deals 3d8 damage of that type. A higher-level slot adds 1d8 damage per slot level above 1st.",
+    // Damage type is actually chosen by the caster at cast time (acid, cold,
+    // fire, lightning, poison, or thunder); `mechanics` can only model one
+    // fixed type, so Fire is used as a representative default for the roll.
+    mechanics: spellMech({
+      level: 1,
+      resolution: attack("ranged"),
+      damage: [{ type: DamageType.Fire, base: "3d8", scale: "1d8" }],
+    }),
   },
   {
     index: "compelled-duel",
@@ -260,6 +311,11 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     damageType: "Psychic",
     baseDamage: "3d6",
     desc: "One creature the caster can see within range hears a maddening melody only it can perceive and must make a Wisdom save. On a failure it takes 3d6 psychic damage and must immediately use its reaction to flee from the caster by the safest path it can find; on a success it takes half damage and doesn't flee. A deafened creature automatically succeeds. Damage increases by 1d6 per slot level above 1st.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: saveHalf(StatKey.wis),
+      damage: [{ type: DamageType.Psychic, base: "3d6", scale: "1d6" }],
+    }),
   },
   {
     index: "distort-value",
@@ -294,5 +350,10 @@ export const NONSRD_SPELLS_PART2: SrdSpell[] = [
     baseDamage: "1d6",
     areaOfEffect: "10-foot radius sphere centered on self",
     desc: "The ground within 10 feet of the caster heaves and buckles. Each other creature there must succeed on a Dexterity save or take 1d6 bludgeoning damage and fall prone; loose earth or stone in the area also becomes difficult terrain until cleared. Damage increases by 1d6 per slot level above 1st.",
+    mechanics: spellMech({
+      level: 1,
+      resolution: save(StatKey.dex),
+      damage: [{ type: DamageType.Bludgeoning, base: "1d6", scale: "1d6" }],
+    }),
   },
 ];
