@@ -1,21 +1,35 @@
 import { SkillName } from "src/lib/data/data-definitions";
 import { SrdSubclass } from "src/lib/builder/types";
+import { SUBCLASS_FEATURES } from "src/lib/data/subclass-features";
 
 // The full catalog of official subclasses across every class. Names are the
 // value stored on the character (matching the existing free-text field and the
 // edit-class-levels datalist), so no migration is needed.
 //
-// `grants` carries the mechanics conferred when the subclass is *chosen* —
-// applied by the level-1 builder for the classes that pick at 1 (cleric,
-// sorcerer, warlock) and by the level-up wizard for everyone else at their
-// choice level (druid/wizard at 2, the rest at 3). Refreshing *pools* a
-// subclass carries (superiority dice, Healing Light) is not done here — those
-// live in `builder/class-pools.ts` `SUBCLASS_POOLS`, keyed by subclass name,
-// so their sizes re-derive on every level-up. Entries without grants are name
-// + summary only. As elsewhere, we store only mechanical facts and write
-// original short summaries, never published prose. `spellIndices` reference
-// the bundled SRD spell catalog; spells absent from the SRD are named in a
-// feature detail instead of auto-added.
+// A subclass confers content through two shapes, and which one to use is just
+// a question of *when* it lands:
+//
+// - `grants` fires once, at the level the subclass is *chosen* — the level-1
+//   builder for the classes that pick at 1 (cleric, sorcerer, warlock), the
+//   level-up wizard for everyone else at their choice level (druid/wizard at 2,
+//   the rest at 3). It's the only shape that can grant proficiencies and
+//   always-prepared `spellIndices`.
+// - `levelFeatures` fires at *each* level the subclass gives something, and is
+//   attached below from `data/subclass-features/` (one file per class, because
+//   the tables dwarf the entries). Prose only, but it's what makes a 6th/10th/
+//   14th-level subclass feature visible at all.
+//
+// Prefer `levelFeatures` for anything that is feature prose, including at the
+// choice level: it keeps a subclass's whole progression in one table. Reserve
+// `grants` for proficiencies, spells, and the choice-level-only cases.
+//
+// Refreshing *pools* a subclass carries (superiority dice, Healing Light) is
+// not done here — those live in `builder/class-pools.ts` `SUBCLASS_POOLS`,
+// keyed by subclass name, so their sizes re-derive on every level-up. As
+// elsewhere, we store only mechanical facts and write original short summaries,
+// never published prose. `spellIndices` reference the bundled SRD spell
+// catalog; spells absent from the SRD are named in a feature detail instead of
+// auto-added.
 
 // Helper to keep entries terse. index is derived from class + name.
 const slug = (s: string) =>
@@ -26,24 +40,17 @@ const slug = (s: string) =>
 
 type Entry = Omit<SrdSubclass, "index" | "classIndex">;
 
+// Per-level features are attached here rather than written inline: the tables
+// are far larger than the entries themselves, and keeping them in one file per
+// class (`data/subclass-features/`) is what keeps this catalog readable. An
+// entry may still declare `levelFeatures` inline, which wins.
 const forClass = (classIndex: string, entries: Entry[]): SrdSubclass[] =>
   entries.map((e) => ({
     index: `${classIndex}-${slug(e.name)}`,
     classIndex,
+    levelFeatures: SUBCLASS_FEATURES[classIndex]?.[e.name],
     ...e,
   }));
-
-const named = (classIndex: string, names: string[]): SrdSubclass[] =>
-  entriesFrom(classIndex, names);
-
-// Build simple name+summary entries where the summary is auto-derived. Callers
-// that need richer summaries or grants use `forClass` directly.
-function entriesFrom(classIndex: string, names: string[]): SrdSubclass[] {
-  return forClass(
-    classIndex,
-    names.map((name) => ({ name, summary: name })),
-  );
-}
 
 export const SUBCLASSES: SrdSubclass[] = [
   // -------------------------------------------------------------- Barbarian
@@ -416,22 +423,41 @@ export const SUBCLASSES: SrdSubclass[] = [
             title: "Bonus Cantrip",
             detail: "Learn one extra druid cantrip of your choice.",
           },
-          {
-            title: "Circle Spells",
-            detail:
-              "Your chosen land grants always-prepared circle spells at 3rd, 5th, 7th, and 9th level.",
-          },
         ],
       },
     },
   ]),
-  ...named("druid", [
-    "Dreams",
-    "Moon",
-    "Shepherd",
-    "Spores",
-    "Stars",
-    "Wildfire",
+  ...forClass("druid", [
+    {
+      name: "Dreams",
+      summary:
+        "A fey-touched druid who channels the Feywild's comfort to heal and ferry allies.",
+    },
+    {
+      name: "Moon",
+      summary:
+        "A shapeshifting warrior who fights in beast form and takes on ever more dangerous shapes.",
+    },
+    {
+      name: "Shepherd",
+      summary:
+        "A protector who calls on spirit totems and bolsters summoned allies.",
+    },
+    {
+      name: "Spores",
+      summary:
+        "A druid bonded to a symbiotic fungus that feeds on death and decay.",
+    },
+    {
+      name: "Stars",
+      summary:
+        "A reader of constellations who draws starlight into a luminous battle form.",
+    },
+    {
+      name: "Wildfire",
+      summary:
+        "A druid bonded to an elemental fire spirit that burns away growth to renew it.",
+    },
   ]),
   // ----------------------------------------------------------------- Fighter
   ...forClass("fighter", [
@@ -620,14 +646,42 @@ export const SUBCLASSES: SrdSubclass[] = [
       },
     },
   ]),
-  ...named("paladin", [
-    "Ancients",
-    "Conquest",
-    "Crown",
-    "Glory",
-    "Redemption",
-    "Watchers",
-    "Oathbreaker",
+  ...forClass("paladin", [
+    {
+      name: "Ancients",
+      summary:
+        "An oath of the old ways: guard the light and joy of the world against despair.",
+    },
+    {
+      name: "Conquest",
+      summary:
+        "A tyrant's oath: rule through fear, breaking an enemy's will before their body.",
+    },
+    {
+      name: "Crown",
+      summary:
+        "An oath of duty: uphold the social order and shield your people at any personal cost.",
+    },
+    {
+      name: "Glory",
+      summary:
+        "An oath of legend: chase glorious deeds and drive others past their limits.",
+    },
+    {
+      name: "Redemption",
+      summary:
+        "A pacifist's oath: turn aside violence and offer even the wicked a path to change.",
+    },
+    {
+      name: "Watchers",
+      summary:
+        "A sentinel's oath: stand ready against incursions from beyond the material world.",
+    },
+    {
+      name: "Oathbreaker",
+      summary:
+        "A broken vow: power drawn from betrayal, wielded in service of tyranny and undeath.",
+    },
   ]),
   // ------------------------------------------------------------------ Ranger
   ...forClass("ranger", [
@@ -654,15 +708,8 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Hunter",
       summary:
         "A versatile monster-hunter with tactical options against many foes.",
-      grants: {
-        features: [
-          {
-            title: "Hunter's Prey",
-            detail:
-              "Choose one: Colossus Slayer (1d8 extra damage once per turn to a wounded creature), Giant Killer (reaction attack against a Large+ creature that misses you), or Horde Breaker (extra attack against a different adjacent creature).",
-          },
-        ],
-      },
+      // Hunter's Prey now lives in the level table with the rest of the tiered
+      // picks (7/11/15), rather than alone here at the choice level.
     },
     {
       name: "Monster Slayer",
@@ -881,6 +928,9 @@ export const SUBCLASSES: SrdSubclass[] = [
               "When a creature you can see rolls with advantage or disadvantage, you can cancel it. Uses equal to your proficiency bonus per long rest.",
           },
         ],
+        // The two 1st-level Clockwork Magic spells that exist in the bundled
+        // SRD catalog; the rest are named in the level table's detail.
+        spellIndices: ["alarm", "protection-from-evil-and-good"],
       },
     },
   ]),
@@ -1052,19 +1102,67 @@ export const SUBCLASSES: SrdSubclass[] = [
       },
     },
   ]),
-  ...named("wizard", [
-    "Abjuration",
-    "Bladesinging",
-    "Chronurgy",
-    "Conjuration",
-    "Divination",
-    "Enchantment",
-    "Graviturgy",
-    "Illusion",
-    "Necromancy",
-    "Order of Scribes",
-    "Transmutation",
-    "War Magic",
+  ...forClass("wizard", [
+    {
+      name: "Abjuration",
+      summary:
+        "A defensive caster shielded by a ward that absorbs damage and recharges on protective magic.",
+    },
+    {
+      name: "Bladesinging",
+      summary:
+        "An elven duelist who weaves spellcraft and swordplay into one graceful defence.",
+    },
+    {
+      name: "Chronurgy",
+      summary:
+        "A time-mage who nudges rolls and freezes moments to bend fate into shape.",
+    },
+    {
+      name: "Conjuration",
+      summary:
+        "A caster who bends space to summon objects and creatures and to slip away from danger.",
+    },
+    {
+      name: "Divination",
+      summary:
+        "A seer who reads the threads of fate and replaces rolls with foreseen results.",
+    },
+    {
+      name: "Enchantment",
+      summary:
+        "A charmer who bends minds and turns enemies against one another.",
+    },
+    {
+      name: "Graviturgy",
+      summary:
+        "A gravity-mage who crushes, flings, and anchors foes with unseen weight.",
+    },
+    {
+      name: "Illusion",
+      summary:
+        "A trickster who blurs what is real, sometimes hard enough to make it so.",
+    },
+    {
+      name: "Necromancy",
+      summary:
+        "A death-caster who drains life from the slain and commands the risen.",
+    },
+    {
+      name: "Order of Scribes",
+      summary:
+        "A living archivist bonded to an awakened spellbook that speaks and fights alongside them.",
+    },
+    {
+      name: "Transmutation",
+      summary:
+        "A shaper of matter who reworks objects, stone, and eventually their own body.",
+    },
+    {
+      name: "War Magic",
+      summary:
+        "A battle-caster who turns spellcraft into a duelist's parries and ripostes.",
+    },
   ]),
   // --------------------------------------------------------------- Artificer
   ...forClass("artificer", [

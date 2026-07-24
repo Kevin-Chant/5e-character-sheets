@@ -317,7 +317,15 @@ describe("builder integration", () => {
     expect(
       mechanicsForAbility(pool(leveled, "Natural Recovery")),
     ).toBeDefined();
-    expect(leveled.features.map((f) => f.title)).toContain("Circle Spells");
+    expect(leveled.features.map((f) => f.title)).toContain("Bonus Cantrip");
+
+    // Circle Spells is a 3rd-level feature, so it arrives a level *after* the
+    // circle is chosen — which is what the subclass level table is for.
+    const third = applyLevelUp(leveled, {
+      ...defaultLevelUpState(leveled),
+      className: OfficialClass.Druid as string,
+    });
+    expect(third.features.map((f) => f.title)).toContain("Circle Spells");
   });
 
   it("fighter subclass at level 3 applies riders (Champion) ", () => {

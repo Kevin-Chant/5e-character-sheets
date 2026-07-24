@@ -1,5 +1,5 @@
 import { SUBCLASSES } from "src/lib/data/subclasses";
-import { SrdSubclass } from "src/lib/builder/types";
+import { RaceTrait, SrdSubclass } from "src/lib/builder/types";
 
 export { SUBCLASSES };
 
@@ -17,3 +17,15 @@ export const getSubclassByName = (
   classIndex && name
     ? SUBCLASSES.find((s) => s.classIndex === classIndex && s.name === name)
     : undefined;
+
+// The feature prose a subclass confers on reaching `level` — the subclass half
+// of `classFeaturesAt`. Empty for a class level the subclass grants nothing at,
+// which is most of them.
+export const subclassFeaturesAt = (
+  classIndex?: string,
+  name?: string,
+  level?: number,
+): RaceTrait[] =>
+  (level != null
+    ? getSubclassByName(classIndex, name)?.levelFeatures?.[level]
+    : undefined) ?? [];

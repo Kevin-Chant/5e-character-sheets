@@ -298,11 +298,46 @@ Two-pass contract in `resolve.ts`, and the reason for it:
 can't know the sheet's per-class UUIDs), `chosenAmount`, `chosenAmountDice`
 ("spend N, roll N d6" — Healing Light), `chosenLevel`, `byChosenLevel` tables.
 
+## Subclasses grant through two shapes
+
+A subclass confers content two ways, and the difference is purely _when_:
+
+- **`grants`** (`data/subclasses.ts`) fires **once**, at the level the subclass
+  is chosen — the builder at level 1 for cleric/sorcerer/warlock, the level-up
+  wizard at 2 for druid/wizard and 3 for everyone else. It is the only shape
+  that can grant proficiencies and always-prepared `spellIndices`.
+- **`levelFeatures`** (`SrdSubclass.levelFeatures`, class level → features)
+  fires at **each** level the subclass gives something. Prose only.
+
+`levelFeatures` exists because `grants` firing once was a real hole, not a
+stylistic one: a Berserker got Frenzy at 3rd and then nothing at 6th, 10th or
+14th, and there was nowhere to put those features at all. Step 2a of
+`applyClassLevel` applies the level's entry, de-duplicated by title against
+what the character already has — which is what lets a choice-level feature
+live in either shape without appearing twice.
+
+The tables live in **`src/lib/data/subclass-features/`, one file per class**
+(they dwarf the catalog entries), merged by `index.ts` and attached in
+`forClass`. Prefer `levelFeatures` for any feature prose, including at the
+choice level: it keeps a subclass's whole progression in one place.
+
+`builder/subclass-features.test.ts` guards the join — the tables are keyed by
+subclass _name_, so a typo grants nothing and fails silently. It asserts every
+key resolves to a real subclass, that each table reaches the catalog, and that
+no title is already granted by `CLASS_FEATURES`, a pool, or that subclass's own
+`grants` (the de-dup net exists, but the data shouldn't need it).
+
+**Prose is not automation, and that's deliberate.** A feature the engine can't
+model still gets a row stating its real numbers — the player sees it, the sheet
+just doesn't roll it. That trade is why the catalog can be complete long before
+the mechanics layer is.
+
 ## The builder grants the features
 
 Beyond pools, the wizards grant: per-level class-feature prose
 (`builder/class-features.ts` `CLASS_FEATURES` — Extra Attack, Divine Smite,
 Aura of Protection, …; pool-backed features stay out to avoid doubling),
+per-level **subclass** prose (see below),
 **fighting styles** (fighter 1 in the guided builder, paladin/ranger 2 in
 level-up — bare style names so catalog riders match, Defense folds +1 into the
 AC formula), and **eldritch invocations** (whenever the warlock's known count
@@ -326,9 +361,7 @@ the owning class levels. A pool def can also carry a level-computed
 amount the static title-keyed catalog can't see) is handled: Bardic Inspiration
 d6→d12, Battle Master superiority die d8→d12, Samurai Fighting Spirit temp HP
 5→15. Because `mechanicsForAbility` prefers the ability's own `mechanics`, the
-attached block wins over the catalog fallback. Subclass feature/spell `grants` in
-`data/subclasses.ts` apply once at the choice level via the level-up wizard
-(druid/wizard 2, most classes 3, cleric/sorcerer/warlock 1 in the builder).
+attached block wins over the catalog fallback.
 `syncRacePools` creates trait-keyed racial pools (Breath Weapon,
 Relentless Endurance, Stone's Endurance) at build. Racial features scale on
 **total character level** rather than a class level, so their `mechanics` is a

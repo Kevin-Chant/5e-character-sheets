@@ -33,7 +33,10 @@ import {
   multiclassSkillOptions,
   multiclassToolOptions,
 } from "src/lib/builder/multiclass";
-import { getSubclassByName } from "src/lib/builder/subclasses";
+import {
+  getSubclassByName,
+  subclassFeaturesAt,
+} from "src/lib/builder/subclasses";
 import { addSrdSpell } from "src/lib/builder/grant-spells";
 import { SrdSubclass } from "src/lib/builder/types";
 
@@ -220,6 +223,24 @@ export function applyClassLevel(
   //    hides that seam).
   for (const f of classFeaturesAt(className, level))
     char.features.push(text(f.title, f.detail));
+
+  // 2a. Feature prose the *subclass* confers at this level. Runs after the
+  //     subclass is set above, so the level a subclass is chosen picks up both
+  //     its `grants` and its level entry. De-duplicated by title, which is what
+  //     lets a choice-level feature be listed in either shape (or both) without
+  //     appearing twice on the sheet.
+  const knownFeatures = new Set(
+    char.features.map((f) => f.title.trim().toLowerCase()),
+  );
+  for (const f of subclassFeaturesAt(
+    className.toLowerCase(),
+    klass.subclass,
+    level,
+  )) {
+    if (knownFeatures.has(f.title.trim().toLowerCase())) continue;
+    knownFeatures.add(f.title.trim().toLowerCase());
+    char.features.push(text(f.title, f.detail));
+  }
 
   // 2b. Ability scores a class feature raises outright (Primal Champion's +4).
   //     Runs after the prose above, because the same feature is what lifts the

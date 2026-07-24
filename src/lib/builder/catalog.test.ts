@@ -51,10 +51,15 @@ describe("subclass catalog", () => {
     }
   });
 
-  it("each class's classic SRD subclass carries mechanical grants", () => {
+  // Either shape counts as "has mechanics": `grants` fires once at the choice
+  // level, `levelFeatures` at each level the subclass gives something. A few
+  // subclasses whose only grant *was* a choice-level feature now carry it in
+  // the level table instead, which is strictly more information.
+  it("each class's classic SRD subclass carries mechanical content", () => {
     for (const [classIndex, name] of EXPECTED_GRANTED) {
+      const sub = getSubclassByName(classIndex, name);
       expect(
-        getSubclassByName(classIndex, name)?.grants,
+        sub?.grants ?? sub?.levelFeatures,
         `${classIndex} / ${name}`,
       ).toBeDefined();
     }

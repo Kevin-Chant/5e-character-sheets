@@ -123,6 +123,16 @@ export interface SrdSubclass {
     // any non-SRD domain spells are named in a feature detail instead.
     spellIndices?: string[];
   };
+  // Feature prose the subclass grants **at each level**, keyed by class level —
+  // the subclass counterpart to `CLASS_FEATURES`. `grants` fires only once, at
+  // the level the subclass is chosen, which left everything a subclass confers
+  // later (a Berserker's 6th/10th/14th features) with no home at all.
+  //
+  // A level's entry is applied whenever that class level is reached with this
+  // subclass selected, and de-duplicated by title — so listing the choice-level
+  // features here as well as in `grants.features` is harmless, and new entries
+  // don't have to be split across the two shapes.
+  levelFeatures?: Record<number, RaceTrait[]>;
 }
 
 // The mechanical grants a feat applies on top of its `effect` prose. Only the

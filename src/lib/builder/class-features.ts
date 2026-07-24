@@ -312,6 +312,13 @@ export const CLASS_FEATURES: Partial<
           "Turned undead of CR 1/2 or lower are destroyed (threshold rises with cleric level).",
       },
     ],
+    20: [
+      {
+        title: "Divine Intervention Improvement",
+        detail:
+          "Your Divine Intervention succeeds automatically — no roll needed.",
+      },
+    ],
   },
   [OfficialClass.Druid]: {
     18: [
@@ -339,6 +346,23 @@ export const CLASS_FEATURES: Partial<
         title: "Extra Attack",
         detail:
           "Attack twice whenever you take the Attack action (three times at 11th, four at 20th level).",
+      },
+    ],
+    // The fighter's two bumps get rows of their own rather than living only in
+    // the 5th-level detail string: reaching 11th otherwise granted nothing
+    // visible, and the sheet is where a player looks to find out what changed.
+    11: [
+      {
+        title: "Extra Attack (3 attacks)",
+        detail:
+          "You now attack three times, rather than twice, whenever you take the Attack action.",
+      },
+    ],
+    20: [
+      {
+        title: "Extra Attack (4 attacks)",
+        detail:
+          "You now attack four times, rather than three, whenever you take the Attack action.",
       },
     ],
   },
