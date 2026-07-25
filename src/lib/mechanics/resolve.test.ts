@@ -29,6 +29,16 @@ const classed = (name: OfficialClass, level: number): Character => {
   c.maxHp = 50;
   c.currHp = 30;
   c.tempHp = 0;
+  // `defaultCharacter` is a *played-in* sample sheet — it deliberately ships
+  // mid-adventuring-day (spent slots, spent hit dice, a level of exhaustion) so
+  // the rest flow has something to restore. Reset the resource state these
+  // tests assert on, so they describe their own starting point.
+  c.spellSlots = Object.fromEntries(
+    Object.keys(c.spellSlots).map((level) => [level, { expended: 0 }]),
+  ) as Character["spellSlots"];
+  c.pactSlots = { expended: 0 };
+  c.expendedHitDice = {};
+  c.exhaustion = 0;
   return c;
 };
 

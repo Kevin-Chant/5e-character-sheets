@@ -64,6 +64,8 @@ The computed-field system has its own deep dive: [`.claude/docs/formula-engine.m
 
 **Ability mechanics** — what features _do_ at the table — are serializable data in `src/lib/mechanics/`: roll **riders** (Durable's minimum, rerolls, crit range) and resource **actions** with action-economy costs (Second Wind, Font of Magic, Lay on Hands), interpreted into ordinary reducer updates so they sync/undo like edits. Adding mechanics for a known feature is a `catalog.ts` entry, not a component. See [`.claude/docs/ability-mechanics.md`](.claude/docs/ability-mechanics.md).
 
+**Rests** are what finally consume `RechargeCriteria`: `src/lib/rest.ts` is a pure planner (`planRest` → a `RestPlan` of reducer updates + a human account of them + the `followUps` the player drives), so the panel in `src/components/rest/` can preview a rest, commit it as a single `replace_character`, then run the interactive parts — spending hit dice, re-preparing spells — against the rested sheet. Rest variants (pacing, hit-dice/HP/exhaustion recovery) are settings on the **Game** tab. Add a rest effect to `planRest`, never to a component. See [`.claude/docs/rests.md`](.claude/docs/rests.md).
+
 **Races / classes / subclasses** for the guided builder are bundled catalog data under `src/lib/data/`, consumed via `src/lib/builder/srd-races.ts` / `srd-classes.ts` / `subclasses.ts`:
 
 - `srd-races.json` + `srd-classes.json` are **frozen** snapshots of the open-license 2014 SRD — edit the JSON directly (the old `generate-races`/`generate-classes` scripts were retired; only `generate-spells` remains, since the 319-spell set still benefits from regeneration).
@@ -71,7 +73,7 @@ The computed-field system has its own deep dive: [`.claude/docs/formula-engine.m
 
 ### State management
 
-React Context + reducers (no Redux). Providers are **deeply nested in `src/index.tsx` and the order matters** — `SharingSessions` sits above `Datastore`/`Character` so broadcast/role state is reachable. Main contexts: `Settings`, `SharingSessions`, `GoogleOauth`, `DatastoreSelector`, `Datastore`, `Character`.
+React Context + reducers (no Redux). Providers are **deeply nested in `src/index.tsx` and the order matters** — `SharingSessions` sits above `Datastore`/`Character` so broadcast/role state is reachable. Main contexts: `Settings`, `SharingSessions`, `GoogleOauth`, `DatastoreSelector`, `Datastore`, `Character`. `LevelUp` and `Rest` sit innermost — each mounts its dialog once and exposes an `open*()`.
 
 All character edits funnel through one reducer + the `dispatchAndBroadcast` wrapper. [`.claude/docs/character-state-and-edits.md`](.claude/docs/character-state-and-edits.md) explains the write-path: why `update_*` actions carry a field's _whole_ value (which is what makes undo/redo and live-sync replay fall out for free) and the flags that keep local edits, replays, and remote echoes from looping.
 

@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from "react";
 import { readLocalStorage, writeLocalStorage } from "../local-storage";
 import { missingProvider } from "../missing-provider";
 import { CritMode } from "../roll";
+import { RestVariant } from "../rest";
 
 export const CLOUD_DEFAULT_HOST = "https://live.dndcharactersheets.net";
 export const DEFAULT_LIVE_EDIT_HOST =
@@ -42,6 +43,25 @@ interface Settings {
   // Exploding crits: after a critical hit, reroll the d20 and stack another set
   // of critical dice for each repeat crit. Compounds with `criticalDamageMode`.
   explodingCriticals: boolean;
+  // --- Rests (see `src/lib/rest.ts`; the four `longRest*` keys and the
+  // variant together are the `RestRules` the planner reads) ---
+  // Rest lengths: the DMG's Epic Heroism / Gritty Realism pacing variants. This
+  // only changes the durations the rest UI announces — the mechanical effects of
+  // a rest are identical.
+  restVariant: RestVariant;
+  // How many spent hit dice a long rest gives back: RAW is half your total
+  // (minimum one), and "all" is the near-universal house rule.
+  longRestHitDiceRecovery: "half" | "all" | "none";
+  // Whether a long rest restores all HP (RAW) or none — the DMG's Slow Natural
+  // Healing variant, where you spend hit dice at the end of a long rest instead.
+  longRestHpRecovery: "full" | "none";
+  // How much exhaustion a long rest sheds: one level (RAW), all of it, or none.
+  longRestExhaustionRecovery: "one" | "all" | "none";
+  // Whether temporary HP expire at the end of a long rest (RAW).
+  longRestClearsTempHp: boolean;
+  // Whether a long rest prompts prepared casters to re-pick their prepared
+  // spells. Off skips straight to the summary.
+  promptSpellPreparation: boolean;
 }
 
 function sanitizeSettingValue<K extends keyof Settings>(
@@ -83,6 +103,12 @@ const DEFAULT_SETTINGS: Settings = {
   criticalsOnAllRolls: false,
   criticalDamageMode: "raw",
   explodingCriticals: false,
+  restVariant: "standard",
+  longRestHitDiceRecovery: "half",
+  longRestHpRecovery: "full",
+  longRestExhaustionRecovery: "one",
+  longRestClearsTempHp: true,
+  promptSpellPreparation: true,
 };
 
 export const SettingsContext = React.createContext<SettingsContextData>({

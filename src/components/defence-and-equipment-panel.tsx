@@ -14,9 +14,10 @@ import SpeedDisplay from "./display/speed-display";
 import AmmunitionDisplay from "./display/ammunition-display";
 import SlotPips from "./display/slot-pips";
 import RollButton from "./roll-button";
-import { FaPencil } from "react-icons/fa6";
+import { FaBed, FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
+import { useRest } from "src/lib/hooks/use-rest";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { charPath, updateAt } from "src/lib/cursor";
 import { WeaponRange } from "src/lib/types";
@@ -31,6 +32,7 @@ export default function DefenceAndEquipmentPanel() {
   const { character, dispatch } = useCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
+  const { openRest } = useRest();
   const {
     settings: { trackAmmunition },
   } = useSettings();
@@ -79,7 +81,20 @@ export default function DefenceAndEquipmentPanel() {
         <SpeedDisplay />
       </div>
       {/* HP */}
-      <div className="column rounded-border-box hp-box">
+      <div className="column rounded-border-box hp-box has-corner-action">
+        {/* A rest lives with hit points: it's the region a rest restores, and
+            the corner-action slot the level-up button uses on Class & Level. */}
+        <div className="corner-action">
+          <button
+            type="button"
+            className="icon-btn rest-btn"
+            onClick={openRest}
+            title="Take a short or long rest"
+            aria-label="Take a short or long rest"
+          >
+            <FaBed />
+          </button>
+        </div>
         <SingleValueDisplay
           cursor={charPath(FIELD.maxHp)}
           name="Hit Point Maximum"

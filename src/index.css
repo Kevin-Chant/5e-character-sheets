@@ -3878,6 +3878,7 @@ b.pos-relative.margin-large {
 .home-hero h1,
 .character-picker-header h1,
 .builder-title,
+.rest-title,
 .modal-titlebar > .title,
 .spell-banner .title,
 .settings-section-title {
@@ -4243,4 +4244,468 @@ b.pos-relative.margin-large {
 .sidecar-health-result {
   margin: 0;
   max-width: 22rem;
+}
+
+/* ============================================================
+   Rests
+   ============================================================ */
+
+/* Screen-reader-only live region (the hit dice tray announces its rolls). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The rest button in the HP box's corner: quiet until wanted, crimson because
+   it belongs to the sheet's "life" region. */
+.rest-btn {
+  opacity: 0.65;
+  color: var(--health);
+}
+.rest-btn:hover,
+.rest-btn:focus-visible {
+  opacity: 1;
+}
+
+.rest-modal {
+  width: min(680px, 92vw);
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px;
+}
+
+.rest-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.rest-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.rest-title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+/* The rest's duration, set as a caption rather than a heading — it's a fact
+   about the rest, not a second title. */
+.rest-duration {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rest-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 6px 6px 2px;
+  margin-top: 1rem;
+}
+
+/* Every heading inside the panel is a small-caps eyebrow, so the one Cinzel
+   line (the title) stays the only display-face moment. */
+.rest-section-title,
+.rest-ledger-title {
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rest-hint {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* ---- The fork: each card previews its own rest ---- */
+.rest-fork {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+}
+.rest-fork-card {
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 0.15rem;
+  padding: 0.9rem 1rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.rest-fork-card:hover,
+.rest-fork-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+.rest-fork-kind {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+.rest-fork-duration {
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.rest-fork-rule {
+  display: block;
+  height: 1px;
+  background: var(--border-soft);
+  margin: 0.55rem 0 0.6rem;
+}
+.rest-fork-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+.rest-fork-list li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+.rest-fork-more,
+.rest-fork-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.rest-fork-more {
+  padding-left: 1.1rem;
+}
+
+/* ---- The ledger: a forecast before the rest, a receipt after ---- */
+.rest-ledger {
+  display: grid;
+  /* auto-fit, not `1fr 1fr`: a long rest with nothing withheld renders one
+     column, and it should fill the panel instead of hugging the left half. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 1.25rem;
+}
+/* Only draw the divider when there are two columns to divide. */
+.rest-ledger-column + .rest-ledger-column {
+  border-left: 1px solid var(--border-soft);
+  padding-left: 1.25rem;
+}
+.rest-ledger-entries {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.rest-ledger-entry {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  column-gap: 0.35rem;
+}
+.rest-ledger-entry dt {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.rest-ledger-entry dd {
+  grid-column: 2;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.rest-ledger-marker {
+  color: var(--accent);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+/* Withheld entries recede by ink weight, not by hue — colour in this app means
+   *which domain* something belongs to, never good vs. bad. */
+.rest-ledger-column.is-withheld dt {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.rest-ledger-column.is-withheld .rest-ledger-marker {
+  color: var(--text-muted);
+}
+.rest-ledger-empty {
+  margin: 0;
+}
+
+.rest-upcoming-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+/* ---- The hit dice tray: the rest's one tactile moment ---- */
+.rest-tray {
+  background: var(--health-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem 1rem 0.8rem;
+}
+.rest-tray .rest-section-title {
+  color: var(--health);
+}
+.rest-hp-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.rest-hp-numbers {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+.rest-hp-numbers strong {
+  font-size: 1.5rem;
+  color: var(--health);
+  line-height: 1.1;
+}
+.rest-hp-was {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+}
+.rest-hp-arrow {
+  color: var(--text-muted);
+}
+.rest-hp-max,
+.rest-hp-healed {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.rest-hp-bar {
+  height: 10px;
+  margin: 0.5rem 0 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.rest-hp-bar-fill {
+  height: 100%;
+  background: var(--health);
+  border-radius: inherit;
+  transition: width 260ms ease;
+}
+
+.rest-die-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.rest-die-size {
+  flex: 0 0 2.2rem;
+  letter-spacing: 0.04em;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rest-die-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+/* Tokens, not dice renders: the app already spends pips for spell slots, so a
+   spendable square reads as sheet furniture rather than imported illustration. */
+.rest-die {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+  box-shadow: none;
+}
+button.rest-die-ready {
+  background: var(--surface);
+  border: 1px solid var(--health);
+  color: var(--health);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+button.rest-die-ready:hover:not(:disabled),
+button.rest-die-ready:focus-visible:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
+}
+button.rest-die-ready:disabled {
+  opacity: 0.45;
+}
+.rest-die-rolled {
+  background: var(--health);
+  border: 1px solid var(--health);
+  color: var(--accent-contrast);
+  animation: rest-die-flip 180ms ease-out;
+}
+.rest-die-spent {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+@keyframes rest-die-flip {
+  from {
+    transform: rotateX(-90deg) scale(0.9);
+    opacity: 0.2;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ---- Preparing spells: the magic region, so amethyst ---- */
+.rest-tasks {
+  background: var(--arcane-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem 1rem;
+}
+.rest-tasks .rest-section-title {
+  color: var(--arcane);
+}
+.rest-task + .rest-task {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+.rest-task-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.rest-task-name {
+  font-weight: 600;
+}
+.rest-meter {
+  flex: 0 0 5.5rem;
+  height: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.rest-meter-fill {
+  height: 100%;
+  background: var(--arcane);
+  border-radius: inherit;
+  transition: width 200ms ease;
+}
+.rest-task-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rest-task-count.is-done {
+  color: var(--success);
+}
+.rest-task-count.is-over {
+  color: var(--danger);
+}
+.rest-task-toggle {
+  margin-left: auto;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
+}
+.rest-task-warning {
+  margin: 0.5rem 0 0;
+  color: var(--danger);
+}
+.rest-task-empty {
+  margin: 0.5rem 0 0;
+}
+.rest-spell-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 0.9rem;
+}
+.rest-spell-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.rest-spell-row:hover {
+  background: var(--surface);
+}
+.rest-spell-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rest-manual p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.rest-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 560px) {
+  .rest-fork,
+  .rest-ledger,
+  .rest-spell-list {
+    grid-template-columns: 1fr;
+  }
+  .rest-ledger-column + .rest-ledger-column {
+    border-left: none;
+    border-top: 1px solid var(--border-soft);
+    padding-left: 0;
+    padding-top: 1rem;
+  }
 }

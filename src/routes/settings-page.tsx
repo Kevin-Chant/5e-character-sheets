@@ -1,13 +1,15 @@
 import { useState } from "react";
 import classNames from "classnames";
+import GameSettings from "src/components/settings/game-settings";
 import GeneralSettings from "src/components/settings/general-settings";
 import GoogleDriveSettings from "src/components/settings/google-drive-settings";
 import LocalStorageSettings from "src/components/settings/local-storage-settings";
 
-type Tab = "general" | "gdrive" | "local";
+type Tab = "general" | "game" | "gdrive" | "local";
 
 const TABS: { id: Tab; label: string; component: JSX.Element }[] = [
   { id: "general", label: "General", component: <GeneralSettings /> },
+  { id: "game", label: "Game", component: <GameSettings /> },
   { id: "gdrive", label: "Google Drive", component: <GoogleDriveSettings /> },
   { id: "local", label: "Local storage", component: <LocalStorageSettings /> },
 ];

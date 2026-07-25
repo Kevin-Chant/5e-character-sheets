@@ -28,6 +28,7 @@ import {
 } from "src/lib/attack-roll";
 import { spellHealingAtLevel } from "src/lib/spells/spell-scaling";
 import { remainingHitDice } from "src/lib/rules";
+import { hitDieFormula } from "src/lib/rest";
 import {
   advantageNotes,
   applyTotalRiders,
@@ -43,13 +44,7 @@ import {
   applicableRiders,
   attackContext,
 } from "src/lib/mechanics/conditions";
-import {
-  DieOperation,
-  LeveledSpellLevel,
-  Operation,
-  StandardDie,
-  StatKey,
-} from "src/lib/data/data-definitions";
+import { LeveledSpellLevel, StandardDie } from "src/lib/data/data-definitions";
 import {
   Character,
   CustomFormula,
@@ -810,13 +805,7 @@ function HitDieControls({
   die: StandardDie;
 }) {
   const { dispatch } = useCharacter();
-  const formula: CustomFormula = useMemo(
-    () => ({
-      operation: Operation.addition,
-      operands: [[1, die, DieOperation.roll], StatKey.con],
-    }),
-    [die],
-  );
+  const formula: CustomFormula = useMemo(() => hitDieFormula(die), [die]);
   const riders = useMemo(() => ridersFor(character, "hitDie"), [character]);
   const remaining = remainingHitDice(character, die);
   const [result, setResult] = useState<{

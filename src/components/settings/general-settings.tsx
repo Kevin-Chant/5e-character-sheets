@@ -4,7 +4,6 @@ import {
   useSettings,
 } from "src/lib/hooks/use-settings";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
-import { CritMode } from "src/lib/roll";
 import InputField from "../input-field";
 import IdentityFields from "../identity-fields";
 import AutosaveSettings from "./autosave-settings";
@@ -62,95 +61,6 @@ export default function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Ammunition tracking"
-        description="Track ammunition (arrows, bolts, …) as counted pools in Equipment, with a remaining count shown next to each ranged weapon. Turn off if your table doesn't bother counting ammo."
-      >
-        <label className="settings-checkbox">
-          <input
-            type="checkbox"
-            checked={settings.trackAmmunition}
-            onChange={(e) => updateSetting("trackAmmunition", e.target.checked)}
-          />
-          Track ammunition
-        </label>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Encumbrance tracking"
-        description="Track equipment weight against your carrying capacity (Strength × 15 lb), with per-item weights and a total shown in Equipment. Turn off if your table ignores encumbrance."
-      >
-        <label className="settings-checkbox">
-          <input
-            type="checkbox"
-            checked={settings.trackEncumbrance}
-            onChange={(e) =>
-              updateSetting("trackEncumbrance", e.target.checked)
-            }
-          />
-          Track encumbrance
-        </label>
-        <label className="settings-select-inline">
-          Weight unit
-          <select
-            value={settings.weightUnit}
-            disabled={!settings.trackEncumbrance}
-            onChange={(e) =>
-              updateSetting("weightUnit", e.target.value as "lb" | "kg")
-            }
-          >
-            <option value="lb">Pounds (lb)</option>
-            <option value="kg">Kilograms (kg)</option>
-          </select>
-        </label>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Criticals on all rolls"
-        description="Show a natural 1 or 20 as “Critical Fail”/“Critical Success” on every d20 check, not just attack rolls. Attack to-hit rolls always show criticals (as “Critical Fail”/“Critical Hit”) regardless of this setting."
-      >
-        <label className="settings-checkbox">
-          <input
-            type="checkbox"
-            checked={settings.criticalsOnAllRolls}
-            onChange={(e) =>
-              updateSetting("criticalsOnAllRolls", e.target.checked)
-            }
-          />
-          Show criticals on all d20 checks
-        </label>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Critical hit damage"
-        description="How a critical hit inflates damage. Crits are one of the most commonly house-ruled parts of 5e, so pick whichever flavor your table uses — it applies to weapon and spell damage alike, including riders like Sneak Attack and Divine Smite."
-      >
-        <label className="settings-select-inline">
-          On a critical hit
-          <select
-            value={settings.criticalDamageMode}
-            onChange={(e) =>
-              updateSetting("criticalDamageMode", e.target.value as CritMode)
-            }
-          >
-            <option value="raw">Double the damage dice (RAW)</option>
-            <option value="maxDice">Maximize the dice, then roll again</option>
-            <option value="total">Double the total, modifiers included</option>
-          </select>
-        </label>
-        <label className="settings-checkbox">
-          <input
-            type="checkbox"
-            checked={settings.explodingCriticals}
-            onChange={(e) =>
-              updateSetting("explodingCriticals", e.target.checked)
-            }
-          />
-          Exploding crits — reroll the d20 after a crit; each repeat stacks
-          another set of critical dice
-        </label>
-      </SettingsSection>
-
-      <SettingsSection
         title="Sharing host"
         description={
           <>
@@ -184,7 +94,7 @@ export default function GeneralSettings() {
 
       <SettingsSection
         title="Reset"
-        description="Restore every setting on this page to its default. Your characters aren't affected."
+        description="Restore every setting on every tab to its default, game rules included. Your characters aren't affected."
       >
         <button
           className="btn-secondary"
