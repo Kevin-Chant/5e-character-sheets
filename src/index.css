@@ -4192,3 +4192,55 @@ b.pos-relative.margin-large {
 .attack-tags .builder-chips {
   margin-top: 0.35rem;
 }
+
+/* Inline status text for an action that can fail (sidecar health test, live
+   session start). Uses the same --danger/--success pair as the save indicator
+   so a failure reads the same wherever it appears. */
+.text-error {
+  color: var(--danger);
+}
+.text-success {
+  color: var(--success);
+}
+.text-error,
+.text-success {
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Sharing host: the address and its "Test connection" button sit on one line,
+   with the result wrapping underneath. Overrides `.row`'s space-evenly, which
+   would otherwise distribute the gap *into* the controls and let the button
+   ride over the clipped input. The URL is long, so the field takes the slack
+   and the buttons keep their intrinsic width. */
+.sharing-host-row {
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+/* InputField renders <div><input/><button>Save</button></div>. */
+.sharing-host-row > div:first-child {
+  display: flex;
+  align-items: center;
+  /* A small basis so the field yields to the buttons and the three controls
+     stay on one line; it still takes all the slack that's left. */
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.sharing-host-row > div:first-child input {
+  flex: 1;
+  min-width: 0;
+}
+.sidecar-health {
+  /* `.column` sets width:100%, which would claim the whole line and push the
+     button below the field however the flex is tuned. */
+  width: auto;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+.sidecar-health-result {
+  margin: 0;
+  max-width: 22rem;
+}

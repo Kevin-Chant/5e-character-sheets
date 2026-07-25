@@ -15,11 +15,24 @@ let router;
 // sidecar to reclaim; an idle-realm sweep would be the real fix.
 const transport = createServer((req, res) => {
   const path = req.url || "/";
+  // Liveness probe. Used by the deploy job's post-restart check, by the
+  // Lightsail status alarm's human follow-up, and by the "Test connection"
+  // button in the app's settings — which is why it answers with a body and
+  // permits cross-origin reads: the SPA fetches this straight from the
+  // browser, on a different origin to the sidecar.
   if (path === "/health") {
     res.writeHead(200, {
+      "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
     });
-    res.end();
+    res.end(
+      JSON.stringify({
+        status: "ok",
+        // Seconds this process has been up — the cheap way to spot a sidecar
+        // that is quietly restart-looping rather than serving.
+        uptime: Math.floor(process.uptime()),
+      }),
+    );
     return;
   }
   const pathSegments = path.split("/").splice(1);

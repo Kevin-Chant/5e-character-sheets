@@ -494,18 +494,25 @@ export function useHostSharingSession(
 
   const startSession = async () => {
     const characterUuid = getCharacter()?.uuid;
-    if (!characterUuid) {
-      window.alert(
-        "Failed to start sharing session. No character was found to share!",
-      );
-      return;
-    }
+    // These used to `window.alert` and return, which resolved the promise —
+    // so a caller couldn't tell a failed start from a successful one. They
+    // throw now, and the UI that asked for the session renders the message.
+    if (!characterUuid) throw new Error("No character was found to share.");
     const realmName = generateRealm(characterUuid);
-    const res = await fetch(`${liveEditHost}/openRealm/${realmName}`);
-    if (res.status !== 200) {
-      window.alert("Failed to start sharing session, please try again later");
-      return;
+    let res: Response;
+    try {
+      res = await fetch(`${liveEditHost}/openRealm/${realmName}`);
+    } catch {
+      // The common real-world case: the sidecar is down or the host is wrong.
+      // Distinguished from a bad status so the message can point at the host.
+      throw new Error(
+        "Couldn't reach the sharing server. Check the sharing host in Settings.",
+      );
     }
+    if (res.status !== 200)
+      throw new Error(
+        `The sharing server refused to open a session (${res.status}).`,
+      );
 
     const connection = new autobahn.Connection({
       url: liveEditHost,
@@ -529,7 +536,11 @@ export function useHostSharingSession(
         resolve();
       };
       connection.onclose = () => {
-        reject(new Error("Failed to open sharing session"));
+        reject(
+          new Error(
+            "The sharing server accepted the session but closed the connection.",
+          ),
+        );
         return true;
       };
       connection.open();

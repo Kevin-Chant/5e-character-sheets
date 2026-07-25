@@ -9,6 +9,7 @@ import InputField from "../input-field";
 import IdentityFields from "../identity-fields";
 import AutosaveSettings from "./autosave-settings";
 import SettingsSection from "./settings-section";
+import SidecarHealthCheck from "./sidecar-health-check";
 
 export default function GeneralSettings() {
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -164,11 +165,14 @@ export default function GeneralSettings() {
           </>
         }
       >
-        <InputField
-          type="string"
-          value={settings.liveEditHost}
-          setValue={(value) => updateSetting("liveEditHost", value)}
-        />
+        <div className="row sharing-host-row">
+          <InputField
+            type="string"
+            value={settings.liveEditHost}
+            setValue={(value) => updateSetting("liveEditHost", value)}
+          />
+          <SidecarHealthCheck host={settings.liveEditHost} />
+        </div>
       </SettingsSection>
 
       <SettingsSection

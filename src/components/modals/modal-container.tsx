@@ -97,7 +97,7 @@ export default function ModalContainer({
     setUnsavedChanges: () => {},
     saveError: false,
     saveNow: () => {},
-    openSharingSession: () => {},
+    openSharingSession: async () => {},
     closeSharingSession: () => {},
   };
   return (

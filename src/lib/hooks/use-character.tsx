@@ -46,7 +46,7 @@ interface CharacterContextData {
   // Start hosting a live session for the open character. `silent` suppresses the
   // failure alert (used by the auto-bootstrap, which should stay solo quietly if
   // the sidecar is unreachable).
-  openSharingSession: (options?: { silent?: boolean }) => void;
+  openSharingSession: (options?: { silent?: boolean }) => Promise<void>;
   closeSharingSession: () => void;
 }
 
@@ -251,12 +251,24 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const endSessionRef = useRef(endSession);
   endSessionRef.current = endSession;
 
-  const openSharingSession = useCallback((options?: { silent?: boolean }) => {
-    startSessionRef.current().catch((error) => {
-      if (!options?.silent) window.alert(error);
-      else console.warn("Auto live session failed to start", error);
-    });
-  }, []);
+  // Resolves when the session is live and **rejects with a readable message**
+  // when it isn't, so the caller can render an error inline. `silent` is for
+  // the automatic Drive bootstrap, which starts a session nobody asked for —
+  // there's no UI waiting on it, so it logs instead of surfacing.
+  const openSharingSession = useCallback(
+    async (options?: { silent?: boolean }): Promise<void> => {
+      try {
+        await startSessionRef.current();
+      } catch (error) {
+        if (options?.silent) {
+          console.warn("Auto live session failed to start", error);
+          return;
+        }
+        throw error;
+      }
+    },
+    [],
+  );
 
   const closeSharingSession = useCallback(() => {
     endSessionRef.current();
