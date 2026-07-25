@@ -2,6 +2,7 @@ import {
   DieOperation,
   OfficialClass,
   Operation,
+  PB,
   RestType,
   StandardDie,
   StatKey,
@@ -379,6 +380,17 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       recharge: short,
       maxUses: () => 1,
     },
+    {
+      title: "Cleansing Touch",
+      detail:
+        "As an action, end one spell on yourself or on a willing creature you touch.",
+      level: 14,
+      recharge: long,
+      maxUses: () => ({
+        operation: Operation.maximum,
+        operands: [1, StatKey.cha],
+      }),
+    },
   ],
   [OfficialClass.Rogue]: [
     {
@@ -419,6 +431,205 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
 // pools like the battle master's superiority dice. Titles match the mechanics
 // catalog so the pools arrive with their actions.
 export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
+  // --- Wizard traditions -------------------------------------------------
+  Divination: [
+    {
+      title: "Portent",
+      detail:
+        "After a long rest, roll two d20s (three at 14th level) and record them; replace any attack roll, save, or ability check you or a creature you can see makes with one of these rolls before it's made.",
+      level: 2,
+      recharge: long,
+      maxUses: (k) => (k.level >= 14 ? 3 : 2),
+    },
+  ],
+  Abjuration: [
+    {
+      title: "Arcane Ward",
+      detail:
+        "A magical ward with hit points equal to twice your wizard level + your Intelligence modifier. Casting an abjuration spell of 1st level or higher restores it; it absorbs damage until its hit points run out.",
+      level: 2,
+      recharge: long,
+      maxUses: (k) =>
+        atLeastOne({
+          operation: Operation.addition,
+          operands: [
+            {
+              operation: Operation.multiplication,
+              operands: [2, classLevel(k)],
+            },
+            StatKey.int,
+          ],
+        }),
+    },
+  ],
+  Bladesinging: [
+    {
+      title: "Bladesong",
+      detail:
+        "As a bonus action, enter the Bladesong for 1 minute: +INT modifier to AC, +10 ft. speed, advantage on Acrobatics, and a Constitution-save bonus for concentration.",
+      level: 2,
+      recharge: short,
+      maxUses: () => PB,
+    },
+  ],
+  Chronurgy: [
+    {
+      title: "Chronal Shift",
+      detail:
+        "As a reaction, force a creature within 30 ft. to reroll an attack, save, or ability check.",
+      level: 2,
+      recharge: long,
+      maxUses: () => 2,
+    },
+  ],
+  Graviturgy: [
+    {
+      title: "Violent Attraction",
+      detail:
+        "As a reaction when a creature you can see within 60 ft. is hit by a weapon attack or takes falling damage, add extra damage (1d10 on a hit, or 2d10 for a fall).",
+      level: 10,
+      recharge: long,
+      maxUses: () => ({
+        operation: Operation.maximum,
+        operands: [1, StatKey.int],
+      }),
+    },
+  ],
+  // --- Bard colleges -----------------------------------------------------
+  Creation: [
+    {
+      title: "Performance of Creation",
+      detail:
+        "As an action, create one nonmagical item you've seen (size scaling with bard level). You can also expend a spell slot to make one instead of using this feature.",
+      level: 3,
+      recharge: long,
+      maxUses: () => 1,
+    },
+    {
+      title: "Animating Performance",
+      detail:
+        "As an action, animate a Large or smaller nonmagical object as a Dancing Item for 1 hour. You can also expend a 3rd-level+ spell slot to do so.",
+      level: 6,
+      recharge: long,
+      maxUses: () => 1,
+    },
+  ],
+  Glamour: [
+    {
+      title: "Enthralling Performance",
+      detail:
+        "After a 1-minute performance, charm up to your Charisma modifier of humanoids who fail a Wisdom save for 1 hour.",
+      level: 3,
+      recharge: short,
+      maxUses: () => 1,
+    },
+    {
+      title: "Mantle of Majesty",
+      detail:
+        "As a bonus action, cast Command without a slot each turn for 1 minute while charmed creatures obey.",
+      level: 6,
+      recharge: long,
+      maxUses: () => 1,
+    },
+    {
+      title: "Unbreakable Majesty",
+      detail:
+        "As a bonus action, assume a majestic presence for 1 minute: attackers must succeed on a Charisma save or choose a new target (and take psychic damage on a failure).",
+      level: 14,
+      recharge: short,
+      maxUses: () => 1,
+    },
+  ],
+  // --- Druid circles -----------------------------------------------------
+  Dreams: [
+    {
+      title: "Balm of the Summer Court",
+      detail:
+        "A pool of d6s equal to your druid level. As a bonus action, spend up to half your druid level (rounded up) of them to heal a creature within 120 ft. and give it temporary hit points.",
+      level: 2,
+      recharge: long,
+      maxUses: (k) => atLeastOne(classLevel(k)),
+    },
+    {
+      title: "Hidden Paths",
+      detail:
+        "As a bonus action, teleport up to 60 ft. to an unoccupied space you can see, or teleport a willing touched creature up to 30 ft.",
+      level: 10,
+      recharge: long,
+      maxUses: () => ({
+        operation: Operation.maximum,
+        operands: [1, StatKey.wis],
+      }),
+    },
+  ],
+  Shepherd: [
+    {
+      title: "Spirit Totem",
+      detail:
+        "As a bonus action, summon an incorporeal Bear, Hawk, or Unicorn spirit in a 30-ft. aura for 1 minute, granting its effect to allies within it.",
+      level: 2,
+      recharge: short,
+      maxUses: () => 1,
+    },
+    {
+      title: "Faithful Summons",
+      detail:
+        "When you're reduced to 0 HP or incapacitated, four spirit beasts (CR 2 or lower) appear within 20 ft. to defend you for 1 hour, no concentration.",
+      level: 14,
+      recharge: long,
+      maxUses: () => 1,
+    },
+  ],
+  Stars: [
+    {
+      title: "Star Map",
+      detail:
+        "Your star map lets you cast Guiding Bolt without a slot a number of times equal to your proficiency bonus (you also always have Guidance and Guiding Bolt prepared).",
+      level: 2,
+      recharge: long,
+      maxUses: () => PB,
+    },
+    {
+      title: "Cosmic Omen",
+      detail:
+        "After a long rest, roll a die for Weal (even) or Woe (odd). As a reaction, add or subtract 1d6 on a roll by a creature within 30 ft.",
+      level: 6,
+      recharge: long,
+      maxUses: () => PB,
+    },
+  ],
+  Wildfire: [
+    {
+      title: "Cauterizing Flames",
+      detail:
+        "When a creature dies within 30 ft. of you or your wildfire spirit, a spectral flame appears; a creature that starts its turn there or enters the space can be dealt fire damage or healed.",
+      level: 10,
+      recharge: long,
+      maxUses: () => PB,
+    },
+    {
+      title: "Blazing Revival",
+      detail:
+        "If you drop to 0 HP with your wildfire spirit summoned, you can dismiss it to instead drop to half your hit point maximum.",
+      level: 14,
+      recharge: long,
+      maxUses: () => 1,
+    },
+  ],
+  "Psi Warrior": [
+    {
+      title: "Psionic Energy",
+      detail:
+        "A pool of Psionic Energy dice (d6, becoming d8 at 5th, d10 at 11th, d12 at 17th) fueling Protective Field, Psionic Strike, and Telekinetic Movement. Regain all on a long rest, and one as a bonus action once per short rest.",
+      level: 3,
+      recharge: long,
+      // Twice your proficiency bonus.
+      maxUses: () => ({
+        operation: Operation.multiplication,
+        operands: [2, "proficiencyBonus"],
+      }),
+    },
+  ],
   // Another pool-less at-will (see Song of Rest): a free reaction whose only
   // number is a die that grows with druid level.
   Spores: [
@@ -548,6 +759,25 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
       cost: "bonusAction",
       note: "Subtract the roll from the target's next saving throw before your next turn.",
     }),
+    {
+      title: "Universal Speech",
+      detail:
+        "As an action, make up to your Charisma modifier of creatures within 60 ft. able to understand you for 1 hour. You can also expend a spell slot instead of a use.",
+      level: 6,
+      recharge: long,
+      maxUses: () => 1,
+    },
+    {
+      title: "Infectious Inspiration",
+      detail:
+        "As a reaction when a creature within 60 ft. succeeds on a roll using your Bardic Inspiration (or that you can inspire), give another creature a Bardic Inspiration die without expending one.",
+      level: 14,
+      recharge: long,
+      maxUses: () => ({
+        operation: Operation.maximum,
+        operands: [1, StatKey.cha],
+      }),
+    },
   ],
   Spirits: [
     bardicSpender({
@@ -558,6 +788,14 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
       cost: "bonusAction",
       note: "Roll on the Spirit Tales table for the effect you retain.",
     }),
+    {
+      title: "Spirit Session",
+      detail:
+        "Over a 1-hour ritual with your focus, learn one divination or necromancy spell (up to a level you can cast) until your next long rest; it counts as a bard spell for you.",
+      level: 6,
+      recharge: long,
+      maxUses: () => 1,
+    },
   ],
   Whispers: [
     {
@@ -586,6 +824,30 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
           },
           note: "Extra psychic damage on the hit.",
         }),
+    },
+    {
+      title: "Words of Terror",
+      detail:
+        "After a 1-minute conversation, a humanoid that fails a Wisdom save is frightened of you (or of someone you name) for 1 hour, or 24 hours if it thinks the threat is real.",
+      level: 3,
+      recharge: short,
+      maxUses: () => 1,
+    },
+    {
+      title: "Mantle of Whispers",
+      detail:
+        "As a reaction when a humanoid dies within 30 ft., capture its shadow to disguise yourself as it (with surface memories) for 1 hour.",
+      level: 6,
+      recharge: short,
+      maxUses: () => 1,
+    },
+    {
+      title: "Shadow Lore",
+      detail:
+        "As an action, whisper a shadowy secret; a creature within 30 ft. that fails a Wisdom save obeys your commands for 8 hours as if charmed.",
+      level: 14,
+      recharge: long,
+      maxUses: () => 1,
     },
   ],
   Hexblade: [
@@ -678,6 +940,66 @@ export const RACE_POOLS: Record<
   },
 };
 
+// Racial innate spellcasting, keyed by the trait title that grants it. Each
+// entry becomes its own limited-use ability once the character reaches its
+// `minLevel`: at-will cantrips (maxUses 0, like other at-will hosts) and the
+// once-per-long-rest spells races cast without a slot. The casting ability is
+// named in the note; racial spells have no spellcasting class, so they live
+// here rather than in the (class-keyed) spell list.
+interface InnateSpell {
+  name: string;
+  minLevel: number;
+  atWill?: boolean;
+  note: string;
+}
+
+export const RACE_INNATE_SPELLS: Record<string, InnateSpell[]> = {
+  "drow magic": [
+    {
+      name: "Dancing Lights",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Charisma): create up to four torch-bright lights, or a vaguely humanoid glow, for 1 minute.",
+    },
+    {
+      name: "Faerie Fire",
+      minLevel: 3,
+      note: "Cast Faerie Fire once per long rest without a spell slot (Charisma).",
+    },
+    {
+      name: "Darkness",
+      minLevel: 5,
+      note: "Cast Darkness once per long rest without a spell slot (Charisma).",
+    },
+  ],
+  "natural illusionist": [
+    {
+      name: "Minor Illusion",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Intelligence): create a sound or an image for 1 minute.",
+    },
+  ],
+  "infernal legacy": [
+    {
+      name: "Thaumaturgy",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Charisma): a minor wonder — a booming voice, flickering flames, tremors, and the like — for up to 1 minute.",
+    },
+    {
+      name: "Hellish Rebuke",
+      minLevel: 3,
+      note: "Cast Hellish Rebuke as a 2nd-level spell once per long rest without a spell slot (Charisma).",
+    },
+    {
+      name: "Darkness",
+      minLevel: 5,
+      note: "Cast Darkness once per long rest without a spell slot (Charisma).",
+    },
+  ],
+};
+
 const findPool = (
   char: Character,
   title: string,
@@ -765,6 +1087,30 @@ export function syncRacePools(char: Character, traitTitles: string[]): void {
       ...(mechanics ? { mechanics } : {}),
       ...(def.save ? { save: def.save } : {}),
     });
+  }
+
+  // Racial innate spellcasting: each spell whose minLevel the character has
+  // reached becomes its own limited-use ability (at-will cantrips as maxUses-0
+  // hosts, the rest once per long rest). New tiers appear as the character
+  // levels because `applyClassLevel` passes race feature titles here too.
+  for (const title of traitTitles) {
+    const innate = RACE_INNATE_SPELLS[normalizeTitle(title)];
+    if (!innate) continue;
+    for (const spell of innate) {
+      if (totalLevel < spell.minLevel) continue;
+      if (findPool(char, spell.name)) continue;
+      char.limitedUseAbilities.push({
+        info: {
+          title: spell.name,
+          titleFormulas: [],
+          detail: spell.note,
+          detailFormulas: [],
+        },
+        maxUses: spell.atWill ? 0 : 1,
+        recharge: RestType.longRest,
+        expended: 0,
+      });
+    }
   }
 }
 

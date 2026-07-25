@@ -30,12 +30,14 @@ import {
   classHasCantrips,
   emptyFeatChoices,
   isCasterClass,
+  mysticArcanumLevelAt,
   spellListFilterFor,
   summarizeLevelUp,
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import { subclassesForClass } from "src/lib/builder/subclasses";
 import { chosenIn } from "src/lib/builder/chosen-options";
+import { ALL_SPELLS } from "src/lib/spells/srd-spells";
 import { grantsForLevelUp } from "./level-up-wizard";
 import { FEATS } from "src/lib/builder/feats";
 import {
@@ -322,6 +324,23 @@ export function LevelUpFeatureChoicesStep({
           />
         </Field>
       )}
+      {grants.subclassSkillChoices && (
+        <Field
+          label={`Subclass skills (choose ${grants.subclassSkillChoices.choose})`}
+          hint={
+            grants.subclassSkillChoices.expertise
+              ? "Your subclass grants these with expertise (double proficiency bonus)."
+              : "Skill proficiencies granted by your subclass."
+          }
+        >
+          <ChipMultiSelect<SkillName>
+            options={grants.subclassSkillChoices.from}
+            selected={state.subclassSkillChoices}
+            max={grants.subclassSkillChoices.choose}
+            onChange={(subclassSkillChoices) => patch({ subclassSkillChoices })}
+          />
+        </Field>
+      )}
       {newExpertise > 0 && (
         <Field
           label={`Expertise (choose ${newExpertise})`}
@@ -481,7 +500,10 @@ export function LevelUpSpellsStep({
   );
   // Artificer / homebrew aren't tagged in the SRD spell catalog, so show every
   // spell rather than an empty class-filtered list.
-  const filterClass = spellListFilterFor(state.className);
+  const filterClass = spellListFilterFor(
+    state.className,
+    targetClassLevel(character, state),
+  );
   const setLevel = (numeric: number, indices: string[]) =>
     patch({ newSpells: { ...state.newSpells, [numeric]: indices } });
 
@@ -546,6 +568,34 @@ export function LevelUpSpellsStep({
         Only SRD spells are searchable here; add spells from other books or
         homebrew manually from the sheet afterward.
       </p>
+      {(() => {
+        const arcanumLevel = mysticArcanumLevelAt(state.className, newLevel);
+        if (!arcanumLevel) return null;
+        const options = ALL_SPELLS.filter(
+          (s) => s.level === arcanumLevel && s.classes.includes("Warlock"),
+        );
+        return (
+          <Field
+            label={`Mystic Arcanum (${arcanumLevel}th-level spell)`}
+            hint="Choose one warlock spell of this level; you can cast it once per long rest without a slot."
+          >
+            <select
+              className="builder-input"
+              value={state.mysticArcanum ?? ""}
+              onChange={(e) =>
+                patch({ mysticArcanum: e.target.value || undefined })
+              }
+            >
+              <option value="">Choose a spell…</option>
+              {options.map((s) => (
+                <option key={s.index} value={s.index}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        );
+      })()}
       {knownSpells.length > 0 && (
         <Field
           label="Swap a known spell (optional)"

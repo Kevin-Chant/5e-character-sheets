@@ -57,6 +57,11 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
             const cursor = charPath(FIELD.proficiencies)
               .k("savingThrows")
               .k(statKey);
+            // A flat bonus applied to every save (Paladin's Aura of Protection,
+            // a Cloak of Protection, …).
+            const saveBonus = character.savingThrowBonus
+              ? calculateCustomFormula(character.savingThrowBonus, character)
+              : 0;
             return (
               <ProficiencyDisplay
                 key={statKey}
@@ -66,7 +71,9 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
                 expert={false}
                 jack={false}
                 transform={(proficient) =>
-                  modifier(character.stats[statKey]) + (proficient ? pb : 0)
+                  modifier(character.stats[statKey]) +
+                  (proficient ? pb : 0) +
+                  saveBonus
                 }
                 text={statName}
                 rollLabel={`${statName} Save`}

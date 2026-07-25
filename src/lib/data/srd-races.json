@@ -2,6 +2,7 @@
   {
     "index": "dragonborn",
     "name": "Dragonborn",
+    "draconicAncestry": true,
     "size": "Medium",
     "speed": 30,
     "abilityBonuses": [
@@ -161,7 +162,7 @@
           },
           {
             "title": "High Elf Cantrip",
-            "detail": "You know one cantrip of your choice form the wizard spell list. Intelligence is your spellcasting ability for it."
+            "detail": "You know one cantrip of your choice from the wizard spell list. Intelligence is your spellcasting ability for it."
           },
           {
             "title": "Extra Language",

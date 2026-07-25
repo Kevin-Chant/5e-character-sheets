@@ -21,7 +21,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       traits: [
         {
           title: "Dwarven Armor Training",
-          detail: "You are proficient with light and medium armor.",
+          detail: "You are trained in light and medium armor.",
         },
       ],
     },
@@ -33,7 +33,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       traits: [
         {
           title: "Superior Darkvision",
-          detail: "Your darkvision has a range of 120 feet.",
+          detail: "Your darkvision extends to 120 feet rather than 60.",
         },
         {
           title: "Duergar Resilience",
@@ -48,7 +48,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
         {
           title: "Sunlight Sensitivity",
           detail:
-            "You have disadvantage on attack rolls and on Perception checks that rely on sight while you, the target, or what you're perceiving is in direct sunlight.",
+            "While you, your target, or what you're trying to perceive is in direct sunlight, your attack rolls and sight-based Perception checks are made with disadvantage.",
         },
       ],
     },
@@ -80,12 +80,12 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       traits: [
         {
           title: "Superior Darkvision",
-          detail: "Your darkvision has a range of 120 feet.",
+          detail: "Your darkvision extends to 120 feet rather than 60.",
         },
         {
           title: "Sunlight Sensitivity",
           detail:
-            "You have disadvantage on attack rolls and Perception checks that rely on sight when you, the target, or whatever you're trying to perceive is in direct sunlight.",
+            "While you, your target, or whatever you're trying to see is in direct sunlight, your attack rolls and sight-based Perception checks are made with disadvantage.",
         },
         {
           title: "Drow Magic",
@@ -207,7 +207,7 @@ export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
       traits: [
         {
           title: "Superior Darkvision",
-          detail: "Your darkvision has a range of 120 feet.",
+          detail: "Your darkvision extends to 120 feet rather than 60.",
         },
         {
           title: "Stone Camouflage",

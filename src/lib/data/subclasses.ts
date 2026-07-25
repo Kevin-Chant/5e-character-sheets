@@ -1,4 +1,9 @@
-import { DamageType, SkillName, StatKey } from "src/lib/data/data-definitions";
+import {
+  DamageType,
+  REAL_SKILLS,
+  SkillName,
+  StatKey,
+} from "src/lib/data/data-definitions";
 import { SrdSubclass } from "src/lib/builder/types";
 import { SUBCLASS_FEATURES } from "src/lib/data/subclass-features";
 
@@ -131,6 +136,7 @@ export const SUBCLASSES: SrdSubclass[] = [
       summary:
         "A keeper of secrets with extra skills and Cutting Words to foil enemies.",
       grants: {
+        skillChoices: { choose: 3, from: REAL_SKILLS },
         features: [
           {
             title: "Bonus Proficiencies",
@@ -170,6 +176,16 @@ export const SUBCLASSES: SrdSubclass[] = [
         "A seeker of secrets granted extra skills, languages, and lore magic.",
       grants: {
         spellIndices: ["command", "identify"],
+        skillChoices: {
+          choose: 2,
+          from: [
+            SkillName.Arcana,
+            SkillName.History,
+            SkillName.Nature,
+            SkillName.Religion,
+          ],
+          expertise: true,
+        },
         features: [
           {
             title: "Blessings of Knowledge",
@@ -282,6 +298,7 @@ export const SUBCLASSES: SrdSubclass[] = [
       summary:
         "A cleric of the death domain who reaps foes with enhanced necromancy.",
       grants: {
+        proficiencies: { weapons: ["Martial Weapons"] },
         spellIndices: ["false-life", "ray-of-sickness"],
         features: [
           {
@@ -845,7 +862,7 @@ export const SUBCLASSES: SrdSubclass[] = [
           {
             title: "Strand of the Moon",
             detail:
-              "You learn extra spells tied to lunar phases and gain the Light cantrip. As a bonus action you can shift between a full-, new-, or crescent-moon phase.",
+              "You learn extra spells tied to lunar phases and gain the Sacred Flame cantrip. As a bonus action you can shift between a full-, new-, or crescent-moon phase.",
           },
         ],
       },
@@ -867,9 +884,9 @@ export const SUBCLASSES: SrdSubclass[] = [
               "When damage would drop you to 0 hit points, you can make a Charisma save to drop to 1 instead. Once per long rest.",
           },
         ],
-        // Eyes of the Dark hands out Darkness itself, not just the ability to
-        // pay sorcery points for it.
-        spellIndices: ["darkness"],
+        // Eyes of the Dark's Darkness-casting (and the spell itself) comes
+        // online at 3rd level, not at the level-1 subclass pick.
+        spellIndicesByLevel: { 3: ["darkness"] },
       },
     },
     {
@@ -1120,6 +1137,11 @@ export const SUBCLASSES: SrdSubclass[] = [
       name: "Bladesinging",
       summary:
         "An elven duelist who weaves spellcraft and swordplay into one graceful defence.",
+      grants: {
+        // Training in War and Song also grants one one-handed melee weapon and
+        // Performance proficiency, chosen by the player (named in the feature).
+        proficiencies: { armor: ["Light Armor"] },
+      },
     },
     {
       name: "Chronurgy",

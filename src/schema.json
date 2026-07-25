@@ -2431,6 +2431,9 @@
         "race": {
             "$ref": "#/definitions/RaceSelection"
         },
+        "savingThrowBonus": {
+            "$ref": "#/definitions/CustomFormula"
+        },
         "schemaVersion": {
             "type": "number"
         },

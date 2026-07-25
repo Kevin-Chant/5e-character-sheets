@@ -8,6 +8,7 @@ import { defaultCharacter } from "src/lib/data/default-data";
 import { buildCharacter } from "src/lib/builder/build-character";
 import { applyLevelUp, defaultLevelUpState } from "src/lib/builder/level-up";
 import { defaultBuilderState } from "src/lib/builder/types";
+import { resistancesFromOptions } from "src/lib/builder/chosen-options";
 import { mechanicsForAbility } from "src/lib/mechanics/catalog";
 import { critThreshold, ridersFor } from "src/lib/mechanics/riders";
 import { calculateCustomFormula } from "src/lib/formula";
@@ -489,7 +490,7 @@ describe("builder integration", () => {
     expect(titles).not.toContain("Infiltrator Armor");
   });
 
-  it("a Genie warlock's kind grants its resistance, spell, and Genie's Wrath", () => {
+  it("a Genie warlock's kind grants its spell and Genie's Wrath at 1st, resistance at 6th", () => {
     const c = buildCharacter({
       ...defaultBuilderState(),
       mode: "guided",
@@ -499,13 +500,24 @@ describe("builder integration", () => {
       baseStats: { str: 8, dex: 13, con: 14, int: 10, wis: 12, cha: 15 },
       chosenOptions: { genieKind: ["Djinni"] },
     });
-    expect(c.damageModifiers?.resistances).toContain("Thunder");
+    // Elemental Gift's resistance is a 6th-level feature — not granted at 1st.
+    expect(c.damageModifiers?.resistances).not.toContain("Thunder");
     expect(c.features.map((f) => f.title)).toContain("Genie's Wrath");
     expect(
       Object.values(c.spells)
         .flat()
         .map((s) => s.info.title.toLowerCase()),
     ).toContain("thunderwave");
+    // At 6th warlock level the kind's resistance lands.
+    const w6 = {
+      ...c,
+      class: c.class.map((k) =>
+        k.name === "Warlock" ? { ...k, level: 6 } : k,
+      ),
+    };
+    expect(resistancesFromOptions(w6.chosenOptions ?? [], w6)).toContain(
+      "Thunder",
+    );
   });
 
   it("fighter subclass at level 3 applies riders (Champion) ", () => {

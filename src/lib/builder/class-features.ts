@@ -92,10 +92,15 @@ export const getFightingStyle = (name?: string): FightingStyle | undefined =>
 export function fightingStyleDueAt(
   className: string,
   level: number,
+  subclass?: string,
 ): string[] | undefined {
   const oc = Object.values(OfficialClass).find((c) => c === className);
   const access = oc && FIGHTING_STYLE_ACCESS[oc];
-  return access && access.level === level ? access.styles : undefined;
+  if (access && access.level === level) return access.styles;
+  // Champion's Additional Fighting Style — a second pick at 10th level.
+  if (oc === OfficialClass.Fighter && subclass === "Champion" && level === 10)
+    return FIGHTING_STYLES.map((s) => s.name);
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +215,13 @@ export const CLASS_FEATURES: Partial<
           "Double proficiency bonus for two chosen skill proficiencies (two more at 10th level).",
       },
     ],
+    5: [
+      {
+        title: "Font of Inspiration",
+        detail:
+          "You regain all expended Bardic Inspiration uses when you finish a short or long rest, not just a long rest.",
+      },
+    ],
     6: [
       {
         title: "Countercharm",
@@ -299,7 +311,7 @@ export const CLASS_FEATURES: Partial<
       {
         title: "Unarmored Movement",
         detail:
-          "+10 ft. speed while unarmored and shieldless, rising with monk level; at 9th, run along vertical surfaces and across liquids.",
+          "Speed bonus while unarmored and shieldless: +10 ft. at 2nd, +15 at 6th, +20 at 10th, +25 at 14th, +30 at 18th. At 9th, run along vertical surfaces and across liquids.",
       },
     ],
     3: [
@@ -549,7 +561,7 @@ export const CLASS_FEATURES: Partial<
       {
         title: "Pact Boon",
         detail:
-          "Choose your patron's gift: Pact of the Chain (improved familiar), Pact of the Blade (summonable pact weapon), or Pact of the Tome (Book of Shadows with three any-list cantrips).",
+          "Choose your patron's gift: Pact of the Chain (improved familiar), Pact of the Blade (summonable pact weapon), Pact of the Tome (Book of Shadows with three any-list cantrips), or Pact of the Talisman (protective amulet).",
       },
     ],
     // Mystic Arcanum (11/13/15/17) is pool-backed — see class-pools.ts.
@@ -583,6 +595,13 @@ export const CLASS_FEATURES: Partial<
         title: "Infuse Items",
         detail:
           "Imbue mundane items with magical infusions after a long rest; infusions known and active items scale with level.",
+      },
+    ],
+    3: [
+      {
+        title: "The Right Tool for the Job",
+        detail:
+          "With thieves' or artisan's tools in hand, spend 1 hour to magically create one set of artisan's tools that lasts until you use this feature again.",
       },
     ],
     6: [
@@ -806,7 +825,7 @@ export const isAsiLevel = (className: string, level: number): boolean => {
 // Cantrips known, as breakpoints: the count changes at a handful of levels, so
 // listing the level it changes at reads better than twenty-entry arrays.
 const CANTRIPS_KNOWN: Partial<Record<OfficialClass, Record<number, number>>> = {
-  [OfficialClass.Artificer]: { 1: 2, 6: 3, 10: 4, 14: 5 },
+  [OfficialClass.Artificer]: { 1: 2, 10: 3, 14: 4 },
   [OfficialClass.Bard]: { 1: 2, 4: 3, 10: 4 },
   [OfficialClass.Cleric]: { 1: 3, 4: 4, 10: 5 },
   [OfficialClass.Druid]: { 1: 2, 4: 3, 10: 4 },

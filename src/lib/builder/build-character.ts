@@ -3,8 +3,10 @@ import {
   Alignment,
   ArmorType,
   DamageType,
+  DRACONIC_ANCESTRIES,
   LEVELED_SPELL_LEVELS,
   Operation,
+  RestType,
   Size,
   StandardDie,
   StatKey,
@@ -63,6 +65,8 @@ const sizeFromLabel = (label?: string): Size =>
 // title — so Hellish Resistance lands as a structured Fire resistance, not
 // just prose. Dragonborn's Damage Resistance is ancestry-dependent and stays
 // prose-only (the sheet doesn't model the ancestry choice yet).
+// A few resistance traits name the damage type only in the feature title, not
+// the prose the generic scanner reads — keep an explicit map for those.
 const TRAIT_RESISTANCES: Record<string, DamageType[]> = {
   "hellish resistance": [DamageType.Fire],
   "dwarven resilience": [DamageType.Poison],
@@ -70,14 +74,48 @@ const TRAIT_RESISTANCES: Record<string, DamageType[]> = {
   "celestial resistance": [DamageType.Necrotic, DamageType.Radiant],
 };
 
-const resistancesFromTraits = (traits: TextComponent[]): DamageType[] => {
+// Damage words → DamageType, for scanning trait prose ("resistance to cold
+// damage", "immunity to poison").
+const DAMAGE_BY_WORD = new Map<string, DamageType>(
+  Object.values(DamageType).map((dt) => [String(dt).toLowerCase(), dt]),
+);
+
+// Pull damage types out of a trait's sentences that mention `keyword`
+// (resistan… / immun…). Sentence-scoped so an unrelated damage word elsewhere
+// in the trait isn't swept in.
+const damageTypesForKeyword = (
+  traits: TextComponent[],
+  keyword: RegExp,
+): DamageType[] => {
   const out: DamageType[] = [];
+  const add = (dt: DamageType) => {
+    if (!out.includes(dt)) out.push(dt);
+  };
   for (const t of traits) {
-    for (const dt of TRAIT_RESISTANCES[t.title.trim().toLowerCase()] ?? [])
-      if (!out.includes(dt)) out.push(dt);
+    const detail = isTextComponentWithDetail(t) ? t.detail : "";
+    for (const sentence of `${t.title}. ${detail}`.split(/[.;]/)) {
+      if (!keyword.test(sentence)) continue;
+      for (const [word, dt] of DAMAGE_BY_WORD)
+        if (new RegExp(`\\b${word}\\b`, "i").test(sentence)) add(dt);
+    }
   }
   return out;
 };
+
+const resistancesFromTraits = (traits: TextComponent[]): DamageType[] => {
+  const out: DamageType[] = [];
+  const add = (dt: DamageType) => {
+    if (!out.includes(dt)) out.push(dt);
+  };
+  for (const t of traits)
+    for (const dt of TRAIT_RESISTANCES[t.title.trim().toLowerCase()] ?? [])
+      add(dt);
+  for (const dt of damageTypesForKeyword(traits, /resistan/i)) add(dt);
+  return out;
+};
+
+const immunitiesFromTraits = (traits: TextComponent[]): DamageType[] =>
+  damageTypesForKeyword(traits, /immun/i);
 
 // Pull a darkvision range out of a race's traits. SRD traits title the feature
 // "Darkvision" and put the range in the detail prose ("…within 60 feet…"), so
@@ -92,6 +130,70 @@ const darkvisionFromTraits = (traits: TextComponent[]): number | undefined => {
     return m ? Number(m[1]) : 60;
   }
   return undefined;
+};
+
+// Seed fly/swim/climb speeds from race/subrace trait text (Aarakocra's Flight,
+// Triton/Water Genasi/Sea Elf swim, Tabaxi climb, Fairy/Owlin "equal to your
+// walking speed"). Editable afterward like every seeded value.
+const speedsFromTraits = (
+  traits: TextComponent[],
+  walk: number,
+): { fly?: number; swim?: number; climb?: number } => {
+  const out: { fly?: number; swim?: number; climb?: number } = {};
+  for (const t of traits) {
+    const text = `${t.title} ${isTextComponentWithDetail(t) ? t.detail : ""}`;
+    for (const [key, word] of [
+      ["fly", "fly(?:ing)?"],
+      ["swim", "swim(?:ming)?"],
+      ["climb", "climb(?:ing)?"],
+    ] as const) {
+      if (out[key] !== undefined) continue;
+      const num = new RegExp(`${word}\\s+speed[^0-9]*(\\d+)`, "i").exec(text);
+      if (num) out[key] = Number(num[1]);
+      else if (
+        new RegExp(`${word}\\s+speed\\s+equal to your walking speed`, "i").test(
+          text,
+        )
+      )
+        out[key] = walk;
+    }
+  }
+  return out;
+};
+
+// Rewrite a Dragonborn's ancestry-dependent traits (Draconic Ancestry, Breath
+// Weapon, Damage Resistance) with the specifics of the chosen dragon, so the
+// concrete damage type/shape/save show on the sheet — and, because
+// `resistancesFromTraits` scans the prose, the resistance is actually conferred.
+const applyDraconicAncestry = (
+  traits: TextComponent[],
+  color: string,
+): TextComponent[] => {
+  const info = DRACONIC_ANCESTRIES[color];
+  if (!info) return traits;
+  const dmg = info.damage.toLowerCase();
+  const dragon = color.split(" (")[0];
+  const shape =
+    info.breath === "line" ? "a 5-ft.-wide, 30-ft. line" : "a 15-ft. cone";
+  const save = info.save === StatKey.dex ? "Dexterity" : "Constitution";
+  return traits.map((t) => {
+    switch (t.title.trim().toLowerCase()) {
+      case "draconic ancestry":
+        return text(
+          t.title,
+          `Your draconic ancestry is ${dragon} dragon, tied to ${dmg} damage.`,
+        );
+      case "damage resistance":
+        return text(t.title, `You have resistance to ${dmg} damage.`);
+      case "breath weapon":
+        return text(
+          t.title,
+          `As an action, exhale ${dmg} damage in ${shape}; each creature in the area makes a ${save} saving throw (DC 8 + your Constitution modifier + your proficiency bonus) for half. It deals 2d6, rising to 3d6 at 6th level, 4d6 at 11th, and 5d6 at 16th. You can't use it again until you finish a short or long rest.`,
+        );
+      default:
+        return t;
+    }
+  });
 };
 
 const splitLines = (value: string): string[] =>
@@ -248,9 +350,14 @@ function guidedCharacter(state: BuilderState): Character {
       : subrace?.name;
   // Racial traits as TextComponents — reused for both the structured race source
   // and the flattened `features` aggregate below.
-  const raceTraits = [...(race?.traits ?? []), ...(subrace?.traits ?? [])].map(
-    (f) => text(f.title, f.detail),
-  );
+  const baseRaceTraits = [
+    ...(race?.traits ?? []),
+    ...(subrace?.traits ?? []),
+  ].map((f) => text(f.title, f.detail));
+  const raceTraits =
+    race?.draconicAncestry && state.draconicAncestry
+      ? applyDraconicAncestry(baseRaceTraits, state.draconicAncestry)
+      : baseRaceTraits;
 
   const className = klass?.name ?? (state.customClassName.trim() || "Custom");
   // Level-1 subclass mechanics, if the chosen subclass carries any (only the
@@ -285,7 +392,8 @@ function guidedCharacter(state: BuilderState): Character {
   // (e.g. Wood Elf's Fleet of Foot → 35); both are fully editable afterward. The
   // race object keeps only identity — languages/traits are seeded into their own
   // homes (below) rather than mirrored here.
-  char.speeds = { walk: subrace?.speed ?? race?.speed ?? 30 };
+  const walkSpeed = subrace?.speed ?? race?.speed ?? 30;
+  char.speeds = { walk: walkSpeed, ...speedsFromTraits(raceTraits, walkSpeed) };
   // A `darkvisionOrSkill` race decides by the player's pick rather than by its
   // trait text — the text names darkvision as one of two options, and scanning
   // it would grant the sense to everyone, including those who took the skill.
@@ -371,6 +479,31 @@ function guidedCharacter(state: BuilderState): Character {
     raceTraits.map((t) => t.title),
   );
   char.damageModifiers.resistances = resistancesFromTraits(raceTraits);
+  char.damageModifiers.immunities = immunitiesFromTraits(raceTraits);
+
+  // High Elf's chosen wizard cantrip. Racial spells have no spellcasting class,
+  // so — like Drow/Tiefling innate magic — it rides as an at-will limited-use
+  // ability rather than a slot-cast repertoire spell.
+  const hasHighElfCantrip = raceTraits.some(
+    (t) => t.title.trim().toLowerCase() === "high elf cantrip",
+  );
+  if (hasHighElfCantrip && state.highElfCantrip) {
+    const srd = getSrdSpell(state.highElfCantrip);
+    if (srd) {
+      char.limitedUseAbilities ??= [];
+      char.limitedUseAbilities.push({
+        info: {
+          title: srd.name,
+          titleFormulas: [],
+          detail: `At-will wizard cantrip you know as a High Elf (Intelligence). ${srd.desc.split("\n")[0]}`,
+          detailFormulas: [],
+        },
+        maxUses: 0,
+        recharge: RestType.longRest,
+        expended: 0,
+      });
+    }
+  }
 
   // Spellcasting
   if (klass && castsAtLevelOne(klass)) {

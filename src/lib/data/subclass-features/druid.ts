@@ -5,11 +5,7 @@ import { SubclassFeatureTable } from "src/lib/data/subclass-features/types";
 export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
   Dreams: {
     2: [
-      {
-        title: "Balm of the Summer Court",
-        detail:
-          "A pool of d6s equal to your druid level (refills on a long rest); as a bonus action, spend up to half your druid level of dice on one creature within 120 ft. to heal that total and grant it 1 temporary hit point per die spent.",
-      },
+      // Balm of the Summer Court is a limited-use pool — see SUBCLASS_POOLS["Dreams"].
     ],
     6: [
       {
@@ -19,11 +15,7 @@ export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
       },
     ],
     10: [
-      {
-        title: "Hidden Paths",
-        detail:
-          "A number of uses per long rest equal to your Wisdom modifier (minimum 1): as a bonus action, teleport yourself up to 60 ft. to an unoccupied space you can see, or as an action, teleport a willing creature you touch up to 30 ft.",
-      },
+      // Hidden Paths is a limited-use pool — see SUBCLASS_POOLS["Dreams"].
     ],
     14: [
       {
@@ -109,11 +101,7 @@ export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Learn Sylvan, and beasts can understand your speech, though you must succeed on a Wisdom (Animal Handling) check to communicate more than simple concepts; you can also decipher animal sounds and gestures.",
       },
-      {
-        title: "Spirit Totem",
-        detail:
-          "As a bonus action once per short or long rest, summon a spirit within 60 ft. that fills a 30-ft.-radius aura for 1 minute; choose Bear (allies in the aura gain temporary hit points equal to 5 plus your druid level, and advantage on Strength checks and saves), Hawk (you gain a reaction to grant an ally advantage on one attack against a target in the aura, and everyone inside gains advantage on Wisdom (Perception) checks), or Unicorn (everyone in the aura has advantage on checks to detect creatures there, and your healing spells restore extra hit points to others in the aura equal to your druid level).",
-      },
+      // Spirit Totem is a limited-use pool — see SUBCLASS_POOLS["Shepherd"].
     ],
     6: [
       {
@@ -130,11 +118,7 @@ export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
       },
     ],
     14: [
-      {
-        title: "Faithful Summons",
-        detail:
-          "Once per long rest, if you're reduced to 0 hit points or incapacitated, you immediately and without using a spell slot summon spirits as though you had cast Conjure Animals at 9th level (four beasts of challenge rating 2 or lower), lasting 1 hour without requiring concentration.",
-      },
+      // Faithful Summons is a limited-use pool — see SUBCLASS_POOLS["Shepherd"].
     ],
   },
   Spores: {
@@ -171,11 +155,7 @@ export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
   },
   Stars: {
     2: [
-      {
-        title: "Star Map",
-        detail:
-          "Your spellcasting focus is a map of the stars; you always know the Guidance cantrip, and Guiding Bolt is always prepared without counting against your prepared spells, castable without a slot a number of times per long rest equal to your proficiency bonus.",
-      },
+      // Star Map is a limited-use pool — see SUBCLASS_POOLS["Stars"].
       {
         title: "Starry Form",
         detail:
@@ -183,11 +163,7 @@ export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
       },
     ],
     6: [
-      {
-        title: "Cosmic Omen",
-        detail:
-          "After each long rest, roll a die to determine whether you're attuned to Weal (even) or Woe (odd); a number of times per long rest equal to your proficiency bonus, use your reaction to add (Weal) or subtract (Woe) 1d6 from another creature's attack roll, save, or ability check within 30 ft. after seeing the roll but before the outcome is known.",
-      },
+      // Cosmic Omen is a limited-use pool — see SUBCLASS_POOLS["Stars"].
     ],
     10: [
       {
@@ -225,18 +201,10 @@ export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
       },
     ],
     10: [
-      {
-        title: "Cauterizing Flames",
-        detail:
-          "A number of times per long rest equal to your proficiency bonus, when a Small or larger creature dies within 30 ft. of you or your Wildfire Spirit, a flame lingers in its space for 1 minute; as a reaction when a creature enters that space, deal or restore 2d10 + Wisdom modifier fire damage or hit points to it (your choice of harm or healing).",
-      },
+      // Cauterizing Flames is a limited-use pool — see SUBCLASS_POOLS["Wildfire"].
     ],
     14: [
-      {
-        title: "Blazing Revival",
-        detail:
-          "Once per long rest, if your Wildfire Spirit is within 120 ft. of you when you drop to 0 hit points, you can sacrifice it to regain hit points equal to half your maximum and stand back up.",
-      },
+      // Blazing Revival is a limited-use pool — see SUBCLASS_POOLS["Wildfire"].
     ],
   },
 };

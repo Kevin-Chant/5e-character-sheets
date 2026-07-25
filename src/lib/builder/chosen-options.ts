@@ -1,5 +1,6 @@
 import {
   DamageType,
+  DRACONIC_ANCESTRIES,
   OfficialClass,
   StandardDie,
 } from "src/lib/data/data-definitions";
@@ -84,17 +85,32 @@ export interface OptionGroup {
   known: [number, number][];
   options: OptionDef[];
   // A damage resistance the pick confers, keyed by option name. Draconic
-  // Bloodline is the only case: the ancestry dragon sets the sorcerer's
-  // resistance. Applied by both wizards when the pick lands.
+  // Bloodline's ancestry and the Genie's kind both set a resistance.
   resistances?: Record<string, DamageType>;
+  // The class level at which the `resistances` grant actually kicks in — both
+  // Draconic Bloodline (Elemental Affinity) and the Genie (Elemental Gift) grant
+  // theirs at 6th, though the ancestry/kind is chosen at 1st. Defaults to 1.
+  resistanceLevel?: number;
 }
 
-// The damage resistances a set of picks confers, via `OptionGroup.resistances`.
-export function resistancesFromOptions(picks: ChosenOption[]): DamageType[] {
+// The damage resistances a set of picks confers, via `OptionGroup.resistances`,
+// gated on the character having reached each group's `resistanceLevel`.
+export function resistancesFromOptions(
+  picks: ChosenOption[],
+  character?: Character,
+): DamageType[] {
   const out: DamageType[] = [];
   for (const pick of picks) {
-    const dt = optionGroup(pick.category)?.resistances?.[pick.name];
-    if (dt && !out.includes(dt)) out.push(dt);
+    const group = optionGroup(pick.category);
+    const dt = group?.resistances?.[pick.name];
+    if (!dt) continue;
+    const need = group?.resistanceLevel ?? 1;
+    if (need > 1) {
+      const level =
+        character?.class.find((k) => k.name === group?.className)?.level ?? 0;
+      if (level < need) continue;
+    }
+    if (!out.includes(dt)) out.push(dt);
   }
   return out;
 }
@@ -761,30 +777,15 @@ export const OPTION_GROUPS: OptionGroup[] = [
     className: OfficialClass.Sorcerer,
     subclass: "Draconic Bloodline",
     known: [[1, 1]],
-    resistances: {
-      "Black (acid)": DamageType.Acid,
-      "Blue (lightning)": DamageType.Lightning,
-      "Brass (fire)": DamageType.Fire,
-      "Bronze (lightning)": DamageType.Lightning,
-      "Copper (acid)": DamageType.Acid,
-      "Gold (fire)": DamageType.Fire,
-      "Green (poison)": DamageType.Poison,
-      "Red (fire)": DamageType.Fire,
-      "Silver (cold)": DamageType.Cold,
-      "White (cold)": DamageType.Cold,
-    },
-    options: [
-      { name: "Black (acid)" },
-      { name: "Blue (lightning)" },
-      { name: "Brass (fire)" },
-      { name: "Bronze (lightning)" },
-      { name: "Copper (acid)" },
-      { name: "Gold (fire)" },
-      { name: "Green (poison)" },
-      { name: "Red (fire)" },
-      { name: "Silver (cold)" },
-      { name: "White (cold)" },
-    ],
+    resistanceLevel: 6,
+    // Shares the Dragonborn table (color → damage type) — see DRACONIC_ANCESTRIES.
+    resistances: Object.fromEntries(
+      Object.entries(DRACONIC_ANCESTRIES).map(([color, info]) => [
+        color,
+        info.damage,
+      ]),
+    ),
+    options: Object.keys(DRACONIC_ANCESTRIES).map((color) => ({ name: color })),
   },
   {
     category: "metamagic",
@@ -885,6 +886,28 @@ export const OPTION_GROUPS: OptionGroup[] = [
           note: "Target a second creature with a single-target spell. Costs the spell's level, or 1 for a cantrip.",
         },
       },
+      {
+        name: "Seeking Spell",
+        summary:
+          "Spend 2 sorcery points to reroll a missed spell attack, using the new roll.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 2,
+          note: "Reroll the missed spell attack roll; you must use the new roll.",
+        },
+      },
+      {
+        name: "Transmuted Spell",
+        summary:
+          "Spend 1 sorcery point to change a spell's acid, cold, fire, lightning, poison, or thunder damage to another of those types.",
+        action: {
+          cost: "free",
+          pool: "Sorcery Points",
+          amount: 1,
+          note: "Change the spell's damage type to acid, cold, fire, lightning, poison, or thunder.",
+        },
+      },
     ],
   },
   {
@@ -913,7 +936,7 @@ export const OPTION_GROUPS: OptionGroup[] = [
         // prerequisite of three TCE invocations, which is why it matters here.
         name: "Pact of the Talisman",
         summary:
-          "Hang a talisman on a creature; while worn, it can add 1d4 to one failed ability check per long rest.",
+          "Hang a talisman on a creature; while worn, it can add 1d4 to a failed ability check a number of times equal to your proficiency bonus per long rest.",
       },
     ],
   },
@@ -939,10 +962,15 @@ export const OPTION_GROUPS: OptionGroup[] = [
       "Your chosen weapons count as monk weapons, and gain the subclass's Kensei features.",
     className: OfficialClass.Monk,
     subclass: "Kensei",
-    // Two at 3rd and no more — one melee, one ranged. The count doesn't grow;
-    // RAW you may *swap* one on each monk level, which the picker can't model
-    // (see the swapping note on Rune Knight below).
-    known: [[3, 2]],
+    // Two at 3rd (one melee, one ranged), then one *more* kensei weapon at each
+    // of 6th, 11th, and 17th level (XGE) — five in all. (The one-of-each melee/
+    // ranged split on the first pick isn't enforced by the picker.)
+    known: [
+      [3, 2],
+      [6, 3],
+      [11, 4],
+      [17, 5],
+    ],
     options: KENSEI_WEAPONS,
   },
   {
@@ -957,6 +985,63 @@ export const OPTION_GROUPS: OptionGroup[] = [
       [15, 5],
     ],
     options: RUNE_KNIGHT_RUNES,
+  },
+  {
+    category: "arcaneShot",
+    label: "Arcane Shot Options",
+    summary:
+      "When you fire an arcane arrow you can apply one known option; you regain the use on a short or long rest.",
+    className: OfficialClass.Fighter,
+    subclass: "Arcane Archer",
+    known: [
+      [3, 2],
+      [7, 3],
+      [10, 4],
+      [15, 5],
+      [18, 6],
+    ],
+    options: [
+      {
+        name: "Banishing Arrow",
+        summary:
+          "The target makes a Charisma save or is banished to a harmless demiplane until the end of your next turn (extra force damage at higher levels).",
+      },
+      {
+        name: "Beguiling Arrow",
+        summary:
+          "Extra psychic damage; the target makes a Wisdom save or is charmed by an ally of your choice until the end of your next turn.",
+      },
+      {
+        name: "Bursting Arrow",
+        summary:
+          "The arrow erupts with force: every creature within 10 ft. of the target takes force damage.",
+      },
+      {
+        name: "Enfeebling Arrow",
+        summary:
+          "Extra necrotic damage; the target makes a Constitution save or deals half weapon damage until the end of your next turn.",
+      },
+      {
+        name: "Grasping Arrow",
+        summary:
+          "Brambles snare the target: extra poison damage, reduced speed, and slashing damage when it moves, until removed with an action.",
+      },
+      {
+        name: "Piercing Arrow",
+        summary:
+          "The arrow passes through cover and every creature in a 30-ft. line, which make a Dexterity save for half piercing damage (no normal attack roll).",
+      },
+      {
+        name: "Seeking Arrow",
+        summary:
+          "The arrow curves to find a creature you name; it makes a Dexterity save or is hit for damage plus extra force damage and has its location revealed.",
+      },
+      {
+        name: "Shadow Arrow",
+        summary:
+          "Extra psychic damage; the target makes a Wisdom save or can't see beyond 5 ft. until the end of your next turn.",
+      },
+    ],
   },
   {
     category: "maneuvers",
@@ -1137,6 +1222,7 @@ export const OPTION_GROUPS: OptionGroup[] = [
     className: OfficialClass.Warlock,
     subclass: "Genie",
     known: [[1, 1]],
+    resistanceLevel: 6,
     resistances: {
       Dao: DamageType.Bludgeoning,
       Djinni: DamageType.Thunder,
@@ -1144,6 +1230,104 @@ export const OPTION_GROUPS: OptionGroup[] = [
       Marid: DamageType.Cold,
     },
     options: GENIE_KIND,
+  },
+  // Hunter's four tiered pick-one features. Each is a genuine choice among named
+  // sub-features at its level; the picked option's summary rides on the sheet.
+  // The numeric riders (e.g. Colossus Slayer's +1d8) stay prose, like most
+  // conditional once-per-turn effects.
+  {
+    category: "huntersPrey",
+    label: "Hunter's Prey",
+    summary: "A 3rd-level Hunter's Prey option.",
+    className: OfficialClass.Ranger,
+    subclass: "Hunter",
+    known: [[3, 1]],
+    options: [
+      {
+        name: "Colossus Slayer",
+        summary:
+          "Once per turn when you hit a creature below its hit point maximum with a weapon, deal an extra 1d8 damage.",
+      },
+      {
+        name: "Giant Killer",
+        summary:
+          "When a Large or larger creature within 5 feet hits or misses you, you can use your reaction to attack it after its attack resolves.",
+      },
+      {
+        name: "Horde Breaker",
+        summary:
+          "Once per turn on a weapon hit, make one more attack against a different creature within 5 feet of the first that is within your weapon's range.",
+      },
+    ],
+  },
+  {
+    category: "defensiveTactics",
+    label: "Defensive Tactics",
+    summary: "A 7th-level Defensive Tactics option.",
+    className: OfficialClass.Ranger,
+    subclass: "Hunter",
+    known: [[7, 1]],
+    options: [
+      {
+        name: "Escape the Horde",
+        summary: "Opportunity attacks against you are made with disadvantage.",
+      },
+      {
+        name: "Multiattack Defense",
+        summary:
+          "When a creature hits you with an attack, you gain +4 AC against further attacks from it for the rest of the turn.",
+      },
+      {
+        name: "Steel Will",
+        summary:
+          "You have advantage on saving throws against being frightened.",
+      },
+    ],
+  },
+  {
+    category: "hunterMultiattack",
+    label: "Multiattack",
+    summary: "An 11th-level Multiattack option.",
+    className: OfficialClass.Ranger,
+    subclass: "Hunter",
+    known: [[11, 1]],
+    options: [
+      {
+        name: "Volley",
+        summary:
+          "As an action, make a ranged attack against any number of creatures within 10 feet of a point you can see, rolling separately for each.",
+      },
+      {
+        name: "Whirlwind Attack",
+        summary:
+          "As an action, make a melee attack against any number of creatures within 5 feet of you, rolling separately for each.",
+      },
+    ],
+  },
+  {
+    category: "superiorHuntersDefense",
+    label: "Superior Hunter's Defense",
+    summary: "A 15th-level Superior Hunter's Defense option.",
+    className: OfficialClass.Ranger,
+    subclass: "Hunter",
+    known: [[15, 1]],
+    options: [
+      {
+        name: "Evasion",
+        summary:
+          "When you make a Dexterity save for half damage, you instead take no damage on a success and half on a failure.",
+      },
+      {
+        name: "Stand Against the Tide",
+        summary:
+          "When a hostile creature misses you with a melee attack, you can use your reaction to force it to repeat that attack against another creature of your choice within its reach.",
+      },
+      {
+        name: "Uncanny Dodge",
+        summary:
+          "When an attacker you can see hits you, you can use your reaction to halve the attack's damage against you.",
+      },
+    ],
   },
 ];
 

@@ -841,6 +841,31 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
+  // Cleansing Touch (paladin 14): CHA-mod uses per long rest.
+  "cleansing touch": {
+    actions: [
+      spendRollRemind({
+        id: "cleansing-touch",
+        name: "Cleansing Touch",
+        cost: "action",
+        note: "End one spell on yourself or on a willing creature you touch.",
+      }),
+    ],
+  },
+
+  // Psionic Energy (Psi Warrior fighter 3): a pool of Psionic Energy dice.
+  "psionic energy": {
+    actions: [
+      spendRollRemind({
+        id: "psionic-energy",
+        name: "Psionic Energy",
+        cost: "special",
+        costNote: "the feature you spend the die on sets the action cost",
+        note: "Spend a Psionic Energy die on Protective Field (reaction, reduce damage), Psionic Strike (extra force damage once per turn), or Telekinetic Movement.",
+      }),
+    ],
+  },
+
   // Wild Shape (druid): the beast form itself is a table state.
   "wild shape": {
     actions: [
@@ -1150,6 +1175,21 @@ export function classDamageRiders(character: Character): ActiveRider[] {
           maxDice: 5,
           bonus: { dice: 1, label: "Target is an undead or fiend (+1d8)" },
         },
+      },
+    });
+
+  // Improved Divine Smite (paladin 11+): every melee weapon hit carries an
+  // extra 1d8 radiant automatically, with no slot and no once-per-turn limit.
+  if (paladin >= 11)
+    out.push({
+      source: "Improved Divine Smite",
+      rider: {
+        rider: "extraDamage",
+        amount: [1, StandardDie.d8, DieOperation.roll],
+        damageType: DamageType.Radiant,
+        declareAt: "on-hit",
+        note: "On every melee weapon hit.",
+        requires: { tags: ["melee"] },
       },
     });
 

@@ -69,6 +69,10 @@ export interface SrdRace {
   // The race grants a feat at level 1 (Custom Lineage). See the same flag on
   // `SrdSubrace` for the Variant Human path.
   grantsFeat?: boolean;
+  // The race picks a draconic ancestry (Dragonborn): a dragon type that sets its
+  // damage resistance and breath weapon's shape/save/type. The chosen label is
+  // stored in `BuilderState.draconicAncestry`; the table is `DRACONIC_ANCESTRIES`.
+  draconicAncestry?: boolean;
   proficiencies: ProficiencyGrants;
   traits: RaceTrait[];
   subraces: SrdSubrace[];
@@ -155,6 +159,11 @@ export interface SrdSubclass {
     // level-up (like the sub-choice grants), so re-running a level never doubles
     // a spell. Absent indices (still not in the catalog) are silently skipped.
     spellIndicesByLevel?: Record<number, string[]>;
+    // "Choose N skill proficiencies" the subclass grants at its choice level
+    // (Lore Bard's three, Knowledge cleric's two). `expertise` doubles the
+    // proficiency bonus for the chosen skills (Knowledge Domain). The picks live
+    // in `LevelChoices.subclassSkillChoices`.
+    skillChoices?: { choose: number; from: SkillName[]; expertise?: boolean };
   };
   // Feature prose the subclass grants **at each level**, keyed by class level —
   // the subclass counterpart to `CLASS_FEATURES`. `grants` fires only once, at
@@ -273,6 +282,12 @@ export interface BuilderState extends LevelChoices {
   // For a `darkvisionOrSkill` race, true when the player took the darkvision
   // side of the choice instead of the skill.
   raceTookDarkvision: boolean;
+  // The chosen draconic ancestry label (a `DRACONIC_ANCESTRIES` key) for a
+  // Dragonborn — sets its damage resistance and breath weapon specifics.
+  draconicAncestry?: string;
+  // The wizard cantrip a High Elf knows (its "High Elf Cantrip" trait) — a bare
+  // spell name, granted as an at-will ability since racial spells have no class.
+  highElfCantrip?: string;
   // Free-text extra languages chosen for race `languageChoices`.
   raceLanguageChoices: string[];
 

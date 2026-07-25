@@ -18,7 +18,11 @@ import {
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import { isAsiLevel, subclassDueAt } from "src/lib/builder/class-features";
-import { chosenIn, newOptionPicksAt } from "src/lib/builder/chosen-options";
+import {
+  chosenIn,
+  newOptionPicksAt,
+  resistancesFromOptions,
+} from "src/lib/builder/chosen-options";
 import { expertiseDueAt } from "src/lib/builder/class-features";
 import { getPB, hpAdjustmentOf, statCapFor } from "src/lib/rules";
 import { FEATS } from "src/lib/builder/feats";
@@ -133,6 +137,86 @@ describe("applyLevelUp — multiclassing", () => {
     );
     // Multiclass hit dice: one d10 + one d6.
     expect(leveled.totalHitDice).toEqual({ d10: 1, d6: 1 });
+  });
+
+  it("seeds Aura of Protection's save bonus at paladin 6, not before", () => {
+    let pal = level1("paladin");
+    const up = () =>
+      (pal = applyLevelUp(pal, {
+        ...defaultLevelUpState(pal),
+        className: "Paladin",
+      }));
+    up(); // 2
+    up(); // 3
+    up(); // 4
+    up(); // 5
+    expect(pal.savingThrowBonus).toBeUndefined();
+    up(); // 6
+    expect(pal.savingThrowBonus).toBeDefined();
+    // CHA 8 → mod -1 → max(1, -1) = +1 to every save.
+    expect(calculateCustomFormula(pal.savingThrowBonus!, pal)).toBe(1);
+  });
+
+  it("lets a Champion pick a second fighting style at 10th", () => {
+    let f = level1("fighter", { fightingStyle: "Defense" });
+    for (let lvl = 2; lvl <= 10; lvl++) {
+      f = applyLevelUp(f, {
+        ...defaultLevelUpState(f),
+        className: "Fighter",
+        ...(lvl === 3 ? { subclass: "Champion" } : {}),
+        ...(lvl === 10 ? { fightingStyle: "Dueling" } : {}),
+      });
+    }
+    const styles = f.features.map((x) => x.title);
+    expect(styles).toContain("Defense");
+    expect(styles).toContain("Dueling");
+  });
+
+  it("grants a Divination wizard the Portent pool, not a duplicate prose row", () => {
+    let w = level1("wizard");
+    w = applyLevelUp(w, {
+      ...defaultLevelUpState(w),
+      className: "Wizard",
+      subclass: "Divination",
+    }); // 2 — wizard picks subclass at 2
+    expect(w.limitedUseAbilities.map((a) => a.info.title)).toContain("Portent");
+    expect(w.features.map((f) => f.title)).not.toContain("Portent");
+  });
+
+  it("applies a Lore bard's three chosen skills at 3rd", () => {
+    let b = level1("bard");
+    b = applyLevelUp(b, { ...defaultLevelUpState(b), className: "Bard" }); // 2
+    b = applyLevelUp(b, {
+      ...defaultLevelUpState(b),
+      className: "Bard",
+      subclass: "Lore",
+      subclassSkillChoices: [
+        SkillName.Arcana,
+        SkillName.History,
+        SkillName.Nature,
+      ],
+    }); // 3
+    expect(b.proficiencies.skills.Arcana).toBe(true);
+    expect(b.proficiencies.skills.History).toBe(true);
+    expect(b.proficiencies.skills.Nature).toBe(true);
+  });
+
+  it("records a warlock's Mystic Arcanum choice on its pool at 11th", () => {
+    let w = level1("warlock");
+    for (let lvl = 2; lvl <= 11; lvl++) {
+      w = applyLevelUp(w, {
+        ...defaultLevelUpState(w),
+        className: "Warlock",
+        ...(lvl === 11 ? { mysticArcanum: "eyebite" } : {}),
+      });
+    }
+    const pool = w.limitedUseAbilities.find(
+      (a) => a.info.title === "Mystic Arcanum (6th Level)",
+    );
+    expect(pool).toBeDefined();
+    expect("detail" in pool!.info ? pool!.info.detail : "").toContain(
+      "Eyebite",
+    );
   });
 
   // PHB p.163: joining a class grants a defined subset of its proficiencies,
@@ -469,16 +553,27 @@ describe("level-up choices added by the coverage audit", () => {
     expect(after).toHaveLength(before.length - 1);
   });
 
-  it("a draconic ancestry picked at level-up confers its resistance", () => {
+  it("a draconic ancestry confers its resistance only from 6th level (Elemental Affinity)", () => {
     const char = level1("fighter");
-    const leveled = applyLevelUp(char, {
+    const at1 = applyLevelUp(char, {
       ...defaultLevelUpState(char),
       className: "Sorcerer",
       isNewMulticlass: true,
       subclass: "Draconic Bloodline",
       chosenOptions: { draconicAncestry: ["White (cold)"] },
     });
-    expect(leveled.damageModifiers.resistances).toContain(DamageType.Cold);
+    // Dragon Ancestor at 1st only grants the RP/language benefit — no resistance.
+    expect(at1.damageModifiers.resistances).not.toContain(DamageType.Cold);
+    // Elemental Affinity's resistance lands once the sorcerer reaches 6th level.
+    const sorc6 = {
+      ...at1,
+      class: at1.class.map((k) =>
+        k.name === "Sorcerer" ? { ...k, level: 6 } : k,
+      ),
+    };
+    expect(resistancesFromOptions(sorc6.chosenOptions ?? [], sorc6)).toContain(
+      DamageType.Cold,
+    );
   });
 });
 

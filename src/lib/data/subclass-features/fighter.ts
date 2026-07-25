@@ -81,11 +81,23 @@ export const FIGHTER_SUBCLASS_FEATURES: SubclassFeatureTable = {
           "Spend 1 minute observing or interacting with a creature outside combat to learn how it compares to you in two of: Strength, Dexterity, Constitution, armor class, current hit points, total class levels, and fighter levels.",
       },
     ],
+    10: [
+      {
+        title: "Improved Combat Superiority",
+        detail: "Your superiority dice turn into d10s.",
+      },
+    ],
     15: [
       {
         title: "Relentless",
         detail:
           "If you roll initiative and have no superiority dice left, you regain one superiority die.",
+      },
+    ],
+    18: [
+      {
+        title: "Improved Combat Superiority",
+        detail: "Your superiority dice turn into d12s.",
       },
     ],
   },

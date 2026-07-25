@@ -10,18 +10,10 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "When a creature spends a Bardic Inspiration die you gave it, an extra effect triggers depending on the roll: on a check, it can reroll and take either result; on an attack, each creature within 5 ft. of the target takes thunder damage equal to the die roll on a failed Constitution save; on a save, it gains temporary hit points equal to the die roll plus your Charisma modifier (minimum 1).",
       },
-      {
-        title: "Performance of Creation",
-        detail:
-          "As an action, expend a use to conjure a nonmagical item worth up to 20 gp per bard level (Medium or smaller, growing to Large at 6th and Huge at 14th level) that lasts for your Proficiency Bonus in hours; you can spend a 2nd-level or higher spell slot for an extra use.",
-      },
+      // Performance of Creation is a limited-use pool — see SUBCLASS_POOLS["Creation"].
     ],
     6: [
-      {
-        title: "Animating Performance",
-        detail:
-          "As an action, expend a use to animate a Large or smaller nonmagical item within 30 ft. into a friendly construct (AC 16, HP 10 + 5 per bard level) that acts for up to 1 hour, until reduced to 0 hit points, or until you die; you can spend a 3rd-level or higher spell slot for an extra use.",
-      },
+      // Animating Performance is a limited-use pool — see SUBCLASS_POOLS["Creation"].
     ],
     14: [
       {
@@ -45,18 +37,10 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "A Bardic Inspiration die that fails to change the outcome of the roll it was added to is not used up.",
       },
-      {
-        title: "Universal Speech",
-        detail:
-          "As an action, expend a use to let up to your Charisma modifier (minimum one) creatures within 60 ft. magically understand your spoken words for 1 hour; a spent spell slot grants an extra use.",
-      },
+      // Universal Speech is a limited-use pool — see SUBCLASS_POOLS["Eloquence"].
     ],
     14: [
-      {
-        title: "Infectious Inspiration",
-        detail:
-          "When a creature within 60 ft. succeeds on a roll using a Bardic Inspiration die you gave it, you can use your reaction to grant a new die to a different creature within range without spending a use, up to your Charisma modifier (minimum one) times per long rest.",
-      },
+      // Infectious Inspiration is a limited-use pool — see SUBCLASS_POOLS["Eloquence"].
     ],
   },
   Glamour: {
@@ -66,25 +50,13 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "As a bonus action, expend a use to grant up to your Charisma modifier (minimum one) creatures within 60 ft. 5 temporary hit points (rising to 8 at 5th, 11 at 10th, and 14 at 15th level) and let each immediately move up to their speed without provoking opportunity attacks.",
       },
-      {
-        title: "Enthralling Performance",
-        detail:
-          "After performing for at least 1 minute, force up to your Charisma modifier (minimum one) humanoids within 60 ft. who watched to make a Wisdom save or be charmed for 1 hour, ending early if the target takes damage, you attack it, or it witnesses you attack one of its allies; usable once per short or long rest.",
-      },
+      // Enthralling Performance is a limited-use pool — see SUBCLASS_POOLS["Glamour"].
     ],
     6: [
-      {
-        title: "Mantle of Majesty",
-        detail:
-          "As a bonus action, cast Command each turn for up to 1 minute of concentration without spending a spell slot; creatures already charmed by you automatically fail their save. Usable once per long rest.",
-      },
+      // Mantle of Majesty is a limited-use pool — see SUBCLASS_POOLS["Glamour"].
     ],
     14: [
-      {
-        title: "Unbreakable Majesty",
-        detail:
-          "As a bonus action, become majestic for up to 1 minute or until incapacitated: the first creature to attack you each turn must succeed on a Charisma save or waste the attack, and on a success it instead has disadvantage on its next save against your spells. Usable once per short or long rest.",
-      },
+      // Unbreakable Majesty is a limited-use pool — see SUBCLASS_POOLS["Glamour"].
     ],
   },
   Lore: {
@@ -115,11 +87,7 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Once per turn when you cast a spell dealing damage or restoring hit points through your spiritual focus, add 1d6 to one damage or healing roll of that spell.",
       },
-      {
-        title: "Spirit Session",
-        detail:
-          "As a 1-hour ritual with up to your Proficiency Bonus willing creatures, temporarily learn one Divination or Necromancy spell of a level no higher than the number of participants; it counts as a bard spell but doesn't count against spells known until your next long rest.",
-      },
+      // Spirit Session is a limited-use pool — see SUBCLASS_POOLS["Spirits"].
     ],
     14: [
       {
@@ -191,25 +159,13 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
   },
   Whispers: {
     3: [
-      {
-        title: "Words of Terror",
-        detail:
-          "After speaking privately with a humanoid for at least 1 minute, force a Wisdom save or the target becomes frightened of you or a creature of your choice for 1 hour, ending early if it takes damage or witnesses an ally harmed. Usable once per short or long rest.",
-      },
+      // Words of Terror is a limited-use pool — see SUBCLASS_POOLS["Whispers"].
     ],
     6: [
-      {
-        title: "Mantle of Whispers",
-        detail:
-          "As a reaction when a humanoid dies within 30 ft., capture its shadow (retained until used or you finish a long rest); as an action, wear the shadow as a disguise of that creature for 1 hour (ending early as a bonus action), gaining a +5 bonus on your Deception check when contested by an observer's Insight check. Can capture a new shadow only after a short or long rest.",
-      },
+      // Mantle of Whispers is a limited-use pool — see SUBCLASS_POOLS["Whispers"].
     ],
     14: [
-      {
-        title: "Shadow Lore",
-        detail:
-          "As an action, target one creature within 30 ft. with a Wisdom save; on a failure it is charmed for 8 hours, believing you know its darkest secret and obeying your reasonable requests until you or an ally attacks or damages it. Usable once per long rest.",
-      },
+      // Shadow Lore is a limited-use pool — see SUBCLASS_POOLS["Whispers"].
     ],
   },
 };

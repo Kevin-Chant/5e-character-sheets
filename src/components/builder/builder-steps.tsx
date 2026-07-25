@@ -3,6 +3,7 @@ import { countBy, uniq } from "lodash";
 import {
   REAL_SKILLS,
   Alignment,
+  DRACONIC_ANCESTRIES,
   SkillName,
   StandardDie,
   StatKey,
@@ -15,6 +16,7 @@ import {
   raceGrantsFeat,
   subracesForRace,
 } from "src/lib/builder/srd-races";
+import { ALL_SPELLS } from "src/lib/spells/srd-spells";
 import {
   SRD_CLASSES,
   castsAtLevelOne,
@@ -370,6 +372,61 @@ export function RaceStep({ state, patch }: StepProps) {
         );
       })()}
 
+      {race?.draconicAncestry && (
+        <Field
+          label="Draconic ancestry"
+          hint="Your dragon type sets your damage resistance and your breath weapon's shape, save, and damage type."
+        >
+          <select
+            className="builder-input"
+            value={state.draconicAncestry ?? ""}
+            onChange={(e) =>
+              patch({ draconicAncestry: e.target.value || undefined })
+            }
+          >
+            <option value="">Choose a dragon…</option>
+            {Object.keys(DRACONIC_ANCESTRIES).map((color) => (
+              <option key={color} value={color}>
+                {color}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+
+      {(() => {
+        const subrace = getSubrace(race, state.subraceIndex);
+        const hasHighElfCantrip = [
+          ...(race?.traits ?? []),
+          ...(subrace?.traits ?? []),
+        ].some((t) => t.title.trim().toLowerCase() === "high elf cantrip");
+        if (!hasHighElfCantrip) return null;
+        const wizardCantrips = ALL_SPELLS.filter(
+          (s) => s.level === 0 && s.classes.includes("Wizard"),
+        );
+        return (
+          <Field
+            label="Wizard cantrip (High Elf)"
+            hint="You know one wizard cantrip, cast with Intelligence."
+          >
+            <select
+              className="builder-input"
+              value={state.highElfCantrip ?? ""}
+              onChange={(e) =>
+                patch({ highElfCantrip: e.target.value || undefined })
+              }
+            >
+              <option value="">Choose a cantrip…</option>
+              {wizardCantrips.map((s) => (
+                <option key={s.index} value={s.index}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        );
+      })()}
+
       {/* Variant Human and Custom Lineage are the only ways a level-1
           character starts with a feat. Same picker the level-up wizard uses. */}
       {raceGrantsFeat(race, getSubrace(race, state.subraceIndex)) && (
@@ -544,6 +601,35 @@ export function ClassStep({ state, patch }: StepProps) {
           })()}
         </Field>
       )}
+
+      {/* A level-1 subclass whose grant includes "choose N skills" (Knowledge
+          cleric's two with expertise). Bard/others pick theirs in level-up. */}
+      {(() => {
+        if (!klass?.subclassAtLevel1 || !state.subclass) return null;
+        const sc = subclassesForClass(klass.index).find(
+          (s) => s.name === state.subclass,
+        )?.grants?.skillChoices;
+        if (!sc) return null;
+        return (
+          <Field
+            label={`Subclass skills (choose ${sc.choose})`}
+            hint={
+              sc.expertise
+                ? "Your subclass grants these with expertise (double proficiency bonus)."
+                : "Skill proficiencies granted by your subclass."
+            }
+          >
+            <ChipMultiSelect<SkillName>
+              options={sc.from}
+              selected={state.subclassSkillChoices}
+              max={sc.choose}
+              onChange={(subclassSkillChoices) =>
+                patch({ subclassSkillChoices })
+              }
+            />
+          </Field>
+        );
+      })()}
 
       {/* Closed option lists this class grants at level 1 — in practice the
           ranger's Favored Enemy and Natural Explorer, since every other group

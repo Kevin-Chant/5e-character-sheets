@@ -10,11 +10,7 @@ export const WIZARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Copying an abjuration spell into your spellbook costs half the usual gold and time.",
       },
-      {
-        title: "Arcane Ward",
-        detail:
-          "A magical ward absorbs damage before it reaches you, holding twice your wizard level plus your Intelligence modifier in points; casting an abjuration spell of 1st level or higher recharges it by twice the spell's level.",
-      },
+      // Arcane Ward is a limited-use pool — see SUBCLASS_POOLS["Abjuration"].
     ],
     6: [
       {
@@ -45,11 +41,7 @@ export const WIZARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Gain proficiency with light armor, one one-handed melee weapon of your choice, and Performance (if not already proficient).",
       },
-      {
-        title: "Bladesong",
-        detail:
-          "As a bonus action, enter a Bladesong lasting up to a minute (usable a number of times equal to your proficiency bonus per long rest) while unencumbered and wielding no more than one one-handed weapon: it grants +Intelligence modifier to AC, +10 feet of speed, advantage on Acrobatics checks, and +Intelligence modifier to Concentration saves.",
-      },
+      // Bladesong is a limited-use pool — see SUBCLASS_POOLS["Bladesinging"].
     ],
     6: [
       {
@@ -75,11 +67,7 @@ export const WIZARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
   },
   Chronurgy: {
     2: [
-      {
-        title: "Chronal Shift",
-        detail:
-          "Twice per long rest, as a reaction after a creature within 30 feet makes an attack roll, ability check, or saving throw, force it to reroll; the new roll must be used.",
-      },
+      // Chronal Shift is a limited-use pool — see SUBCLASS_POOLS["Chronurgy"].
       {
         title: "Temporal Awareness",
         detail: "Add your Intelligence modifier to your initiative rolls.",
@@ -149,11 +137,7 @@ export const WIZARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Copying a divination spell into your spellbook costs half the usual gold and time.",
       },
-      {
-        title: "Portent",
-        detail:
-          "Roll two d20s whenever you finish a long rest and record the results; you may replace any attack roll, ability check, or saving throw made by you or a creature you can see with one of these recorded rolls.",
-      },
+      // Portent is a limited-use pool — see SUBCLASS_POOLS["Divination"].
     ],
     6: [
       {
@@ -250,11 +234,7 @@ export const WIZARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
       },
     ],
     10: [
-      {
-        title: "Violent Attraction",
-        detail:
-          "A number of times equal to your Intelligence modifier (minimum 1) per long rest, as a reaction when a creature you can see is hit by a weapon attack or takes falling damage, increase that damage by 1d10 (or 2d10 for falling damage).",
-      },
+      // Violent Attraction is a limited-use pool — see SUBCLASS_POOLS["Graviturgy"].
     ],
     14: [
       {

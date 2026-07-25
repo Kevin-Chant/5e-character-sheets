@@ -357,7 +357,7 @@ export const NONSRD_RACES: SrdRace[] = [
       {
         title: "Surprise Attack",
         detail:
-          "If you surprise a creature and hit it in the first round of combat, the attack deals an extra 2d6 damage.",
+          "If you surprise a creature and hit it in the first round of combat, the attack deals an extra 2d6 damage. You can use this trait only once per combat.",
       },
     ],
     subraces: [],
@@ -432,10 +432,7 @@ export const NONSRD_RACES: SrdRace[] = [
     name: "Kobold",
     size: "Small",
     speed: 30,
-    abilityBonuses: [
-      { stat: StatKey.dex, bonus: 2 },
-      { stat: StatKey.str, bonus: -2 },
-    ],
+    abilityBonuses: [{ stat: StatKey.dex, bonus: 2 }],
     languages: ["Common", "Draconic"],
     proficiencies: noProf(),
     traits: [
@@ -473,7 +470,7 @@ export const NONSRD_RACES: SrdRace[] = [
     ],
     languages: ["Common", "Orc"],
     skillChoices: {
-      choose: 1,
+      choose: 2,
       from: [
         SkillName["Animal Handling"],
         SkillName.Insight,
@@ -802,6 +799,15 @@ export const NONSRD_RACES: SrdRace[] = [
     },
     languages: ["Common"],
     languageChoices: 2,
+    skillChoices: {
+      choose: 2,
+      from: [
+        SkillName.Deception,
+        SkillName.Insight,
+        SkillName.Intimidation,
+        SkillName.Persuasion,
+      ],
+    },
     proficiencies: noProf(),
     traits: [
       {
@@ -1086,6 +1092,17 @@ export const NONSRD_RACES: SrdRace[] = [
     ],
     languages: ["Common", "Vedalken"],
     languageChoices: 1,
+    skillChoices: {
+      choose: 1,
+      from: [
+        SkillName.Arcana,
+        SkillName.History,
+        SkillName.Investigation,
+        SkillName.Medicine,
+        SkillName.Performance,
+        SkillName["Sleight of Hand"],
+      ],
+    },
     proficiencies: noProf(),
     traits: [
       {
@@ -1096,7 +1113,7 @@ export const NONSRD_RACES: SrdRace[] = [
       {
         title: "Tireless Precision",
         detail:
-          "When you make an ability check with a skill or tool you're proficient in, roll a d4 and add it to the check.",
+          "You gain the chosen skill proficiency above and one tool proficiency of your choice. Whenever you make an ability check using that chosen skill or tool, roll a d4 and add it to the check.",
       },
       {
         title: "Partially Amphibious",
@@ -1117,6 +1134,15 @@ export const NONSRD_RACES: SrdRace[] = [
       { stat: StatKey.str, bonus: 1 },
     ],
     languages: ["Common", "Leonin"],
+    skillChoices: {
+      choose: 1,
+      from: [
+        SkillName.Athletics,
+        SkillName.Intimidation,
+        SkillName.Perception,
+        SkillName.Survival,
+      ],
+    },
     proficiencies: noProf(),
     traits: [
       {

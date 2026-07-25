@@ -221,6 +221,11 @@ export const RANGER_SUBCLASS_FEATURES: SubclassFeatureTable = {
   "Monster Slayer": {
     3: [
       {
+        title: "Monster Slayer Magic",
+        detail:
+          "You learn an additional spell at 3rd, 5th, 9th, 13th, and 17th level; it's always prepared and doesn't count against the number you can prepare.",
+      },
+      {
         title: "Hunter's Sense",
         detail:
           "As an action, learn a seen creature's damage immunities, resistances, and vulnerabilities, a number of times per long rest equal to your Wisdom modifier (minimum 1).",

@@ -14,8 +14,12 @@ import {
   startingWealthFor,
 } from "src/lib/builder/equipment";
 import { BuilderState, defaultBuilderState } from "src/lib/builder/types";
+import { syncRacePools } from "src/lib/builder/class-pools";
 import { defaultCharacter } from "src/lib/data/default-data";
-import { chosenIn } from "src/lib/builder/chosen-options";
+import {
+  chosenIn,
+  resistancesFromOptions,
+} from "src/lib/builder/chosen-options";
 
 // A High Elf Wizard with a Sage background — exercises racial ASIs (race +
 // subrace), class saving throws / skill choices, level-1 spellcasting, and a
@@ -376,12 +380,101 @@ describe("wizard choices added by the coverage audit", () => {
     expect(c.features.map((f) => f.title)).not.toContain("Alert");
   });
 
-  it("a draconic sorcerer's ancestry confers its damage resistance", () => {
+  it("a draconic sorcerer's ancestry confers its damage resistance from 6th level", () => {
     const c = level1("sorcerer", {
       subclass: "Draconic Bloodline",
       chosenOptions: { draconicAncestry: ["Blue (lightning)"] },
     });
-    expect(c.damageModifiers.resistances).toContain(DamageType.Lightning);
+    // Elemental Affinity (the resistance) is 6th level — not granted at 1st.
+    expect(c.damageModifiers.resistances).not.toContain(DamageType.Lightning);
+    const sorc6 = {
+      ...c,
+      class: c.class.map((k) =>
+        k.name === "Sorcerer" ? { ...k, level: 6 } : k,
+      ),
+    };
+    expect(resistancesFromOptions(sorc6.chosenOptions ?? [], sorc6)).toContain(
+      DamageType.Lightning,
+    );
+  });
+
+  it("a Dragonborn's chosen ancestry confers its resistance and specifies its breath weapon", () => {
+    const c = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      raceIndex: "dragonborn",
+      classIndex: "fighter",
+      scoreMethod: "manual",
+      baseStats: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+      draconicAncestry: "Red (fire)",
+    });
+    // Dragonborn resistance is a level-1 grant (unlike the sorcerer's).
+    expect(c.damageModifiers.resistances).toContain(DamageType.Fire);
+    const breath = c.features.find((f) => f.title === "Breath Weapon");
+    expect(breath && "detail" in breath ? breath.detail : "").toMatch(
+      /15-ft\. cone/,
+    );
+    expect(breath && "detail" in breath ? breath.detail : "").toMatch(
+      /Dexterity saving throw/,
+    );
+  });
+
+  it("a Drow knows Dancing Lights at-will at 1st, and gains Faerie Fire at 3rd", () => {
+    const c = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      raceIndex: "elf",
+      subraceIndex: "drow",
+      classIndex: "fighter",
+      scoreMethod: "manual",
+      baseStats: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+    });
+    const dl = c.limitedUseAbilities.find(
+      (a) => a.info.title === "Dancing Lights",
+    );
+    expect(dl?.maxUses).toBe(0); // at-will
+    expect(c.limitedUseAbilities.map((a) => a.info.title)).not.toContain(
+      "Faerie Fire",
+    );
+    // Re-sync at total level 3 (passing race feature titles) grants Faerie Fire.
+    const at3 = {
+      ...c,
+      class: c.class.map((k) => ({ ...k, level: 3 })),
+    };
+    syncRacePools(at3, [
+      ...at3.limitedUseAbilities.map((a) => a.info.title),
+      ...at3.features.map((f) => f.title),
+    ]);
+    const ff = at3.limitedUseAbilities.find(
+      (a) => a.info.title === "Faerie Fire",
+    );
+    expect(ff?.maxUses).toBe(1);
+  });
+
+  it("a Knowledge cleric's two chosen skills land with expertise", () => {
+    const c = level1("cleric", {
+      subclass: "Knowledge",
+      subclassSkillChoices: [SkillName.Arcana, SkillName.History],
+    });
+    expect(c.proficiencies.skills.Arcana).toBe(true);
+    expect(c.proficiencies.expertise.Arcana).toBe(true);
+    expect(c.proficiencies.skills.History).toBe(true);
+    expect(c.proficiencies.expertise.History).toBe(true);
+  });
+
+  it("a High Elf's chosen wizard cantrip lands as an at-will ability", () => {
+    const c = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      raceIndex: "elf",
+      subraceIndex: "high-elf",
+      classIndex: "fighter",
+      scoreMethod: "manual",
+      baseStats: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+      highElfCantrip: "fire-bolt",
+    });
+    const fb = c.limitedUseAbilities.find((a) => a.info.title === "Fire Bolt");
+    expect(fb?.maxUses).toBe(0);
   });
 });
 

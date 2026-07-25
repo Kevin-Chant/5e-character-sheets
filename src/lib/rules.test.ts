@@ -218,6 +218,56 @@ describe("availableSpellSlots", () => {
   });
 });
 
+describe("totalSpellSlots — single-class uses the class's own table (rounds up)", () => {
+  const single = (
+    name: OfficialClass,
+    level: number,
+    subclass?: string,
+  ): Character => {
+    const c = structuredClone(defaultCharacter);
+    const id = randomUUID();
+    c.class = [{ id, name, level, subclass }];
+    c.spellcastingClasses = [{ classId: id }];
+    return c;
+  };
+
+  it("single-classed paladin 5 has 4/2, not 3/0", () => {
+    const p = single(OfficialClass.Paladin, 5);
+    expect(totalSpellSlots(p, 1)).toBe(4);
+    expect(totalSpellSlots(p, 2)).toBe(2);
+  });
+
+  it("single-classed ranger 3 has a first-level slot (ceil(3/2)=2)", () => {
+    const r = single(OfficialClass.Ranger, 3);
+    expect(totalSpellSlots(r, 1)).toBe(3);
+  });
+
+  it("Eldritch Knight 4 gets caster-level-2 slots (ceil(4/3)=2)", () => {
+    const ek = single(OfficialClass.Fighter, 4, "Eldritch Knight");
+    expect(totalSpellSlots(ek, 1)).toBe(3);
+  });
+
+  it("Arcane Trickster 20 has a 4th-level slot (ceil(20/3)=7)", () => {
+    const at = single(OfficialClass.Rogue, 20, "Arcane Trickster");
+    expect(totalSpellSlots(at, 4)).toBe(1);
+  });
+
+  it("multiclassing still rounds contributions down (paladin 5 + ranger 5 = caster 4)", () => {
+    const c = structuredClone(defaultCharacter);
+    const p = randomUUID();
+    const r = randomUUID();
+    c.class = [
+      { id: p, name: OfficialClass.Paladin, level: 5 },
+      { id: r, name: OfficialClass.Ranger, level: 5 },
+    ];
+    c.spellcastingClasses = [{ classId: p }, { classId: r }];
+    // floor(5/2) + floor(5/2) = 4 → 4/3 slots, no 3rd-level slot.
+    expect(totalSpellSlots(c, 1)).toBe(4);
+    expect(totalSpellSlots(c, 2)).toBe(3);
+    expect(totalSpellSlots(c, 3)).toBe(0);
+  });
+});
+
 const item = (partial: Partial<EquipmentItem>): EquipmentItem => ({
   id: randomUUID(),
   text: { title: "Item", titleFormulas: [] },

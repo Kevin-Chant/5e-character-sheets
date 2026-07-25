@@ -26,6 +26,7 @@ import {
   LevelChoices,
 } from "src/lib/builder/level-grants";
 import { addSrdSpell } from "src/lib/builder/grant-spells";
+import { getSrdSpell } from "src/lib/spells/srd-spells";
 import { applyFeat, getFeat } from "src/lib/builder/feats";
 
 // ---------------------------------------------------------------------------
@@ -91,11 +92,26 @@ const SPELL_LIST_CLASSES = new Set<OfficialClass>([
   OfficialClass.Wizard,
 ]);
 
+// Bard levels whose newly-learned spells are Magical Secrets — chosen from
+// *any* class's spell list.
+const BARD_MAGICAL_SECRETS_LEVELS = new Set([10, 14, 18]);
+
 // The class name to filter the SRD spell list by — or undefined to show every
-// spell (Artificer / homebrew, which the SRD catalog doesn't tag).
-export const spellListFilterFor = (className: string): string | undefined => {
+// spell (Artificer / homebrew, which the SRD catalog doesn't tag; and a bard's
+// Magical Secrets levels, which draw from every class list).
+export const spellListFilterFor = (
+  className: string,
+  level?: number,
+): string | undefined => {
   const oc = asOfficialClass(className);
-  return oc && SPELL_LIST_CLASSES.has(oc) ? className : undefined;
+  if (!oc || !SPELL_LIST_CLASSES.has(oc)) return undefined;
+  if (
+    oc === OfficialClass.Bard &&
+    level !== undefined &&
+    BARD_MAGICAL_SECRETS_LEVELS.has(level)
+  )
+    return undefined;
+  return className;
 };
 
 // Half-casters (Paladin, Ranger) learn no cantrips; every other caster does.
@@ -143,8 +159,22 @@ export interface LevelUpState extends LevelChoices {
   // warlock, ranger) may replace one spell they know each time they level.
   // `"<bucketLevel>.<index>"` addresses the spell in `character.spells`.
   swapSpell?: string;
+  // The spell index a warlock picks for the Mystic Arcanum gained this level
+  // (a 6th/7th/8th/9th-level warlock spell at 11th/13th/15th/17th). Recorded on
+  // the matching limited-use "Mystic Arcanum" pool.
+  mysticArcanum?: string;
   // Free-text features the player adds for content we don't model.
   addedFeatures: { title: string; detail: string }[];
+}
+
+// The Mystic Arcanum spell level a warlock chooses on reaching a given warlock
+// level (11→6th, 13→7th, 15→8th, 17→9th); undefined at every other level.
+export function mysticArcanumLevelAt(
+  className: string,
+  level: number,
+): number | undefined {
+  if (className !== OfficialClass.Warlock) return undefined;
+  return { 11: 6, 13: 7, 15: 8, 17: 9 }[level];
 }
 
 // Cleared whenever the chosen feat (or the advancement mode) changes, so a
@@ -287,6 +317,25 @@ export function applyLevelUp(
   for (const f of state.addedFeatures)
     if (f.title.trim())
       char.features.push(text(f.title.trim(), f.detail.trim()));
+
+  // 9. Mystic Arcanum: name the warlock's chosen 6th–9th-level spell on the pool
+  //    `applyClassLevel` just created (it's cast once per long rest without a
+  //    slot, so it lives as a limited-use ability rather than in the repertoire).
+  const arcanumLevel = mysticArcanumLevelAt(state.className, klass.level);
+  if (arcanumLevel && state.mysticArcanum) {
+    const ord = `${arcanumLevel}th`;
+    const pool = (char.limitedUseAbilities ?? []).find(
+      (a) => a.info.title === `Mystic Arcanum (${ord} Level)`,
+    );
+    const spell = getSrdSpell(state.mysticArcanum);
+    if (pool && spell)
+      pool.info = {
+        title: pool.info.title,
+        titleFormulas: [],
+        detail: `Once per long rest, cast ${spell.name} (your ${ord}-level Mystic Arcanum) without expending a spell slot.`,
+        detailFormulas: [],
+      };
+  }
 
   return char;
 }

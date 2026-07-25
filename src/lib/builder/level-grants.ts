@@ -22,7 +22,11 @@ import {
   toolChoicesFor,
 } from "src/lib/builder/class-features";
 import { statCapFor } from "src/lib/rules";
-import { syncClassPools, syncRacePools } from "src/lib/builder/class-pools";
+import {
+  poolTitlesFor,
+  syncClassPools,
+  syncRacePools,
+} from "src/lib/builder/class-pools";
 import {
   newOptionPicksAt,
   optionFeaturesFor,
@@ -86,6 +90,10 @@ export interface LevelChoices {
   // never a multiclass, and its full skill allowance is part of the
   // proficiency aggregate `buildCharacter` owns.
   multiclassSkills: SkillName[];
+  // Skills picked for a subclass's `grants.skillChoices` (Lore Bard's three,
+  // Knowledge cleric's two with expertise). Filled by whichever wizard picks
+  // the subclass — creation for cleric/sorcerer/warlock, level-up for the rest.
+  subclassSkillChoices: SkillName[];
 }
 
 export const emptyLevelChoices = (): LevelChoices => ({
@@ -94,6 +102,7 @@ export const emptyLevelChoices = (): LevelChoices => ({
   invocations: [],
   chosenOptions: {},
   multiclassSkills: [],
+  subclassSkillChoices: [],
 });
 
 const slugId = (s: string) =>
@@ -276,6 +285,18 @@ export function applyClassLevel(
       choices.subclass,
     )?.grants;
     if (grant) applySubclassGrant(char, grant, className);
+    // "Choose N skills" a subclass grants at its choice level (Lore Bard,
+    // Knowledge cleric), with optional expertise (Knowledge Domain).
+    if (grant?.skillChoices) {
+      const picks = choices.subclassSkillChoices
+        .filter((s) => grant.skillChoices!.from.includes(s))
+        .slice(0, grant.skillChoices.choose);
+      for (const skill of picks) {
+        char.proficiencies.skills[skill] = true;
+        if (grant.skillChoices.expertise)
+          char.proficiencies.expertise[skill] = true;
+      }
+    }
   }
 
   // 2. Feature prose for this class level (level 1 comes from the SRD class
@@ -292,13 +313,21 @@ export function applyClassLevel(
   const knownFeatures = new Set(
     char.features.map((f) => f.title.trim().toLowerCase()),
   );
+  // Features that now arrive as limited-use pools (Portent, Bladesong, Balm of
+  // the Summer Court, …) are dropped from the prose list so they don't appear
+  // twice — the pool carries their description. Mirrors the same filter
+  // `classFeaturesAt` applies to base-class features.
+  const poolBacked = new Set(
+    poolTitlesFor(className).map((t) => t.trim().toLowerCase()),
+  );
   for (const f of subclassFeaturesAt(
     className.toLowerCase(),
     klass.subclass,
     level,
   )) {
-    if (knownFeatures.has(f.title.trim().toLowerCase())) continue;
-    knownFeatures.add(f.title.trim().toLowerCase());
+    const key = f.title.trim().toLowerCase();
+    if (knownFeatures.has(key) || poolBacked.has(key)) continue;
+    knownFeatures.add(key);
     char.features.push(text(f.title, f.detail));
   }
 
@@ -336,10 +365,13 @@ export function applyClassLevel(
   // 3. Limited-use pools, re-derived for the new level (Rage count, Ki points,
   //    …), then the racial ones whose mechanics scale on total character level.
   syncClassPools(char, klass);
-  syncRacePools(
-    char,
-    (char.limitedUseAbilities ?? []).map((a) => a.info.title),
-  );
+  syncRacePools(char, [
+    // Existing racial pools refresh by their own title; race *feature* titles
+    // (e.g. "Drow Magic") let level-gated innate spells appear as the character
+    // reaches their tier (Faerie Fire at 3rd, Darkness at 5th).
+    ...(char.limitedUseAbilities ?? []).map((a) => a.info.title),
+    ...(char.features ?? []).map((f) => f.title),
+  ]);
 
   // 4. The monk's Unarmed Strike, whose damage die is the Martial Arts die.
   syncMartialArts(char, klass);
@@ -348,10 +380,18 @@ export function applyClassLevel(
   //    riders (Great Weapon Fighting) match by title; Defense folds +1 into AC.
   if (
     choices.fightingStyle &&
-    fightingStyleDueAt(className, level)?.includes(choices.fightingStyle)
+    fightingStyleDueAt(
+      className,
+      level,
+      choices.subclass ?? klass.subclass,
+    )?.includes(choices.fightingStyle)
   ) {
     const style = getFightingStyle(choices.fightingStyle);
-    if (style) {
+    // Guard against re-granting a style already known (Champion's second pick at
+    // 10th must differ from the first) so an acBonus like Defense's +1 AC and
+    // the feature row don't land twice.
+    const alreadyKnown = char.features.some((f) => f.title === style?.name);
+    if (style && !alreadyKnown) {
       char.features.push(text(style.name, style.summary));
       if (style.acBonus)
         char.acFormula = {
@@ -397,6 +437,20 @@ export function applyClassLevel(
       if (inv && !char.features.some((f) => f.title.trim() === inv.name))
         char.features.push(text(inv.name, inv.summary));
     }
+
+  // 8b. Paladin's Aura of Protection (6th): a bonus to every saving throw equal
+  //     to CHA modifier (min +1). Seeded once (a formula, so it tracks CHA) and
+  //     left alone thereafter so a hand-edit — e.g. adding a Cloak of Protection
+  //     — survives level-ups.
+  if (
+    className === OfficialClass.Paladin &&
+    level >= 6 &&
+    char.savingThrowBonus === undefined
+  )
+    char.savingThrowBonus = {
+      operation: Operation.maximum,
+      operands: [1, StatKey.cha],
+    };
 
   // 9. Picks from the class's closed option lists, de-duplicated against what
   //    the character already knows so re-running a level can't double an entry.
@@ -460,7 +514,7 @@ export function applyClassLevel(
 
   // 10. Damage resistances a chosen option confers (draconic ancestry). Raw
   //     characters from legacy flows may lack `damageModifiers` entirely.
-  const gained = resistancesFromOptions(char.chosenOptions ?? []);
+  const gained = resistancesFromOptions(char.chosenOptions ?? [], char);
   if (gained.length) {
     char.damageModifiers ??= {
       resistances: [],
@@ -500,6 +554,14 @@ export interface LevelGrants {
   // Skill picks owed by a multiclass proficiency grant, with the list they come
   // from. Absent unless this level is a multiclass entry.
   multiclassSkills?: { choose: number; from: SkillName[] };
+  // "Choose N skills" a subclass grants at its choice level (Lore Bard's three,
+  // Knowledge cleric's two with expertise). Absent unless a subclass with such a
+  // grant is being chosen this level.
+  subclassSkillChoices?: {
+    choose: number;
+    from: SkillName[];
+    expertise?: boolean;
+  };
 }
 
 // Everything reaching `level` in `className` offers the player. `subclass` is
@@ -517,7 +579,7 @@ export function grantsAt(
   return {
     subclassDue: subclassDueAt(className, level),
     asiDue: isAsiLevel(className, level),
-    fightingStyles: fightingStyleDueAt(className, level),
+    fightingStyles: fightingStyleDueAt(className, level, subclass),
     expertise: expertiseDueAt(className, level),
     invocations:
       className === OfficialClass.Warlock ? newInvocationsAt(level) : 0,
@@ -533,6 +595,14 @@ export function grantsAt(
         from: multiclassSkillOptions(className),
       },
     }),
+    // A subclass being chosen at this level may owe skill picks (Lore/Knowledge).
+    ...(subclassDueAt(className, level) && subclass
+      ? (() => {
+          const sc = getSubclassByName(className.toLowerCase(), subclass)
+            ?.grants?.skillChoices;
+          return sc ? { subclassSkillChoices: sc } : {};
+        })()
+      : {}),
   };
 }
 
@@ -544,4 +614,5 @@ export const hasFeatureChoices = (g: LevelGrants): boolean =>
   g.expertise > 0 ||
   !!g.toolChoices ||
   !!g.multiclassSkills ||
+  !!g.subclassSkillChoices ||
   g.optionPicks.length > 0;

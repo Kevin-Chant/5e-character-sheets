@@ -23,7 +23,7 @@ export const MONK_ACTION_HOSTS: HostTable = {
       level: 3,
       cost: "bonusAction",
       pool: "Ki",
-      note: "Each creature of your choice within 10 ft. makes a Dexterity save or takes 2 Martial Arts dice of force damage; half on a success.",
+      note: "Each creature of your choice within 10 ft. makes a Dexterity save or takes 2 Martial Arts dice of force damage (all or nothing).",
     },
     {
       title: "Visage of the Astral Self",

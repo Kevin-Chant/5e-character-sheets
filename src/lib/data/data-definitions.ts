@@ -173,6 +173,61 @@ export enum StatKey {
   cha = "cha",
 }
 
+// The draconic-ancestry table shared by the Dragonborn race and the sorcerer's
+// Draconic Bloodline: each dragon sets a damage type (for resistance and the
+// bloodline's affinity), plus — for the Dragonborn's breath weapon — a shape
+// and saving throw. Keyed by the label the wizard stores (color + type).
+export interface DraconicAncestryInfo {
+  damage: DamageType;
+  breath: "line" | "cone";
+  save: StatKey.dex | StatKey.con;
+}
+
+export const DRACONIC_ANCESTRIES: Record<string, DraconicAncestryInfo> = {
+  "Black (acid)": {
+    damage: DamageType.Acid,
+    breath: "line",
+    save: StatKey.dex,
+  },
+  "Blue (lightning)": {
+    damage: DamageType.Lightning,
+    breath: "line",
+    save: StatKey.dex,
+  },
+  "Brass (fire)": {
+    damage: DamageType.Fire,
+    breath: "line",
+    save: StatKey.dex,
+  },
+  "Bronze (lightning)": {
+    damage: DamageType.Lightning,
+    breath: "line",
+    save: StatKey.dex,
+  },
+  "Copper (acid)": {
+    damage: DamageType.Acid,
+    breath: "line",
+    save: StatKey.dex,
+  },
+  "Gold (fire)": { damage: DamageType.Fire, breath: "cone", save: StatKey.dex },
+  "Green (poison)": {
+    damage: DamageType.Poison,
+    breath: "cone",
+    save: StatKey.con,
+  },
+  "Red (fire)": { damage: DamageType.Fire, breath: "cone", save: StatKey.dex },
+  "Silver (cold)": {
+    damage: DamageType.Cold,
+    breath: "cone",
+    save: StatKey.con,
+  },
+  "White (cold)": {
+    damage: DamageType.Cold,
+    breath: "cone",
+    save: StatKey.con,
+  },
+};
+
 export const PB = "proficiencyBonus";
 
 export enum SkillName {

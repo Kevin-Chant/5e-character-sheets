@@ -576,7 +576,49 @@ function casterContribution(klass: IClass): {
   }
 }
 
+// A single spellcasting class draws slots from *its own* class table, where
+// half-casters and third-casters round their effective caster level UP (a
+// single-classed paladin 5 has 4/2 slots — caster level 3, i.e. ceil(5/2)).
+// This mirrors `maxSpellLevelForClass`'s rounding so "can prepare a 2nd-level
+// spell" and "has a 2nd-level slot to cast it" agree.
+function singleClassCasterLevel(klass: IClass): number {
+  if (!isOfficialClass(klass.name)) return 0;
+  switch (klass.name) {
+    case OfficialClass.Bard:
+    case OfficialClass.Cleric:
+    case OfficialClass.Druid:
+    case OfficialClass.Sorcerer:
+    case OfficialClass.Wizard:
+      return klass.level;
+    case OfficialClass.Paladin:
+    case OfficialClass.Ranger:
+      return klass.level < 2 ? 0 : Math.ceil(klass.level / 2);
+    case OfficialClass.Artificer:
+      return Math.ceil(klass.level / 2);
+    case OfficialClass.Fighter:
+      return klass.subclass === "Eldritch Knight" && klass.level >= 3
+        ? Math.ceil(klass.level / 3)
+        : 0;
+    case OfficialClass.Rogue:
+      return klass.subclass === "Arcane Trickster" && klass.level >= 3
+        ? Math.ceil(klass.level / 3)
+        : 0;
+    case OfficialClass.Warlock:
+      return 0; // pact slots are separate; contributes nothing to this table
+    default:
+      return 0;
+  }
+}
+
+// The combined caster level used to size the shared (non-pact) slot pool.
+// PHB p.164: with a *single* spellcasting class use its own table (round up for
+// half/third casters); only when *multiclassing* do you sum the rounded-DOWN
+// contributions on the Multiclass Spellcaster table.
 export function calculateSpellcasterLevel(character: Character) {
+  const casters = character.class.filter(
+    (klass) => casterContribution(klass).isSpellcaster,
+  );
+  if (casters.length === 1) return singleClassCasterLevel(casters[0]);
   return character.class.reduce(
     (sum, klass) => sum + casterContribution(klass).spellcasterLevel,
     0,

@@ -996,6 +996,11 @@ export interface Character {
   // Seeded from the computed default when first edited — see
   // `getPassivePerceptionFormula`.
   passivePerception?: CustomFormula;
+  // A flat bonus added to *every* saving throw, as a formula (so it can track an
+  // ability modifier). The home for Paladin's Aura of Protection (CHA mod, min
+  // 1, from 6th level) and items like a Cloak of Protection. Optional — absent
+  // means no across-the-board save bonus. Seeded by the paladin level grant.
+  savingThrowBonus?: CustomFormula;
   // Movement speeds (walk + optional fly/swim/climb/burrow). Seeded from the race
   // at creation, then editable — see `Speeds`.
   speeds: Speeds;
