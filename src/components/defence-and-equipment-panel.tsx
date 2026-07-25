@@ -203,7 +203,9 @@ export default function DefenceAndEquipmentPanel() {
       </div>
       {/* Attacks */}
       <div className="column rounded-border-box">
-        <table>
+        {/* .attacks-table is a styling hook: below 640px the CSS reflows these
+            rows into stacked cards, since four columns can't fit a phone. */}
+        <table className="attacks-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -233,7 +235,7 @@ export default function DefenceAndEquipmentPanel() {
               const ammoTotal = linkedAmmo.reduce((sum, a) => sum + a.count, 0);
               return (
                 <tr key={index}>
-                  <td>
+                  <td className="attack-cell-name">
                     <span
                       className={
                         rangeText ? "attack-name has-range" : undefined
@@ -246,7 +248,7 @@ export default function DefenceAndEquipmentPanel() {
                       <span className="ammo-badge"> ({ammoTotal})</span>
                     )}
                   </td>
-                  <td>
+                  <td className="attack-cell-tohit">
                     {attackBonus !== undefined
                       ? attackBonus > 0
                         ? `+${attackBonus}`
@@ -255,10 +257,10 @@ export default function DefenceAndEquipmentPanel() {
                         ? formatSaveEffect(attack.save, character)
                         : "—"}
                   </td>
-                  <td>
+                  <td className="attack-cell-damage">
                     {formatCustomFormulaWithDamage(attack.formula, character)}
                   </td>
-                  <td>
+                  <td className="attack-cell-action">
                     {editMode ? (
                       <span className="flex">
                         <button

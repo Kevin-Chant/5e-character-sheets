@@ -792,6 +792,24 @@ p {
   gap: 0.15rem;
 }
 
+/* The "add an entry" button on a section heading (Personality Traits, Bonds,
+   Limited-Use Abilities…). Absolute so the title stays optically centred in its
+   frame, but pinned to the heading's own right edge: it used to be translated
+   150% further right, which put it outside the sheet on a phone. */
+.section-add {
+  position: absolute;
+  top: -50%;
+  right: 0;
+}
+
+/* Reserve the button's gutter on both sides so the title stays optically
+   centred in the frame and a long one ("Limited-Use Abilities") lays out beside
+   the button instead of under it. Only when the button is actually there, i.e.
+   in edit mode. */
+b.pos-relative.margin-large:has(> .section-add) {
+  padding: 0 2.25rem;
+}
+
 .equipment-encumbrance {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -1188,6 +1206,22 @@ p {
   margin: 0;
 }
 
+/* Skill / saving-throw rows. The row is only as wide as its contents, so inside
+   a centred .column each one self-centres and the toggles land on a ragged left
+   edge that's hard to scan. Stretch the row, left-align it, and give the
+   modifier a fixed track so the skill names start at a common x. */
+.proficiency-display {
+  width: 100%;
+  padding: 0 0.6rem;
+}
+.proficiency-display > .row {
+  justify-content: flex-start;
+  gap: 0.4rem;
+}
+.proficiency-display .display-value {
+  flex: 0 0 2.25rem;
+}
+
 /* Skill / saving-throw proficiency toggle: a small box that cycles none → ✓
    (proficient) → e (expertise). Saving throws only reach the first two states. */
 .prof-toggle {
@@ -1465,6 +1499,16 @@ button:active:not(:disabled) {
   padding: 0.4rem 0.55rem;
   display: inline-flex;
   align-items: center;
+}
+
+/* .display-value.large is a flat width:70%, which suits a two-digit save DC but
+   clips a class name once the column narrows (a stacked "Warlock" starts losing
+   letters around 820px). Size to the content instead, keeping 70% as the floor
+   so the short numeric values still share one underline width. */
+.spellcasting-class-row .display-value.large {
+  width: auto;
+  min-width: 70%;
+  max-width: 100%;
 }
 
 .spell-area {
@@ -3834,9 +3878,115 @@ button.slot-pip:hover:not(:disabled) {
     font-size: 1.5rem;
     width: 90%;
   }
-  /* Stat blocks and skills read fine stacked full-width on a phone. */
+  /* Stat blocks and skills stop fitting side by side long before this width —
+     the skills column's min-content is ~256px on its own — so stack them.
+     Setting .stat-display-container to 100% without this leaves both children
+     demanding full width in a row that can't shrink past their combined
+     min-content (~465px), which is what used to scroll the whole sheet
+     sideways. */
+  .stat-and-skill-panel > .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Six full-width ability boxes is a lot of thumb; pair them up instead. Three
+     across doesn't fit — "Constitution" alone wants ~140px. The boxes carry
+     .margin-large, which a grid track won't absorb, so the gap does the spacing
+     and the margin is dropped. */
   .stat-display-container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
     width: 100%;
+  }
+  .stat-display-container > .stat-display {
+    width: auto;
+    margin: 0;
+  }
+
+  /* Four spellcasting fields sharing one row leaves ~44px each, which clips the
+     class name and overlaps the labels into mush. Wrap them 2x2. */
+  .spellcasting-class-row {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+  .spellcasting-class-row > .column {
+    flex: 1 1 40%;
+  }
+  /* At half a phone wide, 2rem is enough to make even a content-sized "Warlock"
+     hit the column edge. Ease it down. */
+  .spellcasting-class-row .display-value.large {
+    font-size: 1.75rem;
+  }
+  /* "Spellcasting Ability" doesn't fit a half-phone column on one line, and
+     .display-label is nowrap by default. */
+  .spellcasting-class-row .display-label {
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* Weapon attacks as stacked cards. Four columns want ~327px of min-content —
+     more than a small phone has — and the name column shreds to one word per
+     line well before that. Each row becomes a card instead: the name and its
+     roll/edit control on top, the to-hit and damage beneath. The header row
+     goes away because the remaining values read for themselves ("+10", "2d6 +
+     4 Slashing"), which is also why the cards carry no labels. */
+  .attacks-table,
+  .attacks-table tbody {
+    display: block;
+  }
+  .attacks-table thead {
+    display: none;
+  }
+  .attacks-table tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "name  name    action"
+      "tohit damage  action";
+    align-items: center;
+    gap: 0.1rem 0.5rem;
+    padding: 0.45rem 0.1rem;
+  }
+  .attacks-table tr + tr {
+    border-top: 1px solid var(--border-soft);
+  }
+  .attacks-table td {
+    display: block;
+    text-align: left;
+  }
+  .attack-cell-name {
+    grid-area: name;
+    font-weight: 600;
+  }
+  .attack-cell-tohit {
+    grid-area: tohit;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .attack-cell-damage {
+    grid-area: damage;
+    color: var(--text-muted);
+  }
+  .attack-cell-action {
+    grid-area: action;
+  }
+
+  /* Equipment and ammunition rows are name-plus-controls flex rows; the name is
+     min-width:0 so it clips rather than wraps once the controls take their
+     share. Let the name wrap over as many lines as it needs and top-align the
+     controls against it. */
+  .equipment-row,
+  .ammo-row {
+    align-items: flex-start;
+  }
+  .equipment-name-text,
+  .equipment-name-edit,
+  .ammo-name,
+  .ammo-name-edit {
+    white-space: normal;
+    text-align: left;
+    overflow-wrap: anywhere;
   }
 }
 

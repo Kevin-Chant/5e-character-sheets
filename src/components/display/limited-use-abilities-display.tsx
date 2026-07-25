@@ -176,12 +176,7 @@ export default function LimitedUseAbilitiesDisplay() {
         Limited-Use Abilities
         {editMode && (
           <button
-            style={{
-              position: "absolute",
-              top: "-50%",
-              right: "0px",
-              transform: "translate(150%, 0%)",
-            }}
+            className="section-add"
             onClick={(e) => {
               e.preventDefault();
               addAbility();
