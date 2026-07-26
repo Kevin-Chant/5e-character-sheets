@@ -1,0 +1,786 @@
+/* ============================================================
+   Equipment box: a stack of quiet sub-sections (coins, equipment,
+   attunement, ammunition) separated by hairline dotted rules, each
+   labelled underneath in the printed-sheet manner.
+   ============================================================ */
+.equipment-box {
+  align-items: stretch;
+  gap: 0;
+  padding: 0.35rem 0.9rem 0.75rem;
+}
+
+.equipment-box > * {
+  padding: 0.5rem 0;
+}
+.equipment-box > *:first-child {
+  padding-top: 0.25rem;
+}
+.equipment-box > *:last-child {
+  padding-bottom: 0.15rem;
+}
+.equipment-box > * + * {
+  border-top: 1.5px dotted var(--border);
+}
+
+.equipment-subsection {
+  align-items: stretch;
+  gap: 0;
+}
+
+/* A sub-section's label sits under its list; the add control tucks in beside
+   the heading (inside the box), not floating off its right edge. */
+.equipment-subheading {
+  align-items: baseline;
+  margin-top: 0.35rem;
+}
+.section-heading-with-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.add-btn {
+  padding: 0 0.45rem;
+  line-height: 1.4;
+  font-size: 0.95rem;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+}
+.add-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ---- Coins: a compact currency strip, not a column of boxes ---- */
+.coins-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.7rem;
+}
+.coin-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.coin-input {
+  width: 3.4rem;
+  padding: 0.25rem 0.4rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.coin-input::-webkit-outer-spin-button,
+.coin-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.coin-field.readonly .coin-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.coin-denom {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.coin-total {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Equipment list ---- */
+.equipment-row {
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.1rem 0;
+}
+.equipment-name {
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+/* Equipped state: a small toggle dot before the name. Filled = worn/wielded;
+   hollow = stowed. Unequipped item names dim slightly so the worn kit reads
+   first at a glance. */
+.equip-toggle {
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: none;
+}
+.equip-toggle.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--surface);
+}
+.equip-toggle:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+/* Keeps names aligned in rows for items that can't be equipped (no toggle). */
+.equip-spacer {
+  flex: none;
+  width: 0.95rem;
+}
+
+.equipment-name-edit,
+.ammo-name-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+  color: var(--accent);
+}
+.equipment-name-edit:hover:not(:disabled),
+.ammo-name-edit:hover:not(:disabled) {
+  box-shadow: none;
+  text-decoration: underline;
+}
+/* Keep the edit pencil quiet until the row is hovered/focused — the accent-
+   coloured name is already the click affordance. */
+.equipment-name-edit svg {
+  flex-shrink: 0;
+  opacity: 0;
+  font-size: 0.7em;
+  transition: opacity 0.12s ease;
+}
+.equipment-row:hover .equipment-name-edit svg,
+.equipment-name-edit:focus-visible svg {
+  opacity: 0.55;
+}
+.equipment-name-text.unequipped {
+  color: var(--text-muted);
+}
+
+/* A row whose entry carries a description reads as plain text with a dotted
+   underline hinting the hover popover — no per-row box, so it sits beside its
+   plain siblings as the same kind of object. Shared by equipment items and the
+   personality/feature lists. */
+.detail-hint {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--text-muted);
+  text-underline-offset: 2px;
+}
+
+.equipment-controls {
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+.equipment-quantity-display,
+.equipment-weight {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.equipment-weight {
+  min-width: 3.2rem;
+  text-align: right;
+}
+
+/* Subtle inline row controls: quiet by default, warming to accent (edit) or
+   danger (remove) on hover, in place of the old boxed icon buttons. */
+.row-edit,
+.row-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+.row-edit svg {
+  font-size: 0.85em;
+}
+.row-edit:hover:not(:disabled) {
+  color: var(--accent);
+  box-shadow: none;
+}
+.row-remove:hover:not(:disabled) {
+  color: var(--danger);
+  box-shadow: none;
+}
+
+/* Personality / ideals / features lists: pad the frame and give each entry its
+   own vertical rhythm so plain and description-carrying rows read as one kind of
+   object (the popover pill is gone — both are text, one dotted-underlined). */
+.multi-line-text {
+  align-items: stretch;
+  gap: 0.1rem;
+  padding: 0.55rem 0.85rem 0;
+}
+.text-line-row {
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+}
+.text-line-controls {
+  flex: none;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+/* The "add an entry" button on a section heading (Personality Traits, Bonds,
+   Limited-Use Abilities…). Absolute so the title stays optically centred in its
+   frame, but pinned to the heading's own right edge: it used to be translated
+   150% further right, which put it outside the sheet on a phone. */
+.section-add {
+  position: absolute;
+  top: -50%;
+  right: 0;
+}
+
+/* Reserve the button's gutter on both sides so the title stays optically
+   centred in the frame and a long one ("Limited-Use Abilities") lays out beside
+   the button instead of under it. Only when the button is actually there, i.e.
+   in edit mode. */
+b.pos-relative.margin-large:has(> .section-add) {
+  padding: 0 2.25rem;
+}
+
+.equipment-encumbrance {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.equipment-encumbrance.over {
+  color: var(--danger);
+  font-weight: 600;
+}
+.equipment-encumbrance-tag {
+  margin-left: 0.2rem;
+  font-weight: 700;
+}
+
+/* ---- Attunement sub-section ---- */
+.attunement-row {
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.12rem 0;
+  cursor: pointer;
+}
+.attunement-name {
+  min-width: 0;
+}
+.attunement-slots {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.attunement-slots[role="button"] {
+  cursor: pointer;
+}
+.attunement-slots.full {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ---- Ammunition sub-section ---- */
+.ammo-row {
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.1rem 0;
+}
+.ammo-controls {
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+
+/* ---- Numeric stepper: a themed replacement for the browser spin buttons ---- */
+.stepper {
+  display: inline-flex;
+  align-items: stretch;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.stepper:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.stepper-input {
+  width: 2.4rem;
+  padding: 0 0.35rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.stepper-input:hover:not(:disabled) {
+  box-shadow: none;
+}
+.stepper-input:focus-visible {
+  outline: none;
+}
+.stepper-input::-webkit-outer-spin-button,
+.stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.stepper-btns {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  border-left: 1px solid var(--border);
+}
+.stepper-btns button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 1.25rem;
+  padding: 0 0.25rem;
+  border: none;
+  border-radius: 0;
+  background: var(--surface-2);
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 0.55rem;
+}
+.stepper-btns button:first-child {
+  border-bottom: 1px solid var(--border);
+}
+.stepper-btns button:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: none;
+}
+
+/* Quantity + weight row in the equipment editor. */
+/* Editor forms share a left-aligned, evenly-spaced column rhythm rather than the
+   centred default a bare `.column` would impose. */
+.edit-equipment,
+.edit-limited-use-ability {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.9rem;
+}
+
+.edit-equipment .equipment-fields {
+  gap: 1rem;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+/* The homebrew mechanics editor inside the limited-use ability modal: one card
+   per action, one compact row per effect. */
+.edit-ability-mechanics {
+  align-items: stretch;
+  gap: 0.5rem;
+  text-align: left;
+}
+.edit-action {
+  align-items: stretch;
+  gap: 0.4rem;
+}
+.edit-action-header {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+.edit-action-header input {
+  flex: 1;
+}
+.edit-effect-row {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.edit-effect-row input[type="number"] {
+  width: 3.5rem;
+}
+.add-action-btn,
+.add-effect-btn {
+  align-self: flex-start;
+}
+
+/* A number field read better typed than spun (e.g. decimal weights); the themed
+   StepperInput covers ±1 integer fields elsewhere in the form. */
+.no-spin {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.no-spin::-webkit-outer-spin-button,
+.no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.field > .weight-input {
+  width: 7rem;
+}
+
+/* Limited-use meta: two labelled controls side by side, left-aligned. */
+.limited-use-ability-meta {
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.uses-formula-btn {
+  width: 100%;
+  text-align: left;
+}
+.uses-formula-hint {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+/* Armor / shield section in the equipment editor. */
+.edit-equipment .equipment-armor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+
+.edit-equipment .equipment-armor > legend {
+  padding: 0 0.35rem;
+}
+
+/* Inline label + select (e.g. the weight-unit picker in settings). */
+.settings-select-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Linked-weapon checkboxes in the ammunition editor. */
+.edit-ammunition .ammo-weapons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.other-proficiencies {
+  align-items: stretch;
+}
+
+.other-proficiencies .prof-row {
+  display: grid;
+  /* Wide enough that the longest label ("Vulnerabilities") fits on one line in
+     the display face without spilling into the values column. */
+  grid-template-columns: 8rem 1fr;
+  align-items: stretch;
+  border-bottom: 2px solid var(--border);
+}
+
+.other-proficiencies .prof-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+  font-weight: 700;
+  /* Small-caps sizing so the engraved-cap labels stay within the fixed column. */
+  font-size: 0.72rem;
+  white-space: nowrap;
+  padding: 0.4rem 0.5rem;
+  border-right: 2px dotted var(--border);
+}
+
+.other-proficiencies .prof-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.1rem 0.35rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.other-proficiencies .prof-chip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.other-proficiencies .prof-chip-label,
+.other-proficiencies .prof-chip-popover {
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.other-proficiencies .prof-chip-label:hover {
+  color: var(--accent);
+}
+
+.other-proficiencies .prof-chip-remove {
+  visibility: hidden;
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  padding: 0 0.1rem;
+  margin-left: 0.1rem;
+}
+
+.other-proficiencies .prof-chip:hover .prof-chip-remove {
+  visibility: visible;
+}
+
+.other-proficiencies .prof-add {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--accent);
+  cursor: pointer;
+  line-height: 1;
+  /* Uniform square affordance shared by every add "+" in these boxes (languages,
+     senses, damage modifiers) so they read as one control, not three. */
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.other-proficiencies .prof-add:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.other-proficiencies .prof-title {
+  text-align: center;
+  font-weight: 700;
+  padding: 0.4rem;
+}
+
+/* Senses box reuses the Other-Proficiencies look; its box-level add "+" sits in
+   the title, matching the Limited-Use Abilities / Features boxes. */
+.other-proficiencies .senses-title {
+  position: relative;
+}
+.senses-add {
+  position: absolute;
+  right: 0.4rem;
+  /* Centre with a negative margin (half the 1.5rem button height) rather than a
+     transform: the global `button:active` sets `transform: translateY(1px)`,
+     which would replace a centring transform and make the button jump down on
+     press — so the click lands off-target and never opens the editor. */
+  top: 50%;
+  margin-top: -0.75rem;
+}
+
+/* Typeahead combobox: free-text input with a filtered, optionally grouped list
+   of suggestions below it. */
+.typeahead {
+  position: relative;
+}
+
+.typeahead > input {
+  width: 100%;
+}
+
+/* Rendered in normal flow (not absolutely positioned) so it grows the modal
+   instead of overflowing it, which avoids awkward double-scrolling. */
+.typeahead-list {
+  margin: 0.15rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--surface);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.typeahead-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.typeahead-group-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 0.3rem 0.4rem 0.1rem;
+}
+
+.typeahead-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius);
+}
+
+.typeahead-option:hover {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.display-text {
+  white-space: nowrap;
+  margin: 0;
+}
+
+/* Skill / saving-throw rows. The row is only as wide as its contents, so inside
+   a centred .column each one self-centres and the toggles land on a ragged left
+   edge that's hard to scan. Stretch the row, left-align it, and give the
+   modifier a fixed track so the skill names start at a common x. */
+.proficiency-display {
+  width: 100%;
+  padding: 0 0.6rem;
+}
+.proficiency-display > .row {
+  justify-content: flex-start;
+  gap: 0.4rem;
+}
+.proficiency-display .display-value {
+  flex: 0 0 2.25rem;
+}
+
+/* Skill / saving-throw proficiency toggle: a small box that cycles none → ✓
+   (proficient) → e (expertise). Saving throws only reach the first two states. */
+.prof-toggle {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+.prof-toggle.editable {
+  cursor: pointer;
+}
+.prof-toggle--proficient {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.prof-toggle--expert {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  /* Stylized serif italic "e" so expertise reads distinctly from a checkmark. */
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+}
+
+/* Per-skill bonus editor (pencil), shown in edit mode; brightens when a bonus
+   is set. */
+.prof-bonus-edit {
+  background: transparent;
+  border: none;
+  padding: 0 0.2rem;
+  cursor: pointer;
+  opacity: 0.4;
+  display: inline-flex;
+  align-items: center;
+}
+.prof-bonus-edit:hover {
+  opacity: 0.9;
+}
+.prof-bonus-edit.active {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* Classic character-sheet look: the value sits on an underline rather than in a
+   filled box, so empty/short values read as fields to fill in, not placeholders. */
+.display-value {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  text-align: center;
+  padding: 0.1rem 0.4rem 0.15rem;
+  border-bottom: 2px solid var(--border);
+  &.tiny {
+    font-size: 1rem;
+  }
+  &.small {
+    width: 30%;
+    font-size: 1.5rem;
+  }
+  &.large {
+    width: 70%;
+    font-size: 2rem;
+    min-height: 2.4rem;
+  }
+  /* Long free-text values (e.g. a multiclass "Class & Level") render smaller so
+     they wrap to a few lines instead of ballooning the box. */
+  &.compact {
+    font-size: 1.25rem;
+  }
+}
+
+/* Override the filled `.editable` background so editable values read as
+   underlined fields too, surfacing the fill only on hover. */
+.display-value.editable {
+  cursor: pointer;
+  background-color: transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
+  transition: background-color 0.12s ease;
+}
+.display-value.editable:hover {
+  background-color: var(--editable);
+}
+
+/* HP box: line the four value underlines up in one column despite the labels
+   having different lengths, by giving each label the flexible left column. */
+.hp-box .row {
+  justify-content: flex-start;
+  padding: 0 0.6rem;
+}
+.hp-box .display-label {
+  flex: 1;
+  text-align: left;
+}
+
+/* Small-caps field caption beneath a value (header fields, etc.). */
+.display-label {
+  white-space: nowrap;
+  margin: 0.15rem 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}

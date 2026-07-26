@@ -1,5 +1,5 @@
 import { FaPencil, FaArrowRotateLeft } from "react-icons/fa6";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
@@ -20,10 +20,9 @@ import SlotPips from "./slot-pips";
 const PIP_THRESHOLD = 6;
 
 export default function LimitedUseAbilitiesDisplay() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
-  if (!character) return <></>;
 
   const list = charPath(FIELD.limitedUseAbilities);
   const abilities = character.limitedUseAbilities;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArmorCategory, FIELD } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
   ArmorMechanics,
   CustomFormula,
@@ -33,7 +33,7 @@ const DEFAULT_DEX: Record<ArmorCategory, ArmorMechanics["dex"]> = {
 // item requires attunement — are edited here. Whether the character is currently
 // *attuned* is a play-mode toggle on the sheet row, not part of item setup.
 export default function EditEquipmentItem() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
   const {
@@ -71,7 +71,7 @@ export default function EditEquipmentItem() {
     );
   }, [isEquipmentTarget, item]);
 
-  if (!character || !isEquipmentTarget || !item) return <></>;
+  if (!isEquipmentTarget || !item) return <></>;
 
   const textComponent = item.text;
   if (!isTextComponent(textComponent)) return <></>;

@@ -1,5 +1,5 @@
 import { FaPencil } from "react-icons/fa6";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { ArmorType, FIELD } from "src/lib/data/data-definitions";
@@ -43,10 +43,9 @@ function RemoveButton({ onClick }: { onClick: () => void }) {
 // separated row of editable chips with an add button, mirroring the printed
 // sheet while keeping per-entry editing.
 function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
-  if (!character) return <></>;
 
   const list = OTHER_PROFS.k(subField);
   const items = character.otherProficiencies[subField];
@@ -85,10 +84,9 @@ function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
 // Tools & Other keep the rich TextComponent shape: detail is shown in a hover
 // popover, editing opens the full text-line modal.
 function ToolsCell() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
-  if (!character) return <></>;
 
   const list = OTHER_PROFS.k("toolsAndOther");
   const items = character.otherProficiencies.toolsAndOther;
@@ -148,10 +146,9 @@ function ToolsCell() {
 // Armor rarely changes, so show a read-only summary (checked types, else
 // "None") and edit the full checkbox set in a modal.
 function ArmorCell() {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
-  if (!character) return <></>;
 
   const armorCursor = OTHER_PROFS.k("armor");
   const armor = character.otherProficiencies.armor;

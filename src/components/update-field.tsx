@@ -6,7 +6,7 @@ import {
   OfficialClass,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue, traverse } from "src/lib/fields";
 import {
@@ -45,7 +45,7 @@ export default function UpdateField({
   modalType,
 }: UpdateFieldProps) {
   const { targetedField, subField } = useTargetedField();
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();
 
   // Resolve the value currently persisted for this (field, subField), falling
@@ -68,7 +68,7 @@ export default function UpdateField({
     setLocalValue(String(currentValue ?? ""));
   }, [currentValue]);
 
-  if (!character || !targetedField) return <></>;
+  if (!targetedField) return <></>;
 
   const setValue = (value: string) => {
     if (!value && !allowUndefined) return;

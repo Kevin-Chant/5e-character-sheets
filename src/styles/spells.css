@@ -1,0 +1,362 @@
+/* ---- Spellcasting ---- */
+.spellcasting {
+  /* No horizontal padding: the inner boxes should reach the same left/right
+     edges as the three panels above (which run to the page-container edge), so
+     the sheet's sections line up like a printed character sheet. */
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.spellcasting-classes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.spellcasting-class-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+}
+
+/* SingleValueDisplay renders a width:100% .column; as a flex item that becomes
+   flex-basis:100% and would stack. Let the value displays share the row evenly
+   and keep the trash button compact. */
+.spellcasting-class-row > .column {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+
+.spellcasting-class-row > .icon-button {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* .display-value.large is a flat width:70%, which suits a two-digit save DC but
+   clips a class name once the column narrows (a stacked "Warlock" starts losing
+   letters around 820px). Size to the content instead, keeping 70% as the floor
+   so the short numeric values still share one underline width. */
+.spellcasting-class-row .display-value.large {
+  width: auto;
+  min-width: 70%;
+  max-width: 100%;
+}
+
+.spell-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.spell-banner {
+  padding: 0.75rem 1rem;
+  width: fit-content;
+}
+
+.spell-banner .title {
+  margin-bottom: 0.5rem;
+}
+
+/* Prepared-spell allowance, mirroring the encumbrance readout: quiet until
+   you're over the limit, which is the only state you have to act on. */
+.prepared-counts {
+  display: flex;
+  flex-direction: row;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.prepared-count {
+  font-variant-numeric: tabular-nums;
+}
+.prepared-count.over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.spell-slot-tracker {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+}
+
+/* Don't let the editable total box stretch — size it to its content. The total
+   renders horizontally (".row") so "N Slots" sits inline with the level + pips. */
+.spell-slot-tracker > .column,
+.spell-slot-tracker > .row {
+  flex: 0 0 auto;
+  width: auto;
+  gap: 0.25rem;
+  justify-content: flex-start;
+}
+
+.spell-levels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.spell-level-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+
+/* The spell list already draws its own box; drop the inner border so cards
+   aren't doubled up. */
+.spell-level-card > .rounded-border-box {
+  border: none;
+  padding: 0;
+}
+
+.spell-level-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+}
+
+.spell-level-number {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.add-spell-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+}
+
+/* ---- Spell rows (list items) ---- */
+.spell-row-main {
+  width: auto;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.prepared-toggle {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.spell-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  border-radius: var(--radius);
+  background-color: var(--display-value-bg);
+  color: var(--text-muted);
+}
+
+.spell-badge.class-badge {
+  text-transform: none;
+}
+
+/* ---- Edit spell modal ---- */
+.edit-spell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  min-width: min(640px, 80vw);
+}
+
+.spell-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.spell-meta-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.spell-meta-grid select,
+.spell-meta-grid input {
+  width: 100%;
+}
+
+.spell-meta-flags {
+  justify-content: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.spell-components {
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.spell-component-toggles {
+  justify-content: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.material-list {
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.material-row {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.material-row > input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---- Spell mechanics (rolling) editor ---- */
+.spell-mechanics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem 1rem;
+  margin: 0;
+  /* Fieldsets default to min-content width and would push past the modal. */
+  min-width: 0;
+}
+.spell-mechanics > legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+}
+.spell-mechanics-enable {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+.spell-mechanics-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Labeled dropdowns (resolution kind/range/ability, scaling driver). Flex-wrap
+   with fixed-width controls so items can never overlap and simply wrap when the
+   modal is narrow. */
+.spell-mechanics-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 1.25rem;
+}
+.spell-mechanics-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.spell-mechanics-controls select {
+  width: 220px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Vertically-stacked growth settings, each an inline "label [input] units" row
+   so nothing crowds side-by-side. */
+.spell-mechanics-growth {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.spell-mechanics-field-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.spell-mechanics-field-inline select {
+  flex: 0 1 9rem;
+  min-width: 0;
+}
+.spell-mechanics-growth .spell-mechanics-step-label {
+  min-width: 11.5rem;
+}
+
+.spell-mechanics-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.spell-mechanics-row {
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.spell-mechanics-row select {
+  flex: 0 1 9rem;
+  min-width: 0;
+}
+.spell-mechanics-dice {
+  width: 5rem;
+  flex: 0 0 auto;
+}
+.spell-mechanics-num {
+  width: 4.5rem;
+}
+.spell-mechanics-inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+.spell-mechanics-advanced {
+  flex: 1 1 auto;
+}
+.spell-mechanics-instances {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.spell-mechanics-instances input {
+  width: 4.5rem;
+  flex: 0 0 auto;
+}
+.spell-mechanics-step-label {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+}
+.spell-mechanics-scaling {
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.spell-mechanics-scaling > summary {
+  cursor: pointer;
+  font-weight: 600;
+}

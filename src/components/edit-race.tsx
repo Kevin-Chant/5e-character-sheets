@@ -1,5 +1,5 @@
 import { FIELD, Size } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { charPath, updateAt, clearAt, Cursor } from "src/lib/cursor";
 import { DEFAULT_RACES } from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
@@ -10,9 +10,8 @@ import OptionOrCustomValue from "./display/option-or-custom-value";
 // in Other Proficiencies, traits in Features, speeds in the Speed editor,
 // darkvision in the Senses editor — not on the race.
 export default function EditRace() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();
-  if (!character) return <></>;
 
   const race = character.race;
   const racePath = charPath(FIELD.race);

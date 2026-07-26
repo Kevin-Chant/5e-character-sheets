@@ -1,0 +1,342 @@
+/* ============================================================
+   Tooltip
+   ============================================================ */
+.tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-bubble {
+  position: absolute;
+  z-index: var(--z-popover);
+  white-space: nowrap;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  box-shadow: var(--shadow-2);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.12s ease,
+    visibility 0.12s ease;
+  pointer-events: none;
+}
+
+.tooltip:hover .tooltip-bubble,
+.tooltip:focus-visible .tooltip-bubble {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tooltip-bottom .tooltip-bubble {
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltip-top .tooltip-bubble {
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltip-right .tooltip-bubble {
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tooltip-left .tooltip-bubble {
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Anchor a bottom/top bubble to the trigger's right edge so a wide label flows
+   leftward instead of off the right side of the page — used by the save
+   indicator, which lives in the top-right corner. */
+.tooltip-align-end.tooltip-bottom .tooltip-bubble,
+.tooltip-align-end.tooltip-top .tooltip-bubble {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.spinner {
+  animation: spinner-rotate 0.8s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Muted helper text (pickers, roll dialog hints). */
+.muted {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* SRD spell picker */
+.add-spell,
+.spell-search-results {
+  gap: 0.4rem;
+}
+.spell-search-results {
+  max-height: 45vh;
+  overflow-y: auto;
+}
+.spell-search-results button {
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+}
+.spell-add-actions {
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+/* Right-aligned per-spell controls (roll in play mode, edit/delete in edit mode). */
+.spell-row-actions {
+  gap: 0.25rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Roll button + dialog */
+.roll-btn {
+  color: var(--accent);
+}
+.roll-btn:hover {
+  color: var(--accent-hover);
+}
+.roll-inline {
+  align-items: center;
+  gap: 0.35rem;
+}
+.roll-modal {
+  gap: 0.75rem;
+  text-align: center;
+  min-width: min(90vw, 320px);
+}
+.roll-level-select {
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: center;
+}
+.roll-formula {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.roll-go {
+  align-self: center;
+  min-width: 8rem;
+}
+.roll-modes {
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+/* Each roll dialog section (To Hit / Damage) stacks with a little breathing room. */
+.roll-section {
+  gap: 0.5rem;
+  align-items: center;
+}
+.roll-section + .roll-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--display-value-bg);
+}
+.roll-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.roll-btn.check {
+  color: var(--text-muted);
+}
+/* Opt-in / always-on extra-damage riders (Sneak Attack, Rage) in the damage
+   section: a stack of toggles and notes between the formula and the roll button. */
+.roll-extras {
+  gap: 0.35rem;
+  align-items: center;
+  align-self: stretch;
+  text-align: center;
+}
+.roll-extra {
+  gap: 0.15rem;
+  align-items: center;
+}
+/* Keep the checkbox next to its label rather than letting `.row`'s full-width
+   space-evenly fling them to opposite edges. */
+.roll-extra-toggle {
+  width: auto;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.roll-result {
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.25rem;
+}
+.roll-total {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+/* Crit callouts replace the total on a natural 1/20; sized down since they're
+   text, and color-coded (green success, red fail) via theme-aware vars. */
+.roll-total.roll-crit-success,
+.roll-total.roll-crit-fail {
+  font-size: 1.6rem;
+  text-align: center;
+}
+.roll-total.roll-crit-success {
+  color: var(--success);
+}
+.roll-total.roll-crit-fail {
+  color: var(--danger);
+}
+/* A crit *damage* total stays a full-size number (unlike the text callouts
+   above) — only recolored to mark that its dice were doubled. */
+.roll-total.roll-crit-damage {
+  color: var(--success);
+}
+/* The crit toggle sits directly above the roll button, so give it a little air. */
+.roll-crit-toggle {
+  margin-top: 0.15rem;
+}
+/* A save-based attack's DC. Sized like a crit callout rather than a bare total
+   — it's a label ("DC 15 DEX"), not a number, and nothing here is rolled. */
+.roll-total.roll-save-dc {
+  font-size: 1.6rem;
+  text-align: center;
+}
+/* The DC chip in a limited-use pool's header row, between the name and the
+   recharge note. */
+.limited-use-save-dc {
+  color: var(--accent);
+}
+
+/* Checkbox lists in the wizards — eldritch invocations and the class-option
+   pickers (Metamagic, maneuvers, favored enemy), which share this markup.
+   Without these, `.row`/`.column`'s space-evenly centering flings each checkbox
+   away from its own label. */
+.invocation-options {
+  gap: 0.4rem;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+.invocation-option {
+  width: auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  justify-content: flex-start;
+  text-align: left;
+  cursor: pointer;
+}
+.invocation-option > input {
+  flex: 0 0 auto;
+}
+.invocation-option > span {
+  flex: 1 1 auto;
+}
+
+/* Class options (Metamagic, maneuvers, Pact Boon): a group per category, each a
+   header row plus a wrapping row of picked-option chips. */
+.chosen-options {
+  gap: 0.75rem;
+}
+.chosen-option-group {
+  gap: 0.35rem;
+  align-items: center;
+}
+.chosen-option-header {
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+}
+/* An incomplete pick is worth noticing — you're owed a choice. */
+.chosen-option-pending {
+  color: var(--danger);
+}
+.chosen-option-list {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+.chosen-option {
+  cursor: default;
+}
+/* The picker: one checkbox row per option, name + summary on a single line. */
+.edit-chosen-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  min-width: min(560px, 80vw);
+}
+.chosen-option-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.chosen-option-choice {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.chosen-option-choice input:disabled + span {
+  opacity: 0.5;
+}
+.roll-part {
+  font-size: 0.9rem;
+}
+.roll-history {
+  margin-top: 0.25rem;
+}
+
+/* Warning banner: someone else is editing a shared Drive character with no live
+   session to co-edit through. Amber, theme-aware via --popover-bg. */
+.share-presence-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem auto 0.75rem;
+  max-width: 900px;
+  padding: 0.6rem 0.9rem;
+  background: var(--popover-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+.share-presence-banner > span {
+  flex: 1;
+}
+.share-presence-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.share-presence-dismiss:hover {
+  color: var(--text);
+}

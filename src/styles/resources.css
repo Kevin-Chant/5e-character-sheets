@@ -1,0 +1,141 @@
+/* ---- Spell slot pips ---- */
+.slot-pips {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Death-save pips: label stacked above a single, non-wrapping row of pips. */
+.death-save-row {
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.death-save-row .slot-pips {
+  flex-wrap: nowrap;
+}
+
+button.slot-pip {
+  padding: 0.15rem;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+button.slot-pip:hover:not(:disabled) {
+  box-shadow: none;
+  color: var(--accent);
+  transform: scale(1.1);
+}
+
+/* ---- Limited-use abilities ---- */
+.limited-use-ability {
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0.35rem 0;
+}
+
+.limited-use-ability-header {
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+/* Both the standalone and the (hoverable) detail name read as a solid label,
+   left-aligned and filling the row so the recharge note and actions sit right. */
+.limited-use-ability-name {
+  flex: 1;
+  margin: 0;
+  text-align: left;
+  font-weight: 600;
+}
+
+/* The popover detail is nested inside the (bold) name anchor; keep it normal. */
+.limited-use-ability-name .popover-container {
+  font-weight: normal;
+}
+
+/* Pips and the high-count stepper both sit flush left under the name. */
+.limited-use-ability .slot-pips,
+.limited-use-count {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+/* Special-ability action rows (Second Wind, Font of Magic, Lay on Hands, …):
+   compact picker + button + action-cost badge, flush left under the pips. */
+.ability-actions {
+  align-items: stretch;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+.ability-action {
+  align-items: stretch;
+  gap: 0.15rem;
+}
+.ability-action-row {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ability-action-row select {
+  flex: 0 1 auto;
+}
+.ability-action-row input[type="number"] {
+  width: 3.5rem;
+}
+.ability-action-outcome {
+  margin: 0;
+  text-align: left;
+}
+
+/* The action-economy badge: what using the ability costs at the table. */
+.action-cost-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border, currentColor);
+  color: var(--text-muted, inherit);
+  white-space: nowrap;
+}
+
+/* Filled accent button for primary actions. */
+.btn-primary:not(:disabled) {
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+  border-color: transparent;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+/* Neutral button. */
+.btn-secondary:not(:disabled) {
+  background-color: var(--surface-2);
+  color: var(--text);
+}
+
+/* Destructive action. */
+.btn-danger:not(:disabled) {
+  color: var(--danger);
+}
+.btn-danger.btn-filled:not(:disabled) {
+  background-color: var(--danger);
+  color: var(--danger-contrast);
+  border-color: transparent;
+}
+
+/* Square, centered icon-only button. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  line-height: 1;
+}

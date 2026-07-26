@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import {
   CustomFormula,
@@ -17,11 +17,11 @@ import { fromStack, updateAt } from "src/lib/cursor";
 
 export default function BuildCustomFormula() {
   const { targetedField, subField } = useTargetedField();
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const [edit, setEdit] = useState(true);
   const { saveData } = useSave();
 
-  if (!character || !targetedField) return <></>;
+  if (!targetedField) return <></>;
 
   // Use `undefined` (not falsiness) as the "nothing stored" sentinel: a formula
   // can legitimately be the number 0 (e.g. a skill bonus), which must still open

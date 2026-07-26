@@ -1,0 +1,389 @@
+/* ============================================================
+   Layout
+   ============================================================ */
+#root {
+  width: 100vw;
+}
+
+#error-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Portalled into <body> and positioned via JS (see component-with-popover.tsx):
+   centered on the pill, flush above it, clamped inside the viewport. Width is
+   decoupled from the (narrow) pill so long text reads as a comfortable column. */
+.popover-container {
+  position: fixed;
+  z-index: var(--z-popover);
+  width: max-content;
+  max-width: min(340px, 90vw);
+  background: var(--popover-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+}
+.popover-container.pinned {
+  box-shadow:
+    var(--shadow-2),
+    0 0 0 2px var(--accent);
+  /* Pinned popovers can be dragged (body) and resized (native corner grip). */
+  cursor: move;
+  resize: both;
+  overflow: auto;
+  max-width: 90vw;
+  max-height: 80vh;
+  min-width: 8rem;
+  min-height: 3rem;
+}
+.popover-container.dragging {
+  user-select: none;
+}
+
+/* Anchors are clickable to pin the popover open; the corner pin glyph hints at
+   it and reads as solid once pinned. */
+.popover-anchor {
+  cursor: pointer;
+}
+.popover-pin-hint {
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: 0.4;
+  cursor: pointer;
+}
+.popover-pin-hint:hover {
+  opacity: 1;
+}
+.popover-container.pinned .popover-pin-hint {
+  opacity: 1;
+}
+
+.modal-container {
+  position: fixed; /* Stay in place */
+  z-index: var(--z-modal);
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+
+  .close:hover,
+  .close:focus {
+    color: var(--text);
+    text-decoration: none;
+    cursor: pointer;
+  }
+}
+
+.modal-titlebar {
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-titlebar > .title {
+  margin: 0;
+}
+
+.modal-titlebar-buttons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.modal-background {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  background-color: rgba(0, 0, 0, 0.5); /* Black w/ opacity */
+}
+
+.modal-content {
+  position: fixed;
+  left: 50%;
+  transform: translate(-50%, 0);
+  z-index: 3;
+  background-color: var(--surface);
+  color: var(--text);
+  margin-top: 5vh;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  min-width: 30%;
+  max-width: 70%;
+  overflow: auto;
+  max-height: 90vh;
+}
+
+#nav {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 16px;
+  border-bottom: 2px solid var(--border);
+  background-color: var(--surface);
+  z-index: 2;
+  height: 80px;
+}
+
+/* Catches clicks outside the drawer so it dismisses like a modal. Deliberately
+   transparent — the drawer is a lightweight sheet-switcher, not a modal step,
+   so dimming the whole app for it would overstate it. */
+#sidebar-scrim {
+  position: fixed;
+  inset: 80px 0 0 0;
+  z-index: calc(var(--z-sidebar) - 1);
+}
+
+/* The character list is a temporary drawer that overlays the sheet rather than
+   squeezing it — pushing it aside stole ~270px and forced the three panels to
+   stack (or overflow). Fixed-position, below the 80px nav, floating over the
+   sheet's left edge only while open. */
+#sidebar {
+  position: fixed;
+  top: 80px;
+  left: 0;
+  bottom: 0;
+  z-index: var(--z-sidebar);
+  overflow-y: auto;
+  border-right: 2px solid var(--border);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-2);
+  min-width: 240px;
+}
+
+#detail {
+  /* Fill the space left of the sidebar rather than a full 100vw — a fixed 100vw
+     here plus the 240px sidebar overflowed the viewport (horizontal scroll). */
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  height: calc(100vh - 80px);
+  /* Query container so the sheet reflows to its own available width, not the
+     viewport's — otherwise the sidebar stealing ~270px isn't accounted for and
+     the three panels overflow (horizontal scroll) until the 820px viewport
+     breakpoint, which is far too late. */
+  container: detail / inline-size;
+}
+
+.character-list {
+  list-style: none;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0;
+}
+
+.character-list > li {
+  margin: 0;
+}
+
+#main-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+#main-nav h1 {
+  margin: 0 0.5rem;
+  font-size: 1.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sharing-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* Save-status indicator. Error is the only alarming state (red triangle);
+   "unsaved" is a neutral, smaller dot so a pending save isn't mistaken for a
+   failure. */
+.save-indicator-error {
+  color: var(--danger);
+}
+.save-indicator-unsaved {
+  color: var(--text-muted);
+  font-size: 0.7em;
+}
+
+.modal-header {
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-header h1 {
+  margin: 0;
+}
+
+/* Overflow ("more actions") dropdown in the top nav */
+.nav-menu {
+  position: relative;
+}
+
+.nav-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+}
+
+.nav-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-menu-item:hover:not(:disabled) {
+  background-color: var(--border);
+}
+
+.nav-menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nav-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background-color: var(--border);
+}
+
+/* Sections inside the Share modal */
+.share-section {
+  margin-top: 1.25rem;
+}
+
+.share-section h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.share-section p {
+  margin: 0 0 0.5rem;
+}
+
+#right-nav-components {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+#github-icon {
+  width: 16px;
+}
+
+#save-container {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Live-session presence: top-bar roster + join/host identity picker */
+.presence-roster {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.presence-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background-color: var(--display-value-bg);
+  white-space: nowrap;
+}
+
+.presence-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.identity-fields {
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.identity-fields label {
+  gap: 0.25rem;
+}
+
+.identity-color {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.character-sheet-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Give the three panels room to breathe on wide screens: the row spans the
+   capped container width and space-evenly distributes the slack as gaps. */
+.page-container > .row {
+  gap: 1.5rem;
+}
+
+/* Stack the three main panels only once the sheet is genuinely too narrow for
+   three columns (~1080px, covering the widest of them — the martial equipment
+   table). Keyed off the detail container's width so it reacts to the sheet's
+   real available space rather than the viewport. */
+@container detail (max-width: 1080px) {
+  .page-container > .row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+}

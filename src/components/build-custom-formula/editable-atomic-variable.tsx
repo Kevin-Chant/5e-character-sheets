@@ -7,7 +7,7 @@ import {
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { randomUUID } from "src/lib/browser";
 import { UUID } from "crypto";
 import {
@@ -36,7 +36,7 @@ export function EditableAtomicVariable({
   setVar,
   removeVar,
 }: EditableAtomicVariableProps) {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
 
   const [emptyState, setEmptyState] = useState(false);
   const chooseValue = (
@@ -47,8 +47,6 @@ export function EditableAtomicVariable({
     setVar(value);
     setEmptyState(false);
   };
-
-  if (!character) return <></>;
 
   if (emptyState)
     return (

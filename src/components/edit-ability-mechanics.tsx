@@ -1,6 +1,6 @@
 import { LeveledSpellLevel, StandardDie } from "src/lib/data/data-definitions";
 import { Cursor, updateAt } from "src/lib/cursor";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
   buildAmount,
   defaultEffectOfKind,
@@ -44,8 +44,7 @@ export default function EditAbilityMechanics({
   ability: LimitedUseAbility;
   cursor: Cursor<LimitedUseAbility>;
 }) {
-  const { character, dispatch } = useCharacter();
-  if (!character) return <></>;
+  const { dispatch } = useLoadedCharacter();
 
   const mechanics = ability.mechanics;
   const actions = mechanics?.actions ?? [];

@@ -1,23 +1,26 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { FIELD, StandardDie } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { getFieldValue } from "src/lib/fields";
 import { getHitDice } from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
 import { charPath, clearAt, updateAt } from "src/lib/cursor";
 
 export default function EditHitDice() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();
 
-  if (!character) return <></>;
-
   const totalCursor = charPath(FIELD.totalHitDice);
-  let totalHitDice = getFieldValue(FIELD.totalHitDice, character);
-  if (!totalHitDice) {
-    totalHitDice = getHitDice(character);
-    dispatch(updateAt(totalCursor, totalHitDice));
-  }
+  const stored = getFieldValue(FIELD.totalHitDice, character);
+  // A character with no stored override edits the value derived from their
+  // class levels, so the modal seeds it. The seed is a *dispatch*, so it has to
+  // happen in an effect: doing it inline updated the character context while
+  // this component was still rendering, which React warns about and which can
+  // drop the write depending on when the parent re-renders.
+  const totalHitDice = stored ?? getHitDice(character);
+  useEffect(() => {
+    if (!stored) dispatch(updateAt(totalCursor, totalHitDice));
+  }, [!stored]);
 
   const updateHitDice = (
     e: React.ChangeEvent<HTMLInputElement>,

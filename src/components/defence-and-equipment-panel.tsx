@@ -1,5 +1,5 @@
 import { FIELD, StandardDie } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
   calculateCustomFormula,
   formatCustomFormulaWithDamage,
@@ -29,14 +29,13 @@ const formatRange = (range: WeaponRange | undefined): string | undefined =>
     : undefined;
 
 export default function DefenceAndEquipmentPanel() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
   const { openRest } = useRest();
   const {
     settings: { trackAmmunition },
   } = useSettings();
-  if (!character) return <></>;
   const totalHitDice = character.totalHitDice || getHitDice(character);
   const hitDice = (
     [

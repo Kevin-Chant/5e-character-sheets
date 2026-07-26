@@ -318,3 +318,33 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
 export function useCharacter() {
   return useContext(CharacterContext);
 }
+
+// `useCharacter()` with `character` narrowed to non-undefined.
+//
+// Inside the sheet a character is always loaded — `sheet-container.tsx` mounts
+// `CharSheet` only when there is one, and `charsheet.tsx` gates its whole
+// subtree on it again. Every component below that was nonetheless repeating
+// `if (!character) return <></>` purely to satisfy the type-checker: ~37 copies
+// of a branch that can't be taken, and whose behaviour if it ever *were* taken
+// (a panel silently vanishing) is worse than the bug it hides.
+//
+// So the invariant is asserted once, here. A violation means a component was
+// mounted outside the sheet, which is a wiring mistake rather than a data
+// problem — and it surfaces as the `ErrorBoundary` in `sheet-container.tsx`
+// naming it, with the raw-JSON download and a way back to the character list,
+// instead of an empty rectangle with no explanation.
+//
+// Use plain `useCharacter()` where "no character" is a real state to render:
+// the nav's presence roster, the sheet container itself, effects that no-op.
+export function useLoadedCharacter(): CharacterContextData & {
+  character: Character;
+} {
+  const context = useContext(CharacterContext);
+  if (!context.character)
+    throw new Error(
+      "useLoadedCharacter() was called with no character loaded. This " +
+        "component renders outside the sheet subtree — use useCharacter() and " +
+        "handle the undefined case explicitly.",
+    );
+  return context as CharacterContextData & { character: Character };
+}

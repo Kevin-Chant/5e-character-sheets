@@ -1,4 +1,4 @@
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { CustomFormula } from "src/lib/types";
 import { calculateCustomFormula, formatCustomFormula } from "src/lib/formula";
 import ComponentWithPopover from "./component-with-popover";
@@ -32,8 +32,7 @@ export default function TextWithFormulasDisplay({
   templateString,
   formulas,
 }: TextWithFormulasDisplayProps) {
-  const { character } = useCharacter();
-  if (!character) return <></>;
+  const { character } = useLoadedCharacter();
   const calculatedFormulas = formulas.map((formula) =>
     calculateCustomFormula(formula, character).toString(),
   );

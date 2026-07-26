@@ -1,0 +1,78 @@
+/* ============================================================
+   Home / landing
+   ============================================================ */
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+}
+
+.home-hero {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.home-hero h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2.25rem;
+}
+
+.home-hero p {
+  margin: 0 auto;
+  max-width: 36rem;
+  font-size: 1.1rem;
+}
+
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  width: 100%;
+}
+
+.option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  transition:
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+
+.option-card:hover {
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.option-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.option-card-icon {
+  display: inline-flex;
+  font-size: 1.75rem;
+  color: var(--accent);
+}
+
+.option-card-heading {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.home-footnote {
+  margin-top: 2rem;
+  font-size: 0.85rem;
+  text-align: center;
+}

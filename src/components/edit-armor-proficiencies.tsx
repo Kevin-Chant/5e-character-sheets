@@ -1,13 +1,12 @@
 import { ArmorType, FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { charPath, updateAt } from "src/lib/cursor";
 import { useSave } from "./modals/modal-container";
 
 export default function EditArmorProficiencies() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();
 
-  if (!character) return <></>;
   const armorCursor = charPath(FIELD.otherProficiencies).k("armor");
   const armor = character.otherProficiencies.armor;
 

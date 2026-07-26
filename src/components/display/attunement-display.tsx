@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
@@ -15,10 +15,9 @@ import TextWithFormulasDisplay from "./text-with-formulas-display";
 // mode for e.g. the Artificer). Rendered only when at least one item requires
 // attunement; there's no add button because items opt in via the item editor.
 export default function AttunementDisplay() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
   const { pushTargetedField } = useTargetedField();
-  if (!character) return <></>;
 
   const equipment = character.equipment;
   const path = charPath(FIELD.equipment);

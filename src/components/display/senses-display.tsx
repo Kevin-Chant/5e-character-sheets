@@ -1,5 +1,5 @@
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, clearAt, Cursor } from "src/lib/cursor";
@@ -17,10 +17,9 @@ const SENSES: Array<[keyof Senses, string]> = [
 // a "+" that opens the editor to add an unused sense. `senses` is the single
 // source of truth. Styled to match the Other Proficiencies / Languages box.
 export default function SensesDisplay() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
   const { pushCursor, pushTargetedField } = useTargetedField();
-  if (!character) return <></>;
 
   const senses = character.senses;
   const path = charPath(FIELD.senses);

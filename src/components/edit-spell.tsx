@@ -6,7 +6,7 @@ import {
 } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
 import { UUID } from "crypto";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
   CustomFormula,
   isTextComponent,
@@ -28,7 +28,7 @@ import EditSpellMechanics from "./edit-spell-mechanics";
 const CASTING_TIME_PRESETS = Object.values(CastingTime) as string[];
 
 export default function EditSpell() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
 
@@ -71,8 +71,7 @@ export default function EditSpell() {
     );
   }, [isSpellTarget, spell, bucketKey, isCantrip]);
 
-  if (!character || targetedField !== FIELD.spells || !subField || !spell)
-    return <></>;
+  if (targetedField !== FIELD.spells || !subField || !spell) return <></>;
 
   const textComponent = spell.info;
   if (!isTextComponent(textComponent)) return <></>;

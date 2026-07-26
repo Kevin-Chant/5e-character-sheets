@@ -11,7 +11,7 @@ interface ModalProps {
   title?: string;
 }
 
-const SaveContext = React.createContext({
+export const SaveContext = React.createContext({
   saveData: (_e?: React.MouseEvent<HTMLButtonElement>, _a?: Action) => {},
   // Persist an action to the real character immediately, without closing the
   // modal — for save-on-change editors (e.g. the skills editor) rather than the

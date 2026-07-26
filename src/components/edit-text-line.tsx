@@ -1,6 +1,6 @@
 import React from "react";
 
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
   Character,
   CustomFormula,
@@ -106,11 +106,11 @@ export function ControlledEditTextLine({
 }
 
 export default function EditTextLine() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
 
-  if (!character || !targetedField || !subField) return <></>;
+  if (!targetedField || !subField) return <></>;
 
   const existing = traverse(subField, getFieldValue(targetedField, character));
 

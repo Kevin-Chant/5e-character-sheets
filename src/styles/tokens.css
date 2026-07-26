@@ -1,0 +1,118 @@
+/* ============================================================
+   Design tokens
+   ============================================================ */
+:root {
+  /* palette */
+  --bg: #f5f6f4;
+  --surface: #ffffff;
+  --surface-2: #edeeec;
+  --border: #d6d8d4;
+  /* Hairline used for the many secondary boxes, so their repeated frames read as
+     quiet structure rather than competing 2px outlines. */
+  --border-soft: #e2e4e0;
+  --text: #1a1c1f;
+  --text-muted: #6b7280;
+  /* Ink-sapphire primary: still blue-family (not a drastic shift from the old
+     #3992ff) but deeper and less generic-SaaS. */
+  --accent: #33518a;
+  --accent-hover: #294273;
+  --accent-contrast: #ffffff;
+  /* Semantic hues, each used only on its home region so the eye gets a map:
+     crimson = life, amethyst = magic. */
+  --health: #b23a48;
+  --health-soft: #fbecee;
+  --arcane: #7a5bbd;
+  --arcane-soft: #f0ebfa;
+  --danger: #e5484d;
+  --danger-contrast: #ffffff;
+  --success: #1a9e5f;
+  --editable: #ece3fb;
+  --display-value-bg: #e6e7e4;
+  /* Amber, kept for the "someone else is editing" warning banner only. */
+  --popover-bg: #fff8c5;
+  /* Info tooltips/popovers + insert menus: a light lavender that harmonises with
+     the arcane accent instead of clashing with it. */
+  --tooltip-bg: #f3eefc;
+
+  /* type */
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-body:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+
+  /* spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+
+  /* scale */
+  --radius: 8px;
+  --radius-lg: 14px;
+  --shadow-1: 0 1px 2px hsla(0, 0%, 0%, 0.08), 0 1px 3px hsla(0, 0%, 0%, 0.06);
+  --shadow-2: 0 2px 6px hsla(0, 0%, 0%, 0.12), 0 1px 2px hsla(0, 0%, 0%, 0.08);
+
+  /* Stacking order. One scale, in one place: the character drawer used to sit
+     at 4 while `.modal-container` sat at 1, so it floated *over* the character
+     builder and stayed undimmed by its backdrop. Layered widgets (popovers,
+     tooltips) sit above modals on purpose — they're opened from inside them.
+     The nav isn't in the scale: it has no `position`, so its z-index is inert
+     and it simply paints in document order (under any fixed overlay). */
+  --z-sidebar: 20;
+  --z-modal: 30;
+  --z-popover: 60;
+}
+
+/* Dark palette: applied via OS preference (unless forced light) or an
+   explicit [data-theme="dark"] on <html>. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181c;
+    --surface: #1f2227;
+    --surface-2: #272b31;
+    --border: #363b42;
+    --border-soft: #2b2f36;
+    --text: #e8eaed;
+    --text-muted: #9aa0a8;
+    /* Lift the accent/semantic hues on dark so they keep contrast on the slate
+       surfaces (the deep light-mode inks would go muddy). */
+    --accent: #6f97e8;
+    --accent-hover: #85a9ef;
+    --accent-contrast: #16181c;
+    --health: #e07a86;
+    /* Barely-there crimson wash — a full-saturation fill reads as an alarm on
+       the dark surfaces. */
+    --health-soft: #221c1e;
+    --arcane: #a488e0;
+    --arcane-soft: #2e2740;
+    --success: #46c98a;
+    --editable: #3a3350;
+    --display-value-bg: #2c3036;
+    --popover-bg: #4a4322;
+    --tooltip-bg: #302b40;
+  }
+}
+
+[data-theme="dark"] {
+  --bg: #16181c;
+  --surface: #1f2227;
+  --surface-2: #272b31;
+  --border: #363b42;
+  --border-soft: #2b2f36;
+  --text: #e8eaed;
+  --text-muted: #9aa0a8;
+  --accent: #6f97e8;
+  --accent-hover: #85a9ef;
+  --accent-contrast: #16181c;
+  --health: #e07a86;
+  --health-soft: #221c1e;
+  --arcane: #a488e0;
+  --arcane-soft: #2e2740;
+  --success: #46c98a;
+  --editable: #3a3350;
+  --display-value-bg: #2c3036;
+  --popover-bg: #4a4322;
+  --tooltip-bg: #302b40;
+}

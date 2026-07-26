@@ -1,0 +1,63 @@
+/* ============================================================
+   Character picker
+   ============================================================ */
+.character-picker {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.character-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.character-picker-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.character-picker-empty {
+  margin-bottom: 1rem;
+}
+
+/* Character card: built on .option-card, but it's a <button>, so reset the
+   default button chrome and left-align its contents. */
+.character-card {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+}
+
+.character-card-name {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text);
+}
+
+.character-card-badge {
+  margin-right: 0.4rem;
+  color: var(--accent);
+}
+
+/* Create card: dashed, centered, muted until hover. */
+.create-card {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-style: dashed;
+  color: var(--text-muted);
+  font: inherit;
+}
+
+.create-card:hover {
+  color: var(--accent);
+}
+
+.create-card .option-card-icon {
+  font-size: 1.15rem;
+}

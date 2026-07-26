@@ -1,5 +1,5 @@
 import { FaPencil } from "react-icons/fa6";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { Spell, isTextComponentWithDetail } from "src/lib/types";
@@ -42,10 +42,9 @@ export default function SpellList({
   preparable,
   showClassBadge,
 }: SpellListProps) {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
-  if (!character) return <></>;
 
   const spells: Spell[] = getFieldValue(bucket.toString(), character) ?? [];
 

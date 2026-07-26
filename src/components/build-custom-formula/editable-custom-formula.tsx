@@ -1,4 +1,4 @@
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { CustomFormula, isAtomicVariable, isExpression } from "src/lib/types";
 import { formatAtomicVariable, formatCustomFormula } from "src/lib/formula";
 import { FaChevronRight, FaXmark } from "react-icons/fa6";
@@ -18,8 +18,7 @@ export function EditableCustomFormula({
   open,
   onToggle,
 }: EditableCustomFormulaProps) {
-  const { character } = useCharacter();
-  if (!character) return <></>;
+  const { character } = useLoadedCharacter();
 
   if (isAtomicVariable(formula)) {
     // A value pip; clicking opens its editor inline beneath the formula line.

@@ -3,7 +3,7 @@ import SingleValueDisplay from "src/components/display/single-value-display";
 import StatDisplay from "src/components/display/stat-display";
 import { FIELD, SkillName, StatKey } from "src/lib/data/data-definitions";
 import { charPath, updateAt } from "src/lib/cursor";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { calculateCustomFormula } from "src/lib/formula";
 import {
@@ -32,10 +32,9 @@ function proficiencyBonus(
 }
 
 function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
-  if (!character) return <></>;
 
   return (
     <div className="column">
@@ -154,8 +153,7 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
 }
 
 function StatsAndSkills({ pb, jack }: { pb: number; jack: boolean }) {
-  const { character } = useCharacter();
-  if (!character) return <></>;
+  const { character } = useLoadedCharacter();
   return (
     <div className="row">
       <div className="column stat-display-container">
@@ -181,8 +179,7 @@ function StatsAndSkills({ pb, jack }: { pb: number; jack: boolean }) {
 }
 
 export default function StatAndSkillPanel() {
-  const { character } = useCharacter();
-  if (!character) return <></>;
+  const { character } = useLoadedCharacter();
   const pb = getPB(character);
   const jack = hasJackOfAllTrades(character);
   return (

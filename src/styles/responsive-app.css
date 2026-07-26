@@ -1,0 +1,52 @@
+/* ============================================================
+   Responsiveness
+   ============================================================ */
+@media (max-width: 640px) {
+  #nav {
+    height: auto;
+    min-height: 64px;
+    padding: 6px 10px;
+  }
+
+  #main-nav {
+    gap: 0.25rem;
+  }
+
+  /* The page title eats horizontal space we don't have on phones. */
+  #main-nav h1 {
+    display: none;
+  }
+
+  #right-nav-components {
+    gap: 0.25rem;
+  }
+
+  #detail {
+    height: auto;
+  }
+
+  /* The nav is shorter on phones, so drop the overlay drawer to match. */
+  #sidebar,
+  #sidebar-scrim {
+    top: 64px;
+  }
+
+  .modal-content {
+    min-width: auto;
+    max-width: 92%;
+    width: 92%;
+  }
+
+  .home,
+  .character-picker {
+    padding: 1.5rem 1rem;
+  }
+
+  .home-hero h1 {
+    font-size: 1.75rem;
+  }
+
+  .option-grid {
+    grid-template-columns: 1fr;
+  }
+}

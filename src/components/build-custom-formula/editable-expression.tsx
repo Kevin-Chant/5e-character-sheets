@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { FaPlus } from "react-icons/fa6";
 import { Operation, StatKey } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { randomUUID } from "src/lib/browser";
 import {
   Addition,
@@ -49,9 +49,8 @@ export function EditableExpression({
   setExpr,
   edit,
 }: EditableExpressionProps) {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const [openKey, setOpenKey] = useState<string | null>(null);
-  if (!character) return <></>;
 
   // Default class-level leaf for the operations seeded with one (e.g. the
   // common "floor(level / 2)" shape); references the character's first class.

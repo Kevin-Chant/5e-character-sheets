@@ -1,5 +1,5 @@
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { Speeds } from "src/lib/types";
@@ -18,10 +18,9 @@ const MODE_LABELS: Array<[keyof Speeds, string]> = [
 // is the quick-access view of `character.speeds`; all editing goes through the
 // one editor, keeping `speeds` the single source of truth.
 export default function SpeedDisplay() {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const { editMode } = useEditMode();
   const { pushTargetedField } = useTargetedField();
-  if (!character) return <></>;
 
   const speeds = character.speeds;
   const isEditable = editMode;

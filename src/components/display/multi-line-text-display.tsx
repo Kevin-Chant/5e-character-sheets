@@ -1,4 +1,4 @@
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
   Character,
   TextComponent,
@@ -34,11 +34,11 @@ export default function MultiLineTextDisplay({
 }: MultiLineTextDisplayProps) {
   const field = cursor ? cursor.root() : fieldProp;
   const subField = cursor ? cursor.subpath() : subFieldProp;
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
 
-  if (!character || !field) return <></>;
+  if (!field) return <></>;
 
   // Re-derive a typed list cursor from the resolved field/subField (covers both
   // the cursor prop and the legacy string props identically).

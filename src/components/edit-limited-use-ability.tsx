@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { FIELD, RestType, StatKey } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { STAT_NAMES, saveDcFormula } from "src/lib/rules";
 import {
   CustomFormula,
@@ -22,7 +22,7 @@ import OptionOrCustomValue from "./display/option-or-custom-value";
 const RECHARGE_PRESETS = Object.values(RestType) as string[];
 
 export default function EditLimitedUseAbility() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { targetedField, subField, pushCursor } = useTargetedField();
   const { saveData } = useSave();
 
@@ -46,8 +46,7 @@ export default function EditLimitedUseAbility() {
     dispatch(updateAt(list, abilities.concat(newLimitedUseAbility())));
   }, [isAbilityTarget, ability]);
 
-  if (!character || targetedField !== FIELD.limitedUseAbilities || !subField)
-    return <></>;
+  if (targetedField !== FIELD.limitedUseAbilities || !subField) return <></>;
   if (!ability) return <></>;
 
   const textComponent = ability.info;

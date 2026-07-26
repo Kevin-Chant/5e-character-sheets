@@ -1,5 +1,5 @@
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
 import {
@@ -14,10 +14,10 @@ import { useSave } from "./modals/modal-container";
 // disabling the unpicked ones once you're at the limit — the count is the whole
 // point of the model, so the editor shouldn't let you quietly exceed it.
 export default function EditChosenOptions() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { targetedField } = useTargetedField();
   const { saveData } = useSave();
-  if (!character || targetedField !== FIELD.chosenOptions) return <></>;
+  if (targetedField !== FIELD.chosenOptions) return <></>;
 
   const all = character.chosenOptions ?? [];
   // Whole-list updates, per the reducer's "an update carries the field's whole

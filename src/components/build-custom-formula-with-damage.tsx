@@ -4,7 +4,7 @@ import {
   DieOperation,
   StandardDie,
 } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import {
   CustomFormula,
@@ -18,10 +18,10 @@ import { fromStack, updateAt } from "src/lib/cursor";
 
 export default function BuildCustomFormulaWithDamage() {
   const { targetedField, subField, pushCursor } = useTargetedField();
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();
 
-  if (!character || !targetedField) return <></>;
+  if (!targetedField) return <></>;
   let formulaWithDamage = getFieldValue(targetedField, character);
   if (subField) {
     formulaWithDamage = traverse(subField, formulaWithDamage);

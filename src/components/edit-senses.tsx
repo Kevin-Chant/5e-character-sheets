@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
 import { Senses } from "src/lib/types";
@@ -23,7 +23,7 @@ const defaultOf = (key: keyof Senses) =>
 // as one targeted action on save, so cancelling discards it and switching sense
 // type in add-mode never leaves an orphan key behind.
 export default function EditSenses() {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const { subField } = useTargetedField();
   const { saveData } = useSave();
 
@@ -40,8 +40,6 @@ export default function EditSenses() {
       ? defaultOf(initialKey)
       : (senses[initialKey] ?? defaultOf(initialKey)),
   );
-
-  if (!character) return <></>;
 
   const save = () =>
     saveData(undefined, updateAt(charPath(FIELD.senses).k(senseKey), range));

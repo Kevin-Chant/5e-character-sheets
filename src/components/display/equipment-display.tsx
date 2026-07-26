@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { FIELD, StatKey } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
@@ -27,13 +27,12 @@ import { FaPencil, FaXmark } from "react-icons/fa6";
 // (`AttunementDisplay`); name, description, quantity, weight and the armor
 // mechanics are edited in the item modal.
 export default function EquipmentDisplay() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
   const { pushCursor, pushTargetedField } = useTargetedField();
   const {
     settings: { trackEncumbrance, weightUnit },
   } = useSettings();
-  if (!character) return <></>;
 
   const equipment = character.equipment;
   const path = charPath(FIELD.equipment);

@@ -1,5 +1,5 @@
 import { CoinType, FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { charPath, updateAt } from "src/lib/cursor";
 import { totalGP } from "src/lib/rules";
@@ -18,9 +18,8 @@ const COIN_ORDER: CoinType[] = [
 // you actually hold (falling back to GP) so the purse doesn't shout zeroes. The
 // gold-value total sits at the end as a muted readout.
 export default function CoinsDisplay() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
-  if (!character) return <></>;
 
   const coins = character.coins;
   const set = (type: CoinType, value: number) =>

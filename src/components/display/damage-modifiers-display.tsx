@@ -1,5 +1,5 @@
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
@@ -20,10 +20,9 @@ const MODS = charPath(FIELD.damageModifiers);
 // truth. In play mode empty categories are hidden; the whole box hides if there's
 // nothing to show, so it stays out of the way for characters with no modifiers.
 export default function DamageModifiersDisplay() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
   const { pushCursor } = useTargetedField();
-  if (!character) return <></>;
 
   const mods = character.damageModifiers;
   const visibleRows = editMode

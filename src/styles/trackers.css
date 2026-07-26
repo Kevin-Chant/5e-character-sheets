@@ -1,0 +1,18 @@
+/* ============================================================
+   Hit-dice / death-save trackers: give the labels breathing room off
+   the box border (rounded-border-box carries no padding of its own).
+   ============================================================ */
+.tracker-row {
+  align-items: stretch;
+  gap: 0.6rem;
+}
+.tracker-box {
+  padding: 0.45rem 0.6rem;
+}
+.tracker-box table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tracker-box > b {
+  margin-top: 0.4rem;
+}

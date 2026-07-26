@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import SingleValueDisplay from "./display/single-value-display";
 import SlotPips from "./display/slot-pips";
@@ -31,7 +31,7 @@ interface SpellsTableProps {
 }
 
 function PactSlots({ character }: SpellsTableProps) {
-  const { dispatch } = useCharacter();
+  const { dispatch } = useLoadedCharacter();
   const pactSlotInfo = getPactSlotInfo(character);
   const total = character.pactSlots?.totalOverride ?? pactSlotInfo.total;
   const expended = character.pactSlots?.expended ?? 0;
@@ -115,7 +115,7 @@ function PreparedCounts({ character }: SpellsTableProps) {
 }
 
 function SpellsTable({ character }: SpellsTableProps) {
-  const { dispatch } = useCharacter();
+  const { dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
   // Levels the user has manually revealed (e.g. to record a spell granted by a
   // feat or background at a level they have no slots for). Session-only — once a
@@ -241,7 +241,7 @@ function SpellsTable({ character }: SpellsTableProps) {
 }
 
 export default function Spellcasting() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
 
   // Auto-populate the spellcasting class list from the character's classes:
@@ -268,8 +268,6 @@ export default function Spellcasting() {
       );
     }
   }, [missingClassIds.join("|")]);
-
-  if (!character) return <></>;
 
   const addSpellcastingClass = () => {
     // Default to a character class that has no spellcasting entry yet, else the

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { fromStack, updateAt } from "src/lib/cursor";
 import { getFieldValue } from "src/lib/fields";
@@ -19,7 +19,7 @@ const numericLevelFor = (levelKey: string): number => Number(levelKey);
 // class). Picking one appends a pre-populated—but fully editable—Spell and swaps
 // straight into its editor, so backing out without saving discards it.
 export default function AddSpellFromSrd() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { subField, replaceCursor } = useTargetedField();
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
@@ -62,8 +62,6 @@ export default function AddSpellFromSrd() {
       ),
     [query, classFilter, level, castableClasses],
   );
-
-  if (!character) return <></>;
 
   const add = (srd: SrdSpell) => {
     // `levelKey` is a runtime string (the bucket the picker was opened from), so

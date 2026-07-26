@@ -1,0 +1,71 @@
+import { UUID } from "crypto";
+import type {
+  SharePresenceEntry,
+  SharePresenceSelf,
+} from "src/lib/share-presence";
+import { Action } from "src/lib/hooks/reducers/actions";
+import { Character } from "src/lib/types/character";
+
+// Application-level contracts that aren't part of the persisted character: the
+// storage backend interface, the dispatch signatures, and the option-list shape
+// the pickers take.
+
+export interface Datastore {
+  name: string;
+  savedSheetsCopy: string;
+  debounceWait: number;
+  initializeDatastore: () => Promise<void>;
+  saveToDatastore: (character: Character) => Promise<void>;
+  loadFromDatastore: (uuid: UUID) => Promise<Character | undefined>;
+  listEntriesInDatastore: () => Character[];
+  deleteFromDatastore: (uuid: UUID) => void;
+  createCharacter?: () => Promise<Character>;
+  // Optional sharing support (currently Google Drive only): promote a private
+  // character to a first-class document, share it with a person by email, and
+  // report whether it has been promoted yet.
+  isShared?: (uuid: UUID) => boolean;
+  // Which side of a shared document we're on: "owner" for a shareable doc we
+  // created, "recipient" for one shared *with* us (imported via the Picker),
+  // undefined when it isn't a shared doc. Drives who auto-hosts vs. auto-joins
+  // a live session.
+  getShareRole?: (uuid: UUID) => "owner" | "recipient" | undefined;
+  promoteCharacter?: (uuid: UUID) => Promise<void>;
+  shareCharacter?: (uuid: UUID, email: string) => Promise<void>;
+  // Editor-presence heartbeat for shared documents with no live session: record
+  // that we're editing and return the *other* editors currently on the file.
+  // Clear our heartbeat when we stop editing. (Google Drive only.)
+  heartbeatSharePresence?: (
+    uuid: UUID,
+    self: SharePresenceSelf,
+  ) => Promise<SharePresenceEntry[]>;
+  clearSharePresence?: (uuid: UUID, clientId: string) => Promise<void>;
+  // Pick a character document shared with the user and add it to this store,
+  // returning it for the caller to open (undefined if nothing was picked).
+  importSharedCharacter?: () => Promise<Character | undefined>;
+}
+
+export type Dispatch = (
+  action: Action,
+  dirtyAction?: boolean,
+  suppressBroadcast?: boolean,
+) => void;
+
+// What a DISPATCH message carries: the action, whether it dirties the sheet,
+// and the id of the client that sent it (so we can ignore our own echoes —
+// the WAMP broker does not honor exclude_me).
+export type DispatchPayload = {
+  action: Action;
+  dirtyAction?: boolean;
+  senderId?: string;
+};
+
+export type SingleOptionsList<T = string> = Array<T>;
+
+export type GroupedOptionsList<T = string> = Array<{
+  label: string;
+  options: T[];
+}>;
+
+export type OptionsList<T = string> =
+  | SingleOptionsList<T>
+  | GroupedOptionsList<T>;

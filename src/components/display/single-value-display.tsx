@@ -1,7 +1,7 @@
 import classNames from "classnames";
 import { ReactNode } from "react";
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { TRACKER_FIELDS, useEditMode } from "src/lib/hooks/use-edit-mode";
 import {
@@ -55,7 +55,7 @@ export default function SingleValueDisplay({
 }: SingleValueDisplayProps) {
   const field = cursor ? cursor.root() : fieldProp;
   const subField = cursor ? cursor.subpath() : subFieldProp;
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const { pushTargetedField } = useTargetedField();
   const { editMode } = useEditMode();
   const highlight = highlightProps(
@@ -71,7 +71,7 @@ export default function SingleValueDisplay({
           return;
         };
 
-  if (!character || !field) return <></>;
+  if (!field) return <></>;
 
   const optionalOverride = getOptionalInitializer(field, subField, character);
   let value = getFieldValue(field, character);

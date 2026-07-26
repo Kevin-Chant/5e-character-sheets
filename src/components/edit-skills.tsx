@@ -2,7 +2,7 @@ import classNames from "classnames";
 import { FaPencil } from "react-icons/fa6";
 import { FIELD, SkillName, StatKey } from "src/lib/data/data-definitions";
 import { charPath, clearAt, updateAt } from "src/lib/cursor";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { calculateCustomFormula, formatCustomFormula } from "src/lib/formula";
 import {
@@ -40,12 +40,11 @@ type ProfState = "none" | "proficient" | "expert";
 // the sheet. Opened from the "Skills" heading (targeted field: proficiencies →
 // "skills"); the bonus editor stacks the formula builder on top of this modal.
 export default function EditSkills() {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   // Save-on-change: proficiency toggles and bonus removal persist immediately
   // (the bonus editor itself opens the formula builder, which saves on its own).
   const { commit } = useSave();
-  if (!character) return <></>;
 
   const pb = getPB(character);
   const jack = hasJackOfAllTrades(character);

@@ -5,7 +5,7 @@ import {
   OfficialClass,
   OfficialSubclasses,
 } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { randomUUID } from "src/lib/browser";
 import { IClass, isOfficialClass } from "src/lib/types";
 import OptionOrCustomValue from "./display/option-or-custom-value";
@@ -60,10 +60,8 @@ function EditSingleClass({ klass, setKlass, options }: EditSingleClassProps) {
 }
 
 export default function EditClassLevels() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();
-
-  if (!character) return <></>;
 
   const classes = charPath(FIELD.class);
   const klassArr = character.class;

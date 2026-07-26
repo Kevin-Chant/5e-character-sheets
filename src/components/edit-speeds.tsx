@@ -1,5 +1,5 @@
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { charPath, updateAt, clearAt, Cursor } from "src/lib/cursor";
 import { Speeds } from "src/lib/types";
 import { useSave } from "./modals/modal-container";
@@ -16,9 +16,8 @@ const EXTRA_MODES: Array<[keyof Speeds, string]> = [
 // modes are added on demand (each a removable row), so the modal stays a narrow
 // single column instead of a four-wide grid.
 export default function EditSpeeds() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();
-  if (!character) return <></>;
 
   const speeds = character.speeds;
   const path = charPath(FIELD.speeds);

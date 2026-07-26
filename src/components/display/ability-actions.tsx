@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LeveledSpellLevel } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
   mechanicsForAbility,
   SLOT_CREATION_COSTS,
@@ -55,11 +55,10 @@ function ActionRow({
   ability: LimitedUseAbility;
   action: AbilityAction;
 }) {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const [level, setLevel] = useState<LeveledSpellLevel>(1);
   const [amount, setAmount] = useState(1);
   const [outcome, setOutcome] = useState<string | null>(null);
-  if (!character) return <></>;
 
   const levels = slotLevelOptions(action, character);
   const needsLevel = !!action.choose?.slotLevel;

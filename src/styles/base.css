@@ -1,0 +1,120 @@
+/* ============================================================
+   Base elements
+   ============================================================ */
+html {
+  box-sizing: border-box;
+}
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  color: var(--text);
+}
+
+a {
+  color: var(--accent);
+}
+
+textarea,
+input,
+select,
+button {
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  box-shadow: var(--shadow-1);
+  background-color: var(--surface);
+  line-height: 1.5;
+  margin: 0;
+  &:disabled {
+    color: var(--text-muted);
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+select {
+  cursor: pointer;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- Checkboxes ---- */
+/* Custom box so proficiency/prepared toggles match the app's accent + radius
+   instead of the bare browser default. */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  display: inline-grid;
+  place-content: center;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 0.65rem;
+  height: 0.65rem;
+  transform: scale(0);
+  transition: transform 0.1s ease;
+  background-color: var(--accent);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+/* ---- Buttons ---- */
+button {
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    box-shadow 0.12s ease,
+    background-color 0.12s ease,
+    transform 0.06s ease;
+}
+
+textarea:hover:not(:disabled),
+input:hover:not(:disabled),
+button:hover:not(:disabled) {
+  box-shadow: var(--shadow-2);
+}
+
+button:active:not(:disabled) {
+  box-shadow: var(--shadow-1);
+  transform: translateY(1px);
+}

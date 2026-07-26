@@ -1,5 +1,5 @@
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
@@ -12,10 +12,9 @@ import { FaXmark } from "react-icons/fa6";
 // edited in the modal (edit mode only). Gated by the `trackAmmunition` setting
 // at the call site; `ammunition` is the single source of truth for counts.
 export default function AmmunitionDisplay() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
   const { pushCursor, pushTargetedField } = useTargetedField();
-  if (!character) return <></>;
 
   const ammo = character.ammunition;
   const path = charPath(FIELD.ammunition);

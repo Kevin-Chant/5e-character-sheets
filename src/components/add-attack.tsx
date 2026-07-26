@@ -1,6 +1,6 @@
 import React from "react";
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
 import {
@@ -11,9 +11,8 @@ import {
 } from "src/lib/rules";
 
 export default function AddAttack() {
-  const { character, dispatch } = useCharacter();
+  const { character, dispatch } = useLoadedCharacter();
   const { replaceCursor } = useTargetedField();
-  if (!character) return <></>;
 
   // Append the built attack and swap the picker for its editor (so closing the
   // editor without saving discards the new attack rather than orphaning it).

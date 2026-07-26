@@ -1,0 +1,405 @@
+/* ============================================================
+   UI refresh (design pass)
+   - Cinzel display face on the sheet's uppercase labels/titles + name hero
+   - a visual hierarchy that lifts the play-critical regions
+   - a restrained semantic colour map (crimson = life, amethyst = magic)
+   Layout and markup are unchanged; this section only restyles.
+   ============================================================ */
+
+/* ---- Typography: engraved caps on the labels that are already uppercase ---- */
+.display-title,
+.display-label,
+.section-heading,
+.prof-title,
+.prof-label,
+.senses-title,
+.roll-section-title,
+.typeahead-group-label,
+b.pos-relative.margin-large {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+/* Cinzel runs visually large for its point size; ease the small captions down a
+   touch and give section headings a hair more weight so they still anchor. */
+.display-label {
+  font-size: 0.72rem;
+}
+.section-heading,
+b.pos-relative.margin-large {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* Headings across the app share the display face. */
+#main-nav h1,
+.home-hero h1,
+.character-picker-header h1,
+.builder-title,
+.rest-title,
+.modal-titlebar > .title,
+.spell-banner .title,
+.settings-section-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+/* Numbers line up in columns and don't jitter as they change. */
+.display-value,
+.stat-modifier,
+.stat-score,
+.roll-total,
+.roll-part,
+.spell-level-number {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Softer frames: trim the boxy 2px outlines back to a quieter hairline ---- */
+.rounded-border-box {
+  border-width: 1.5px;
+}
+
+/* ---- Stat block: modifier is the hero, score is a small reference chip ---- */
+.stat-modifier {
+  margin: 0.1rem 0 0.15rem;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  margin: 0 auto 0.15rem;
+  padding: 0.05rem 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: var(--surface-2);
+  border-radius: 999px;
+  cursor: default;
+}
+.stat-score.editable {
+  cursor: pointer;
+  color: var(--text);
+  background-color: var(--editable);
+  transition:
+    background-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.stat-score.editable:hover {
+  box-shadow: var(--shadow-1);
+}
+
+/* ---- Hierarchy: lift the regions you reference mid-combat ---- */
+/* AC / Initiative / Speed — a faint raised strip so it reads as the vitals bar. */
+.defence-vitals .rounded-border-box {
+  background-color: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-1);
+}
+.defence-vitals .display-value.large {
+  color: var(--accent);
+}
+
+/* ---- Semantic colour: HP + death saves = crimson (life) ---- */
+.hp-box {
+  /* Muted crimson frame (mixed toward the neutral border) so it reads as "this
+     is the life region" without shouting — especially on dark. */
+  border-color: color-mix(in srgb, var(--health) 55%, var(--border));
+  background-color: var(--health-soft);
+}
+/* Current HP is the number that actually moves in a fight — make it the loud one. */
+.hp-box .display-value {
+  border-bottom-color: color-mix(in srgb, var(--health) 45%, var(--border));
+}
+.death-save-row .slot-pip {
+  color: var(--health);
+}
+.death-save-row .slot-pip:hover:not(:disabled) {
+  color: var(--health);
+}
+
+/* ---- Semantic colour: spellcasting = amethyst (magic) ---- */
+.spell-banner {
+  border-color: var(--arcane);
+  background-color: var(--arcane-soft);
+}
+.spell-level-number {
+  color: var(--arcane);
+}
+.spell-slot-tracker .slot-pip {
+  color: var(--arcane);
+}
+.spell-slot-tracker .slot-pip:hover:not(:disabled) {
+  color: var(--arcane);
+}
+/* The "prepared" checkbox and spell-level headers pick up the magic hue too. */
+.spell-level-card .prepared-toggle:checked {
+  border-color: var(--arcane);
+}
+.spell-level-card .prepared-toggle:checked::before {
+  background-color: var(--arcane);
+}
+
+/* ---- Identity header: the character name is the hero ---- */
+.character-info-header > .row > .rounded-border-box .display-value.large {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.1rem;
+  line-height: 1.1;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+.character-info-header > .row > .rounded-border-box .display-label {
+  color: var(--accent);
+}
+
+/* ---- Home: give the landing title the display face + a hairline flourish ---- */
+.home-hero h1 {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 0.6rem;
+}
+.home-hero h1::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 3rem;
+  height: 2px;
+  transform: translateX(-50%);
+  background-color: var(--accent);
+}
+
+/* ---- Motion: respect a reduced-motion preference ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Keep the name hero from dominating a phone viewport (more specific than the
+     generic mobile shrink above, so it needs its own clamp). */
+  .character-info-header > .row > .rounded-border-box .display-value.large {
+    font-size: 1.6rem;
+  }
+}
+
+/* ---- Spacing: give the three columns internal rhythm ---- */
+/* Stats column and skills column were touching — separate them. */
+.stat-and-skill-panel > .row {
+  gap: 1.25rem;
+}
+/* The middle (defence/equipment) and right (personality/features) columns stack
+   their boxes flush; a consistent gap lets each box read as its own card. */
+.page-container > .row > .column {
+  gap: 0.85rem;
+}
+
+/* ---- Info popovers / insert menus: lavender, not amber ---- */
+.popover-container,
+.insert-value-menu {
+  background: var(--tooltip-bg);
+}
+
+/* ---- Editable section heading (e.g. "Skills") ---- */
+/* Looks like the plain section heading but is a button that opens an editor;
+   the pencil only appears in edit mode where this variant is rendered. */
+.section-heading-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 auto;
+  padding: 0.15rem 0.5rem;
+  background: none;
+  border: none;
+  box-shadow: none;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  cursor: pointer;
+}
+.section-heading-edit svg {
+  font-size: 0.75em;
+  color: var(--text-muted);
+}
+.section-heading-edit:hover:not(:disabled) {
+  color: var(--accent);
+  box-shadow: none;
+}
+.section-heading-edit:hover:not(:disabled) svg {
+  color: var(--accent);
+}
+
+/* ---- Skills editor modal ---- */
+.edit-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: min(520px, 82vw);
+}
+.skill-edit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.skill-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.skill-edit-row:last-child {
+  border-bottom: none;
+}
+.skill-edit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.skill-edit-name {
+  font-weight: 600;
+}
+.skill-edit-meta {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.skill-edit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+/* Segmented None / Proficient / Expertise control. */
+.skill-prof-group {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.skill-prof-btn {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.7rem;
+}
+.skill-prof-btn + .skill-prof-btn {
+  border-left: 1px solid var(--border);
+}
+.skill-prof-btn:hover:not(:disabled) {
+  box-shadow: none;
+  background: var(--surface-2);
+}
+.skill-prof-btn.selected {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.skill-bonus-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.skill-bonus-cell .formula-edit-button {
+  flex: 1 1 auto;
+}
+.skill-bonus-clear {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.55rem;
+  line-height: 1;
+}
+
+/* The level-up review's "You gain" list — everything the level grants that the
+   player didn't explicitly pick. Compact, so a feature-heavy level still reads
+   as a glance rather than a page. */
+.builder-gain-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.builder-gain-list li {
+  line-height: 1.4;
+}
+
+/* Weapon-property chips in the attack editor. */
+.attack-tags .builder-chips {
+  margin-top: 0.35rem;
+}
+
+/* Inline status text for an action that can fail (sidecar health test, live
+   session start). Uses the same --danger/--success pair as the save indicator
+   so a failure reads the same wherever it appears. */
+.text-error {
+  color: var(--danger);
+}
+.text-success {
+  color: var(--success);
+}
+.text-error,
+.text-success {
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Sharing host: the address and its "Test connection" button sit on one line,
+   with the result wrapping underneath. Overrides `.row`'s space-evenly, which
+   would otherwise distribute the gap *into* the controls and let the button
+   ride over the clipped input. The URL is long, so the field takes the slack
+   and the buttons keep their intrinsic width. */
+.sharing-host-row {
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+/* InputField renders <div><input/><button>Save</button></div>. */
+.sharing-host-row > div:first-child {
+  display: flex;
+  align-items: center;
+  /* A small basis so the field yields to the buttons and the three controls
+     stay on one line; it still takes all the slack that's left. */
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.sharing-host-row > div:first-child input {
+  flex: 1;
+  min-width: 0;
+}
+.sidecar-health {
+  /* `.column` sets width:100%, which would claim the whole line and push the
+     button below the field however the flex is tuned. */
+  width: auto;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+.sidecar-health-result {
+  margin: 0;
+  max-width: 22rem;
+}

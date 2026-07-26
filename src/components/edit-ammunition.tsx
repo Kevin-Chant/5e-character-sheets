@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FIELD } from "src/lib/data/data-definitions";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
 import { randomUUID } from "src/lib/browser";
@@ -13,7 +13,7 @@ import { useSave } from "./modals/modal-container";
 // picks its own taxonomy. The whole entry is committed as one targeted action on
 // save, so cancelling an add discards it rather than orphaning a blank pool.
 export default function EditAmmunition() {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const { subField } = useTargetedField();
   const { saveData } = useSave();
 
@@ -27,8 +27,6 @@ export default function EditAmmunition() {
   const [weaponIds, setWeaponIds] = useState<string[]>(
     existing?.weaponIds ?? [],
   );
-
-  if (!character) return <></>;
 
   const toggleWeapon = (id: string) =>
     setWeaponIds((ids) =>

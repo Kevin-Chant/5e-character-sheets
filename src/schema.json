@@ -382,6 +382,15 @@
         "CustomFormula": {
             "anyOf": [
                 {
+                    "$ref": "#/definitions/SpellMod"
+                },
+                {
+                    "$ref": "#/definitions/ClassLevel"
+                },
+                {
+                    "$ref": "#/definitions/EquippedArmor"
+                },
+                {
                     "items": [
                         {
                             "type": "number"
@@ -396,15 +405,6 @@
                     "maxItems": 3,
                     "minItems": 3,
                     "type": "array"
-                },
-                {
-                    "$ref": "#/definitions/ClassLevel"
-                },
-                {
-                    "$ref": "#/definitions/SpellMod"
-                },
-                {
-                    "$ref": "#/definitions/EquippedArmor"
                 },
                 {
                     "$ref": "#/definitions/Ceil"

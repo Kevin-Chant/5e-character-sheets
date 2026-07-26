@@ -1,5 +1,5 @@
 import { FaPencil } from "react-icons/fa6";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
@@ -14,10 +14,9 @@ import ComponentWithPopover from "./component-with-popover";
 // by category with a "picked / allowed" count. Renders nothing at all until a
 // class actually offers such a choice, so most sheets never see this section.
 export default function ChosenOptionsDisplay() {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
   const { editMode } = useEditMode();
-  if (!character) return <></>;
 
   const groups = availableOptionGroups(character);
   if (groups.length === 0) return <></>;

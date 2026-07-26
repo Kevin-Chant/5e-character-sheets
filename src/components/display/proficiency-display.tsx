@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { useCharacter } from "src/lib/hooks/use-character";
+import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { Character } from "src/lib/types";
 import { Cursor } from "src/lib/cursor";
@@ -45,10 +45,8 @@ export default function ProficiencyDisplay({
   onEditBonus,
   hasBonus,
 }: ProficiencyDisplayProps) {
-  const { character } = useCharacter();
+  const { character } = useLoadedCharacter();
   const { editMode } = useEditMode();
-
-  if (!character) return <></>;
 
   const field = cursor.root();
   const subField = cursor.subpath();

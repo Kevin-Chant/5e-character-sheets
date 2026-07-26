@@ -1,0 +1,143 @@
+/* ---- Text-line editor (name + formulas + details) ---- */
+.edit-text-line {
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.edit-text-line .title {
+  margin: 0;
+}
+
+/* Quiet group heading inside an editor (e.g. "Name & description"): the sheet's
+   engraved caption style, not a loud sans-serif banner. */
+.edit-group-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.edit-text-line-fields {
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.edit-text-line-fields .row {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.field-label-row {
+  align-items: baseline;
+}
+
+/* Borderless text button for secondary in-form actions (Clear, Add details). */
+.btn-text {
+  padding: 0.15rem 0.25rem;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  font-weight: 500;
+}
+.btn-text:hover:not(:disabled) {
+  box-shadow: none;
+  text-decoration: underline;
+}
+.add-detail-btn {
+  align-self: flex-start;
+}
+
+/* Primary save action: aligned under the fields, not stretched full width. */
+.edit-save {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+}
+
+/* ---- Inline text-with-formulas editor ---- */
+.text-with-formulas-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.text-with-formulas-input {
+  width: 100%;
+  min-height: 2.2rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+}
+
+.text-with-formulas-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.text-with-formulas-input:empty:before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.formula-chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.1rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius);
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+}
+
+.formula-chip:hover {
+  background-color: var(--accent-hover);
+}
+
+.text-with-formulas-toolbar {
+  display: flex;
+}
+
+.insert-value-menu {
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 12rem;
+  padding: 0.25rem;
+  background: var(--popover-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+}
+
+.insert-value-menu button {
+  text-align: left;
+}
+
+.insert-value-menu hr {
+  width: 100%;
+  margin: 0.25rem 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
