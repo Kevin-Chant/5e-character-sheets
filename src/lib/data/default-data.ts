@@ -171,7 +171,10 @@ function buildDefaultCharacter(): Character {
     alignment: Alignment["Lawful Neutral"],
     exp: undefined,
     stats: defaultStats,
-    inspiration: 1,
+    // A fresh sheet doesn't start with inspiration — the DM grants it. (This
+    // was `1` while it was a count, which `build-character` already contradicted
+    // by seeding 0.)
+    inspiration: false,
     proficiencies: {
       // Saves from Paladin; skills from Soldier (Athletics, Intimidation) plus
       // the two the class step offers (Persuasion, Religion).

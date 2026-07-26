@@ -1,6 +1,7 @@
 import { CoinType, FIELD } from "src/lib/data/data-definitions";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
+import { useDeferredNumber } from "src/lib/hooks/use-deferred-number";
 import { charPath, updateAt } from "src/lib/cursor";
 import { totalGP } from "src/lib/rules";
 
@@ -12,6 +13,33 @@ const COIN_ORDER: CoinType[] = [
   CoinType.SP,
   CoinType.CP,
 ];
+
+// One denomination's field. It's a component rather than an inline <input> so
+// each denomination owns its own draft state — edits commit on blur/Enter, not
+// per keystroke, so entering 150 gp writes once instead of 1, then 15, then 150.
+function CoinField({
+  type,
+  value,
+  onCommit,
+}: {
+  type: CoinType;
+  value: number;
+  onCommit: (value: number) => void;
+}) {
+  const { inputProps } = useDeferredNumber({ value, onCommit });
+  return (
+    <label className="coin-field">
+      <input
+        type="number"
+        min={0}
+        className="coin-input"
+        aria-label={`${type} coins`}
+        {...inputProps}
+      />
+      <span className="coin-denom">{type}</span>
+    </label>
+  );
+}
 
 // A compact currency strip across the top of the equipment box. Edit mode shows
 // every denomination as a small typed field; play mode collapses to the coins
@@ -37,17 +65,12 @@ export default function CoinsDisplay() {
     <div className="coins-strip">
       {editMode
         ? COIN_ORDER.map((type) => (
-            <label className="coin-field" key={type}>
-              <input
-                type="number"
-                min={0}
-                className="coin-input"
-                value={coins[type] ?? 0}
-                aria-label={`${type} coins`}
-                onChange={(e) => set(type, Number(e.target.value))}
-              />
-              <span className="coin-denom">{type}</span>
-            </label>
+            <CoinField
+              key={type}
+              type={type}
+              value={coins[type] ?? 0}
+              onCommit={(value) => set(type, value)}
+            />
           ))
         : readonlyCoins.map((type) => (
             <span className="coin-field readonly" key={type}>

@@ -1,3 +1,4 @@
+import classNames from "classnames";
 import { FIELD } from "src/lib/data/data-definitions";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
@@ -30,8 +31,18 @@ export default function SensesDisplay() {
   const removeSense = (key: keyof Senses) =>
     dispatch(clearAt(path.k(key) as Cursor<number | undefined>));
 
+  // Most characters have no special senses at all. In play mode an empty box is
+  // unfillable scaffolding, so it goes; in edit mode it collapses to a strip
+  // that still says where senses live. See the paper-fidelity note in CLAUDE.md
+  // — the position is what carries over, not the empty frame.
+  if (present.length === 0 && !editMode) return <></>;
+
   return (
-    <div className="column rounded-border-box other-proficiencies">
+    <div
+      className={classNames("column rounded-border-box other-proficiencies", {
+        "section-empty": present.length === 0,
+      })}
+    >
       {present.map(([key, label]) => (
         <div className="prof-row" key={key}>
           <div className="prof-label">{label}</div>

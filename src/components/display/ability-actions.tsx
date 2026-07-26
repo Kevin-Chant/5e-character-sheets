@@ -91,6 +91,22 @@ function ActionRow({
     setOutcome(parts.length > 0 ? parts.join(" — ") : null);
   };
 
+  // Most pools carry a single action named after the pool, so the button just
+  // repeated the name already printed above it — "Divine Sense" under "Divine
+  // Sense", and three rows of "Channel Divinity: …" under three pools called
+  // exactly that. Where the name restates the ability it says nothing the
+  // player can't already see, so the button becomes a plain "Use" and the cost
+  // badge beside it carries the rest.
+  //
+  // Where the action name is *not* the ability name it's doing real work — a
+  // Ki pool's "Flurry of Blows" / "Patient Defense" / "Step of the Wind", or
+  // Hexblade's "Curse a target" — so it keeps its label. The ability's own name
+  // is never abbreviated: "Channel Divinity: Vow of Enmity" is what the feature
+  // is called, and those entries share one pool.
+  const abilityName = ability.info.title.trim();
+  const restatesAbility =
+    action.name.trim().toLowerCase() === abilityName.toLowerCase();
+
   // Slot-creation options show their point cost inline when the action spends
   // by chosen level.
   const usesCostTable = action.effects.some(
@@ -130,11 +146,16 @@ function ActionRow({
         )}
         <button
           type="button"
+          className="ability-action-btn"
           disabled={!!blocked}
+          // The accessible name always says what's being used, even when the
+          // visible label is the generic one — "Use" on its own tells a screen
+          // reader nothing about which ability it belongs to.
+          aria-label={`Use ${abilityName}`}
           title={blocked ?? action.costNote}
           onClick={perform}
         >
-          {action.name}
+          {restatesAbility ? "Use" : action.name}
         </button>
         <span
           className={`action-cost-badge action-cost-${action.cost}`}

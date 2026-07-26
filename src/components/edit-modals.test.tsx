@@ -13,6 +13,7 @@ import EditRace from "./edit-race";
 import EditSenses from "./edit-senses";
 import EditSkills from "./edit-skills";
 import EditSpeeds from "./edit-speeds";
+import UpdateField from "./update-field";
 
 // The sheet's edit modals. Each is a small form over one slice of the
 // character, and they split into two save styles that are easy to confuse:
@@ -247,5 +248,30 @@ describe("EditChosenOptions", () => {
         detail: expect.stringContaining("Book of Shadows"),
       }),
     ]);
+  });
+});
+
+describe("UpdateField headings", () => {
+  // A field with no entry in EDITABLE_FIELD_OPTIONAL_DATA falls back to
+  // `humanize()`ing its key, which prints the *model's* vocabulary at the
+  // player — "Exp", "Curr Hp". Nothing in the game is called "curr hp", so the
+  // heading is checked here against the words a player would actually use.
+  const headingFor = (field: FIELD) =>
+    renderWithCharacter(<UpdateField modalType="number" />, {
+      targetedField: field,
+    }).container.querySelector(".font-large")?.textContent;
+
+  it.each([
+    [FIELD.exp, "Experience Points"],
+    [FIELD.currHp, "Current Hit Points"],
+    [FIELD.tempHp, "Temporary Hit Points"],
+    [FIELD.maxHp, "Hit Point Maximum"],
+    [FIELD.name, "Character Name"],
+  ])("titles %s as the player's name for it", (field, expected) => {
+    expect(headingFor(field)).toBe(expected);
+  });
+
+  it("still humanizes a field that needs no special wording", () => {
+    expect(headingFor(FIELD.background)).toBe("Background");
   });
 });

@@ -7,7 +7,12 @@ import { Action } from "src/lib/hooks/reducers/actions";
 import reducer from "src/lib/hooks/reducers/reducer";
 import { CharacterContext } from "src/lib/hooks/use-character";
 import { EditModeContext } from "src/lib/hooks/use-edit-mode";
-import { SettingsContextProvider } from "src/lib/hooks/use-settings";
+import {
+  DEFAULT_SETTINGS,
+  Settings,
+  SettingsContext,
+  SettingsContextProvider,
+} from "src/lib/hooks/use-settings";
 import { TargetedFieldContext } from "src/lib/hooks/use-targeted-field";
 import { SaveContext } from "src/components/modals/modal-container";
 import { Character } from "src/lib/types";
@@ -42,6 +47,12 @@ export interface CharacterHarness {
   // Play mode hides the edit affordances (pencils, +) — pass false to assert
   // that a display component stops offering them.
   editMode?: boolean;
+  // Overrides merged over the defaults, for the table-level `track*` settings
+  // that decide whether a whole section exists (ammunition, encumbrance,
+  // personality). Supplying any override swaps the stateful provider for a
+  // fixed value, so `updateSetting` is a no-op in that case — these tests are
+  // about what a setting *renders*, not about changing it.
+  settings?: Partial<Settings>;
 }
 
 export function aCharacter(): Character {
@@ -55,6 +66,7 @@ export function renderWithCharacter(
     targetedField,
     subField,
     editMode = true,
+    settings,
   }: CharacterHarness = {},
 ) {
   const dispatch = vi.fn();
@@ -71,8 +83,25 @@ export function renderWithCharacter(
       dispatch(action);
       setCharacter((current) => reducer(current, action) ?? current);
     };
-    return (
-      <SettingsContextProvider>
+    // Either the real stateful provider, or a fixed settings value when the
+    // test pins one.
+    const withSettings = (inner: ReactElement) =>
+      settings ? (
+        <SettingsContext.Provider
+          value={{
+            settings: { ...DEFAULT_SETTINGS, ...settings } as Settings,
+            updateSetting: vi.fn(),
+            resetSettings: vi.fn(),
+          }}
+        >
+          {inner}
+        </SettingsContext.Provider>
+      ) : (
+        <SettingsContextProvider>{inner}</SettingsContextProvider>
+      );
+
+    return withSettings(
+      <>
         <CharacterContext.Provider
           value={{
             character,
@@ -108,7 +137,7 @@ export function renderWithCharacter(
             </TargetedFieldContext.Provider>
           </EditModeContext.Provider>
         </CharacterContext.Provider>
-      </SettingsContextProvider>
+      </>,
     );
   }
 

@@ -106,6 +106,22 @@ export default function GameSettings() {
       </SettingsSection>
 
       <SettingsSection
+        title="Personality"
+        description="Keep personality traits, ideals, bonds and flaws on the sheet, and ask for them when creating a character. Turn off if your table handles characterisation away from the sheet — anything already written is kept, just not shown."
+      >
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={settings.trackPersonality}
+            onChange={(e) =>
+              updateSetting("trackPersonality", e.target.checked)
+            }
+          />
+          Use personality traits, ideals, bonds and flaws
+        </label>
+      </SettingsSection>
+
+      <SettingsSection
         title="Ammunition tracking"
         description="Track ammunition (arrows, bolts, …) as counted pools in Equipment, with a remaining count shown next to each ranged weapon. Turn off if your table doesn't bother counting ammo."
       >

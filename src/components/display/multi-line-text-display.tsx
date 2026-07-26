@@ -1,3 +1,4 @@
+import classNames from "classnames";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
   Character,
@@ -23,6 +24,13 @@ interface MultiLineTextDisplayProps {
   field?: FIELD;
   subField?: string;
   transform?: (data: any, character: Character) => any;
+  // Flow the entries into as many columns as the panel can hold, instead of one
+  // long single-file list. Only for sections whose entries are short *names*
+  // (Features & Traits — 18 of them, one line each). Personality entries are
+  // prose sentences, and setting those in a ~9rem measure would make them
+  // harder to read, not easier. Play mode only: in edit mode each row also
+  // carries edit/remove controls, which need the full width.
+  flowEntries?: boolean;
 }
 
 export default function MultiLineTextDisplay({
@@ -31,6 +39,7 @@ export default function MultiLineTextDisplay({
   field: fieldProp,
   subField: subFieldProp,
   transform,
+  flowEntries,
 }: MultiLineTextDisplayProps) {
   const field = cursor ? cursor.root() : fieldProp;
   const subField = cursor ? cursor.subpath() : subFieldProp;
@@ -67,62 +76,80 @@ export default function MultiLineTextDisplay({
   // the user saves, so no placeholder is written up-front.
   const addTextComponent = () => editTextComponent(textComponents.length);
 
+  // An empty section is scaffolding, and the paper sheet only prints it because
+  // it can't know whether you'll write there. In play mode it can't even be
+  // filled, so it isn't shown; in edit mode it collapses to a slim labelled
+  // strip, which keeps the landmark (and the order around it) while giving back
+  // the height an empty frame was taking.
+  const empty = renderedTextComponents.length === 0;
+  if (empty && !editMode) return <></>;
+
   return (
-    <div className="column rounded-border-box multi-line-text">
-      {renderedTextComponents.map((textComponent, i) => {
-        const titleComponent = isTextComponentWithDetail(textComponent) ? (
-          <ComponentWithPopover
-            componentClass="detail-hint"
-            componentChildren={
-              <TextWithFormulasDisplay
-                templateString={textComponent.title}
-                formulas={textComponent.titleFormulas}
-              />
-            }
-            popoverChildren={
-              <TextWithFormulasDisplay
-                templateString={textComponent.detail}
-                formulas={textComponent.detailFormulas}
-              />
-            }
-          />
-        ) : (
-          <TextWithFormulasDisplay
-            templateString={textComponent.title}
-            formulas={textComponent.titleFormulas}
-          />
-        );
-        return (
-          <div key={i} className="row space-between text-line-row">
-            {titleComponent}
-            {editMode && (
-              <div className="flex text-line-controls">
-                <button
-                  className="row-edit"
-                  aria-label="Edit"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    editTextComponent(i);
-                  }}
-                >
-                  <FaPencil />
-                </button>
-                <button
-                  className="row-remove"
-                  aria-label="Remove"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    removeTextComponent(i);
-                  }}
-                >
-                  <FaXmark />
-                </button>
-              </div>
-            )}
-          </div>
-        );
+    <div
+      className={classNames("column rounded-border-box multi-line-text", {
+        "section-empty": empty,
       })}
-      <b className="pos-relative margin-large">
+    >
+      <div
+        className={classNames("multi-line-entries", {
+          flow: flowEntries && !editMode,
+        })}
+      >
+        {renderedTextComponents.map((textComponent, i) => {
+          const titleComponent = isTextComponentWithDetail(textComponent) ? (
+            <ComponentWithPopover
+              componentClass="detail-hint"
+              componentChildren={
+                <TextWithFormulasDisplay
+                  templateString={textComponent.title}
+                  formulas={textComponent.titleFormulas}
+                />
+              }
+              popoverChildren={
+                <TextWithFormulasDisplay
+                  templateString={textComponent.detail}
+                  formulas={textComponent.detailFormulas}
+                />
+              }
+            />
+          ) : (
+            <TextWithFormulasDisplay
+              templateString={textComponent.title}
+              formulas={textComponent.titleFormulas}
+            />
+          );
+          return (
+            <div key={i} className="row space-between text-line-row">
+              {titleComponent}
+              {editMode && (
+                <div className="flex text-line-controls">
+                  <button
+                    className="row-edit"
+                    aria-label="Edit"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      editTextComponent(i);
+                    }}
+                  >
+                    <FaPencil />
+                  </button>
+                  <button
+                    className="row-remove"
+                    aria-label="Remove"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      removeTextComponent(i);
+                    }}
+                  >
+                    <FaXmark />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <b className="section-heading pos-relative margin-large">
         {title}
         {editMode && (
           <button

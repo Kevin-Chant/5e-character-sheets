@@ -13,6 +13,197 @@
   width: 100%;
   border-collapse: collapse;
 }
+/* The box is narrow, so "Total" and "Expended" at body size ran together into
+   one unreadable "TotalExpended". Set them as the same small-caps caption the
+   rest of the sheet labels fields with: they read as captions over their
+   columns instead of competing with the numbers underneath. */
+.tracker-box th {
+  padding: 0 0.2rem 0.15rem;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.tracker-box td {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* Fix the two number columns so each caption sits squarely over its own value.
+   The die column takes the slack — it holds "d10" plus a roll button, which is
+   the only cell here whose width depends on its content. */
+.tracker-box th:not(:first-child),
+.tracker-box td:not(:first-child) {
+  width: 3rem;
+}
 .tracker-box > b {
   margin-top: 0.4rem;
+}
+
+/* ---- Play-mode trackers: current/temp HP and exhaustion, edited in place ----
+   The row keeps the HP box's label-left/value-right shape, so these sit in the
+   same column as the Hit Point Maximum underline above them. The step buttons
+   are quiet until hovered — they're always present, but the number is what you
+   read, and three pairs of loud chevrons in a row would compete with it. */
+.tracker-value {
+  justify-content: flex-start;
+  padding: 0.15rem 0.6rem;
+}
+/* A fixed three-track grid — step, value, step — so every value underline in
+   the HP box lines up in one column regardless of digit count, and the buttons
+   never nudge it. `.hp-box .display-value.small` below pads the Hit Point
+   Maximum row by the same amount so it joins the same column. */
+.tracker-controls {
+  display: grid;
+  grid-template-columns: 1.6rem 4.6rem 1.6rem;
+  gap: 0.15rem;
+  align-items: end;
+  flex: 0 0 auto;
+}
+.tracker-input.display-value {
+  width: 100%;
+  font-size: 1.5rem;
+  /* The underline is the field; the input contributes no box of its own. */
+  background: none;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: inherit;
+  font-family: inherit;
+  text-align: center;
+  transition: background-color 0.12s ease;
+}
+.tracker-input.display-value:hover {
+  background-color: var(--editable);
+}
+/* Current hit points: the loudest number in the box, and louder than the
+   maximum above it — the maximum is reference, this is the one that moves. */
+.tracker-value.prominent .tracker-input.display-value {
+  font-size: 2.2rem;
+  font-weight: 600;
+  border-bottom-width: 2.5px;
+}
+.tracker-step {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  min-width: 1.6rem;
+  padding: 0 0.35rem;
+  border: 1px solid transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.tracker-step:hover:not(:disabled) {
+  border-color: var(--border);
+  background-color: var(--surface-2);
+  box-shadow: none;
+  color: var(--text);
+}
+.tracker-step:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* ---- Inspiration: a tick box, as on the paper sheet ----
+   The row keeps the same frame and position as the Proficiency Bonus box below
+   it, so the column's rhythm is unchanged; what was a numeric field is now a
+   single switch. Filled = you have it. */
+.inspiration-row {
+  padding: 0.1rem 0.5rem;
+}
+.inspiration-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.45rem 0.35rem;
+  border: none;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+.inspiration-toggle:hover:not(:disabled) {
+  box-shadow: none;
+}
+.inspiration-toggle .display-label {
+  margin: 0;
+  cursor: pointer;
+}
+.inspiration-pip {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+.inspiration-toggle:hover .inspiration-pip {
+  border-color: var(--accent);
+}
+/* Held inspiration is the rare loud state in this column — it's a resource you
+   are meant to notice and spend, so it fills rather than just outlining. */
+.inspiration-toggle[aria-checked="true"] .inspiration-pip {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2.5px var(--surface);
+}
+.inspiration-toggle[aria-checked="true"] .display-label {
+  color: var(--accent);
+}
+.inspiration-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Death saves: dormant until they matter ----
+   Position is unchanged (beside the hit dice, under HP) — only the weight is.
+   While the character is up, the two tracks sit on one line each at reduced
+   size and contrast, so the region reads as "nothing happening here" without
+   disappearing; the pips stay clickable throughout. */
+.death-save-label {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.death-saves-dormant {
+  justify-content: center;
+  gap: 0.1rem;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+.death-saves-dormant:hover,
+.death-saves-dormant:focus-within {
+  opacity: 1;
+}
+.death-saves-dormant .death-save-row {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+.death-saves-dormant .slot-pip {
+  padding: 0.05rem;
+  font-size: 0.72rem;
+}
+
+/* Once it's live it's the loudest thing in the row: this is the only region on
+   the sheet where the next click can end the character. */
+.death-saves-active {
+  border-color: color-mix(in srgb, var(--health) 60%, var(--border));
+  background-color: var(--health-soft);
+}
+.death-saves-active .death-save-label {
+  color: var(--health);
 }

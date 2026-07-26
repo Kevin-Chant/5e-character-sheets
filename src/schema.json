@@ -2337,7 +2337,7 @@
             "$ref": "#/definitions/CustomFormula"
         },
         "inspiration": {
-            "type": "number"
+            "type": "boolean"
         },
         "limitedUseAbilities": {
             "items": {

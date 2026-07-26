@@ -139,3 +139,33 @@ button.slot-pip:hover:not(:disabled) {
   padding: 0.5rem;
   line-height: 1;
 }
+
+/* The uses and the actions that spend them share one line — see the comment in
+   `limited-use-abilities-display.tsx`. It wraps, so a pool with several actions
+   (a monk's Ki) or a level picker still gets the room it needs. */
+.limited-use-ability-body {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem 0.6rem;
+}
+/* The `.row`/`.column` utilities force `width: 100%`, so every one of these
+   would claim the whole line on its own and push its neighbour onto the next —
+   which is exactly what kept the pips and the action button on separate rows
+   after they were put in the same flex container. */
+.limited-use-ability-body .ability-actions {
+  width: auto;
+  flex: 1 1 auto;
+  margin-top: 0;
+}
+.limited-use-ability-body .slot-pips,
+.limited-use-ability-body .limited-use-count {
+  width: auto;
+  flex: 0 0 auto;
+}
+/* The generic "Use" reads as a verb, not a title — keep it compact so the
+   action-cost badge beside it stays the thing you scan for. */
+.ability-action-btn {
+  padding: 0.15rem 0.55rem;
+  line-height: 1.35;
+}

@@ -336,6 +336,17 @@ export const EDITABLE_FIELD_OPTIONAL_DATA: Record<
   string,
   { title: string; hint?: string }
 > = {
+  // Without an entry here a field's modal is titled by `humanize()`ing its key,
+  // which prints the model's vocabulary at the player: "Exp", "Curr Hp", "Pb
+  // Override". Anything whose key doesn't already read as the words a player
+  // would use belongs in this map — the paper sheet's own wording is the
+  // reference, since that's the name they already know the field by.
+  name: { title: "Character Name" },
+  exp: { title: "Experience Points" },
+  maxHp: { title: "Hit Point Maximum" },
+  currHp: { title: "Current Hit Points" },
+  tempHp: { title: "Temporary Hit Points" },
+  expendedHitDice: { title: "Hit Dice Expended" },
   pbOverride: {
     title: "Proficiency Bonus Override",
     hint: "For setting the proficiency bonus manually instead of using the standard table",

@@ -239,6 +239,29 @@ describe("v11 — backfilling weapon tags onto stored attacks", () => {
   });
 });
 
+describe("v12 — inspiration becomes a boolean", () => {
+  const atV11 = (inspiration: unknown) => ({
+    ...structuredClone(defaultCharacter),
+    schemaVersion: 11,
+    inspiration,
+  });
+
+  it("reads any stored count above zero as holding inspiration", () => {
+    expect(migrateCharacter(atV11(1)).inspiration).toBe(true);
+    // A table that house-ruled stacking loses the count, not the fact.
+    expect(migrateCharacter(atV11(3)).inspiration).toBe(true);
+  });
+
+  it("reads zero as not holding it", () => {
+    expect(migrateCharacter(atV11(0)).inspiration).toBe(false);
+  });
+
+  it("treats a missing or unparseable value as not holding it", () => {
+    expect(migrateCharacter(atV11(undefined)).inspiration).toBe(false);
+    expect(migrateCharacter(atV11("yes")).inspiration).toBe(false);
+  });
+});
+
 describe("hydrateCharacter", () => {
   it("accepts the default character without reporting a migration", () => {
     const result = hydrateCharacter(structuredClone(defaultCharacter));

@@ -382,8 +382,20 @@
  * the panels are not interchangeable, and equal thirds starved the two that
  * carry real content. The stats column has to hold six ability boxes beside a
  * twenty-row skills list whose labels don't wrap ("Animal Handling (wis)"), so
- * it takes the largest share; the defence column carries the attacks table and
- * takes the next; personality and features are short rows and give width up.
+ * it takes the largest share; the defence column carries the attacks table.
+ *
+ * The third share was originally 0.8fr, set by eye against the *fixture*
+ * characters — where the right column is mostly empty boxes. That was backwards
+ * for a real sheet. On the default character (Paladin 9 / Warlock 3) the right
+ * column held Features & Traits and six limited-use pools, and measured 279px
+ * wide by 2571px tall: the narrowest column carrying nearly twice the content of
+ * the tallest. The shares below are set from that measurement.
+ *
+ * How far this can go is capped by the two floors in `responsive-sheet.css`:
+ * the stats panel restacks below 27rem (432px) and the attacks table turns into
+ * cards below 22rem (352px). At the 1200px container those floors leave only
+ * about 65px to move, so this is a real but partial fix — the rest came from
+ * making the right column's contents shorter.
  *
  * The column counts below are the only breakpoints left on the sheet, and they
  * key off `detail` — the room the sheet actually has — not the viewport, which
@@ -394,7 +406,15 @@
  */
 .page-container > .row {
   display: grid;
-  grid-template-columns: 1.35fr 1.15fr 0.8fr;
+  /* Shares, not minimums. Writing the restack floors in as `minmax()` mins
+     looks safer and isn't: the mins are satisfied first and the last column
+     takes the remainder, so in the narrow half of the three-column band the
+     third column got *less* than the old shares gave it (236px at a 1100px
+     window, against 279 before). Falling below a floor isn't a failure anyway —
+     it's the designed fallback, and the panel container queries handle it.
+     So these are tuned to the one width that matters: at the 1200px container
+     the stats panel lands at ~443px, just clear of its 27rem restack. */
+  grid-template-columns: 1.28fr 1.05fr 1fr;
   align-items: start;
   gap: 1.5rem;
 }

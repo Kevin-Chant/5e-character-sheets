@@ -14,6 +14,7 @@ import {
   modifier,
 } from "src/lib/rules";
 import OtherProficienciesDisplay from "./display/other-proficiencies-display";
+import InspirationDisplay from "./display/inspiration-display";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FaPencil } from "react-icons/fa6";
 
@@ -38,11 +39,7 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
 
   return (
     <div className="column">
-      <SingleValueDisplay
-        name="Inspiration"
-        cursor={charPath(FIELD.inspiration)}
-        editable
-      />
+      <InspirationDisplay />
       <SingleValueDisplay
         name="Proficiency Bonus"
         cursor={charPath(FIELD.pbOverride)}

@@ -774,6 +774,14 @@ b.pos-relative.margin-large:has(> .section-add) {
   flex: 1;
   text-align: left;
 }
+/* Hit Point Maximum is the one row here that isn't a tracker (it's a formula).
+   Match the tracker grid's value track and right step column so its underline
+   joins the same column as the three below it. */
+.hp-box .display-value.small {
+  width: 4.6rem;
+  flex: 0 0 auto;
+  margin-right: 1.75rem;
+}
 
 /* Small-caps field caption beneath a value (header fields, etc.). */
 .display-label {
@@ -783,4 +791,74 @@ b.pos-relative.margin-large:has(> .section-add) {
   letter-spacing: 0.06em;
   font-size: 0.78rem;
   color: var(--text-muted);
+}
+
+/* ---- Empty sections ----
+   A section with nothing in it keeps its place in the reading order — a player
+   who knows the paper sheet looks for Bonds between Ideals and Flaws whether or
+   not it's filled — but it doesn't keep the height of a box that's waiting to be
+   written in. It collapses to a labelled strip: dashed, quiet, and just tall
+   enough to hold its own name and add button. Play mode drops these entirely,
+   since there's nothing there and no way to add anything (see the components,
+   which return null rather than rendering this). */
+.section-empty {
+  border-style: dashed;
+  border-color: var(--border-soft, var(--border));
+  background: none;
+  padding: 0;
+  min-height: 0;
+}
+.section-empty > .section-heading,
+.section-empty > b.section-heading {
+  margin: 0.3rem 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+/* The add button normally floats above the heading's baseline, which needs the
+   frame's height to sit in; in a strip there isn't one, so tuck it inline. */
+.section-empty .section-add {
+  position: static;
+  margin-left: 0.4rem;
+}
+.section-empty .prof-row:last-child {
+  border-bottom: none;
+}
+
+/* Give the label the row's slack so every skill's die lands in one column
+   instead of trailing its text — with twenty rows and labels from "Nature" to
+   "Animal Handling (wis)", content-width labels put the dice on a ragged edge
+   that reads as noise. */
+.proficiency-display .display-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.proficiency-display .roll-btn {
+  flex: 0 0 auto;
+}
+
+/* Features & Traits flows its entries into columns instead of running 18 names
+   single-file down the narrowest panel on the sheet. `column-width` (not a
+   fixed count) makes this container-driven: two columns when the panel can hold
+   them, one when it can't, with no breakpoint to keep in step. `break-inside`
+   stops a row being split across the column boundary. */
+.multi-line-entries.flow {
+  column-width: 9rem;
+  column-gap: 1rem;
+}
+.multi-line-entries.flow .text-line-row {
+  break-inside: avoid;
+}
+
+/* Personality boxes were roughly half frame: a heading that wrapped to two
+   lines in a 279px column, plus its 1rem margins, plus the box padding, around
+   one or two lines of text. The heading is a caption, not a title — sizing it
+   as one (and letting it sit tight to its content) gives the column back
+   ~50px per box without touching the text or the order of the four. */
+.multi-line-text > .section-heading {
+  margin: 0.35rem 0 0.1rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.multi-line-text {
+  padding: 0.4rem 0.7rem 0;
 }

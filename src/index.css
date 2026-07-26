@@ -8,11 +8,8 @@
  * up). Adding a part in the wrong place, or sorting these alphabetically, will
  * change the rendering. Append new parts near their neighbours, not at the end.
  *
- * Still deliberately deferred: the sheet's responsiveness is breakpoint patches
- * (`responsive-sheet.css`) rather than container queries. The root cause is
- * that `.row`/`.column` force `width: 100%` with `min-width: auto`, so nothing
- * shrinks and each panel has to be patched by hand at each breakpoint; sizing
- * the panels off `@container detail` would remove the whole class of bug.
+ * `styles.test.ts` pins both the completeness of this list and the order of the
+ * override tail.
  */
 
 /* Variables and colour schemes — first, everything below reads them. */

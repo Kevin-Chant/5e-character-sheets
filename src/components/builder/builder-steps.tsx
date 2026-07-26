@@ -75,6 +75,7 @@ import {
   StepProps,
   patchPersonality,
 } from "src/components/builder/builder-common";
+import { useSettings } from "src/lib/hooks/use-settings";
 import {
   ChosenOptionPicker,
   FeatPicker,
@@ -1442,6 +1443,9 @@ export function EquipmentStep({ state, patch }: StepProps) {
 // ------------------------------------------------------------------ Details
 
 export function DetailsStep({ state, patch }: StepProps) {
+  const {
+    settings: { trackPersonality },
+  } = useSettings();
   return (
     <div className="builder-step">
       <Field label="Character name">
@@ -1472,22 +1476,25 @@ export function DetailsStep({ state, patch }: StepProps) {
           ))}
         </select>
       </Field>
-      {(
-        [
-          ["traits", "Personality traits"],
-          ["ideals", "Ideals"],
-          ["bonds", "Bonds"],
-          ["flaws", "Flaws"],
-        ] as const
-      ).map(([key, label]) => (
-        <Field key={key} label={label} hint="Optional — one per line">
-          <LinesInput
-            rows={2}
-            value={state.personality[key]}
-            onChange={(lines) => patch(patchPersonality(state, key, lines))}
-          />
-        </Field>
-      ))}
+      {/* A table that doesn't play with these shouldn't be asked for them at
+          creation either — the Game setting is one answer for both surfaces. */}
+      {trackPersonality &&
+        (
+          [
+            ["traits", "Personality traits"],
+            ["ideals", "Ideals"],
+            ["bonds", "Bonds"],
+            ["flaws", "Flaws"],
+          ] as const
+        ).map(([key, label]) => (
+          <Field key={key} label={label} hint="Optional — one per line">
+            <LinesInput
+              rows={2}
+              value={state.personality[key]}
+              onChange={(lines) => patch(patchPersonality(state, key, lines))}
+            />
+          </Field>
+        ))}
     </div>
   );
 }

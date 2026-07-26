@@ -1,3 +1,4 @@
+import classNames from "classnames";
 import { FaDiceD20 } from "react-icons/fa6";
 import { StandardDie } from "src/lib/data/data-definitions";
 import {
@@ -68,7 +69,13 @@ export default function RollButton({
   return (
     <button
       type="button"
-      className="icon-btn roll-btn"
+      // Rank the sheet's ~30 roll buttons rather than offering them all at the
+      // same weight: an ability check is the quiet default (there are twenty of
+      // them down the left rail), while an attack or a hit die is a deliberate,
+      // consequential roll and keeps the accent.
+      className={classNames("icon-btn roll-btn", {
+        check: spec.kind === "check",
+      })}
       aria-label={`Roll ${label}`}
       title={`Roll ${label}`}
       onClick={(e) => {

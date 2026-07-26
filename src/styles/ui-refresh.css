@@ -14,8 +14,7 @@
 .prof-label,
 .senses-title,
 .roll-section-title,
-.typeahead-group-label,
-b.pos-relative.margin-large {
+.typeahead-group-label {
   font-family: var(--font-display);
   letter-spacing: 0.04em;
 }
@@ -25,8 +24,7 @@ b.pos-relative.margin-large {
 .display-label {
   font-size: 0.72rem;
 }
-.section-heading,
-b.pos-relative.margin-large {
+.section-heading {
   font-weight: 600;
   letter-spacing: 0.06em;
 }
@@ -95,10 +93,43 @@ b.pos-relative.margin-large {
 
 /* ---- Hierarchy: lift the regions you reference mid-combat ---- */
 /* AC / Initiative / Speed — a faint raised strip so it reads as the vitals bar. */
+/* AC, Initiative and Speed are one trio of at-a-glance combat numbers, so they
+   get one shape: three equal tracks rather than three content-sized boxes. They
+   were sized by their *labels*, which left Speed at ~58px beside a 147px Armor
+   Class and made a set of peers read as a hierarchy that isn't there. */
+.defence-vitals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: stretch;
+  gap: 0.6rem;
+}
+.defence-vitals > * {
+  margin: 0;
+}
 .defence-vitals .rounded-border-box {
   background-color: var(--surface);
   border-color: var(--border);
   box-shadow: var(--shadow-1);
+}
+/* The label can't wrap by default, and "Armor Class" no longer has a
+   content-sized box to sit in. */
+.defence-vitals .display-label {
+  white-space: normal;
+  text-align: center;
+}
+/* Only Initiative carries a roll button, and in flow it pushed that box's value
+   and label out of line with the two beside it. Out of flow, all three boxes lay
+   out identically and the three numbers share a baseline. */
+.defence-vitals .rounded-border-box {
+  position: relative;
+}
+.defence-vitals .roll-btn {
+  position: absolute;
+  top: 0.1rem;
+  right: 0.15rem;
+  /* Top-right, not bottom-right: the label sits along the bottom edge and a
+     button there overlaps it ("Initiativ⚄"). Nothing occupies the top corner of
+     these boxes. */
 }
 .defence-vitals .display-value.large {
   color: var(--accent);
@@ -412,4 +443,19 @@ b.pos-relative.margin-large {
 .sidecar-health-result {
   margin: 0;
   max-width: 22rem;
+}
+
+/* ---- Three tiers of attention ----
+   The paper sheet separates regions by *shape* — AC in a shield, abilities in
+   carved stones, HP in the biggest box on the page. Flattening all of that to
+   one 1.5px rounded rectangle lost the hierarchy, which is a bigger departure
+   from the reference than restoring it is. Tier 1 (vitals, HP) already lifts
+   above the page via shadow and the crimson frame; this is the other end —
+   reference material that you consult between sessions rather than during them
+   recedes to a hairline, so the play-critical regions win by contrast rather
+   than by shouting. */
+.multi-line-text,
+.other-proficiencies,
+.stat-and-skill-panel > .column > .rounded-border-box {
+  border-color: var(--border-soft);
 }

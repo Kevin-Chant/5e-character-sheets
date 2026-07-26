@@ -292,6 +292,16 @@ export default function Spellcasting() {
     dispatch(updateAt(charPath(FIELD.spellcastingClasses), newValue));
   };
 
+  // A Champion Fighter has no spellcasting at all, and used to be shown an empty
+  // "Cantrips" card anyway. Spellcasting is present when the character has a
+  // spellcasting class or has recorded a spell from anywhere (a feat, a race, a
+  // magic item). Otherwise there's nothing to show in play, and edit mode offers
+  // only the way to opt in.
+  const casts =
+    character.spellcastingClasses.length > 0 ||
+    Object.values(character.spells).some((list) => (list?.length ?? 0) > 0);
+  if (!casts && !editMode) return <></>;
+
   return (
     <div className="spellcasting">
       <div className="spellcasting-classes">
@@ -358,7 +368,7 @@ export default function Spellcasting() {
           <button onClick={addSpellcastingClass}>Add spellcasting class</button>
         )}
       </div>
-      <SpellsTable character={character} />
+      {casts && <SpellsTable character={character} />}
     </div>
   );
 }

@@ -71,6 +71,9 @@ export function modifier(stat: number) {
 // The 5e ceiling on an ability score: 20, "unless a feature says otherwise".
 export const DEFAULT_STAT_CAP = 20;
 
+// Exhaustion runs 1–6; level 6 is death, so it's the top of the track.
+export const MAX_EXHAUSTION = 6;
+
 // Features that raise a score's ceiling above 20, keyed by the bare feature
 // title the builder grants (the same convention the mechanics catalog matches
 // riders by). A function of the *character* rather than a constant because the

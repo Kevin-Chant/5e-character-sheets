@@ -399,7 +399,10 @@ export interface Character {
   alignment: Alignment;
   exp?: number;
   stats: CharacterStats;
-  inspiration: number;
+  // You either have inspiration or you don't — 5e gives it no quantity, and
+  // modelling it as a count meant the sheet showed "0" for a thing that has no
+  // number and made the most-toggled field on the sheet cost a modal.
+  inspiration: boolean;
   pbOverride?: number;
   proficiencies: {
     savingThrows: Proficiencies<StatKey>;

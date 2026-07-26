@@ -13,6 +13,8 @@ import {
   renderWithCharacter,
 } from "src/lib/fixtures/render-with-character";
 import { Character } from "src/lib/types";
+import { charPath } from "src/lib/cursor";
+import { MAX_EXHAUSTION } from "src/lib/rules";
 import AmmunitionDisplay from "./ammunition-display";
 import AttunementDisplay from "./attunement-display";
 import CoinsDisplay from "./coins-display";
@@ -21,6 +23,10 @@ import SensesDisplay from "./senses-display";
 import EquipmentDisplay from "./equipment-display";
 import LimitedUseAbilitiesDisplay from "./limited-use-abilities-display";
 import SpeedDisplay from "./speed-display";
+import TrackerValue from "./tracker-value";
+import DeathSavesDisplay from "./death-saves-display";
+import MultiLineTextDisplay from "./multi-line-text-display";
+import CharacterInfoPanel from "../character-info-panel";
 
 // The sheet's read-side components. What's worth testing here isn't the markup
 // — it's the two decisions each of these makes that the pure-function tests
@@ -56,14 +62,43 @@ describe("CoinsDisplay", () => {
     const gp = screen.getAllByRole("spinbutton")[1];
     await userEvent.clear(gp);
     await userEvent.type(gp, "12");
+    await userEvent.tab();
     expect(harness.character.coins[CoinType.GP]).toBe(12);
     // Other denominations are untouched — the update carries only this leaf.
     expect(harness.character.coins[CoinType.PP]).toBe(4);
   });
 
-  it("clamps a cleared field to zero rather than NaN", async () => {
+  it("writes once when the edit finishes, not once per digit", async () => {
     const harness = renderWithCharacter(<CoinsDisplay />);
-    await userEvent.clear(screen.getAllByRole("spinbutton")[1]);
+    const gp = screen.getAllByRole("spinbutton")[1];
+    await userEvent.clear(gp);
+    await userEvent.type(gp, "150");
+    // Nothing written yet — this used to have already stored 1, then 15.
+    expect(harness.dispatch).not.toHaveBeenCalled();
+    await userEvent.tab();
+    expect(harness.dispatch).toHaveBeenCalledTimes(1);
+    expect(harness.character.coins[CoinType.GP]).toBe(150);
+  });
+
+  it("reverts a cleared field rather than storing zero or NaN", async () => {
+    // Clearing a field and leaving it is more often abandonment than an intent
+    // to zero it — and typing "0" says that unambiguously. (This used to store
+    // 0 on clear, back when every keystroke was committed.)
+    const harness = renderWithCharacter(<CoinsDisplay />);
+    const gp = screen.getAllByRole("spinbutton")[1];
+    const before = harness.character.coins[CoinType.GP];
+    await userEvent.clear(gp);
+    await userEvent.tab();
+    expect(harness.character.coins[CoinType.GP]).toBe(before);
+    expect(harness.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("stores zero when zero is actually typed", async () => {
+    const harness = renderWithCharacter(<CoinsDisplay />);
+    const gp = screen.getAllByRole("spinbutton")[1];
+    await userEvent.clear(gp);
+    await userEvent.type(gp, "0");
+    await userEvent.tab();
     expect(harness.character.coins[CoinType.GP]).toBe(0);
   });
 });
@@ -333,5 +368,317 @@ describe("LimitedUseAbilitiesDisplay", () => {
     expect(
       harness.character.limitedUseAbilities.map((a) => a.info.title),
     ).toEqual(["Sorcery Points"]);
+  });
+});
+
+describe("TrackerValue", () => {
+  // Current/temp HP and exhaustion are the numbers that move during a fight, so
+  // they're edited in place rather than through the field modal. What's worth
+  // pinning is that the in-place control writes the same whole-value update the
+  // modal did, and that it respects the bounds the rules give it.
+  const hp = (character: Character) => (
+    <TrackerValue
+      cursor={charPath(FIELD.currHp)}
+      value={character.currHp}
+      name="Current Hit Points"
+      decrementLabel="Lose 1 hit point"
+      incrementLabel="Gain 1 hit point"
+      max={20}
+    />
+  );
+
+  it("steps down and writes the new value through", async () => {
+    const character = aCharacter();
+    character.currHp = 12;
+    const harness = renderWithCharacter(hp(character), { character });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Lose 1 hit point" }),
+    );
+    expect(harness.character.currHp).toBe(11);
+  });
+
+  it("accepts a typed absolute value on Enter", async () => {
+    const character = aCharacter();
+    character.currHp = 12;
+    const harness = renderWithCharacter(hp(character), { character });
+    const field = screen.getByRole("textbox", { name: "Current Hit Points" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "7{Enter}");
+    expect(harness.character.currHp).toBe(7);
+  });
+
+  it("commits a typed value on blur", async () => {
+    const character = aCharacter();
+    character.currHp = 12;
+    const harness = renderWithCharacter(hp(character), { character });
+    const field = screen.getByRole("textbox", { name: "Current Hit Points" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "7");
+    await userEvent.tab();
+    expect(harness.character.currHp).toBe(7);
+  });
+
+  it("doesn't write a value per keystroke", async () => {
+    // Typing 15 used to commit 1 and then 15 — two undo entries and two
+    // messages to every peer in a live session, with a flicker through a value
+    // the player never meant. Nothing is written until the edit is finished.
+    const character = aCharacter();
+    character.currHp = 12;
+    const harness = renderWithCharacter(hp(character), { character });
+    const field = screen.getByRole("textbox", { name: "Current Hit Points" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "15");
+    expect(harness.dispatch).not.toHaveBeenCalled();
+    expect(harness.character.currHp).toBe(12);
+
+    await userEvent.tab();
+    expect(harness.dispatch).toHaveBeenCalledTimes(1);
+    expect(harness.character.currHp).toBe(15);
+  });
+
+  it("never passes through an intermediate value the clamp would stick at", async () => {
+    // Against a maximum of 20, typing "25" per keystroke wrote 2, then clamped
+    // 25 to 20 — but a slower "5" first would have stuck at 5.
+    const character = aCharacter();
+    character.currHp = 12;
+    const harness = renderWithCharacter(hp(character), { character });
+    const field = screen.getByRole("textbox", { name: "Current Hit Points" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "25{Enter}");
+    expect(harness.dispatch).toHaveBeenCalledTimes(1);
+    expect(harness.character.currHp).toBe(20);
+  });
+
+  it("commits a pending edit before a step button acts on it", async () => {
+    // Clicking a step blurs the field first, so the step has to apply to what
+    // was just typed rather than to the stale stored value.
+    const character = aCharacter();
+    character.currHp = 12;
+    const harness = renderWithCharacter(hp(character), { character });
+    const field = screen.getByRole("textbox", { name: "Current Hit Points" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "8");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Lose 1 hit point" }),
+    );
+    expect(harness.character.currHp).toBe(7);
+  });
+
+  it("abandons the edit on Escape", async () => {
+    const character = aCharacter();
+    character.currHp = 12;
+    const harness = renderWithCharacter(hp(character), { character });
+    const field = screen.getByRole("textbox", { name: "Current Hit Points" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "3{Escape}");
+    await userEvent.tab();
+    expect(harness.character.currHp).toBe(12);
+    expect(harness.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("won't go below zero or above the maximum", async () => {
+    const character = aCharacter();
+    character.currHp = 0;
+    renderWithCharacter(hp(character), { character });
+    expect(
+      screen.getByRole("button", { name: "Lose 1 hit point" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Gain 1 hit point" }),
+    ).toBeEnabled();
+  });
+
+  it("caps exhaustion at 6, where the track ends", async () => {
+    const character = aCharacter();
+    character.exhaustion = MAX_EXHAUSTION;
+    renderWithCharacter(
+      <TrackerValue
+        cursor={charPath(FIELD.exhaustion)}
+        value={character.exhaustion}
+        name="Exhaustion"
+        decrementLabel="Lower exhaustion by 1"
+        incrementLabel="Raise exhaustion by 1"
+        max={MAX_EXHAUSTION}
+      />,
+      { character },
+    );
+    expect(
+      screen.getByRole("button", { name: "Raise exhaustion by 1" }),
+    ).toBeDisabled();
+  });
+
+  it("snaps an abandoned empty field back rather than persisting a zero", async () => {
+    const character = aCharacter();
+    character.currHp = 12;
+    const harness = renderWithCharacter(hp(character), { character });
+    const field = screen.getByRole("textbox", { name: "Current Hit Points" });
+    await userEvent.clear(field);
+    await userEvent.tab();
+    expect(harness.character.currHp).toBe(12);
+    expect(field).toHaveValue("12");
+  });
+});
+
+describe("DeathSavesDisplay", () => {
+  // Death saves matter at one hit point total: zero. The region keeps its
+  // position either way — what's pinned here is that it changes weight, and
+  // that it stays usable while dormant (a DM tracking HP elsewhere still needs
+  // to tick a failure).
+  const at = (currHp: number, successes = 0, failures = 0) => {
+    const character = aCharacter();
+    character.currHp = currHp;
+    character.deathSaves = { successes, failures };
+    return character;
+  };
+
+  it("is dormant while the character is up", () => {
+    const { container } = renderWithCharacter(<DeathSavesDisplay />, {
+      character: at(12),
+    });
+    expect(container.querySelector(".death-saves-dormant")).toBeInTheDocument();
+  });
+
+  it("wakes up at zero hit points", () => {
+    const { container } = renderWithCharacter(<DeathSavesDisplay />, {
+      character: at(0),
+    });
+    expect(container.querySelector(".death-saves-active")).toBeInTheDocument();
+  });
+
+  it("stays awake while saves are recorded, even once healed", () => {
+    // Rolled a success, then someone healed them — the set isn't resolved yet,
+    // so the tracker shouldn't collapse and lose the marks from view.
+    const { container } = renderWithCharacter(<DeathSavesDisplay />, {
+      character: at(4, 1, 0),
+    });
+    expect(container.querySelector(".death-saves-active")).toBeInTheDocument();
+  });
+
+  it("records a failure while dormant", async () => {
+    const harness = renderWithCharacter(<DeathSavesDisplay />, {
+      character: at(12),
+    });
+    const pips = screen.getAllByRole("button");
+    // Three successes then three failures; the fourth pip is the first failure.
+    await userEvent.click(pips[3]);
+    expect(harness.character.deathSaves.failures).toBe(1);
+  });
+});
+
+describe("empty sections", () => {
+  // A section with nothing in it keeps its place in the reading order but not
+  // the height of a box waiting to be written in: a strip in edit mode, gone in
+  // play mode where it can't be filled anyway. The paper sheet prints the empty
+  // box only because it can't know; the app can.
+  const bare = () => {
+    const character = aCharacter();
+    character.personality = { traits: [], ideals: [], bonds: [], flaws: [] };
+    character.senses = {};
+    character.limitedUseAbilities = [];
+    return character;
+  };
+
+  it("collapses an empty text section to a strip in edit mode", () => {
+    const { container } = renderWithCharacter(
+      <MultiLineTextDisplay
+        title="Bonds"
+        cursor={charPath(FIELD.personality).k("bonds")}
+      />,
+      { character: bare() },
+    );
+    expect(container.querySelector(".section-empty")).toBeInTheDocument();
+    // The landmark survives — that's what a paper player navigates by.
+    expect(screen.getByText("Bonds")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+" })).toBeInTheDocument();
+  });
+
+  it("drops an empty text section entirely in play mode", () => {
+    const { container } = renderWithCharacter(
+      <MultiLineTextDisplay
+        title="Bonds"
+        cursor={charPath(FIELD.personality).k("bonds")}
+      />,
+      { character: bare(), editMode: false },
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("keeps a section that has content", () => {
+    const character = bare();
+    character.personality.bonds = [{ title: "My mentor", titleFormulas: [] }];
+    const { container } = renderWithCharacter(
+      <MultiLineTextDisplay
+        title="Bonds"
+        cursor={charPath(FIELD.personality).k("bonds")}
+      />,
+      { character, editMode: false },
+    );
+    expect(container.querySelector(".section-empty")).not.toBeInTheDocument();
+    expect(screen.getByText("My mentor")).toBeInTheDocument();
+  });
+
+  it("drops empty senses and limited-use abilities in play mode", () => {
+    const senses = renderWithCharacter(<SensesDisplay />, {
+      character: bare(),
+      editMode: false,
+    });
+    expect(senses.container).toBeEmptyDOMElement();
+
+    const pools = renderWithCharacter(<LimitedUseAbilitiesDisplay />, {
+      character: bare(),
+      editMode: false,
+    });
+    expect(pools.container).toBeEmptyDOMElement();
+  });
+});
+
+describe("the personality setting", () => {
+  // Whether a table plays with personality traits, ideals, bonds and flaws is
+  // one question about the group, not four per-section toggles and not a
+  // per-character one — so it lives in Game settings and governs both the sheet
+  // and the creation wizard (see `builder-steps.test.tsx` for the other half).
+  const withTraits = () => {
+    const character = aCharacter();
+    character.personality = {
+      traits: [{ title: "Slow to trust", titleFormulas: [] }],
+      ideals: [{ title: "Justice", titleFormulas: [] }],
+      bonds: [{ title: "My mentor", titleFormulas: [] }],
+      flaws: [{ title: "Vengeful", titleFormulas: [] }],
+    };
+    return character;
+  };
+
+  it("shows all four sections by default", () => {
+    renderWithCharacter(<CharacterInfoPanel />, { character: withTraits() });
+    for (const label of ["Personality Traits", "Ideals", "Bonds", "Flaws"])
+      expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
+  it("hides all four when the table doesn't use them", () => {
+    renderWithCharacter(<CharacterInfoPanel />, {
+      character: withTraits(),
+      settings: { trackPersonality: false },
+    });
+    for (const label of ["Personality Traits", "Ideals", "Bonds", "Flaws"])
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+  });
+
+  it("keeps what was already written — it's hidden, not deleted", () => {
+    const character = withTraits();
+    const harness = renderWithCharacter(<CharacterInfoPanel />, {
+      character,
+      settings: { trackPersonality: false },
+    });
+    expect(screen.queryByText("My mentor")).not.toBeInTheDocument();
+    expect(harness.character.personality.bonds).toHaveLength(1);
+  });
+
+  it("leaves the rest of the column alone", () => {
+    renderWithCharacter(<CharacterInfoPanel />, {
+      character: withTraits(),
+      settings: { trackPersonality: false },
+    });
+    expect(screen.getByText("Features & Traits")).toBeInTheDocument();
+    expect(screen.getByText("Senses")).toBeInTheDocument();
   });
 });

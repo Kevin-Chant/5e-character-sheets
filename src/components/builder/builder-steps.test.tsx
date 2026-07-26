@@ -3,7 +3,13 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SkillName } from "src/lib/data/data-definitions";
 import { BuilderState, defaultBuilderState } from "src/lib/builder/types";
-import { BackgroundStep, ClassStep, RaceStep } from "./builder-steps";
+import {
+  BackgroundStep,
+  ClassStep,
+  DetailsStep,
+  RaceStep,
+} from "./builder-steps";
+import { DEFAULT_SETTINGS, SettingsContext } from "src/lib/hooks/use-settings";
 
 // Creation-wizard steps, like the level-up ones, are context-free props
 // components. These cover the choices that only appear for certain
@@ -157,5 +163,46 @@ describe("RaceStep — subrace options", () => {
       .find((b) => (b.textContent ?? "").includes("No subrace"));
     // Leaving it unselected made "Other subrace" read as the only real option.
     expect(noSubrace?.className).toContain("selected");
+  });
+});
+
+describe("DetailsStep and the personality setting", () => {
+  // The other half of the Game setting covered in `display.test.tsx`: a table
+  // that doesn't play with personality shouldn't be asked to invent traits,
+  // ideals, bonds and flaws while making a character either.
+  const PERSONALITY = ["Personality traits", "Ideals", "Bonds", "Flaws"];
+
+  const renderDetails = (trackPersonality: boolean) =>
+    render(
+      <SettingsContext.Provider
+        value={{
+          settings: { ...DEFAULT_SETTINGS, trackPersonality },
+          updateSetting: vi.fn(),
+          resetSettings: vi.fn(),
+        }}
+      >
+        <DetailsStep
+          state={{ ...defaultBuilderState(), mode: "guided" }}
+          patch={vi.fn()}
+        />
+      </SettingsContext.Provider>,
+    );
+
+  it("asks for personality by default", () => {
+    renderDetails(true);
+    for (const label of PERSONALITY)
+      expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
+  it("skips the personality fields when the table doesn't use them", () => {
+    renderDetails(false);
+    for (const label of PERSONALITY)
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+  });
+
+  it("still asks for the rest of the details", () => {
+    renderDetails(false);
+    expect(screen.getByText("Character name")).toBeInTheDocument();
+    expect(screen.getByText("Alignment")).toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import classNames from "classnames";
 import { FIELD, StandardDie } from "src/lib/data/data-definitions";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
@@ -5,14 +6,19 @@ import {
   formatCustomFormulaWithDamage,
   formatSaveEffect,
 } from "src/lib/formula";
-import { getHitDice } from "src/lib/rules";
+import {
+  getHitDice,
+  getOptionalInitializer,
+  MAX_EXHAUSTION,
+} from "src/lib/rules";
 import SingleValueDisplay from "./display/single-value-display";
+import TrackerValue from "./display/tracker-value";
 import EquipmentDisplay from "./display/equipment-display";
 import CoinsDisplay from "./display/coins-display";
 import AttunementDisplay from "./display/attunement-display";
 import SpeedDisplay from "./display/speed-display";
 import AmmunitionDisplay from "./display/ammunition-display";
-import SlotPips from "./display/slot-pips";
+import DeathSavesDisplay from "./display/death-saves-display";
 import RollButton from "./roll-button";
 import { FaBed, FaPencil } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
@@ -37,6 +43,15 @@ export default function DefenceAndEquipmentPanel() {
     settings: { trackAmmunition },
   } = useSettings();
   const totalHitDice = character.totalHitDice || getHitDice(character);
+  // Current HP can't be raised past the maximum. `maxHp` is an optional
+  // override, so resolve it the same way the Hit Point Maximum row above does —
+  // through the initializer — rather than treating "unset" as "no maximum".
+  const maxHpFormula =
+    character.maxHp ??
+    getOptionalInitializer(FIELD.maxHp, undefined, character);
+  const maxHp = maxHpFormula
+    ? calculateCustomFormula(maxHpFormula, character)
+    : undefined;
   const hitDice = (
     [
       StandardDie.d4,
@@ -102,26 +117,29 @@ export default function DefenceAndEquipmentPanel() {
           removeBorder
           editable
         />
-        <SingleValueDisplay
+        <TrackerValue
           cursor={charPath(FIELD.currHp)}
+          value={character.currHp}
           name="Current Hit Points"
-          flipped
-          removeBorder
-          editable
+          decrementLabel="Lose 1 hit point"
+          incrementLabel="Gain 1 hit point"
+          max={maxHp}
+          prominent
         />
-        <SingleValueDisplay
+        <TrackerValue
           cursor={charPath(FIELD.tempHp)}
+          value={character.tempHp}
           name="Temporary Hit Points"
-          flipped
-          removeBorder
-          editable
+          decrementLabel="Lose 1 temporary hit point"
+          incrementLabel="Gain 1 temporary hit point"
         />
-        <SingleValueDisplay
+        <TrackerValue
           cursor={charPath(FIELD.exhaustion)}
+          value={character.exhaustion}
           name="Exhaustion"
-          flipped
-          removeBorder
-          editable
+          decrementLabel="Lower exhaustion by 1"
+          incrementLabel="Raise exhaustion by 1"
+          max={MAX_EXHAUSTION}
         />
       </div>
       {/* Hit dice, death saves */}
@@ -170,137 +188,120 @@ export default function DefenceAndEquipmentPanel() {
           </table>
           <b className="section-heading">Hit Dice</b>
         </div>
-        <div className="column rounded-border-box tracker-box">
-          <div className="column death-save-row">
-            <span>Successes</span>
-            <SlotPips
-              total={3}
-              expended={character.deathSaves.successes}
-              fillMode
-              onChange={(value) =>
-                dispatch(
-                  updateAt(charPath(FIELD.deathSaves).k("successes"), value),
-                )
-              }
-            />
-          </div>
-          <div className="column death-save-row">
-            <span>Failures</span>
-            <SlotPips
-              total={3}
-              expended={character.deathSaves.failures}
-              fillMode
-              onChange={(value) =>
-                dispatch(
-                  updateAt(charPath(FIELD.deathSaves).k("failures"), value),
-                )
-              }
-            />
-          </div>
-          <b className="section-heading">Death Saves</b>
-        </div>
+        <DeathSavesDisplay />
       </div>
       {/* Attacks */}
-      <div className="column rounded-border-box">
-        {/* .attacks-table is a styling hook: below 640px the CSS reflows these
+      {(character.attacks.length > 0 || editMode) && (
+        <div
+          className={classNames("column rounded-border-box", {
+            "section-empty": character.attacks.length === 0,
+          })}
+        >
+          {/* .attacks-table is a styling hook: below 640px the CSS reflows these
             rows into stacked cards, since four columns can't fit a phone. */}
-        <table className="attacks-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              {/* One column for both ways an attack resolves: a to-hit bonus,
+          {/* Column headers over zero rows read as broken rather than new, so the
+            head only appears once there's something under it. */}
+          <table className="attacks-table">
+            <thead hidden={character.attacks.length === 0}>
+              <tr>
+                <th>Name</th>
+                {/* One column for both ways an attack resolves: a to-hit bonus,
                   or the DC the target rolls against. */}
-              <th>Atk / DC</th>
-              <th>Damage/Type</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {character.attacks.map((attack, index) => {
-              // A save-based attack (a breath weapon, a poison) has no to-hit
-              // bonus at all — its cell shows the target's DC instead.
-              const attackBonus =
-                attack.bonus === undefined
-                  ? undefined
-                  : calculateCustomFormula(attack.bonus, character);
-              const rangeText = formatRange(attack.range);
-              // Remaining ammo across every pool linked to this weapon (setting-
-              // gated); the pool is the single source of truth for the count.
-              const linkedAmmo = trackAmmunition
-                ? character.ammunition.filter((a) =>
-                    a.weaponIds.includes(attack.id),
-                  )
-                : [];
-              const ammoTotal = linkedAmmo.reduce((sum, a) => sum + a.count, 0);
-              return (
-                <tr key={index}>
-                  <td className="attack-cell-name">
-                    <span
-                      className={
-                        rangeText ? "attack-name has-range" : undefined
-                      }
-                      title={rangeText}
-                    >
-                      {attack.name}
-                    </span>
-                    {linkedAmmo.length > 0 && (
-                      <span className="ammo-badge"> ({ammoTotal})</span>
-                    )}
-                  </td>
-                  <td className="attack-cell-tohit">
-                    {attackBonus !== undefined
-                      ? attackBonus > 0
-                        ? `+${attackBonus}`
-                        : attackBonus
-                      : attack.save
-                        ? formatSaveEffect(attack.save, character)
-                        : "—"}
-                  </td>
-                  <td className="attack-cell-damage">
-                    {formatCustomFormulaWithDamage(attack.formula, character)}
-                  </td>
-                  <td className="attack-cell-action">
-                    {editMode ? (
-                      <span className="flex">
-                        <button
-                          aria-label="Edit attack"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            pushCursor(charPath(FIELD.attacks).at(index));
-                          }}
-                        >
-                          <FaPencil />
-                        </button>
-                        <button
-                          aria-label="Remove attack"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            removeAttackRow(index);
-                          }}
-                        >
-                          x
-                        </button>
+                <th>Atk / DC</th>
+                <th>Damage/Type</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {character.attacks.map((attack, index) => {
+                // A save-based attack (a breath weapon, a poison) has no to-hit
+                // bonus at all — its cell shows the target's DC instead.
+                const attackBonus =
+                  attack.bonus === undefined
+                    ? undefined
+                    : calculateCustomFormula(attack.bonus, character);
+                const rangeText = formatRange(attack.range);
+                // Remaining ammo across every pool linked to this weapon (setting-
+                // gated); the pool is the single source of truth for the count.
+                const linkedAmmo = trackAmmunition
+                  ? character.ammunition.filter((a) =>
+                      a.weaponIds.includes(attack.id),
+                    )
+                  : [];
+                const ammoTotal = linkedAmmo.reduce(
+                  (sum, a) => sum + a.count,
+                  0,
+                );
+                return (
+                  <tr key={index}>
+                    <td className="attack-cell-name">
+                      <span
+                        className={
+                          rangeText ? "attack-name has-range" : undefined
+                        }
+                        title={rangeText}
+                      >
+                        {attack.name}
                       </span>
-                    ) : (
-                      <RollButton
-                        label={attack.name}
-                        toHit={attackBonus}
-                        save={attack.save}
-                        damage={attack.formula}
-                        attack={attack}
-                      />
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <div className="row">
-          <b className="section-heading">Weapon Attacks</b>
-          {editMode && <button onClick={addAttackRow}>+</button>}
+                      {linkedAmmo.length > 0 && (
+                        <span className="ammo-badge"> ({ammoTotal})</span>
+                      )}
+                    </td>
+                    <td className="attack-cell-tohit">
+                      {attackBonus !== undefined
+                        ? attackBonus > 0
+                          ? `+${attackBonus}`
+                          : attackBonus
+                        : attack.save
+                          ? formatSaveEffect(attack.save, character)
+                          : "—"}
+                    </td>
+                    <td className="attack-cell-damage">
+                      {formatCustomFormulaWithDamage(attack.formula, character)}
+                    </td>
+                    <td className="attack-cell-action">
+                      {editMode ? (
+                        <span className="flex">
+                          <button
+                            aria-label="Edit attack"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              pushCursor(charPath(FIELD.attacks).at(index));
+                            }}
+                          >
+                            <FaPencil />
+                          </button>
+                          <button
+                            aria-label="Remove attack"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              removeAttackRow(index);
+                            }}
+                          >
+                            x
+                          </button>
+                        </span>
+                      ) : (
+                        <RollButton
+                          label={attack.name}
+                          toHit={attackBonus}
+                          save={attack.save}
+                          damage={attack.formula}
+                          attack={attack}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="row">
+            <b className="section-heading">Weapon Attacks</b>
+            {editMode && <button onClick={addAttackRow}>+</button>}
+          </div>
         </div>
-      </div>
+      )}
       {/* Equipment */}
       <div className="column rounded-border-box equipment-box">
         <CoinsDisplay />

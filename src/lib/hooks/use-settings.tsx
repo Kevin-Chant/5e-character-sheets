@@ -10,7 +10,7 @@ export const DEFAULT_LIVE_EDIT_HOST =
 
 export type Theme = "system" | "light" | "dark";
 
-interface Settings {
+export interface Settings {
   liveEditHost: string;
   theme: Theme;
   // Whether edits persist automatically, and how long (ms) to wait after the
@@ -30,6 +30,12 @@ interface Settings {
   // Whether to track encumbrance. Off hides the per-item weight column and the
   // carrying-capacity readout — many tables ignore encumbrance entirely.
   trackEncumbrance: boolean;
+  // Whether personality traits, ideals, bonds and flaws are part of this
+  // table's game. Off hides all four from the sheet *and* stops the creation
+  // wizard asking for them — it's one question about how a group plays, not a
+  // per-character or per-surface choice, which is why it lives here rather than
+  // as a toggle on the sheet. Anything already recorded is kept, just not shown.
+  trackPersonality: boolean;
   // Display unit for weights. Values are always STORED in pounds (5e carrying
   // capacity is defined in lb); "kg" only converts at render time.
   weightUnit: "lb" | "kg";
@@ -90,7 +96,7 @@ interface SettingsContextData {
   resetSettings: () => void;
 }
 
-const DEFAULT_SETTINGS: Settings = {
+export const DEFAULT_SETTINGS: Settings = {
   liveEditHost: DEFAULT_LIVE_EDIT_HOST,
   theme: "system",
   autosave: true,
@@ -99,6 +105,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoLiveSession: true,
   trackAmmunition: true,
   trackEncumbrance: true,
+  trackPersonality: true,
   weightUnit: "lb",
   criticalsOnAllRolls: false,
   criticalDamageMode: "raw",

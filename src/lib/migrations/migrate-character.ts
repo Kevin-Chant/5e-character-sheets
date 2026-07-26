@@ -448,6 +448,21 @@ const migrations: Migration[] = [
       return filled;
     },
   },
+  {
+    to: 12,
+    // Inspiration became a boolean: 5e gives it no quantity. Any stored count
+    // above zero was a player recording that they *have* it, so it maps to
+    // true; a table that house-ruled stacking loses the count, which is the
+    // cost of the model matching the rules.
+    // Runs before validation, so it has to survive whatever was in storage —
+    // including null/undefined, which `hydrateCharacter` expects to be reported
+    // as ok:false rather than thrown.
+    migrate: (character: any) => ({
+      ...character,
+      inspiration: Number(character?.inspiration) > 0,
+      schemaVersion: 12,
+    }),
+  },
 ];
 
 // Sorted, append-only safety: ensures we apply migrations in ascending order

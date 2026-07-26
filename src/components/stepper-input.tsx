@@ -1,5 +1,6 @@
 import classNames from "classnames";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa6";
+import { useDeferredNumber } from "src/lib/hooks/use-deferred-number";
 
 interface StepperInputProps {
   value: number;
@@ -15,6 +16,9 @@ interface StepperInputProps {
 // (which don't theme). Native spinners are suppressed in CSS; typing still works
 // and the chevrons clamp to [min, max]. Used for the small inline counts in the
 // equipment box (item quantity, ammunition).
+//
+// Typed edits commit on blur/Enter rather than per keystroke — setting a stack
+// of 50 arrows used to write 5 and then 50. See `useDeferredNumber`.
 export default function StepperInput({
   value,
   onChange,
@@ -23,25 +27,22 @@ export default function StepperInput({
   ariaLabel,
   className,
 }: StepperInputProps) {
-  const clamp = (n: number) => {
-    let next = n;
-    if (min !== undefined) next = Math.max(min, next);
-    if (max !== undefined) next = Math.min(max, next);
-    return next;
-  };
-  const atMin = min !== undefined && value <= min;
-  const atMax = max !== undefined && value >= max;
+  const { step, atMin, atMax, inputProps } = useDeferredNumber({
+    value,
+    min,
+    max,
+    onCommit: onChange,
+  });
 
   return (
     <span className={classNames("stepper", className)}>
       <input
         type="number"
         className="stepper-input"
-        value={value}
         min={min}
         max={max}
         aria-label={ariaLabel}
-        onChange={(e) => onChange(clamp(Number(e.target.value) || 0))}
+        {...inputProps}
       />
       <span className="stepper-btns">
         <button
@@ -51,7 +52,7 @@ export default function StepperInput({
           disabled={atMax}
           onClick={(e) => {
             e.preventDefault();
-            onChange(clamp(value + 1));
+            step(1);
           }}
         >
           <FaChevronUp />
@@ -63,7 +64,7 @@ export default function StepperInput({
           disabled={atMin}
           onClick={(e) => {
             e.preventDefault();
-            onChange(clamp(value - 1));
+            step(-1);
           }}
         >
           <FaChevronDown />

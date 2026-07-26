@@ -1,3 +1,4 @@
+import classNames from "classnames";
 import { FaPencil, FaArrowRotateLeft } from "react-icons/fa6";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
@@ -44,8 +45,15 @@ export default function LimitedUseAbilitiesDisplay() {
   // blank ability into the modal draft, so nothing is persisted until save.
   const addAbility = () => pushCursor(list.at(abilities.length));
 
+  // Nothing to track yet: hide in play mode, collapse to a strip in edit mode.
+  if (abilities.length === 0 && !editMode) return <></>;
+
   return (
-    <div className="column rounded-border-box">
+    <div
+      className={classNames("column rounded-border-box", {
+        "section-empty": abilities.length === 0,
+      })}
+    >
       {abilities.map((ability, i) => {
         const { info } = ability;
         const total = calculateCustomFormula(ability.maxUses, character);
@@ -132,46 +140,52 @@ export default function LimitedUseAbilitiesDisplay() {
                 )}
               </div>
             </div>
-            {total === 0 ? null : total > PIP_THRESHOLD ? (
-              <div className="row limited-use-count">
-                <button
-                  type="button"
-                  aria-label="Spend a use"
-                  disabled={expended >= total}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setExpended(i, expended + 1);
-                  }}
-                >
-                  −
-                </button>
-                <span className="font-large">
-                  {total - expended} / {total}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Restore a use"
-                  disabled={expended <= 0}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setExpended(i, expended - 1);
-                  }}
-                >
-                  +
-                </button>
-              </div>
-            ) : (
-              <SlotPips
-                total={total}
-                expended={expended}
-                onChange={(value) => setExpended(i, value)}
-              />
-            )}
-            {!editMode && <AbilityActions index={i} ability={ability} />}
+            {/* Uses and the actions that spend them belong on one line: they're
+                the same transaction, and a separate row per action made a
+                six-pool sheet the tallest thing in the column. Wraps when a pool
+                carries several actions (a monk's Ki) or a level picker. */}
+            <div className="row limited-use-ability-body">
+              {total === 0 ? null : total > PIP_THRESHOLD ? (
+                <div className="row limited-use-count">
+                  <button
+                    type="button"
+                    aria-label="Spend a use"
+                    disabled={expended >= total}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setExpended(i, expended + 1);
+                    }}
+                  >
+                    −
+                  </button>
+                  <span className="font-large">
+                    {total - expended} / {total}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Restore a use"
+                    disabled={expended <= 0}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setExpended(i, expended - 1);
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <SlotPips
+                  total={total}
+                  expended={expended}
+                  onChange={(value) => setExpended(i, value)}
+                />
+              )}
+              {!editMode && <AbilityActions index={i} ability={ability} />}
+            </div>
           </div>
         );
       })}
-      <b className="pos-relative margin-large">
+      <b className="section-heading pos-relative margin-large">
         Limited-Use Abilities
         {editMode && (
           <button
