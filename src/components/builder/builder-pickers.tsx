@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { uniq } from "lodash";
-import { REAL_SKILLS, SkillName, StatKey } from "src/lib/data/data-definitions";
+import {
+  REAL_SKILLS,
+  SkillName,
+  spellLevelLabel,
+  StatKey,
+} from "src/lib/data/data-definitions";
 import { DEFAULT_LANGUAGES } from "src/lib/data/option-lists";
 import { WEAPON_PRESETS } from "src/lib/data/weapon-presets";
 import { FEATS } from "src/lib/builder/feats";
 import { FeatChoices } from "src/lib/builder/feats";
 import { emptyFeatChoices } from "src/lib/builder/level-up";
-import { OptionGroup } from "src/lib/builder/chosen-options";
+import { OptionGroup, taggedPicksAt } from "src/lib/builder/chosen-options";
 import {
   getSrdSpell,
   searchSrdSpells,
@@ -118,15 +123,23 @@ function Combobox({
 // filtered out entirely, and the remaining boxes lock once `count` are ticked —
 // the allowance is the whole point of the model, so the wizard enforces it
 // rather than letting a player quietly over-pick.
+//
+// A group whose picks at this level are *tagged* (a Kensei's one melee and one
+// ranged weapon) becomes one labelled single-choice per tag, so the split can't
+// be got wrong rather than being flagged after the fact.
 export function ChosenOptionPicker({
   group,
   count,
+  classLevel,
   alreadyKnown,
   picked,
   onChange,
 }: {
   group: OptionGroup;
   count: number;
+  // The class level these picks are granted at — the only thing `tagged` keys
+  // off, since the constraint belongs to a level and not to the whole group.
+  classLevel: number;
   alreadyKnown: string[];
   picked: string[];
   onChange: (names: string[]) => void;
@@ -134,6 +147,48 @@ export function ChosenOptionPicker({
   const known = new Set(alreadyKnown);
   const atLimit = picked.length >= count;
   const offered = group.options.filter((option) => !known.has(option.name));
+  const tags = taggedPicksAt(group, classLevel, count);
+
+  if (tags) {
+    // One pick per tag, held in tag order so the stored list reads
+    // melee-then-ranged however the player filled the fields in.
+    const tagOf = (name: string) =>
+      group.options.find((o) => o.name === name)?.tag;
+    const setTag = (tag: string, next?: string) =>
+      onChange(
+        tags
+          .map(({ tag: t }) =>
+            t === tag ? next : picked.find((n) => tagOf(n) === t),
+          )
+          .filter((n): n is string => Boolean(n)),
+      );
+    return (
+      <Field label={group.label} hint="Choose one of each.">
+        {group.summary && (
+          <p className="text-muted builder-hint">{group.summary}</p>
+        )}
+        <div className="builder-tagged-slots">
+          {tags.map(({ tag, label }) => (
+            <Field key={tag} label={label}>
+              <SingleChoice
+                name={`${group.label} — ${label}`}
+                value={picked.find((n) => tagOf(n) === tag)}
+                onChange={(next) => setTag(tag, next)}
+                options={offered
+                  .filter((o) => o.tag === tag)
+                  .map((option) => ({
+                    value: option.name,
+                    label: option.name,
+                    summary: option.summary,
+                  }))}
+              />
+            </Field>
+          ))}
+        </div>
+      </Field>
+    );
+  }
+
   return (
     <Field
       label={group.label}
@@ -232,16 +287,34 @@ export function SpellChecklist({
   // Undefined shows every SRD spell (used for classes the catalog doesn't tag,
   // e.g. Artificer); a class name filters to that class's spell list.
   className?: string;
-  level: number;
+  // One spell level, or several in one list — the latter for an allowance that
+  // isn't tied to a level (a bard's Magical Secrets), where splitting it into a
+  // box per level would spread one two-spell choice over five widgets. Each row
+  // names its own level when the list spans more than one.
+  level: number | number[];
   selected: string[];
   max: number | null;
   onChange: (next: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
+  const levels = Array.isArray(level) ? level : [level];
+  // Keyed on the levels' *contents*: a caller passing a fresh array literal
+  // every render would otherwise re-filter the whole catalog on each one.
+  const levelKey = levels.join(",");
   const spells = useMemo(
-    () => searchSrdSpells(query, className).filter((s) => s.level === level),
-    [query, className, level],
+    () =>
+      searchSrdSpells(query, className).filter((s) =>
+        levelKey.split(",").includes(String(s.level)),
+      ),
+    [query, className, levelKey],
   );
+  // A list spanning several levels is grouped under level headings rather than
+  // tagging each of ~300 rows: the level is the one axis a player scans by, and
+  // repeating "Cantrip" forty times says it worst.
+  const showLevel = levels.length > 1;
+  const sorted = showLevel
+    ? [...spells].sort((a, b) => a.level - b.level)
+    : spells;
   const toggle = (index: string) => {
     if (selected.includes(index)) onChange(selected.filter((i) => i !== index));
     else if (max === null || selected.length < max)
@@ -264,23 +337,32 @@ export function SpellChecklist({
               : "No SRD spells at this level. Add spells from other books or homebrew manually from the sheet."}
           </p>
         ) : (
-          spells.map((s: SrdSpell) => {
+          sorted.map((s: SrdSpell, i) => {
             const on = selected.includes(s.index);
+            const startsLevel = showLevel && sorted[i - 1]?.level !== s.level;
             return (
-              <label
-                key={s.index}
-                className={
-                  on ? "builder-spell-row selected" : "builder-spell-row"
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={on}
-                  disabled={!on && atCap}
-                  onChange={() => toggle(s.index)}
-                />
-                {s.name}
-              </label>
+              <Fragment key={s.index}>
+                {startsLevel && (
+                  <h4 className="builder-spell-level">
+                    {s.level === 0
+                      ? "Cantrips"
+                      : `${spellLevelLabel(s.level)} level`}
+                  </h4>
+                )}
+                <label
+                  className={
+                    on ? "builder-spell-row selected" : "builder-spell-row"
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={!on && atCap}
+                    onChange={() => toggle(s.index)}
+                  />
+                  {s.name}
+                </label>
+              </Fragment>
             );
           })
         )}

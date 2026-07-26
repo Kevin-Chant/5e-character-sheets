@@ -3,9 +3,12 @@ import {
   Alignment,
   ArmorType,
   DamageType,
+  DieOperation,
   OfficialClass,
+  Operation,
   SkillName,
   StandardDie,
+  StatKey,
 } from "src/lib/data/data-definitions";
 import { buildCharacter } from "src/lib/builder/build-character";
 import {
@@ -632,5 +635,93 @@ describe("starting wealth tables", () => {
     expect(
       describeStartingWealth(startingWealthFor(OfficialClass.Rogue)!),
     ).toBe("4d4 × 10 gp");
+  });
+});
+
+describe("buildCharacter — racial natural weapons", () => {
+  const raced = (raceIndex: string): BuilderState => ({
+    ...defaultBuilderState(),
+    mode: "guided",
+    raceIndex,
+    classIndex: "fighter",
+    classSkillChoices: [SkillName.Athletics],
+    scoreMethod: "manual",
+    baseStats: { str: 16, dex: 12, con: 14, int: 10, wis: 10, cha: 8 },
+    // No class loadout, so the only attacks on the sheet are the racial ones.
+    acceptClassEquipment: false,
+  });
+
+  it("gives a Lizardfolk a rollable 1d6 piercing Bite", () => {
+    const char = buildCharacter(raced("lizardfolk"));
+    const bite = char.attacks.find((a) => a.name === "Bite");
+    expect(bite).toBeDefined();
+    expect(bite!.bonus).toEqual({
+      operation: Operation.addition,
+      operands: [StatKey.str, "proficiencyBonus"],
+    });
+    expect(bite!.formula).toEqual({
+      [DamageType.Piercing]: {
+        operation: Operation.addition,
+        operands: [[1, StandardDie.d6, DieOperation.roll], StatKey.str],
+      },
+    });
+  });
+
+  it("gives a Tabaxi 1d4 slashing claws, named after the trait", () => {
+    const char = buildCharacter(raced("tabaxi"));
+    const claws = char.attacks.find((a) => a.name === "Cat's Claws");
+    expect(claws?.formula).toEqual({
+      [DamageType.Slashing]: {
+        operation: Operation.addition,
+        operands: [[1, StandardDie.d4, DieOperation.roll], StatKey.str],
+      },
+    });
+  });
+
+  it("leaves a race without natural weapons with no attacks", () => {
+    expect(buildCharacter(raced("human")).attacks).toEqual([]);
+  });
+
+  it("doesn't mistake a conditional attack for a natural weapon", () => {
+    // A Longtooth Shifter's 1d6 bite exists only while shifted, and its prose
+    // says so rather than calling it a natural weapon.
+    const state = raced("shifter");
+    state.subraceIndex = "longtooth-shifter";
+    expect(buildCharacter(state).attacks).toEqual([]);
+  });
+});
+
+describe("buildCharacter — Simic Hybrid's first Animal Enhancement", () => {
+  const simic = (enhancement?: string): BuilderState => ({
+    ...defaultBuilderState(),
+    mode: "guided",
+    raceIndex: "simic-hybrid",
+    classIndex: "fighter",
+    classSkillChoices: [SkillName.Athletics],
+    scoreMethod: "manual",
+    baseStats: { str: 14, dex: 12, con: 14, int: 10, wis: 10, cha: 8 },
+    chosenOptions: enhancement ? { simicEnhancement1: [enhancement] } : {},
+  });
+
+  it("records the pick and adds it to the features list", () => {
+    const char = buildCharacter(simic("Underwater Adaptation"));
+    expect(chosenIn(char, "simicEnhancement1").map((o) => o.name)).toEqual([
+      "Underwater Adaptation",
+    ]);
+    expect(char.features.map((f) => f.title)).toContain(
+      "Underwater Adaptation",
+    );
+  });
+
+  it("doesn't award the 5th-level enhancement at creation", () => {
+    const state = simic("Nimble Climber");
+    state.chosenOptions.simicEnhancement5 = ["Carapace"];
+    const char = buildCharacter(state);
+    expect(chosenIn(char, "simicEnhancement5")).toEqual([]);
+    expect(char.features.map((f) => f.title)).not.toContain("Carapace");
+  });
+
+  it("builds fine with the choice left unmade", () => {
+    expect(chosenIn(buildCharacter(simic()), "simicEnhancement1")).toEqual([]);
   });
 });

@@ -9,6 +9,7 @@ import {
 import { buildCharacter } from "src/lib/builder/build-character";
 import { defaultBuilderState } from "src/lib/builder/types";
 import {
+  additionalMagicalSecretsAt,
   applyLevelUp,
   classHasCantrips,
   defaultLevelUpState,
@@ -887,5 +888,117 @@ describe("applyLevelUp — option action hosts", () => {
     expect(
       char.limitedUseAbilities.filter((a) => a.info.title === "Subtle Spell"),
     ).toHaveLength(1);
+  });
+});
+
+describe("Lore Bard's Additional Magical Secrets", () => {
+  const bardTo = (level: number, subclass?: string) => {
+    let out = level1("bard");
+    while ((out.class[0]?.level ?? 0) < level)
+      out = applyLevelUp(out, {
+        ...defaultLevelUpState(out),
+        className: OfficialClass.Bard,
+        // The subclass is due at bard 3.
+        ...(out.class[0].level === 2 ? { subclass } : {}),
+      });
+    return out;
+  };
+
+  it("is owed only by a Lore bard, and only at 6th", () => {
+    expect(additionalMagicalSecretsAt("Bard", 6, "Lore")).toBe(2);
+    expect(additionalMagicalSecretsAt("Bard", 6, "Valor")).toBe(0);
+    expect(additionalMagicalSecretsAt("Bard", 5, "Lore")).toBe(0);
+    expect(additionalMagicalSecretsAt("Bard", 10, "Lore")).toBe(0);
+    expect(additionalMagicalSecretsAt("Wizard", 6, "Lore")).toBe(0);
+  });
+
+  it("learns two off-list spells on top of the level's own allowance", () => {
+    const bard5 = bardTo(5, "Lore");
+    const before = Object.values(bard5.spells).flat().length;
+    const bard6 = applyLevelUp(bard5, {
+      ...defaultLevelUpState(bard5),
+      className: OfficialClass.Bard,
+      // The bard-list spell this level grants…
+      newSpells: { 3: ["hypnotic-pattern"] },
+      // …plus two the bard list doesn't contain at all.
+      secretSpells: ["fireball", "counterspell"],
+    });
+    const names = Object.values(bard6.spells)
+      .flat()
+      .map((s) => s.info.title);
+    expect(names).toContain("Hypnotic Pattern");
+    expect(names).toContain("Fireball");
+    expect(names).toContain("Counterspell");
+    expect(names.length).toBe(before + 3);
+  });
+
+  it("records them as bard spells, castable with the bard's slots", () => {
+    const bard5 = bardTo(5, "Lore");
+    const bard6 = applyLevelUp(bard5, {
+      ...defaultLevelUpState(bard5),
+      className: OfficialClass.Bard,
+      secretSpells: ["fireball"],
+    });
+    const fireball = Object.values(bard6.spells)
+      .flat()
+      .find((s) => s.info.title === "Fireball");
+    expect(fireball?.spellcastingClass).toBe(bard6.class[0].id);
+  });
+
+  it("ignores picks a bard isn't owed", () => {
+    const valor5 = bardTo(5, "Valor");
+    const valor6 = applyLevelUp(valor5, {
+      ...defaultLevelUpState(valor5),
+      className: OfficialClass.Bard,
+      secretSpells: ["fireball"],
+    });
+    expect(
+      Object.values(valor6.spells)
+        .flat()
+        .map((s) => s.info.title),
+    ).not.toContain("Fireball");
+  });
+});
+
+describe("Simic Hybrid's second Animal Enhancement", () => {
+  const simic4 = () => {
+    let out = level1("fighter", { raceIndex: "simic-hybrid" });
+    while (out.class[0].level < 4)
+      out = applyLevelUp(out, {
+        ...defaultLevelUpState(out),
+        className: OfficialClass.Fighter,
+      });
+    return out;
+  };
+
+  it("lands at 5th level and adds its feature", () => {
+    const before = simic4();
+    expect(chosenIn(before, "simicEnhancement5")).toEqual([]);
+    const after = applyLevelUp(before, {
+      ...defaultLevelUpState(before),
+      className: OfficialClass.Fighter,
+      chosenOptions: { simicEnhancement5: ["Acid Spit"] },
+    });
+    expect(chosenIn(after, "simicEnhancement5").map((o) => o.name)).toEqual([
+      "Acid Spit",
+    ]);
+    expect(after.features.map((f) => f.title)).toContain("Acid Spit");
+  });
+
+  it("isn't offered again on a later level", () => {
+    let char = simic4();
+    char = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: OfficialClass.Fighter,
+      chosenOptions: { simicEnhancement5: ["Carapace"] },
+    });
+    const sixth = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: OfficialClass.Fighter,
+      chosenOptions: { simicEnhancement5: ["Acid Spit"] },
+    });
+    expect(chosenIn(sixth, "simicEnhancement5").map((o) => o.name)).toEqual([
+      "Carapace",
+    ]);
   });
 });

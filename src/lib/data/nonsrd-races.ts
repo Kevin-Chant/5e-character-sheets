@@ -1076,7 +1076,7 @@ export const NONSRD_RACES: SrdRace[] = [
       {
         title: "Animal Enhancement",
         detail:
-          "You gain one grafted animal adaptation of your choice (such as a limited glide, a climb speed, underwater breathing, grappling appendages, natural armor, or an acid spit), with another added at 5th level.",
+          "You gain one grafted animal adaptation of your choice at 1st level, and a second from a different list at 5th level. Both are chosen under Animal Enhancement in your options.",
       },
     ],
     subraces: [],

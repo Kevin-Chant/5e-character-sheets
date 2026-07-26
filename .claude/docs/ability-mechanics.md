@@ -44,6 +44,16 @@ show "3 / 5 known" and offer only the unpicked rest. The catalog lives in
 the groups a character qualifies for (class, subclass, and level threshold all
 gate it) with their current allowance.
 
+**A group belongs to a class _or_ to a race**, never both. `race` (Simic
+Hybrid's Animal Enhancement) reads its `known` thresholds as **total character
+levels** rather than class levels — which is why race picks go through their own
+`newRaceOptionPicksAt` / `applyRaceOptions` rather than riding on
+`applyClassLevel`: folding them in would re-award the pick on every multiclass
+dip. `raceOptionFeaturesFor` puts each pick's summary in the features list, so a
+racial adaptation reads as the feature it is. A two-tier racial choice is **two
+groups with different lists**, not one group with a growing count — that's what
+Simic's 1st- and 5th-level menus actually are.
+
 **Fighting styles and eldritch invocations deliberately stay in `features`.**
 Rider matching keys off feature titles, so moving them would silently unhook
 Great Weapon Fighting, Archery, and Dueling. `ridersFor` _does_ also scan chosen
@@ -55,19 +65,29 @@ Master is **not**, so its maneuver summaries are original paraphrases of
 mechanical facts only, per the rule in `nonsrd-classes.ts`.
 
 Both wizards prompt for them, through one shared `ChosenOptionPicker`
-(`builder-common.tsx`) that offers only what's _new_ — options already known
+(`builder-pickers.tsx`) that offers only what's _new_ — options already known
 from an earlier level are filtered out, and the boxes lock once the level's
 allowance is spent:
 
-- **Level-up** — folded into the existing "Class features" step, alongside
-  fighting styles and invocations. `newOptionPicksAt(className, level, subclass)`
-  gives the delta for the level. The subclass is read from the _pending_ choice
-  first, so a fighter taking Battle Master at 3rd is offered their first three
-  maneuvers in the same pass.
-- **Creation** — on the class step. In practice only the ranger's two lists ever
+- **Level-up** — folded into the "Level choices" step, alongside fighting styles
+  and invocations. `newOptionPicksAt(className, level, subclass)` gives the delta
+  for the level. The subclass is read from the _pending_ choice first, so a
+  fighter taking Battle Master at 3rd is offered their first three maneuvers in
+  the same pass. Race groups are appended from `grants.raceOptionPicks`.
+- **Creation** — class groups on the class step, race groups on the race step.
+  In practice only the ranger's two lists and Simic's first enhancement ever
   appear, since every other group starts at class level 3; `buildCharacter`
   re-filters through `newOptionPicksAt(className, 1, …)` so a pick left behind by
   switching class mid-wizard can't leak onto the sheet.
+
+**`tagged` makes a level's picks cover several kinds.** A Kensei's 3rd-level
+pair is one melee weapon and one ranged one, not any two — so each `OptionDef`
+carries a `tag`, and the group names the level whose picks must cover each tag
+once. The picker then renders one labelled single-choice per tag instead of a
+capped checkbox list, which enforces the split by construction rather than by
+validating after the fact. The constraint belongs to a _level_: the Kensei's
+extra weapons at 6th/11th/17th are unrestricted, and go through the plain
+picker.
 
 `applyLevelUp` de-duplicates against what the character already knows, so
 re-running a level-up can't double an entry.

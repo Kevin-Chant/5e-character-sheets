@@ -29,10 +29,12 @@ import {
 } from "src/lib/builder/class-pools";
 import {
   newOptionPicksAt,
+  newRaceOptionPicksAt,
   optionFeaturesFor,
   optionGroup,
   optionSpellIndicesAt,
   OptionGroup,
+  raceOptionFeaturesFor,
   resistancesFromOptions,
 } from "src/lib/builder/chosen-options";
 import {
@@ -222,6 +224,61 @@ function multiclassAwareToolChoices(
   const choose = multiclassProficienciesFor(className).chooseTools;
   if (choose === 0) return undefined;
   return { choose, from: multiclassToolOptions(className) };
+}
+
+/**
+ * Record the picks a *race* owes at this total character level, and add each
+ * pick's prose to the features list.
+ *
+ * The race counterpart to step 9 of `applyClassLevel`, and separate from it for
+ * the reason the two count different things: a racial allowance advances on
+ * total character level, so folding it into a per-class call would award it
+ * again on every multiclass dip. Idempotent by the same de-duplication, so
+ * re-running a level is safe.
+ */
+export function applyRaceOptions(
+  char: Character,
+  choices: LevelChoices,
+  totalCharacterLevel: number,
+): void {
+  const raceName = char.race?.name;
+  const due = new Set(
+    newRaceOptionPicksAt(raceName, totalCharacterLevel).map(
+      ({ group }) => group.category,
+    ),
+  );
+  for (const [category, names] of Object.entries(choices.chosenOptions)) {
+    if (!due.has(category)) continue;
+    const group = optionGroup(category);
+    if (!group) continue;
+    for (const name of names) {
+      const def = group.options.find((o) => o.name === name);
+      if (!def) continue;
+      const already = (char.chosenOptions ?? []).some(
+        (o) => o.category === category && o.name === name,
+      );
+      if (already) continue;
+      (char.chosenOptions ??= []).push({
+        category,
+        name,
+        ...(def.summary ? { detail: def.summary } : {}),
+      });
+    }
+  }
+
+  const haveFeature = new Set(
+    char.features.map((f) => f.title.trim().toLowerCase()),
+  );
+  for (const f of raceOptionFeaturesFor(
+    char.chosenOptions ?? [],
+    raceName,
+    totalCharacterLevel,
+  )) {
+    const key = f.title.trim().toLowerCase();
+    if (haveFeature.has(key)) continue;
+    haveFeature.add(key);
+    char.features.push(text(f.title, f.detail));
+  }
 }
 
 /**
@@ -551,6 +608,11 @@ export interface LevelGrants {
   toolChoices?: { choose: number; from: string[] };
   // Closed option lists with how many *new* picks this level allows.
   optionPicks: { group: OptionGroup; count: number }[];
+  // The same, for lists a *race* grants (Simic Hybrid's second Animal
+  // Enhancement at 5th). Filled by the caller rather than by `grantsAt`, which
+  // is told a class and a class level and so can't see the character's race or
+  // total level.
+  raceOptionPicks?: { group: OptionGroup; count: number }[];
   // Skill picks owed by a multiclass proficiency grant, with the list they come
   // from. Absent unless this level is a multiclass entry.
   multiclassSkills?: { choose: number; from: SkillName[] };
@@ -615,4 +677,5 @@ export const hasFeatureChoices = (g: LevelGrants): boolean =>
   !!g.toolChoices ||
   !!g.multiclassSkills ||
   !!g.subclassSkillChoices ||
-  g.optionPicks.length > 0;
+  g.optionPicks.length > 0 ||
+  (g.raceOptionPicks?.length ?? 0) > 0;

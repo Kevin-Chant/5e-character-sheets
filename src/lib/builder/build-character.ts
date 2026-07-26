@@ -3,6 +3,7 @@ import {
   Alignment,
   ArmorType,
   DamageType,
+  DieOperation,
   DRACONIC_ANCESTRIES,
   LEVELED_SPELL_LEVELS,
   Operation,
@@ -16,7 +17,9 @@ import { randomUUID } from "src/lib/browser";
 import { UUID } from "crypto";
 import { modifier } from "src/lib/rules";
 import {
+  Attack,
   Character,
+  CustomFormulaWithDamage,
   EquipmentItem,
   HitDice,
   isTextComponentWithDetail,
@@ -31,7 +34,10 @@ import { BuilderState, CUSTOM_SUBRACE } from "src/lib/builder/types";
 import { syncMartialArts } from "src/lib/builder/class-features";
 
 import { syncRacePools } from "src/lib/builder/class-pools";
-import { applyClassLevel } from "src/lib/builder/level-grants";
+import {
+  applyClassLevel,
+  applyRaceOptions,
+} from "src/lib/builder/level-grants";
 import {
   getSrdRace,
   getSubrace,
@@ -159,6 +165,58 @@ const speedsFromTraits = (
     }
   }
   return out;
+};
+
+// Turn a race's natural-weapon traits into rollable attacks — a Lizardfolk's
+// Bite, a Tabaxi's Cat's Claws, a Minotaur's Horns. The traits already state
+// their own numbers in a consistent shape ("…natural weapon(s) dealing 1d6 +
+// Strength piercing damage…"), so this reads the prose rather than duplicating
+// the table beside it, exactly as `resistancesFromTraits` and `speedsFromTraits`
+// do. Requiring the words "natural weapon" is what keeps conditional attacks out
+// — a Shifter's bite exists only while shifted, and says so instead.
+//
+// The attack is seeded once at creation and editable like any other; nothing
+// re-derives it, because no natural weapon scales with level.
+const NATURAL_WEAPON =
+  /natural weapons?\b[^.]*?(\d+)d(\d+)\s*\+\s*(\w+)\s+(\w+)\s+damage/i;
+
+const naturalWeaponAttacks = (traits: TextComponent[]): Attack[] => {
+  const out: Attack[] = [];
+  for (const t of traits) {
+    const detail = isTextComponentWithDetail(t) ? t.detail : "";
+    const m = NATURAL_WEAPON.exec(`${t.title}. ${detail}`);
+    if (!m) continue;
+    const [, count, faces, abilityWord, damageWord] = m;
+    const die = DIE_BY_FACES[Number(faces)];
+    const ability = STAT_BY_NAME[abilityWord.toLowerCase()];
+    const damageType = DAMAGE_BY_WORD.get(damageWord.toLowerCase());
+    if (!die || !ability || !damageType) continue;
+    out.push({
+      id: randomUUID(),
+      name: t.title,
+      bonus: {
+        operation: Operation.addition,
+        operands: [ability, "proficiencyBonus"],
+      },
+      formula: {
+        [damageType]: {
+          operation: Operation.addition,
+          operands: [[Number(count), die, DieOperation.roll], ability],
+        },
+      } as CustomFormulaWithDamage,
+    });
+  }
+  return out;
+};
+
+// Ability names as the trait prose spells them, for the scanner above.
+const STAT_BY_NAME: Record<string, StatKey> = {
+  strength: StatKey.str,
+  dexterity: StatKey.dex,
+  constitution: StatKey.con,
+  intelligence: StatKey.int,
+  wisdom: StatKey.wis,
+  charisma: StatKey.cha,
 };
 
 // Rewrite a Dragonborn's ancestry-dependent traits (Draconic Ancestry, Breath
@@ -561,6 +619,11 @@ function guidedCharacter(state: BuilderState): Character {
   // the two wizards from applying different sets.
   if (char.class[0]) applyClassLevel(char, char.class[0], state);
 
+  // Picks a *race* owes at 1st level (Simic Hybrid's first Animal Enhancement).
+  // After `char.race` is set and after the class grants, so a race feature reads
+  // below the class ones in the features list.
+  applyRaceOptions(char, state, 1);
+
   // A level-1 feat, for the two races that grant one. Applied through the same
   // `applyFeat` the level-up wizard uses, and last of all so its grants layer
   // over the class/race/background proficiencies rather than being overwritten.
@@ -572,6 +635,13 @@ function guidedCharacter(state: BuilderState): Character {
   // The monk's Unarmed Strike, whose damage die is the Martial Arts die. After
   // the loadout, since that's what populates `char.attacks`.
   if (char.class[0]) syncMartialArts(char, char.class[0]);
+
+  // Racial natural weapons (a Lizardfolk's Bite, a Tabaxi's claws) become real
+  // attacks rather than prose you have to translate mid-combat. Also after the
+  // loadout, and skipping any name the loadout already used.
+  const attackNames = new Set(char.attacks.map((a) => a.name.toLowerCase()));
+  for (const attack of naturalWeaponAttacks(raceTraits))
+    if (!attackNames.has(attack.name.toLowerCase())) char.attacks.push(attack);
 
   // Personality
   const p = state.personality;

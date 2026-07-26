@@ -26,6 +26,7 @@ import {
 import {
   LevelUpState,
   MULTICLASS_PREREQS,
+  additionalMagicalSecretsAt,
   applyLevelUp,
   classHasCantrips,
   emptyFeatChoices,
@@ -37,7 +38,7 @@ import {
 } from "src/lib/builder/level-up";
 import { subclassesForClass } from "src/lib/builder/subclasses";
 import { chosenIn } from "src/lib/builder/chosen-options";
-import { ALL_SPELLS } from "src/lib/spells/srd-spells";
+import { ALL_SPELLS, getSrdSpell } from "src/lib/spells/srd-spells";
 import { grantsForLevelUp } from "./level-up-wizard";
 import { FEATS } from "src/lib/builder/feats";
 import {
@@ -354,25 +355,33 @@ export function LevelUpFeatureChoicesStep({
           />
         </Field>
       )}
-      {newPicks.map(({ group, count }) => (
-        <ChosenOptionPicker
-          key={group.category}
-          group={group}
-          count={count}
-          // Options already on the sheet from an earlier level aren't offered
-          // again — you're picking what's *new*.
-          alreadyKnown={chosenIn(character, group.category).map((o) => o.name)}
-          picked={state.chosenOptions[group.category] ?? []}
-          onChange={(names) =>
-            patch({
-              chosenOptions: {
-                ...state.chosenOptions,
-                [group.category]: names,
-              },
-            })
-          }
-        />
-      ))}
+      {/* Class lists first, then anything the character's race owes at this
+          total level (Simic Hybrid's 5th-level Animal Enhancement) — both land
+          in the same `chosenOptions` map and use the same picker. */}
+      {[...newPicks, ...(grants.raceOptionPicks ?? [])].map(
+        ({ group, count }) => (
+          <ChosenOptionPicker
+            key={group.category}
+            group={group}
+            count={count}
+            classLevel={targetClassLevel(character, state)}
+            // Options already on the sheet from an earlier level aren't offered
+            // again — you're picking what's *new*.
+            alreadyKnown={chosenIn(character, group.category).map(
+              (o) => o.name,
+            )}
+            picked={state.chosenOptions[group.category] ?? []}
+            onChange={(names) =>
+              patch({
+                chosenOptions: {
+                  ...state.chosenOptions,
+                  [group.category]: names,
+                },
+              })
+            }
+          />
+        ),
+      )}
     </div>
   );
 }
@@ -536,6 +545,14 @@ export function LevelUpSpellsStep({
     ? preparedSpellCount(preview, targetKlass)
     : null;
 
+  // The subclass may be chosen in this same run, so a pending pick wins over
+  // what's on the sheet — the same precedence `grantsForLevelUp` uses.
+  const secretsCount = additionalMagicalSecretsAt(
+    state.className,
+    newLevel,
+    state.subclass ?? targetKlass?.subclass,
+  );
+
   const canSwap = !isPreparedCaster(state.className);
   const knownSpells = canSwap
     ? Object.entries(character.spells).flatMap(([bucket, list]) =>
@@ -596,6 +613,23 @@ export function LevelUpSpellsStep({
           </Field>
         );
       })()}
+      {/* College of Lore's Additional Magical Secrets, at bard 6. Two spells
+          from *any* class's list, on top of the bard-list spell this level
+          already grants — so it's its own picker with its own cap, spanning
+          every spell level the bard can cast rather than one box per level. */}
+      {secretsCount > 0 && (
+        <Field
+          label={`Additional Magical Secrets (choose ${secretsCount})`}
+          hint="Any class's spell list, of a level you can cast. These count as bard spells for you."
+        >
+          <SpellChecklist
+            level={[0, ...leveledSpellLevels]}
+            selected={state.secretSpells}
+            max={secretsCount}
+            onChange={(secretSpells) => patch({ secretSpells })}
+          />
+        </Field>
+      )}
       {knownSpells.length > 0 && (
         <Field
           label="Swap a known spell (optional)"
@@ -696,6 +730,11 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
   }
   if (isCasterClass(state.className) && newSpellCount > 0)
     rows.push(["New spells", String(newSpellCount)]);
+  if (state.secretSpells.length > 0)
+    rows.push([
+      "Additional Magical Secrets",
+      state.secretSpells.map((i) => getSrdSpell(i)?.name ?? i).join(", "),
+    ]);
 
   // What the level *gives* you, as opposed to what you chose above. Diffed off
   // the same preview the wizard is about to commit, so it can't promise

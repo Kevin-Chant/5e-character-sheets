@@ -66,7 +66,7 @@ describe("LevelUpWizard step routing", () => {
     );
     open(char);
     await next();
-    expect(screen.getByText("Class features")).toBeInTheDocument();
+    expect(screen.getByText("Level choices")).toBeInTheDocument();
     expect(screen.getByText(/Expertise \(choose 2\)/)).toBeInTheDocument();
   });
 

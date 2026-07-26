@@ -60,6 +60,10 @@ export interface OptionDef {
     roll?: { label: string; die: StandardDie; count?: number };
     note: string;
   };
+  // Classifies the option for a group whose picks at one level must cover
+  // several kinds — a Kensei's first two weapons are one melee and one ranged.
+  // Read only via `OptionGroup.tagged`; ungrouped lists leave it unset.
+  tag?: string;
   // Features gated by the owning class's level — for a *single* sub-choice that
   // then unlocks features across several levels (a Storm Herald's environment
   // shapes its aura at 3rd, then Storm Soul/Shielding Storm/Raging Storm at
@@ -77,9 +81,15 @@ export interface OptionGroup {
   // are just values (see `OptionDef.summary`).
   summary?: string;
   // The class that grants the picks, and (for a subclass feature) which
-  // subclass — a fighter only gets maneuvers as a Battle Master.
-  className: OfficialClass;
+  // subclass — a fighter only gets maneuvers as a Battle Master. Exactly one of
+  // `className` / `race` is set.
+  className?: OfficialClass;
   subclass?: string;
+  // A *race* grants the picks instead (Simic Hybrid's Animal Enhancement).
+  // Matched against the character's base race name; the `known` thresholds are
+  // then read as total character levels rather than class levels, because
+  // that's what a racial feature advances on.
+  race?: string;
   // How many you know at a given class level: the last threshold reached.
   // `[level, count]` pairs, ascending.
   known: [number, number][];
@@ -91,7 +101,30 @@ export interface OptionGroup {
   // Draconic Bloodline (Elemental Affinity) and the Genie (Elemental Gift) grant
   // theirs at 6th, though the ancestry/kind is chosen at 1st. Defaults to 1.
   resistanceLevel?: number;
+  // The picks made at one specific class level must cover each of these tags
+  // exactly once — the Kensei's 3rd-level pair is one melee weapon and one
+  // ranged weapon, not any two weapons. Only that level is constrained; the
+  // extra picks at 6th/11th/17th stay free, so this is a property of a level
+  // rather than of the group. The picker honours it by rendering one labelled
+  // single-choice per tag instead of a capped checkbox list, which enforces the
+  // split by construction rather than by validating after the fact.
+  tagged?: { level: number; tags: { tag: string; label: string }[] };
 }
+
+// The per-tag choices a group owes at a class level, or undefined when this
+// level's picks are unconstrained. `count` is passed in so a level that grants
+// fewer picks than the group has tags (which no group does today, but a
+// multiclass dip could reach) falls back to the plain picker.
+export const taggedPicksAt = (
+  group: OptionGroup,
+  classLevel: number,
+  count: number,
+): { tag: string; label: string }[] | undefined =>
+  group.tagged &&
+  group.tagged.level === classLevel &&
+  group.tagged.tags.length === count
+    ? group.tagged.tags
+    : undefined;
 
 // The damage resistances a set of picks confers, via `OptionGroup.resistances`,
 // gated on the character having reached each group's `resistanceLevel`.
@@ -962,16 +995,78 @@ export const OPTION_GROUPS: OptionGroup[] = [
       "Your chosen weapons count as monk weapons, and gain the subclass's Kensei features.",
     className: OfficialClass.Monk,
     subclass: "Kensei",
-    // Two at 3rd (one melee, one ranged), then one *more* kensei weapon at each
-    // of 6th, 11th, and 17th level (XGE) — five in all. (The one-of-each melee/
-    // ranged split on the first pick isn't enforced by the picker.)
+    // Two at 3rd, then one *more* kensei weapon at each of 6th, 11th, and 17th
+    // level (XGE) — five in all. The 3rd-level pair must be one melee and one
+    // ranged, which `tagged` enforces; the later picks are unrestricted.
     known: [
       [3, 2],
       [6, 3],
       [11, 4],
       [17, 5],
     ],
+    tagged: {
+      level: 3,
+      tags: [
+        { tag: "melee", label: "Melee kensei weapon" },
+        { tag: "ranged", label: "Ranged kensei weapon" },
+      ],
+    },
     options: KENSEI_WEAPONS,
+  },
+  // The one *race*-granted pair of lists. Simic Hybrid's Animal Enhancement is
+  // two picks from two different menus — one at 1st level, a second at 5th — so
+  // it models as two groups rather than as one group with a growing count. That
+  // is the whole of the "two tiers": the lists don't overlap, and the 5th-level
+  // options are strictly the bulkier grafts.
+  //
+  // Ravnica content, so these summaries are original paraphrases of the
+  // mechanical facts only — the same rule `nonsrd-races.ts` follows.
+  {
+    category: "simicEnhancement1",
+    label: "Animal Enhancement (1st level)",
+    summary: "One grafted adaptation, chosen when your body is first altered.",
+    race: "Simic Hybrid",
+    known: [[1, 1]],
+    options: [
+      {
+        name: "Manta Glide",
+        summary:
+          "Ray-like fins let you glide: while falling and not incapacitated, you can subtract up to 100 feet from the fall when working out damage, and move up to 2 feet horizontally per foot descended.",
+      },
+      {
+        name: "Nimble Climber",
+        summary: "You gain a climbing speed equal to your walking speed.",
+      },
+      {
+        name: "Underwater Adaptation",
+        summary:
+          "You can breathe air and water, and gain a swimming speed equal to your walking speed.",
+      },
+    ],
+  },
+  {
+    category: "simicEnhancement5",
+    label: "Animal Enhancement (5th level)",
+    summary: "A second adaptation, grafted once you reach 5th level.",
+    race: "Simic Hybrid",
+    known: [[5, 1]],
+    options: [
+      {
+        name: "Grappling Appendages",
+        summary:
+          "Two retractable claws you can use as a bonus-action special attack: on a hit the target takes 1d6 bludgeoning damage and is grappled, and each claw can hold only one creature. The claws can't be used to wield anything.",
+      },
+      {
+        name: "Carapace",
+        summary:
+          "Hardened plates grow over you: when not wearing armor your AC is 13 + your Dexterity modifier, and you can use a shield with it.",
+      },
+      {
+        name: "Acid Spit",
+        summary:
+          "A ranged attack against a creature within 30 feet, once per short or long rest, dealing 2d10 acid damage on a hit — rising by 1d10 at 11th and again at 17th level.",
+      },
+    ],
   },
   {
     category: "rune",
@@ -1341,16 +1436,63 @@ export const optionGroup = (category: string): OptionGroup | undefined =>
 export function availableOptionGroups(
   character: Character,
 ): { group: OptionGroup; known: number }[] {
+  const total = totalLevel(character);
   return OPTION_GROUPS.flatMap((group) => {
-    const klass = character.class.find(
-      (k) =>
-        k.name === group.className &&
-        (!group.subclass || k.subclass === group.subclass),
-    );
-    if (!klass) return [];
-    const known = knownAt(klass.level, group.known);
+    let level: number;
+    if (group.race) {
+      if (character.race.name !== group.race) return [];
+      level = total;
+    } else {
+      const klass = character.class.find(
+        (k) =>
+          k.name === group.className &&
+          (!group.subclass || k.subclass === group.subclass),
+      );
+      if (!klass) return [];
+      level = klass.level;
+    }
+    const known = knownAt(level, group.known);
     return known > 0 ? [{ group, known }] : [];
   });
+}
+
+const totalLevel = (character: Character): number =>
+  character.class.reduce((sum, k) => sum + k.level, 0);
+
+// How many *new* picks reaching a total character level grants from each of a
+// race's groups. The race counterpart to `newOptionPicksAt` — kept separate
+// because the two count different levels, and conflating them would let a
+// multiclass dip re-award a racial pick.
+export function newRaceOptionPicksAt(
+  raceName: string | undefined,
+  totalCharacterLevel: number,
+): { group: OptionGroup; count: number }[] {
+  return OPTION_GROUPS.flatMap((group) => {
+    if (!group.race || group.race !== raceName) return [];
+    const count =
+      knownAt(totalCharacterLevel, group.known) -
+      knownAt(totalCharacterLevel - 1, group.known);
+    return count > 0 ? [{ group, count }] : [];
+  });
+}
+
+// The feature prose a race's picks confer at a total character level. The race
+// counterpart to `optionFeaturesFor`; each Simic enhancement is a real feature,
+// so it belongs in the features list and not only in the options chip row.
+export function raceOptionFeaturesFor(
+  picks: ChosenOption[],
+  raceName: string | undefined,
+  totalCharacterLevel: number,
+): RaceTrait[] {
+  const out: RaceTrait[] = [];
+  for (const pick of picks) {
+    const group = optionGroup(pick.category);
+    if (!group?.race || group.race !== raceName) continue;
+    if (knownAt(totalCharacterLevel, group.known) === 0) continue;
+    const def = group.options.find((o) => o.name === pick.name);
+    if (def?.summary) out.push({ title: def.name, detail: def.summary });
+  }
+  return out;
 }
 
 // How many *new* picks reaching `level` in a class grants, per group: the

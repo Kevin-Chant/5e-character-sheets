@@ -284,3 +284,110 @@ describe("LevelUpSpellsStep — known-spell counts", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("LevelUpFeatureChoicesStep — Kensei's melee/ranged split", () => {
+  // Monk 2 → 3, choosing Way of the Kensei in the same run.
+  const kenseiStep = () =>
+    renderStep(advanceTo(level1("monk"), "Monk", 2), {
+      className: OfficialClass.Monk,
+      subclass: "Kensei",
+    });
+
+  it("asks for one melee and one ranged weapon, not any two", () => {
+    kenseiStep();
+    expect(screen.getByText("Melee kensei weapon")).toBeInTheDocument();
+    expect(screen.getByText("Ranged kensei weapon")).toBeInTheDocument();
+  });
+
+  it("offers only melee weapons in the melee slot", () => {
+    kenseiStep();
+    const melee = screen.getByRole("combobox", {
+      name: /Melee kensei weapon/,
+    });
+    const names = within(melee)
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(names).toContain("Longsword");
+    expect(names).not.toContain("Longbow");
+    expect(names).not.toContain("Shortbow");
+  });
+
+  it("records a pick per slot without disturbing the other", async () => {
+    const { patch } = kenseiStep();
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /Melee kensei weapon/ }),
+      "Longsword",
+    );
+    expect(patch).toHaveBeenCalledWith({
+      chosenOptions: { kenseiWeapon: ["Longsword"] },
+    });
+  });
+
+  it("falls back to a single free pick at 6th, where the split doesn't apply", () => {
+    const monk5 = advanceTo(level1("monk"), "Monk", 5);
+    monk5.class[0].subclass = "Kensei";
+    renderStep(monk5, { className: OfficialClass.Monk });
+    expect(screen.queryByText("Melee kensei weapon")).not.toBeInTheDocument();
+    expect(screen.getByText("Kensei Weapons")).toBeInTheDocument();
+  });
+});
+
+describe("LevelUpSpellsStep — Lore Bard's Additional Magical Secrets", () => {
+  const bard5 = (subclass: string) => {
+    const char = advanceTo(level1("bard"), "Bard", 5);
+    char.class[0].subclass = subclass;
+    return char;
+  };
+
+  const renderSpells = (character: Character) => {
+    const patch = vi.fn();
+    render(
+      <LevelUpSpellsStep
+        character={character}
+        state={{
+          ...defaultLevelUpState(character),
+          className: OfficialClass.Bard,
+        }}
+        patch={patch}
+      />,
+    );
+    return { patch };
+  };
+
+  it("offers two off-list spells to a Lore bard reaching 6th", () => {
+    renderSpells(bard5("Lore"));
+    expect(
+      screen.getByText("Additional Magical Secrets (choose 2)"),
+    ).toBeInTheDocument();
+    // The list ignores the bard list — Fireball is a sorcerer/wizard spell.
+    expect(screen.getByText("Fireball")).toBeInTheDocument();
+  });
+
+  it("groups the mixed-level list under level headings", () => {
+    renderSpells(bard5("Lore"));
+    const list = screen.getByText("Fireball").closest(".builder-spell-list")!;
+    const headings = within(list as HTMLElement)
+      .getAllByRole("heading")
+      .map((h) => h.textContent);
+    // Ascending, and the cantrips the bard can also take are named as such.
+    expect(headings).toEqual([
+      "Cantrips",
+      "1st level",
+      "2nd level",
+      "3rd level",
+    ]);
+  });
+
+  it("writes picks to secretSpells, apart from the level's own allowance", async () => {
+    const { patch } = renderSpells(bard5("Lore"));
+    await userEvent.click(screen.getByText("Fireball"));
+    expect(patch).toHaveBeenCalledWith({ secretSpells: ["fireball"] });
+  });
+
+  it("offers nothing to a Valor bard", () => {
+    renderSpells(bard5("Valor"));
+    expect(
+      screen.queryByText(/Additional Magical Secrets/),
+    ).not.toBeInTheDocument();
+  });
+});

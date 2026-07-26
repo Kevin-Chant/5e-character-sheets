@@ -38,7 +38,10 @@ import {
   weaponsInCategory,
 } from "src/lib/builder/equipment";
 import { buildCharacter } from "src/lib/builder/build-character";
-import { newOptionPicksAt } from "src/lib/builder/chosen-options";
+import {
+  newOptionPicksAt,
+  newRaceOptionPicksAt,
+} from "src/lib/builder/chosen-options";
 import { calculateCustomFormula } from "src/lib/formula";
 import {
   POINT_BUY_BUDGET,
@@ -427,6 +430,29 @@ export function RaceStep({ state, patch }: StepProps) {
         );
       })()}
 
+      {/* Closed option lists a race grants at 1st level — today only Simic
+          Hybrid's first Animal Enhancement. Same picker the class lists use, so
+          the pick lands in `chosenOptions` and shows on the sheet like any
+          other. The 5th-level enhancement is prompted by the level-up wizard. */}
+      {newRaceOptionPicksAt(race?.name, 1).map(({ group, count }) => (
+        <ChosenOptionPicker
+          key={group.category}
+          group={group}
+          count={count}
+          classLevel={1}
+          alreadyKnown={[]}
+          picked={state.chosenOptions[group.category] ?? []}
+          onChange={(names) =>
+            patch({
+              chosenOptions: {
+                ...state.chosenOptions,
+                [group.category]: names,
+              },
+            })
+          }
+        />
+      ))}
+
       {/* Variant Human and Custom Lineage are the only ways a level-1
           character starts with a feat. Same picker the level-up wizard uses. */}
       {raceGrantsFeat(race, getSubrace(race, state.subraceIndex)) && (
@@ -642,6 +668,7 @@ export function ClassStep({ state, patch }: StepProps) {
               key={group.category}
               group={group}
               count={count}
+              classLevel={1}
               alreadyKnown={[]}
               picked={state.chosenOptions[group.category] ?? []}
               onChange={(names) =>

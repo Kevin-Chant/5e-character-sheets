@@ -235,40 +235,46 @@ export const RUNE_KNIGHT_RUNES: OptionDef[] = [
 // `WEAPON_PRESETS` in `weapon-presets.ts` so the two stay in sync; excluded
 // there are the heavy martial weapons (Glaive, Greataxe, Greatsword, Halberd,
 // Maul, Pike, Heavy Crossbow) and the special-property Lance and Net.
+//
+// Every option carries a `melee` / `ranged` tag: the group's `tagged` rule uses
+// them to make the 3rd-level pair one of each, which is what the feature
+// actually says. Thrown melee weapons (Javelin, Spear, Dagger) are tagged
+// `melee` — that's the category the feature means, not how you can use them.
 export const KENSEI_WEAPONS: OptionDef[] = [
   // Simple melee
-  { name: "Club" },
-  { name: "Dagger" },
-  { name: "Greatclub" },
-  { name: "Handaxe" },
-  { name: "Javelin" },
-  { name: "Light Hammer" },
-  { name: "Mace" },
-  { name: "Quarterstaff" },
-  { name: "Sickle" },
-  { name: "Spear" },
+  { name: "Club", tag: "melee" },
+  { name: "Dagger", tag: "melee" },
+  { name: "Greatclub", tag: "melee" },
+  { name: "Handaxe", tag: "melee" },
+  { name: "Javelin", tag: "melee" },
+  { name: "Light Hammer", tag: "melee" },
+  { name: "Mace", tag: "melee" },
+  { name: "Quarterstaff", tag: "melee" },
+  { name: "Sickle", tag: "melee" },
+  { name: "Spear", tag: "melee" },
   // Simple ranged
-  { name: "Light Crossbow" },
-  { name: "Dart" },
-  { name: "Shortbow" },
-  { name: "Sling" },
+  { name: "Light Crossbow", tag: "ranged" },
+  { name: "Dart", tag: "ranged" },
+  { name: "Shortbow", tag: "ranged" },
+  { name: "Sling", tag: "ranged" },
   // Martial melee
-  { name: "Battleaxe" },
-  { name: "Flail" },
-  { name: "Longsword" },
-  { name: "Morningstar" },
-  { name: "Rapier" },
-  { name: "Scimitar" },
-  { name: "Shortsword" },
-  { name: "Trident" },
-  { name: "War Pick" },
-  { name: "Warhammer" },
-  { name: "Whip" },
+  { name: "Battleaxe", tag: "melee" },
+  { name: "Flail", tag: "melee" },
+  { name: "Longsword", tag: "melee" },
+  { name: "Morningstar", tag: "melee" },
+  { name: "Rapier", tag: "melee" },
+  { name: "Scimitar", tag: "melee" },
+  { name: "Shortsword", tag: "melee" },
+  { name: "Trident", tag: "melee" },
+  { name: "War Pick", tag: "melee" },
+  { name: "Warhammer", tag: "melee" },
+  { name: "Whip", tag: "melee" },
   // Martial ranged
-  { name: "Blowgun" },
-  { name: "Hand Crossbow" },
+  { name: "Blowgun", tag: "ranged" },
+  { name: "Hand Crossbow", tag: "ranged" },
   {
     name: "Longbow",
+    tag: "ranged",
     summary: "Named exception — allowed despite its heavy property.",
   },
 ];

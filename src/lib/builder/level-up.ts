@@ -22,6 +22,7 @@ import {
 
 import {
   applyClassLevel,
+  applyRaceOptions,
   emptyLevelChoices,
   LevelChoices,
 } from "src/lib/builder/level-grants";
@@ -155,6 +156,12 @@ export interface LevelUpState extends LevelChoices {
   featSpellChoices: Record<number, string[]>;
   // Newly learned spells, by numeric level (0 = cantrips).
   newSpells: Record<number, string[]>;
+  // Spells learned from an allowance that ignores the class's spell list —
+  // today only a Lore bard's Additional Magical Secrets at 6th. Held apart from
+  // `newSpells` because the two are capped separately: the bard still learns
+  // their ordinary spell that level, from the bard list. A flat list rather
+  // than a per-level map, because the allowance itself spans spell levels.
+  secretSpells: string[];
   // A known spell being swapped out this level. Known casters (bard, sorcerer,
   // warlock, ranger) may replace one spell they know each time they level.
   // `"<bucketLevel>.<index>"` addresses the spell in `character.spells`.
@@ -177,6 +184,21 @@ export function mysticArcanumLevelAt(
   return { 11: 6, 13: 7, 15: 8, 17: 9 }[level];
 }
 
+// How many spells from *any* class's list a College of Lore bard learns on
+// reaching a given bard level — two at 6th, and never again. These sit on top of
+// the level's ordinary bard-list allowance rather than consuming it, which is
+// why they can't be folded into `spellListFilterFor`: that switches the whole
+// level between one filter and none, and 6th level needs both at once.
+export function additionalMagicalSecretsAt(
+  className: string,
+  level: number,
+  subclass?: string,
+): number {
+  return className === OfficialClass.Bard && subclass === "Lore" && level === 6
+    ? 2
+    : 0;
+}
+
 // Cleared whenever the chosen feat (or the advancement mode) changes, so a
 // previous feat's picks don't leak into a different one.
 export const emptyFeatChoices = () => ({
@@ -197,6 +219,7 @@ export function defaultLevelUpState(character: Character): LevelUpState {
     asi: {},
     ...emptyFeatChoices(),
     newSpells: {},
+    secretSpells: [],
     ...emptyLevelChoices(),
     addedFeatures: [],
   };
@@ -250,6 +273,15 @@ export function applyLevelUp(
   //    pools, fighting style, expertise, tools, invocations, chosen options.
   //    Shared with the creation wizard so the two can't drift.
   applyClassLevel(char, klass, state);
+
+  // 2a. Picks a *race* owes at the new total character level (Simic Hybrid's
+  //     second Animal Enhancement at 5th). Keyed to the total rather than to
+  //     this class's level, which is why it isn't part of `applyClassLevel`.
+  applyRaceOptions(
+    char,
+    state,
+    char.class.reduce((sum, k) => sum + k.level, 0),
+  );
 
   // 3. Recompute derived numbers. HP/hit dice/PB/spell slots all read from the
   //    updated class list, so we just refresh the stored formulas + bump the
@@ -309,9 +341,15 @@ export function applyLevelUp(
     if (list) list.splice(Number(index), 1);
   }
 
-  // 7. Newly learned spells.
+  // 7. Newly learned spells — the class's own allowance, then any that came
+  //    from a list-ignoring allowance (Additional Magical Secrets). Both are
+  //    bard spells once learned, so they land the same way; only the picking
+  //    was different.
   for (const indices of Object.values(state.newSpells))
     for (const index of indices) addSrdSpell(char, index, state.className);
+  if (additionalMagicalSecretsAt(state.className, klass.level, klass.subclass))
+    for (const index of state.secretSpells)
+      addSrdSpell(char, index, state.className);
 
   // 8. Any manually added features.
   for (const f of state.addedFeatures)

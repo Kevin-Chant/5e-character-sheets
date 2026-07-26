@@ -9,6 +9,7 @@ import {
   targetClassLevel,
 } from "src/lib/builder/level-up";
 import { grantsAt, hasFeatureChoices } from "src/lib/builder/level-grants";
+import { newRaceOptionPicksAt } from "src/lib/builder/chosen-options";
 
 import {
   LevelUpAdvancementStep,
@@ -30,8 +31,11 @@ interface StepDef {
 // The grants for the level this wizard run is reaching. The subclass may be
 // chosen in this very run (Battle Master at 3rd owes maneuvers immediately), so
 // the pending choice wins over what's on the sheet.
-export const grantsForLevelUp = (character: Character, state: LevelUpState) =>
-  grantsAt(
+export const grantsForLevelUp = (
+  character: Character,
+  state: LevelUpState,
+) => ({
+  ...grantsAt(
     state.className,
     targetClassLevel(character, state),
     state.subclass ??
@@ -41,7 +45,14 @@ export const grantsForLevelUp = (character: Character, state: LevelUpState) =>
     // than from `isNewMulticlass`, so picking an absent class without ticking
     // that flag can't offer one allowance and apply another.
     targetClassLevel(character, state) === 1 && character.class.length > 0,
-  );
+  ),
+  // Racial allowances advance on total character level, which a level-up always
+  // raises by exactly one — whichever class it was spent on.
+  raceOptionPicks: newRaceOptionPicksAt(
+    character.race?.name,
+    character.class.reduce((sum, k) => sum + k.level, 0) + 1,
+  ),
+});
 
 // Whether the target class still needs a subclass at the level being reached.
 const subclassStepVisible = (character: Character, state: LevelUpState) => {
@@ -60,7 +71,10 @@ const STEPS: StepDef[] = [
   },
   {
     key: "featureChoices",
-    title: "Class features",
+    // Not "Class features": the step also carries skill and tool picks, and now
+    // a racial allowance (Simic Hybrid's 5th-level enhancement) that no class
+    // grants.
+    title: "Level choices",
     Component: LevelUpFeatureChoicesStep,
     // Asks `grantsAt` the same question the step itself does, so a new kind of
     // choice shows up in both without a second edit.

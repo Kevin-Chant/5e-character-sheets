@@ -10,6 +10,9 @@ import {
   optionFeaturesFor,
   optionGroup,
   optionSpellIndicesAt,
+  newRaceOptionPicksAt,
+  raceOptionFeaturesFor,
+  taggedPicksAt,
 } from "./chosen-options";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
 import { CLASS_POOLS, SUBCLASS_POOLS } from "src/lib/builder/class-pools";
@@ -299,5 +302,104 @@ describe("monk and fighter option lists", () => {
     );
     for (const option of optionGroup("kenseiWeapon")!.options)
       expect(presets.has(option.name), option.name).toBe(true);
+  });
+});
+
+describe("tagged picks (Kensei's melee/ranged split)", () => {
+  const kensei = optionGroup("kenseiWeapon")!;
+
+  it("tags every kensei weapon as melee or ranged", () => {
+    for (const option of kensei.options)
+      expect(["melee", "ranged"], option.name).toContain(option.tag);
+  });
+
+  it("offers at least one of each tag, so neither field can be empty", () => {
+    for (const { tag } of kensei.tagged!.tags)
+      expect(kensei.options.some((o) => o.tag === tag)).toBe(true);
+  });
+
+  it("constrains the 3rd-level pair and nothing else", () => {
+    expect(taggedPicksAt(kensei, 3, 2)?.map((t) => t.tag)).toEqual([
+      "melee",
+      "ranged",
+    ]);
+    // The extra weapons at 6/11/17 are one free pick each.
+    expect(taggedPicksAt(kensei, 6, 1)).toBeUndefined();
+    expect(taggedPicksAt(kensei, 11, 1)).toBeUndefined();
+  });
+
+  it("falls back to the plain picker when the count doesn't match the tags", () => {
+    expect(taggedPicksAt(kensei, 3, 1)).toBeUndefined();
+  });
+
+  it("leaves untagged groups alone", () => {
+    expect(taggedPicksAt(optionGroup("metamagic")!, 3, 2)).toBeUndefined();
+  });
+});
+
+describe("race option groups (Simic Hybrid's Animal Enhancement)", () => {
+  const simic = (level: number): Character => {
+    const c = withClass({ name: OfficialClass.Fighter, level });
+    c.race = { ...c.race, name: "Simic Hybrid" };
+    return c;
+  };
+
+  it("belongs to exactly one of a class or a race", () => {
+    for (const group of OPTION_GROUPS)
+      expect(
+        Boolean(group.className) !== Boolean(group.race),
+        group.category,
+      ).toBe(true);
+  });
+
+  it("owes the first enhancement at 1st level and the second at 5th", () => {
+    expect(
+      newRaceOptionPicksAt("Simic Hybrid", 1).map(({ group, count }) => [
+        group.category,
+        count,
+      ]),
+    ).toEqual([["simicEnhancement1", 1]]);
+    expect(
+      newRaceOptionPicksAt("Simic Hybrid", 5).map(
+        ({ group }) => group.category,
+      ),
+    ).toEqual(["simicEnhancement5"]);
+    // Nothing new on the levels in between, or after.
+    expect(newRaceOptionPicksAt("Simic Hybrid", 4)).toEqual([]);
+    expect(newRaceOptionPicksAt("Simic Hybrid", 6)).toEqual([]);
+  });
+
+  it("owes nothing to another race", () => {
+    expect(newRaceOptionPicksAt("Lizardfolk", 5)).toEqual([]);
+    expect(newRaceOptionPicksAt(undefined, 5)).toEqual([]);
+  });
+
+  it("counts total character level, not class level", () => {
+    expect(groupsFor(simic(1))).toEqual([["simicEnhancement1", 1]]);
+    expect(groupsFor(simic(5))).toEqual([
+      ["simicEnhancement1", 1],
+      ["simicEnhancement5", 1],
+    ]);
+    // A 3/2 multiclass is 5th level, so the second enhancement is owed.
+    const split = simic(3);
+    split.class.push({
+      id: randomUUID(),
+      name: OfficialClass.Rogue,
+      level: 2,
+    });
+    expect(groupsFor(split).map(([c]) => c)).toContain("simicEnhancement5");
+  });
+
+  it("turns picks into features once their level is reached", () => {
+    const picks = [
+      { category: "simicEnhancement1", name: "Nimble Climber" },
+      { category: "simicEnhancement5", name: "Carapace" },
+    ];
+    expect(
+      raceOptionFeaturesFor(picks, "Simic Hybrid", 1).map((f) => f.title),
+    ).toEqual(["Nimble Climber"]);
+    expect(
+      raceOptionFeaturesFor(picks, "Simic Hybrid", 5).map((f) => f.title),
+    ).toEqual(["Nimble Climber", "Carapace"]);
   });
 });
