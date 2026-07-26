@@ -237,9 +237,11 @@ export default function Root() {
       ? "Settings"
       : location.pathname === "/sessions"
         ? "Sessions"
-        : location.pathname === "/sheet" || onPlaySurface
-          ? (character?.name ?? "Character Select")
-          : "Home";
+        : onPlaySurface
+          ? (character?.name ?? "At the table")
+          : location.pathname === "/sheet"
+            ? (character?.name ?? "Character Select")
+            : "Home";
 
   // Not for a sheet you joined remotely or borrowed from a DM — sharing is the
   // owner's call, and neither of those copies is yours to offer.

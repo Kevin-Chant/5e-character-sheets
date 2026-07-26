@@ -35,6 +35,16 @@ interface PlaySessionOptions {
   onHello: (fromClientId: string) => void;
   // A peer left: drop what it owned.
   onLeave: (fromClientId: string) => void;
+  // A peer said who they are. Names only — liveness is best-effort (no
+  // heartbeats), which is fine for a dropdown and would be wrong for a lock.
+  onPresence: (fromClientId: string, name: string) => void;
+  // The DM pointed a sheet at someone. The provider checks it's addressed to
+  // us and raises the accept prompt — the sheet itself hasn't travelled.
+  onAssignSheet: (
+    participantId: string,
+    toClientId: string,
+    fromClientId: string,
+  ) => void;
   // Someone wants to play an offered sheet: whoever owns it replies.
   onClaimSheet: (participantId: string, fromClientId: string) => void;
   // A whole sheet arrived. The provider checks it's addressed to us and loads
@@ -51,6 +61,8 @@ export function usePlaySession({
   onRemoteState,
   onHello,
   onLeave,
+  onPresence,
+  onAssignSheet,
   onClaimSheet,
   onSheet,
 }: PlaySessionOptions) {
@@ -69,10 +81,20 @@ export function usePlaySession({
     onRemoteState,
     onHello,
     onLeave,
+    onPresence,
+    onAssignSheet,
     onClaimSheet,
     onSheet,
   });
-  handlers.current = { onRemoteState, onHello, onLeave, onClaimSheet, onSheet };
+  handlers.current = {
+    onRemoteState,
+    onHello,
+    onLeave,
+    onPresence,
+    onAssignSheet,
+    onClaimSheet,
+    onSheet,
+  };
 
   const publish = useCallback((message: SessionMessage) => {
     const session = sessionRef.current;
@@ -82,11 +104,15 @@ export function usePlaySession({
         ? PlaySessionEvent.STATE
         : message.kind === "hello"
           ? PlaySessionEvent.HELLO
-          : message.kind === "claimSheet"
-            ? PlaySessionEvent.CLAIM_SHEET
-            : message.kind === "sheet"
-              ? PlaySessionEvent.SHEET
-              : PlaySessionEvent.LEAVE;
+          : message.kind === "presence"
+            ? PlaySessionEvent.PRESENCE
+            : message.kind === "assignSheet"
+              ? PlaySessionEvent.ASSIGN
+              : message.kind === "claimSheet"
+                ? PlaySessionEvent.CLAIM_SHEET
+                : message.kind === "sheet"
+                  ? PlaySessionEvent.SHEET
+                  : PlaySessionEvent.LEAVE;
     try {
       session.publish(topic, [message]);
     } catch {
@@ -97,6 +123,17 @@ export function usePlaySession({
 
   const broadcastState = useCallback(
     (encounter: Encounter) => publish({ kind: "state", clientId, encounter }),
+    [publish, clientId],
+  );
+
+  const announcePresence = useCallback(
+    (name: string) => publish({ kind: "presence", clientId, name }),
+    [publish, clientId],
+  );
+
+  const assignSheet = useCallback(
+    (toClientId: string, participantId: string) =>
+      publish({ kind: "assignSheet", clientId, toClientId, participantId }),
     [publish, clientId],
   );
 
@@ -181,6 +218,25 @@ export function usePlaySession({
               return;
             handlers.current.onLeave(message.clientId);
           }),
+          session.subscribe(PlaySessionEvent.PRESENCE, (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (message?.kind !== "presence" || message.clientId === clientId)
+              return;
+            handlers.current.onPresence(message.clientId, message.name);
+          }),
+          session.subscribe(PlaySessionEvent.ASSIGN, (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (
+              message?.kind !== "assignSheet" ||
+              message.clientId === clientId
+            )
+              return;
+            handlers.current.onAssignSheet(
+              message.participantId,
+              message.toClientId,
+              message.clientId,
+            );
+          }),
           session.subscribe(PlaySessionEvent.CLAIM_SHEET, (args: any[]) => {
             const message = args?.[0] as SessionMessage | undefined;
             if (message?.kind !== "claimSheet" || message.clientId === clientId)
@@ -258,6 +314,8 @@ export function usePlaySession({
     join,
     leave,
     broadcastState,
+    announcePresence,
+    assignSheet,
     requestSheet,
     sendSheet,
   };

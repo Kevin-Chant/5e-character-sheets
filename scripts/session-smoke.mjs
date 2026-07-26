@@ -16,7 +16,7 @@
 //
 // Flags:
 //   --base <url>      dev server (default http://localhost:3000)
-//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | rejoin
+//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | rejoin
 //   --headed          show the browsers
 //   --slow <ms>       slow motion, for watching a failure happen
 //   --timeout <ms>    per-condition wait budget (default 15000)
@@ -89,7 +89,11 @@ const untilRoster = (page, names) =>
     page,
     `roster ${JSON.stringify(names)}`,
     (expected) => {
-      const found = [...document.querySelectorAll(".initiative-name")]
+      // A player's roster is the rail's pills; the DM's is the board's rows —
+      // the rail deliberately stopped duplicating the list for the seat.
+      const found = [
+        ...document.querySelectorAll(".initiative-name, .dm-row-name"),
+      ]
         .map((n) => n.textContent.trim())
         .sort();
       return JSON.stringify(found) === JSON.stringify(expected);
@@ -99,7 +103,7 @@ const untilRoster = (page, names) =>
 
 const roster = (page) =>
   page
-    .locator(".initiative-name")
+    .locator(".initiative-name, .dm-row-name")
     .allTextContents()
     .then((n) => n.map((s) => s.trim()).sort());
 
@@ -131,7 +135,7 @@ async function openClient(browser, fixture, label, extraFixtures = []) {
 
 const toSessions = async (client) => {
   await client.page.click('[aria-label="Sessions"]');
-  await untilText(client.page, "Play a game");
+  await untilText(client.page, "Been sent a code?");
 };
 
 // Start a game, optionally bringing sheets. Resolves once we're on /play with a
@@ -151,10 +155,11 @@ async function startGame(client, bring = []) {
   return (await client.page.locator(".session-code code").textContent()).trim();
 }
 
-// Join a game by code, optionally as one of your sheets.
-async function joinGame(client, code, playAs) {
+// Join a game by code, optionally as one of your sheets — or sheetless with a
+// table name, which is what the DM's "Hand to…" picker shows. The code box
+// sits inline on /sessions — one box for both kinds of code, no separate step.
+async function joinGame(client, code, playAs, tableName) {
   await toSessions(client);
-  await client.page.click("text=Join a game");
   await untilVisible(client.page, '[aria-label="Session code"]');
   await client.page.fill('[aria-label="Session code"]', code);
   await client.page.click('.session-join button[type="submit"]');
@@ -165,6 +170,8 @@ async function joinGame(client, code, playAs) {
     await client.page
       .locator(".lobby-characters label", { hasText: playAs })
       .click();
+  } else if (tableName) {
+    await client.page.fill('[aria-label="Your name at the table"]', tableName);
   }
   await client.page.click(".lobby-actions .btn-primary");
   await untilPath(client.page, "/play");
@@ -239,7 +246,6 @@ const scenarios = {
     await untilText(sharer.page, "End live session");
 
     await toSessions(joiner);
-    await joiner.page.click("text=Join a game");
     await untilVisible(joiner.page, '[aria-label="Session code"]');
     await joiner.page.fill(
       '[aria-label="Session code"]',
@@ -423,6 +429,50 @@ const scenarios = {
       offeredName,
     );
     check("leaving puts the sheet back on the table", true, true);
+
+    return [dm, player];
+  },
+
+  // The targeted half of sheet assignment: the DM points a sheet at a named
+  // player instead of waiting for a pickup. Presence gives them someone to
+  // point at; consent stays two-sided — the prompt travels, and the sheet
+  // only moves after the player says yes (via the ordinary claim flow).
+  async assign(browser) {
+    const dm = await openClient(browser, "martial-fighter", "dm", [
+      "full-caster-wizard",
+    ]);
+    const player = await openClient(browser, "empty-level-1", "player");
+    const offeredName = "Maelina Vael";
+
+    const code = await startGame(dm, [offeredName]);
+    // Sheetless, with a typed table name — the case assignment exists for.
+    await joinGame(player, code, undefined, "Nadia");
+
+    await untilVisible(dm.page, ".dm-assign-select");
+    await until(
+      dm.page,
+      "the joiner's name in the Hand to… picker",
+      (name) =>
+        [...document.querySelectorAll(".dm-assign-select option")].some(
+          (option) => option.textContent.trim() === name,
+        ),
+      "Nadia",
+    );
+    check("the joiner's name reaches the DM", true, true);
+
+    await dm.page.selectOption(".dm-assign-select", { label: "Nadia" });
+
+    // The prompt arrives, not the sheet.
+    await untilVisible(player.page, ".assign-prompt");
+    check("the assignment prompt reaches the player", true, true);
+    await player.page.click(".assign-prompt .btn-primary");
+
+    // Accepting runs the claim flow end to end: sheet arrives, opens, plays.
+    await untilVisible(player.page, ".action-board");
+    await untilText(player.page, offeredName);
+    check("accepting opens the sheet", true, true);
+    await untilText(dm.page, "In play");
+    check("the DM sees it in play", true, true);
 
     return [dm, player];
   },

@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaGoogleDrive, FaLaptop } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import LocalDatastore from "src/datastores/local-datastore";
 import Spinner from "src/components/spinner";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
-import { writeLastDatastore } from "src/lib/last-datastore";
+import { readLastDatastore, writeLastDatastore } from "src/lib/last-datastore";
 import { Character } from "src/lib/types";
 
 // The step between resolving a code and becoming a participant.
@@ -27,6 +27,9 @@ export interface LobbySelection {
   playAs?: Character;
   // Sheets put into the order without being opened. DM-side only.
   bring: Character[];
+  // What the table should call a joiner with no sheet — the name the DM sees
+  // when handing one out. Ignored when a character is chosen: its name wins.
+  displayName?: string;
 }
 
 interface SessionLobbyProps {
@@ -36,6 +39,30 @@ interface SessionLobbyProps {
   error?: string;
   onCancel: () => void;
   onConfirm: (selection: LobbySelection) => void;
+}
+
+// A sheetless joiner is a real person the DM may want to hand a sheet to, and
+// without a character there is no name to know them by.
+function NameField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="lobby-name">
+      <span className="text-muted">What should the table call you?</span>
+      <input
+        type="text"
+        aria-label="Your name at the table"
+        placeholder="Player"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
 }
 
 export default function SessionLobby({
@@ -51,9 +78,21 @@ export default function SessionLobby({
   const { setDatastore } = useDatastoreSelector();
   const [playAs, setPlayAs] = useState<Character | undefined>();
   const [brought, setBrought] = useState<Record<string, boolean>>({});
+  const [displayName, setDisplayName] = useState("");
 
   const hosting = mode === "host";
   const selected = characters.filter((c) => brought[c.uuid]);
+
+  // A deep link (or a refresh) lands here with no datastore selected even when
+  // this browser has already answered the storage question — home normally
+  // re-selects it on the way through, but nothing forces that route. Adopt the
+  // remembered local choice instead of re-asking; Drive still needs its OAuth
+  // round-trip, so it stays a button.
+  useEffect(() => {
+    if (!datastore && readLastDatastore() === "local") {
+      setDatastore(LocalDatastore);
+    }
+  }, [datastore, setDatastore]);
 
   // No datastore is the *storage-less joiner* — a real case, not an error, so
   // it's offered alongside picking a backend rather than behind it.
@@ -79,6 +118,9 @@ export default function SessionLobby({
             <FaLaptop /> Keep them in this browser
           </button>
         </div>
+        {!hosting && (
+          <NameField value={displayName} onChange={setDisplayName} />
+        )}
         <div className="lobby-actions">
           <button type="button" onClick={onCancel}>
             Back
@@ -87,7 +129,9 @@ export default function SessionLobby({
             type="button"
             className="btn-primary"
             disabled={busy}
-            onClick={() => onConfirm({ bring: [] })}
+            onClick={() =>
+              onConfirm({ bring: [], displayName: displayName.trim() })
+            }
           >
             {busy ? "Connecting…" : "Continue without a sheet"}
           </button>
@@ -107,8 +151,8 @@ export default function SessionLobby({
       )}
       <p className="text-muted">
         {hosting
-          ? "You'll be running this table. Bring any sheets you want in the order — party characters, companions, NPC stat blocks. Their players can take them over by opening them."
-          : "Pick the sheet you're playing. Your DM can hand you one instead, so coming in without one is fine."}
+          ? "You'll be running this table. Bring any sheets you want in the order — party characters, companions, NPC stat blocks. From the table you can hand them to players, or leave them offered for pickup."
+          : "Pick the sheet you're playing. Your DM can hand you one at the table instead, so coming in without one is fine."}
       </p>
 
       {characterLoading && (
@@ -150,6 +194,12 @@ export default function SessionLobby({
         })}
       </ul>
 
+      {/* Only worth asking when no character will speak for you: the DM hands
+          sheets out by name, and a sheetless joiner otherwise has none. */}
+      {!hosting && !playAs && (
+        <NameField value={displayName} onChange={setDisplayName} />
+      )}
+
       {/* Said at the moment of choosing, because this is the only moment the
           answer can still be no. */}
       <p className="lobby-privacy text-muted">
@@ -166,7 +216,11 @@ export default function SessionLobby({
           className="btn-primary"
           disabled={busy}
           onClick={() =>
-            onConfirm(hosting ? { bring: selected } : { playAs, bring: [] })
+            onConfirm(
+              hosting
+                ? { bring: selected }
+                : { playAs, bring: [], displayName: displayName.trim() },
+            )
           }
         >
           {busy

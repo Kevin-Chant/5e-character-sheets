@@ -52,12 +52,12 @@ export default function SessionBar() {
       <div className="session-bar connected">
         <span className="session-live">
           <FaTowerBroadcast />
-          <span>Session</span>
+          <span>Live</span>
         </span>
         <button
           type="button"
           className="session-code"
-          title="Copy the session code"
+          title="Copy the invite code — players paste it on the Sessions page"
           onClick={async () => {
             await copyToClipboard(sessionCode ?? "");
             setCopied(true);

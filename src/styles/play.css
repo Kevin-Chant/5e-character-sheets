@@ -132,6 +132,19 @@
   color: var(--danger);
 }
 
+/* The DM handed you a sheet and the answer is yours to give. Louder than the
+   session bar (it's a question, not status), quieter than "Your turn". */
+.assign-prompt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
 /* --- Initiative rail ---------------------------------------------------- */
 
 .initiative-rail {
@@ -265,6 +278,64 @@
   margin: var(--space-2) 0 0;
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+/* Whose turn it is, for the DM rail — the order itself lives on the board
+   below, so the rail says it in words, big enough to read across a room. */
+.rail-turn-callout {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-turn-callout.text-muted {
+  font-weight: 400;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+}
+
+/* --- The turn banner: the round's guidance, said once --------------------
+   Your turn is the loudest thing on the surface — it's the moment the whole
+   layer exists for. Someone else's turn is a quiet strip that hands the board
+   its cue to dim. */
+.turn-banner {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.turn-banner-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.turn-banner-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.turn-banner.your-turn {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.turn-banner.your-turn .turn-banner-title {
+  font-size: 1.2rem;
+  letter-spacing: 0.03em;
 }
 
 /* --- Turn economy: the signature element ------------------------------- */
@@ -479,6 +550,20 @@
   margin: var(--space-2) 0 0;
   color: var(--text-muted);
   font-size: 0.82rem;
+}
+
+/* Off your turn the board recedes rather than closes: dimmed groups are still
+   live (hover or focus brings one back to full weight), because a readied
+   action or a DM ruling outranks anything this surface can see. Reactions
+   keep full weight — they're what an off-turn moment is for. */
+.play-body.off-turn .action-group:not(.action-group-reaction) {
+  opacity: 0.45;
+  transition: opacity 160ms ease;
+}
+
+.play-body.off-turn .action-group:not(.action-group-reaction):hover,
+.play-body.off-turn .action-group:not(.action-group-reaction):focus-within {
+  opacity: 1;
 }
 
 /* --- Vitals rail ------------------------------------------------------- */
@@ -703,6 +788,9 @@
    and a growing name beside a growing row collapsed the name to zero width. */
 .play-pool-row .slot-pips {
   flex: 0 0 auto;
+  /* `.row` also brings `width: 100%`, which a flex-basis pin doesn't override —
+     that's what collapsed the name to zero width even with `flex: 0 0 auto`. */
+  width: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -718,6 +806,16 @@
 @media (max-width: 760px) {
   .play-body {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* On a phone the rail stacks: round + the advance controls stay on the
+     first line where a thumb can reach them, and the order takes its own
+     full-width line below instead of overflowing under the buttons. */
+  .initiative-order,
+  .initiative-setup,
+  .initiative-add {
+    flex-basis: 100%;
+    order: 3;
   }
 
   .play-vitals {
@@ -740,10 +838,11 @@
    The DM board — the roster view behind the seat
    ============================================================ */
 .dm-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   width: 100%;
-  max-width: 62rem;
-  margin: 0 auto;
-  padding: 0.5rem 1rem 2rem;
+  padding-bottom: 2rem;
 }
 
 .dm-roster {
@@ -755,13 +854,15 @@
   list-style: none;
 }
 
-/* One creature per row: who | vitals | conditions | concentration. Grid rather
-   than a table so a row can restack on a narrow screen without markup games. */
+/* One creature per row: init | who | vitals | conditions | concentration |
+   remove. Grid rather than a table so a row can restack on a narrow screen
+   without markup games. The name and the conditions are the two things that
+   genuinely grow, so they get the fractions; everything else is content-sized. */
 .dm-row {
   display: grid;
   grid-template-columns:
-    minmax(11rem, 1.2fr) minmax(9rem, auto) minmax(0, 2fr)
-    minmax(8rem, 1fr);
+    auto minmax(11rem, 2fr) auto minmax(12rem, 1.5fr)
+    minmax(7rem, 1fr) auto;
   align-items: center;
   gap: 0.5rem 1rem;
   padding: 0.5rem 0.75rem;
@@ -770,9 +871,53 @@
   border-radius: var(--radius-lg);
 }
 
+/* The spotlight. A DM glances at eight rows to find one; the one acting has
+   to announce itself from across the room. */
 .dm-row.active {
   border-color: var(--accent);
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    var(--shadow-1);
+  background: var(--surface-2);
+}
+
+/* Down: still on the table (it might get healed, it might be a trap), but
+   visibly done. The skull says why the row went quiet. */
+.dm-row.down {
+  opacity: 0.55;
+}
+
+.dm-row.down .dm-row-name {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.dm-down-mark {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.dm-next-chip {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.dm-row-init {
+  min-width: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.dm-row-init .initiative-score {
+  font-size: 0.95rem;
+  padding: 2px var(--space-2);
 }
 
 .dm-row-who {
@@ -805,6 +950,7 @@
   border-radius: var(--radius);
   font-size: 0.85rem;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .dm-hp-input {
@@ -835,15 +981,132 @@
   min-width: 0;
 }
 
+.dm-row-remove {
+  justify-self: end;
+}
+
 @media (max-width: 900px) {
   .dm-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
   }
 
   .dm-row-conditions,
   .dm-row-concentration {
     grid-column: 1 / -1;
   }
+
+  /* Keep the remove button on the name line rather than letting auto
+     placement strand it on a row of its own at the bottom left. */
+  .dm-row-remove {
+    grid-row: 1;
+    grid-column: 4;
+  }
+
+  /* Let the offer/in-play chip drop under the name instead of crushing it. */
+  .dm-row-who {
+    flex-wrap: wrap;
+  }
+
+  /* Whose turn it is truncates to nothing at this width, and the highlighted
+     row below already says it. */
+  .initiative-rail.dm .rail-turn-callout {
+    display: none;
+  }
+}
+
+/* --- The empty table and the invite ------------------------------------ */
+
+.dm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 2rem auto 1rem;
+  max-width: 34rem;
+  text-align: center;
+}
+
+/* One control, one job: get the code into the group chat. It's the whole
+   point of the screen until somebody arrives, so it gets real size. */
+.dm-invite {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.dm-invite:hover {
+  background: var(--surface-2);
+}
+
+.dm-invite-label {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.dm-invite-code {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+
+/* --- Board tools: add a fight, sweep it up ------------------------------ */
+
+.dm-board-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.dm-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.dm-add-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.dm-add-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dm-clear-fallen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dm-clear-fallen:hover {
+  border-color: var(--health);
+  color: var(--health);
 }
 
 /* --- Sheet assignment ------------------------------------- */
@@ -868,6 +1131,13 @@
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
+}
+
+/* Sized as a peer of the offer button it sits beside. */
+.dm-assign-select {
+  max-width: 8.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .dm-in-play {

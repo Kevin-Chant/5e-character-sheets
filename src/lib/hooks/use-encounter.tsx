@@ -29,6 +29,8 @@ import {
   addParticipant,
   advanceTurn,
   claimParticipant,
+  clearFallen,
+  fallenParticipants,
   Concentration,
   currentParticipant,
   ParticipantVitals,
@@ -50,9 +52,12 @@ import {
 import {
   bumpRevision,
   forgetSession,
+  PresentClient,
   receiveState,
   rememberSession,
   withoutClient,
+  withoutPresence,
+  withPresence,
 } from "src/lib/play/session";
 import { charPath, updateAt } from "src/lib/cursor";
 import { Character, PlaySessionRef } from "src/lib/types";
@@ -115,8 +120,18 @@ interface EncounterContextData {
   // Returns what the turn boundary produced, so the caller can fire triggers.
   next: () => TurnAdvance | undefined;
 
-  addCombatant: (name: string, initiative: number) => void;
+  // Add hand-typed combatants. `count` makes a numbered pack ("Goblin 1..4")
+  // sharing one initiative — 5e runs identical monsters on one roll — and
+  // `maxHp` starts them tracked instead of needing a per-row "Track" step.
+  addCombatant: (
+    name: string,
+    initiative: number,
+    opts?: { count?: number; maxHp?: number },
+  ) => void;
   removeCombatant: (id: string) => void;
+  // Sweep hand-typed combatants at 0 HP off the table in one move.
+  clearFallen: () => void;
+  fallen: Participant[];
   setCombatantInitiative: (id: string, initiative: number) => void;
 
   setSlotSpent: (id: string, slot: EconomySlot, spent: boolean) => void;
@@ -143,7 +158,9 @@ interface EncounterContextData {
   // Starting a gameplay session *is* being its DM — the seat is taken at
   // creation rather than raced for afterwards.
   hostSession: () => Promise<void>;
-  joinSession: (code: string) => Promise<void>;
+  // `displayName` is for the sheetless joiner, who has no character name to
+  // announce — the lobby asks what the table should call them.
+  joinSession: (code: string, displayName?: string) => Promise<void>;
   leaveSession: () => void;
   // Put characters into the order without opening them. A DM uses this to bring
   // party sheets and companion stat blocks; their vitals are a snapshot until
@@ -153,6 +170,18 @@ interface EncounterContextData {
   setSheetOffered: (id: string, claimable: boolean) => void;
   // Offered sheets someone at this table could play right now.
   claimables: Participant[];
+  // Who is connected right now, by chosen display name — transient, cleared
+  // when the connection drops. This is what gives the DM someone to point at:
+  // a sheetless player has no participant, so without it they're invisible.
+  present: PresentClient[];
+  // Point a sheet at one present client — a *targeted offer*. Marks the sheet
+  // claimable too (assignment is a superset of offering); the sheet itself
+  // only travels when the target accepts, through the ordinary claim flow.
+  assignSheetTo: (participantId: string, toClientId: string) => void;
+  // An assignment addressed to this client, waiting on the player's answer.
+  pendingAssignment?: Participant;
+  acceptAssignment: () => void;
+  declineAssignment: () => void;
   // Ask for an offered sheet. The whole character arrives over the session and
   // opens as a borrowed sheet: played, never persisted here.
   claimSheet: (participantId: string) => void;
@@ -179,6 +208,8 @@ export const EncounterContext = React.createContext<EncounterContextData>({
   next: () => undefined,
   addCombatant: NOOP,
   removeCombatant: NOOP,
+  clearFallen: NOOP,
+  fallen: [],
   setCombatantInitiative: NOOP,
   setSlotSpent: NOOP,
   setCombatantVitals: NOOP,
@@ -195,6 +226,10 @@ export const EncounterContext = React.createContext<EncounterContextData>({
   bringCharacters: NOOP,
   setSheetOffered: NOOP,
   claimables: [],
+  present: [],
+  assignSheetTo: NOOP,
+  acceptAssignment: NOOP,
+  declineAssignment: NOOP,
   claimSheet: NOOP,
   canRun: true,
   hasDm: false,
@@ -260,6 +295,23 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const dmTokenRef = useRef<string>("");
   if (!dmTokenRef.current) dmTokenRef.current = dmToken();
 
+  // Who else is connected, by display name. Transient by design: not part of
+  // the encounter (liveness merged by revision would be a category error), so
+  // it lives here and clears when the connection does.
+  const [present, setPresent] = useState<PresentClient[]>([]);
+  // The name we announce. A player with a character announces its name; the
+  // sheetless joiner types one into the lobby, which lands here.
+  const [customName, setCustomName] = useState<string | undefined>();
+  const displayName = character?.name || customName || "Player";
+  const displayNameRef = useRef(displayName);
+  displayNameRef.current = displayName;
+  // Set once the transport exists, so the hello reply can announce us.
+  const announceRef = useRef<(name: string) => void>(() => {});
+  // An assignment pointed at this client, waiting on the player's answer.
+  const [pendingAssignmentId, setPendingAssignmentId] = useState<
+    string | undefined
+  >();
+
   // Every local change: persist, then publish. `silent` is for changes that
   // *came from* a peer — re-publishing those is the sync loop the character
   // layer avoids with `suppressBroadcast`, for the same reason.
@@ -308,10 +360,26 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       }
     },
     // Someone just arrived and knows nothing. Reply with what we have, without
-    // bumping the revision — this is a repeat, not a change.
-    onHello: () => broadcastRef.current?.(encounterRef.current),
-    onLeave: (fromClientId) =>
-      update((current) => withoutClient(current, fromClientId)),
+    // bumping the revision — this is a repeat, not a change. Presence rides
+    // along: the reply is how the newcomer learns who is already here.
+    onHello: () => {
+      broadcastRef.current?.(encounterRef.current);
+      announceRef.current(displayNameRef.current);
+    },
+    onLeave: (fromClientId) => {
+      setPresent((current) => withoutPresence(current, fromClientId));
+      update((current) => withoutClient(current, fromClientId));
+    },
+    onPresence: (fromClientId, name) =>
+      setPresent((current) => withPresence(current, fromClientId, name)),
+    // The DM pointed a sheet at us. Nothing has travelled yet — this only
+    // raises the prompt, and the sheet moves when the player accepts, through
+    // the ordinary claim flow. Ignoring a stale id is the ghost-safe half:
+    // if the participant is gone by the time we look, nothing renders.
+    onAssignSheet: (participantId, toClientId) => {
+      if (toClientId !== clientId) return;
+      setPendingAssignmentId(participantId);
+    },
     // Someone asked to play an offered sheet. Only its owner answers, and only
     // if the offer stands — the claimable flag is the consent, checked at send
     // time rather than trusted from the asker.
@@ -350,6 +418,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   });
   sendSheetRef.current = session.sendSheet;
   broadcastRef.current = session.broadcastState;
+  announceRef.current = session.announcePresence;
 
   // Remember a session on the character once the connection actually succeeded —
   // recording a code the moment it's typed would fill the rejoin list with
@@ -367,6 +436,24 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     writeLocalStorage(LAST_SESSION_STORAGE_KEY, connectedCode);
     setLastSession(connectedCode);
   }, [connectedCode]);
+  // Say who we are on connect, and again whenever the name changes (opening a
+  // character mid-session renames us to it). Peers upsert, so re-announcing is
+  // idempotent.
+  useEffect(() => {
+    if (!connectedCode) return;
+    announceRef.current(displayName);
+  }, [connectedCode, displayName]);
+
+  // Presence and pending assignments are facts about a connection, and this
+  // browser no longer has one.
+  const disconnected = session.status !== "connected";
+  useEffect(() => {
+    if (!disconnected) return;
+    setPresent([]);
+    setPendingAssignmentId(undefined);
+    setCustomName(undefined);
+  }, [disconnected]);
+
   const characterUuidForSession = character?.uuid;
   useEffect(() => {
     if (!connectedCode || !characterUuidForSession) return;
@@ -453,16 +540,31 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       end: () => update(endCombat),
       next,
 
-      addCombatant: (combatantName, initiative) =>
-        update((current) =>
-          addParticipant(current, {
-            id: `combatant:${crypto.randomUUID()}`,
-            name: combatantName,
-            initiative,
-          }),
-        ),
+      addCombatant: (combatantName, initiative, opts) =>
+        update((current) => {
+          const count = Math.max(1, Math.floor(opts?.count ?? 1));
+          let next = current;
+          for (let i = 0; i < count; i += 1) {
+            const id = `combatant:${crypto.randomUUID()}`;
+            next = addParticipant(next, {
+              id,
+              name: count > 1 ? `${combatantName} ${i + 1}` : combatantName,
+              initiative,
+            });
+            if (opts?.maxHp && opts.maxHp > 0) {
+              next = setVitals(next, id, {
+                currHp: opts.maxHp,
+                maxHp: opts.maxHp,
+                ac: 0,
+              });
+            }
+          }
+          return next;
+        }),
       removeCombatant: (id) =>
         update((current) => removeParticipant(current, id)),
+      clearFallen: () => update(clearFallen),
+      fallen: fallenParticipants(encounter),
       setCombatantInitiative: (id, initiative) =>
         update((current) => setInitiative(current, id, initiative)),
 
@@ -488,7 +590,8 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         await session.host();
         update((current) => claimDmSeat(current, clientId, dmTokenRef.current));
       },
-      joinSession: async (joinCode) => {
+      joinSession: async (joinCode, joinDisplayName) => {
+        if (joinDisplayName?.trim()) setCustomName(joinDisplayName.trim());
         adoptNextStateRef.current = true;
         await session.join(joinCode);
       },
@@ -503,6 +606,24 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       setSheetOffered: (id, claimable) =>
         update((current) => offerSheet(current, id, claimable)),
       claimables: claimableSheets(encounter, clientId),
+      present,
+      // Assigning is offering plus a nudge: the claimable flag is still what
+      // consents to travel (checked at send time by the owner), so a ghost
+      // target costs nothing — no reply, and the offer stands for pickup.
+      assignSheetTo: (participantId, toClientId) => {
+        update((current) => offerSheet(current, participantId, true));
+        session.assignSheet(toClientId, participantId);
+      },
+      pendingAssignment: pendingAssignmentId
+        ? encounter.participants.find(
+            (p) => p.id === pendingAssignmentId && p.claimable,
+          )
+        : undefined,
+      acceptAssignment: () => {
+        if (pendingAssignmentId) session.requestSheet(pendingAssignmentId);
+        setPendingAssignmentId(undefined);
+      },
+      declineAssignment: () => setPendingAssignmentId(undefined),
       claimSheet: session.requestSheet,
       bringCharacters: (characters) =>
         update((current) =>
@@ -548,6 +669,8 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       character,
       dispatch,
       lastSession,
+      present,
+      pendingAssignmentId,
     ],
   );
 

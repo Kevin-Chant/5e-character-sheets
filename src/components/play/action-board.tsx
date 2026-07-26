@@ -38,7 +38,12 @@ export default function ActionBoard({ turn }: { turn: PlayTurn }) {
         const standard = STANDARD_ACTIONS[cost] ?? [];
         if (actions.length === 0 && standard.length === 0) return null;
         return (
-          <section key={cost} className="action-group">
+          <section
+            key={cost}
+            // The per-cost class is what lets the off-turn state dim the turn
+            // groups while leaving reactions at full weight.
+            className={`action-group action-group-${cost}`}
+          >
             <h2 className="action-group-heading">{TURN_GROUP_LABELS[cost]}</h2>
             {actions.map((action) => (
               <BoardRow key={action.key} action={action} turn={turn} />

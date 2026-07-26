@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { UUID } from "crypto";
 import {
   addParticipant,
+  advanceTurn,
   EMPTY_ENCOUNTER,
   Encounter,
   startCombat,
@@ -17,7 +18,9 @@ import {
   REMEMBERED_SESSIONS,
   rememberSession,
   withoutClient,
+  withoutPresence,
   withParticipants,
+  withPresence,
 } from "src/lib/play/session";
 
 const ALICE_CHAR = "11111111-1111-1111-1111-111111111111" as UUID;
@@ -372,5 +375,85 @@ describe("roster changes", () => {
   it("releases the seat even for a client that owned no participants", () => {
     const held = { ...party(), dmClientId: "client-z" };
     expect(withoutClient(held, "client-z").dmClientId).toBeUndefined();
+  });
+});
+
+describe("re-adding into a fight in progress", () => {
+  // The merge's re-add and the local addParticipant share `insertParticipant`:
+  // a joiner arriving mid-combat lands where their roll says on every peer's
+  // copy, not just their own.
+  it("seats the re-added participant by initiative", () => {
+    let local = EMPTY_ENCOUNTER;
+    local = addParticipant(local, {
+      id: "self:carol",
+      name: "Carol",
+      characterUuid: CAROL_CHAR,
+      ownerClientId: "client-c",
+      initiative: 14,
+    });
+    // Order: Alice 15, Goblin 12, Bob 9 — Alice is acting.
+    const incoming = bumpRevision(
+      bumpRevision(startCombat(party()), "client-a"),
+      "client-a",
+    );
+    const merged = mergeEncounter(local, incoming, CAROL_CHAR, "client-c");
+    expect(merged.participants.map((p) => p.name)).toEqual([
+      "Alice",
+      "Carol",
+      "Goblin",
+      "Bob",
+    ]);
+    expect(merged.participants[merged.turnIndex].name).toBe("Alice");
+  });
+
+  it("keeps the current actor current when the seat is behind them", () => {
+    let local = EMPTY_ENCOUNTER;
+    local = addParticipant(local, {
+      id: "self:carol",
+      name: "Carol",
+      characterUuid: CAROL_CHAR,
+      ownerClientId: "client-c",
+      initiative: 14,
+    });
+    // Advance the room to the Goblin (12) before Carol's state merges in.
+    let room = startCombat(party());
+    room = advanceTurn(room).encounter;
+    expect(room.participants[room.turnIndex].name).toBe("Goblin");
+    const incoming = bumpRevision(bumpRevision(room, "client-a"), "client-a");
+    const merged = mergeEncounter(local, incoming, CAROL_CHAR, "client-c");
+    expect(merged.participants.map((p) => p.name)).toEqual([
+      "Alice",
+      "Carol",
+      "Goblin",
+      "Bob",
+    ]);
+    // Carol's count already passed this round; the Goblin keeps acting.
+    expect(merged.participants[merged.turnIndex].name).toBe("Goblin");
+  });
+});
+
+describe("presence", () => {
+  it("upserts without reshuffling", () => {
+    let roster = withPresence([], "a", "Nadia");
+    roster = withPresence(roster, "b", "Theo");
+    // A re-announce (every hello triggers one) keeps the order the DM's
+    // dropdown is already showing.
+    roster = withPresence(roster, "a", "Nadia");
+    expect(roster.map((c) => c.name)).toEqual(["Nadia", "Theo"]);
+    // Renames land in place.
+    roster = withPresence(roster, "a", "Nadia the Bold");
+    expect(roster.map((c) => c.name)).toEqual(["Nadia the Bold", "Theo"]);
+  });
+
+  it("returns the same roster when nothing changed", () => {
+    const roster = withPresence([], "a", "Nadia");
+    expect(withPresence(roster, "a", "Nadia")).toBe(roster);
+    expect(withoutPresence(roster, "ghost")).toBe(roster);
+  });
+
+  it("drops a departing client", () => {
+    let roster = withPresence([], "a", "Nadia");
+    roster = withPresence(roster, "b", "Theo");
+    expect(withoutPresence(roster, "a").map((c) => c.name)).toEqual(["Theo"]);
   });
 });

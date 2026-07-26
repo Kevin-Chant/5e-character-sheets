@@ -1,10 +1,5 @@
-import { ReactNode, useEffect, useState } from "react";
-import {
-  FaDiceD20,
-  FaFileLines,
-  FaTowerBroadcast,
-  FaUsers,
-} from "react-icons/fa6";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { FaDiceD20, FaFileLines, FaUsers } from "react-icons/fa6";
 import { useLocation, useNavigate } from "react-router-dom";
 import SessionLobby, {
   LobbySelection,
@@ -17,23 +12,24 @@ import { detectSessionKind } from "src/lib/play/probe-realm";
 import { isValidSessionCode, normalizeSessionCode } from "src/lib/play/session";
 import { Character } from "src/lib/types";
 
-// Sessions: the four ways two browsers end up looking at the same thing.
+// Sessions: the ways two browsers end up looking at the same thing.
 //
-// The four paths are a 2x2 of {editing, gameplay} x {start, join}, and the axis
-// that leads is **which kind of session** — an editing session is one sheet with
-// two editors, a gameplay session is one table with many sheets and no shared
-// sheet at all. Those are different objects with different privacy stories.
-// Start-versus-join is secondary and usually already decided by who you are.
+// The surface leads with the one thing every invited player arrives holding —
+// a code. Both kinds of code are uuids, so one box takes either and the probe
+// works out whether it opens onto a table or a shared sheet; making the guest
+// choose between two "join" doors that lead to the same hallway was the first
+// draft's mistake. Below the box sit the two ways to *start* something, which
+// are genuinely different objects: a game shares one encounter and no sheets,
+// an editing session shares exactly one whole sheet.
 //
-// Storage sits *before* this surface, not beside it. Three of the four paths
-// need somewhere to keep characters, so the storage question is answered on the
+// Storage sits *before* this surface, not beside it. Starting things needs
+// somewhere to keep characters, so the storage question is answered on the
 // home page and re-offered in the lobby for the one case that arrives without
 // it. What this route never does is make you choose a backend to answer a
 // question about who you're playing with.
 
 type Stage =
   | { step: "menu" }
-  | { step: "code" }
   | { step: "lobby"; mode: "host" }
   | { step: "lobby"; mode: "join"; code: string };
 
@@ -75,17 +71,21 @@ export default function Sessions() {
     lastSession,
   } = useEncounter();
 
-  // Arriving from home's "join a game" shortcut skips straight to the box.
-  const wantsJoin = (location.state as { join?: boolean } | null)?.join;
-  const [stage, setStage] = useState<Stage>(
-    wantsJoin ? { step: "code" } : { step: "menu" },
-  );
+  const [stage, setStage] = useState<Stage>({ step: "menu" });
   const [code, setCode] = useState("");
   const [probing, setProbing] = useState(false);
   const [error, setError] = useState<string | undefined>();
   // Set once we've asked for a connection; the effect below waits for it rather
   // than dropping onto /play with a bar that says "connecting".
   const [pending, setPending] = useState<Character[] | undefined>();
+
+  // Arriving from home's "been sent a code?" shortcut lands with the box ready
+  // to paste into — same page, no separate step to back out of.
+  const wantsJoin = (location.state as { join?: boolean } | null)?.join;
+  const codeInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (wantsJoin) codeInputRef.current?.focus();
+  }, [wantsJoin]);
 
   useEffect(() => {
     if (!pending) return;
@@ -103,7 +103,9 @@ export default function Sessions() {
   const submitCode = async () => {
     const normalized = normalizeSessionCode(code);
     if (!isValidSessionCode(normalized)) {
-      setError("That doesn't look like a session code. Codes are uuids.");
+      setError(
+        "That doesn't look like a code. It should be a long dashed one, like 1f0d…-…",
+      );
       return;
     }
     setError(undefined);
@@ -142,7 +144,7 @@ export default function Sessions() {
         reset();
       }
       setPending([]);
-      await joinSession(stage.code);
+      await joinSession(stage.code, selection.displayName);
     }
   };
 
@@ -159,43 +161,6 @@ export default function Sessions() {
         }}
         onConfirm={confirmLobby}
       />
-    );
-  }
-
-  if (stage.step === "code") {
-    return (
-      <div className="sessions">
-        <h2>Join a session</h2>
-        <p className="text-muted">
-          Paste the code you were sent. It works for both a game and a shared
-          character — we&apos;ll work out which.
-        </p>
-        <form
-          className="session-join"
-          onSubmit={(e) => {
-            e.preventDefault();
-            submitCode();
-          }}
-        >
-          <input
-            type="text"
-            className="session-code-input"
-            aria-label="Session code"
-            placeholder="Paste the session code"
-            autoComplete="off"
-            spellCheck={false}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-          />
-          <button type="submit" className="btn-primary" disabled={probing}>
-            {probing ? "Looking…" : "Continue"}
-          </button>
-          <button type="button" onClick={() => setStage({ step: "menu" })}>
-            Back
-          </button>
-        </form>
-        {error && <p className="session-error">{error}</p>}
-      </div>
     );
   }
 
@@ -227,49 +192,58 @@ export default function Sessions() {
           {sessionError && <p className="session-error">{sessionError}</p>}
         </div>
       )}
-      <section className="sessions-group">
+
+      <section className="sessions-join-panel">
         <h3>
-          <FaDiceD20 /> Play a game
+          <FaUsers /> Been sent a code?
         </h3>
         <p className="text-muted">
-          A whole table shares one encounter — initiative, HP, conditions.
-          Nobody shares a sheet.
+          One box takes both kinds — a game to join, or a sheet to edit
+          together.
         </p>
+        <form
+          className="session-join"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitCode();
+          }}
+        >
+          <input
+            ref={codeInputRef}
+            type="text"
+            className="session-code-input"
+            aria-label="Session code"
+            placeholder="Paste the code here"
+            autoComplete="off"
+            spellCheck={false}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={probing || !code.trim()}
+          >
+            {probing ? "Looking…" : "Join"}
+          </button>
+        </form>
+        {error && <p className="session-error">{error}</p>}
+      </section>
+
+      <section className="sessions-group">
+        <h3>Or start something</h3>
         <div className="session-cards">
           <SessionCard
-            icon={<FaUsers />}
+            icon={<FaDiceD20 />}
             heading="Start a game"
-            description="Run the table. Bring party sheets, companions and stat blocks into the order."
+            description="Run the table: one shared fight — initiative, HP, conditions — for everyone who joins. Sheets stay private."
             onClick={() => setStage({ step: "lobby", mode: "host" })}
           />
           <SessionCard
-            icon={<FaTowerBroadcast />}
-            heading="Join a game"
-            description="Come in with one of your characters, or without one and wait to be handed a sheet."
-            onClick={() => setStage({ step: "code" })}
-          />
-        </div>
-      </section>
-      <section className="sessions-group">
-        <h3>
-          <FaFileLines /> Edit a sheet together
-        </h3>
-        <p className="text-muted">
-          Two people on one character sheet, editing live. This is the one that
-          shares a whole sheet, so it&apos;s always something you offer.
-        </p>
-        <div className="session-cards">
-          <SessionCard
-            icon={<FaTowerBroadcast />}
-            heading="Share a character"
-            description="Open a sheet for someone else to edit alongside you."
-            onClick={() => navigate("/sheet", { state: { share: true } })}
-          />
-          <SessionCard
             icon={<FaFileLines />}
-            heading="Join a shared sheet"
-            description="Edit a character someone else has open. Nothing is saved on your side."
-            onClick={() => setStage({ step: "code" })}
+            heading="Share a character"
+            description="Two people editing one sheet, live. The whole sheet travels, so it's always yours to offer."
+            onClick={() => navigate("/sheet", { state: { share: true } })}
           />
         </div>
       </section>

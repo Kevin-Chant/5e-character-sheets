@@ -64,6 +64,22 @@ harmless guess.
   the useful part is what you haven't set up yet. Caught by screenshotting the
   real fixture, not by tests.
 
+## Per-round guidance: the turn banner and the off-turn dim
+
+In combat the player surface answers "whose round is it" once, in a banner
+between the rail and the economy: **Your turn** (accent-filled, the loudest
+thing on the surface — it's the moment the layer exists for) or **"{name} is
+acting"** with a reminder that the reaction stays ready. The same fact drives
+the board: off-turn, `play-body.off-turn` dims every action group except
+reactions.
+
+The dimming is the mission's "narrowing with an escape hatch" and it obeys the
+advisory rule below: it's opacity on a class, never `disabled`, and hovering or
+focusing a dimmed group restores it — a readied action, a held Sentinel swing
+or a DM ruling outranks anything the surface can see.
+(`play-surface.test.tsx` pins both halves: the banner swaps with the turn, and
+going off-turn disables nothing that wasn't already.)
+
 ## Everything is advisory
 
 This is the surface's governing rule and it matches how the rest of the app
@@ -363,10 +379,23 @@ stays an exception by construction rather than by discipline:
   shows its projection; the "Offer sheet" button on the DM board
   (`Participant.claimable`) is what consents to the whole sheet travelling.
   Player-owned sheets have no path through this code at all.
-- **Players pick up; the DM doesn't assign.** Assigning _to a player_ needs a
-  roster of clients — a sheetless player has no participant, so the DM has
-  nothing to point at short of building presence. Kevin explicitly accepted
-  the pick-up direction as the fallback.
+- **Two ways in, one consent flag.** Players can pick an offered sheet up, or
+  the DM can point one at a specific person — "Hand to…" on the row, listing
+  who's connected. Assignment is a **targeted offer, not a push**: it sets
+  `claimable` (assignment is a superset of offering) and sends `ASSIGN`
+  `{participantId, toClientId}`; the target gets an accept prompt, and
+  accepting runs the ordinary claim flow below. That shape keeps consent
+  two-sided (a sheet never hijacks a screen), reuses the claim machinery
+  end-to-end, and makes a ghost target harmless — no reply, the offer stands.
+- **Presence is what the DM points at** (`PRESENCE` topic; pure roster helpers
+  `withPresence`/`withoutPresence` in `session.ts`). Each client announces
+  `{clientId, displayName}` on connect and in reply to every `hello`; `LEAVE`
+  removes. **No heartbeats** — a crashed tab leaves a ghost name until the
+  session turns over, which costs a stale dropdown entry and nothing else.
+  Presence is provider state, never on the `Encounter`: liveness merged by
+  revision would be a category error. A sheetless joiner types a table name
+  into the lobby ("What should the table call you?", default "Player"); a
+  player with a character announces its name.
 - **The wire**: `CLAIM_SHEET` (claimant → table) and `SHEET` (owner → claimant,
   addressed by clientId — everyone receives it, only the addressee loads it;
   this broker has no private lanes). The owner answers only if the offer still
@@ -387,8 +416,6 @@ stays an exception by construction rather than by discipline:
 
 ## Still ahead
 
-- **DM assigns to a specific player** — needs client presence in the play
-  session (a sheetless player has no participant to point at).
 - **Live co-editing of a borrowed sheet.** The pickup is a copy handed over,
   not a shared document: the player's edits reach the table as projection
   (vitals/conditions), but the DM's stored copy doesn't accumulate them. Fine
@@ -399,11 +426,6 @@ stays an exception by construction rather than by discipline:
   someone actually wants to browse a party member's sheet.
 - **Reconnect.** A dropped connection goes to `offline` and stays there; you
   rejoin from the remembered list.
-- **Assigning a sheet to a player.** The one feature that breaks "only a
-  projection crosses the wire", since a real character has to travel. The
-  machinery exists (it's a character-sharing session nested in the play session);
-  what matters is keeping it explicit — player-owned sheets never travel, only
-  DM-offered ones, and offering is a deliberate per-character act.
 
 ## The DM board
 
@@ -411,12 +433,46 @@ stays an exception by construction rather than by discipline:
 the action board + vitals rail when this client holds the seat. A player asks
 "what can I do right now"; a DM asks "what is the state of eight creatures" —
 same encounter, opposite shape, so the body swaps rather than gaining buttons.
-The initiative rail stays above both: it owns the order and the round either
-way. A row is who | HP | conditions | concentration, with remove; a hand-typed
-combatant gets HP the moment the DM writes a maximum down ("Track"). Roster
-edits in the rail (add/remove combatants) are gated by `canRun` once a seat is
-held — an unclaimed seat still means everybody, so layer B keeps working with
-no DM.
+
+**The roster owns the order for the DM; the rail shrinks to match.** The first
+draft kept the player rail's per-participant setup strip above the roster, so
+every creature appeared twice with different controls. Now `InitiativeRail`
+takes a `variant`: the `dm` rail is just round + whose-turn callout + advance /
+end (and "Start combat" out of combat), and the board rows carry the
+initiative steppers (pre-combat — in combat the order is frozen and the score
+is a static badge), the add form and remove. A row is init | who | HP |
+conditions | concentration | remove; the active row is spotlit and the next
+one carries a small "next" chip.
+
+Workflow pieces the mission ("multiple combats, DM-orchestrated") forced:
+
+- **One submit adds a fight**: name × count, optional HP-each, one initiative
+  — a pack of identical monsters shares one roll in 5e, so "Goblin × 4, HP 7,
+  init 12" makes numbered, already-tracked rows. A hand-typed combatant added
+  without HP still gets it the moment the DM writes a maximum down ("Track").
+- **Down and sweeping**: a tracked row at 0 HP dims with a struck name and a
+  skull (`.dm-row.down`) but stays — it might be healed, it might be feigning.
+  `clearFallen` (pure, in `encounter.ts`) removes every hand-typed combatant at
+  0 HP in one click; character-backed rows are exempt because a downed PC is
+  making death saves, not leaving. That plus "End combat keeps the party" is
+  the whole between-fights reset.
+- **The invite is the empty table's job**: with nobody in the order and a
+  session connected, the board shows a big copy-the-invite-code affordance —
+  the code in the session bar is for later; at minute zero it's the whole
+  point of the screen.
+
+- **A late arrival is seated by initiative, not appended.** Mid-combat the
+  participants array _is_ the turn order, so `insertParticipant`
+  (`encounter.ts`) splices a newcomer — reinforcements, a player joining round
+  3 — into initiative position. Ties go after everyone already holding that
+  count (the DM breaks ties by nudging a number, not by the code inventing a
+  coin flip), and a slot that already passed this round stays passed: the
+  insert bumps `turnIndex` so whoever is acting keeps acting, and the newcomer
+  first acts next round. `addParticipant` and the session merge's re-add both
+  go through it, so the seating holds on every peer's copy, not just locally.
+
+Roster edits are gated by `canRun` once a seat is held — an unclaimed seat
+still means everybody, so layer B keeps working with no DM.
 
 ### DM HP oversight: `vitalsRev`
 
@@ -446,12 +502,15 @@ the stale copy immediately rather than at your next sheet change.
 
 `src/routes/sessions.tsx` + `src/components/sessions/session-lobby.tsx`.
 
-Four ways two browsers end up looking at the same thing — a 2×2 of
-{editing, gameplay} × {start, join}. The axis that leads is **which kind of
-session**, because an editing session is one sheet with two editors and a
-gameplay session is one table with many sheets and no shared sheet at all. Those
-are different objects with different privacy stories. Start-versus-join is
-secondary and usually already decided by who you are.
+The page leads with a code box, because a code is the one thing every invited
+player arrives holding — and both kinds of code are uuids, so one box takes
+either and the probe works out whether it opens onto a table or a shared
+sheet. (The first draft was a 2×2 of {editing, gameplay} × {start, join},
+which made a guest choose between two "join" doors that led to the same
+hallway.) Below the box sit the two _start_ acts as cards, and those are
+genuinely different objects with different privacy stories: a gameplay
+session is one table with many sheets and no shared sheet at all, an editing
+session is one whole sheet with two editors.
 
 ### Storage sits before this surface, not beside it
 

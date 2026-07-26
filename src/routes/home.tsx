@@ -62,13 +62,6 @@ export default function Home() {
     writeLastDatastore("local");
   };
 
-  const chooseJoin = () => {
-    // Joined characters are owned remotely, so clear any local store selection
-    // to avoid persisting a divergent copy.
-    setDatastore(undefined);
-    reset();
-  };
-
   return (
     <div className="home">
       <div className="home-hero">
@@ -100,14 +93,12 @@ export default function Home() {
       {/* The escape hatch for the one path that genuinely needs no storage:
           someone arrived holding a code. Kept secondary rather than made a peer
           of the cards above, because "I'm just joining" isn't a place to keep
-          characters — it's the absence of one. */}
+          characters — it's the absence of one. One link, one destination: the
+          sessions page has the box, and it works for both kinds of code. */}
       <div className="home-arrivals">
         <p className="text-muted">Been sent a code?</p>
         <Link className="no-underline" to="/sessions" state={{ join: true }}>
           <FaUsers /> Join a game or a shared sheet
-        </Link>
-        <Link className="no-underline" to="/join" onClick={chooseJoin}>
-          Join without saving anything
         </Link>
       </div>
 

@@ -17,12 +17,22 @@ import StepperInput from "src/components/stepper-input";
 // rolled. In combat it's the spine of the surface: whose turn it is, what round,
 // and one button to advance. The same component either way, because a fight
 // starting shouldn't move the controls a player was just using.
+//
+// The `dm` variant strips the per-participant lists: the DM board below owns
+// the roster (initiative, adding monsters, removing the dead), and repeating
+// every creature in two stacked lists with different controls was the single
+// most confusing thing on the first draft of the DM view. What stays is what
+// only the rail does — the round, whose turn it is, and advancing.
 
 // The rail is the one part of the surface that works without a sheet — a DM
 // runs the order, and a player waiting to be handed a character can still watch
 // it. So it's `useCharacter()` rather than the narrowed hook: everything below
 // that reads the character is about *your* row, and with no sheet you have none.
-export default function InitiativeRail() {
+export default function InitiativeRail({
+  variant = "player",
+}: {
+  variant?: "player" | "dm";
+}) {
   const { character, dispatch } = useCharacter();
   const {
     encounter,
@@ -41,6 +51,7 @@ export default function InitiativeRail() {
   const [newInitiative, setNewInitiative] = useState(10);
   // What the last turn boundary did, shown until the next one replaces it.
   const [receipt, setReceipt] = useState<string | null>(null);
+  const dmRail = variant === "dm";
 
   // `initiativeFormula` is an optional override, so resolve it through the
   // initializer the way the sheet's Initiative box does — unset means "derive
@@ -99,7 +110,7 @@ export default function InitiativeRail() {
     : inInitiativeOrder(encounter.participants);
 
   return (
-    <div className="initiative-rail">
+    <div className={classNames("initiative-rail", { dm: dmRail })}>
       <div className="initiative-bar">
         {inCombat ? (
           <>
@@ -107,51 +118,60 @@ export default function InitiativeRail() {
               <span className="round-counter-label">Round</span>
               <span className="round-counter-value">{encounter.round}</span>
             </span>
-            <ol className="initiative-order">
-              {order.map((participant) => (
-                <li
-                  key={participant.id}
-                  className={classNames("initiative-entry", {
-                    active: participant.id === current?.id,
-                    self: participant.id === self?.id,
-                  })}
-                  aria-current={
-                    participant.id === current?.id ? "step" : undefined
-                  }
-                >
-                  <span className="initiative-score">
-                    {participant.initiative}
-                  </span>
-                  <span className="initiative-name">{participant.name}</span>
-                  {/* The projection the party shares. Shown for everyone but
-                      you — your own bar is right there in the vitals rail, and
-                      repeating it here would be the only duplicated number on
-                      the surface. */}
-                  {participant.id !== self?.id && participant.vitals && (
-                    <span
-                      className="initiative-hp"
-                      title={`${participant.vitals.currHp} of ${participant.vitals.maxHp} hit points, AC ${participant.vitals.ac}`}
-                    >
-                      {participant.vitals.currHp}/{participant.vitals.maxHp}
+            {/* The DM's spine says whose turn it is in words — their order
+                lives on the board below, one row per creature, so the rail
+                keeps only the sentence a table asks out loud. */}
+            {dmRail ? (
+              <span className="rail-turn-callout">
+                {current ? `${current.name}'s turn` : ""}
+              </span>
+            ) : (
+              <ol className="initiative-order">
+                {order.map((participant) => (
+                  <li
+                    key={participant.id}
+                    className={classNames("initiative-entry", {
+                      active: participant.id === current?.id,
+                      self: participant.id === self?.id,
+                    })}
+                    aria-current={
+                      participant.id === current?.id ? "step" : undefined
+                    }
+                  >
+                    <span className="initiative-score">
+                      {participant.initiative}
                     </span>
-                  )}
-                  {participant.conditions.length > 0 && (
-                    <span
-                      className="initiative-conditions"
-                      title={participant.conditions
-                        .map((c) =>
-                          c.rounds === undefined
-                            ? c.name
-                            : `${c.name} (${c.rounds})`,
-                        )
-                        .join(", ")}
-                    >
-                      {participant.conditions.length}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ol>
+                    <span className="initiative-name">{participant.name}</span>
+                    {/* The projection the party shares. Shown for everyone but
+                        you — your own bar is right there in the vitals rail, and
+                        repeating it here would be the only duplicated number on
+                        the surface. */}
+                    {participant.id !== self?.id && participant.vitals && (
+                      <span
+                        className="initiative-hp"
+                        title={`${participant.vitals.currHp} of ${participant.vitals.maxHp} hit points, AC ${participant.vitals.ac}`}
+                      >
+                        {participant.vitals.currHp}/{participant.vitals.maxHp}
+                      </span>
+                    )}
+                    {participant.conditions.length > 0 && (
+                      <span
+                        className="initiative-conditions"
+                        title={participant.conditions
+                          .map((c) =>
+                            c.rounds === undefined
+                              ? c.name
+                              : `${c.name} (${c.rounds})`,
+                          )
+                          .join(", ")}
+                      >
+                        {participant.conditions.length}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
             {/* Gated by the DM seat when someone holds it — a UI gate, not a
                 lock: the transport still accepts anyone's write, so a DM whose
                 laptop sleeps can't strand the table. */}
@@ -172,56 +192,66 @@ export default function InitiativeRail() {
           </>
         ) : (
           <>
-            <ul className="initiative-setup">
-              {order.map((participant) => (
-                <li key={participant.id} className="initiative-setup-entry">
-                  <StepperInput
-                    value={participant.initiative}
-                    min={-10}
-                    ariaLabel={`${participant.name} initiative`}
-                    onChange={(value) =>
-                      setCombatantInitiative(participant.id, value)
-                    }
-                  />
-                  <span className="initiative-name">{participant.name}</span>
-                  {/* Your own initiative is the one the app can actually roll —
-                      it knows the modifier. Everyone else's is a number someone
-                      called out across the table. */}
-                  {participant.id === self?.id && (
-                    <button
-                      type="button"
-                      className="icon-btn roll-btn"
-                      aria-label="Roll initiative"
-                      title={`Roll initiative (${initiativeModifier >= 0 ? "+" : ""}${initiativeModifier})`}
-                      onClick={() =>
-                        setCombatantInitiative(
-                          participant.id,
-                          rollD20Check(initiativeModifier).total,
-                        )
+            {/* The DM's roster edits live on the board rows; the player's
+                setup strip is still where you and the table's other rows get
+                their numbers typed in. */}
+            {!dmRail && (
+              <ul className="initiative-setup">
+                {order.map((participant) => (
+                  <li key={participant.id} className="initiative-setup-entry">
+                    <StepperInput
+                      value={participant.initiative}
+                      min={-10}
+                      ariaLabel={`${participant.name} initiative`}
+                      onChange={(value) =>
+                        setCombatantInitiative(participant.id, value)
                       }
-                    >
-                      <FaDiceD20 />
-                    </button>
-                  )}
-                  {participant.id !== self?.id && canRun && (
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      aria-label={`Remove ${participant.name}`}
-                      onClick={() => removeCombatant(participant.id)}
-                    >
-                      <FaXmark />
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    />
+                    <span className="initiative-name">{participant.name}</span>
+                    {/* Your own initiative is the one the app can actually roll —
+                        it knows the modifier. Everyone else's is a number someone
+                        called out across the table. */}
+                    {participant.id === self?.id && (
+                      <button
+                        type="button"
+                        className="icon-btn roll-btn"
+                        aria-label="Roll initiative"
+                        title={`Roll initiative (${initiativeModifier >= 0 ? "+" : ""}${initiativeModifier})`}
+                        onClick={() =>
+                          setCombatantInitiative(
+                            participant.id,
+                            rollD20Check(initiativeModifier).total,
+                          )
+                        }
+                      >
+                        <FaDiceD20 />
+                      </button>
+                    )}
+                    {participant.id !== self?.id && canRun && (
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label={`Remove ${participant.name}`}
+                        onClick={() => removeCombatant(participant.id)}
+                      >
+                        <FaXmark />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {dmRail && (
+              <span className="rail-turn-callout text-muted">
+                Out of combat — the order below keeps its numbers
+              </span>
+            )}
             {/* Adding and removing combatants belongs to whoever runs the
                 table. With no DM seat claimed that's everybody — the rail keeps
                 working for a table whose DM isn't in the app — but once someone
                 is running the game, the roster is theirs. Your own initiative
                 stays yours either way: you rolled it. */}
-            {canRun && (
+            {canRun && !dmRail && (
               <form
                 className="initiative-add"
                 onSubmit={(e) => {

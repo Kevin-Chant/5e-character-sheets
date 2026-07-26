@@ -2,6 +2,7 @@ import { UUID } from "crypto";
 import { randomUUID } from "src/lib/browser";
 import {
   Encounter,
+  insertParticipant,
   Participant,
   ParticipantVitals,
   reclaimDmSeat,
@@ -43,6 +44,17 @@ export const PlaySessionEvent = {
   // (per sheet, on the DM board) and only in reply to a claim. Player-owned
   // sheets have no path through here at all.
   SHEET: BASE_APPNAME + ".encounter.sheet",
+  // "I'm here, and this is what to call me." A clientId and a chosen display
+  // name — nothing else, so the projection rule holds. Announced on join and
+  // re-announced in reply to a hello; no heartbeats, so a crashed tab can
+  // leave a ghost name until the session turns over. The assignment flow is
+  // built so a ghost is harmless (see ASSIGN).
+  PRESENCE: BASE_APPNAME + ".encounter.presence",
+  // "Would you play this sheet?" — a *targeted offer*, DM to one client. The
+  // sheet does not travel with it: accepting runs the ordinary claim flow
+  // (CLAIM_SHEET → SHEET), so consent stays two-sided and assigning to a dead
+  // client costs nothing — no reply, the offer still stands.
+  ASSIGN: BASE_APPNAME + ".encounter.assignsheet",
 };
 
 // Session codes are **uuids, and the uuid is the authentication** — the same
@@ -127,6 +139,13 @@ export type SessionMessage =
   | { kind: "state"; clientId: string; encounter: Encounter }
   | { kind: "hello"; clientId: string }
   | { kind: "leave"; clientId: string }
+  | { kind: "presence"; clientId: string; name: string }
+  | {
+      kind: "assignSheet";
+      clientId: string;
+      toClientId: string;
+      participantId: string;
+    }
   | { kind: "claimSheet"; clientId: string; participantId: string }
   | {
       kind: "sheet";
@@ -235,9 +254,10 @@ export function mergeEncounter(
       : p,
   );
 
-  return missing.length > 0
-    ? { ...incoming, participants: [...participants, ...missing] }
-    : { ...incoming, participants };
+  // Re-seated by initiative rather than appended: with a fight in progress the
+  // array is the turn order, and a joiner should land where their roll says —
+  // on every peer's copy, not just their own.
+  return missing.reduce(insertParticipant, { ...incoming, participants });
 }
 
 // Who this client is, for the decisions below.
@@ -386,4 +406,39 @@ export function withoutClient(
     turnIndex,
     dmClientId: heldSeat ? undefined : encounter.dmClientId,
   };
+}
+
+// --- Presence ----------------------------------------------------------------
+//
+// Who is connected right now, by chosen display name. This is **transient
+// per-connection state, not part of the encounter**: it isn't persisted, isn't
+// merged, and clears when the connection drops — putting it on the shared
+// document would mean merging liveness by revision, which is a category error.
+// It exists so the DM has someone to point at when handing a sheet out; a
+// sheetless player has no participant, so without this they're invisible.
+
+export interface PresentClient {
+  clientId: string;
+  name: string;
+}
+
+// Upsert, order-stable: re-announcing (every hello triggers one) must not
+// reshuffle a dropdown the DM is looking at.
+export function withPresence(
+  roster: PresentClient[],
+  clientId: string,
+  name: string,
+): PresentClient[] {
+  const existing = roster.find((c) => c.clientId === clientId);
+  if (existing?.name === name) return roster;
+  if (!existing) return [...roster, { clientId, name }];
+  return roster.map((c) => (c.clientId === clientId ? { ...c, name } : c));
+}
+
+export function withoutPresence(
+  roster: PresentClient[],
+  clientId: string,
+): PresentClient[] {
+  if (!roster.some((c) => c.clientId === clientId)) return roster;
+  return roster.filter((c) => c.clientId !== clientId);
 }

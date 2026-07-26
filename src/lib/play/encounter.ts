@@ -162,6 +162,20 @@ function mapParticipant(
 // The case that matters: a DM brings a character into the session and the player
 // who owns it then opens it themselves. Both derive the same participant id from
 // the character uuid, and the fight should contain one of them.
+//
+// Out of combat the newcomer is appended — array position means nothing there,
+// every view sorts for display. **Mid-combat the array is the turn order**, so
+// a late arrival (reinforcements, a player joining round 3) is spliced into
+// initiative position instead of acting last regardless of what they rolled.
+// Two rules fall out of that:
+//
+// - **A tie goes after everyone already holding that count.** Deterministic,
+//   and the DM breaks ties the way a table does — by nudging a number — rather
+//   than by this function inventing a coin flip.
+// - **A slot that already passed this round stays passed.** Inserting at or
+//   before the current turn means the newcomer's count came and went; they
+//   first act next round, and `turnIndex` moves up one so whoever is acting
+//   right now keeps acting.
 export function addParticipant(
   encounter: Encounter,
   participant: Omit<Participant, "spent" | "conditions">,
@@ -169,12 +183,43 @@ export function addParticipant(
   if (encounter.participants.some((p) => p.id === participant.id)) {
     return encounter;
   }
+  return insertParticipant(encounter, {
+    ...participant,
+    spent: NOTHING_SPENT,
+    conditions: [],
+  });
+}
+
+// The placement half of `addParticipant`, taking a whole participant so the
+// session merge can re-seat one that already carries conditions and a spent
+// economy (a joiner being restored to a fight in progress) without wiping
+// them. No duplicate check — the callers own that.
+export function insertParticipant(
+  encounter: Encounter,
+  participant: Participant,
+): Encounter {
+  if (!isInCombat(encounter)) {
+    return {
+      ...encounter,
+      participants: [...encounter.participants, participant],
+    };
+  }
+  const at = encounter.participants.findIndex(
+    (p) => p.initiative < participant.initiative,
+  );
+  const index = at === -1 ? encounter.participants.length : at;
+  const participants = [
+    ...encounter.participants.slice(0, index),
+    participant,
+    ...encounter.participants.slice(index),
+  ];
   return {
     ...encounter,
-    participants: [
-      ...encounter.participants,
-      { ...participant, spent: NOTHING_SPENT, conditions: [] },
-    ],
+    participants,
+    turnIndex:
+      index <= encounter.turnIndex
+        ? encounter.turnIndex + 1
+        : encounter.turnIndex,
   };
 }
 
@@ -191,6 +236,25 @@ export function removeParticipant(encounter: Encounter, id: string): Encounter {
     participants,
     turnIndex: participants.length === 0 ? 0 : turnIndex % participants.length,
   };
+}
+
+// The fallen: hand-typed combatants at zero HP. Character-backed rows are
+// exempt — a downed character is making death saves, not leaving the fight,
+// and their row belongs to whoever is playing them.
+export function fallenParticipants(encounter: Encounter): Participant[] {
+  return encounter.participants.filter(
+    (p) => !p.characterUuid && p.vitals !== undefined && p.vitals.currHp <= 0,
+  );
+}
+
+// Sweep the fallen off the table in one move — the between-fights reset that
+// otherwise costs a DM one click per dead goblin. Goes through
+// `removeParticipant` so the turn index stays on whoever is acting.
+export function clearFallen(encounter: Encounter): Encounter {
+  return fallenParticipants(encounter).reduce(
+    (current, p) => removeParticipant(current, p.id),
+    encounter,
+  );
 }
 
 export function setInitiative(

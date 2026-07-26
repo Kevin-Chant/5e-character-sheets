@@ -4,14 +4,17 @@ import {
   addParticipant,
   advanceTurn,
   claimParticipant,
+  clearFallen,
   currentParticipant,
   EMPTY_ENCOUNTER,
+  fallenParticipants,
   Encounter,
   endCombat,
   isInCombat,
   removeParticipant,
   setConcentration,
   setSpent,
+  setVitals,
   startCombat,
 } from "src/lib/play/encounter";
 
@@ -212,5 +215,147 @@ describe("contributing the same character twice", () => {
     // Claiming what you already own changes nothing, so an effect can call it
     // on every render without producing a broadcast.
     expect(claimParticipant(claimed, "self:x", "player")).toBe(claimed);
+  });
+});
+
+describe("clearing the fallen", () => {
+  // A character-backed row at 0 HP is a downed hero making death saves;
+  // the sweep is for the monsters the fight is finished with.
+  it("removes only hand-typed combatants at zero HP", () => {
+    let encounter = addParticipant(EMPTY_ENCOUNTER, {
+      id: "self:x",
+      name: "Maelina",
+      characterUuid: "00000000-0000-0000-0000-000000000000",
+      initiative: 19,
+    });
+    encounter = addParticipant(encounter, {
+      id: "g1",
+      name: "Goblin 1",
+      initiative: 7,
+    });
+    encounter = addParticipant(encounter, {
+      id: "g2",
+      name: "Goblin 2",
+      initiative: 7,
+    });
+    encounter = setVitals(encounter, "self:x", {
+      currHp: 0,
+      maxHp: 20,
+      ac: 12,
+    });
+    encounter = setVitals(encounter, "g1", { currHp: 0, maxHp: 7, ac: 0 });
+    encounter = setVitals(encounter, "g2", { currHp: 3, maxHp: 7, ac: 0 });
+
+    expect(fallenParticipants(encounter).map((p) => p.id)).toEqual(["g1"]);
+    const swept = clearFallen(encounter);
+    expect(swept.participants.map((p) => p.id)).toEqual(["self:x", "g2"]);
+  });
+
+  // An untracked combatant has no HP anywhere, so it can't be "at zero".
+  it("leaves untracked combatants alone", () => {
+    const encounter = addParticipant(EMPTY_ENCOUNTER, {
+      id: "g1",
+      name: "Goblin",
+      initiative: 7,
+    });
+    expect(fallenParticipants(encounter)).toEqual([]);
+    expect(clearFallen(encounter)).toBe(encounter);
+  });
+
+  it("keeps the turn on whoever is acting", () => {
+    let encounter = addParticipant(EMPTY_ENCOUNTER, {
+      id: "g1",
+      name: "Goblin",
+      initiative: 20,
+    });
+    encounter = addParticipant(encounter, {
+      id: "a",
+      name: "Brakka",
+      initiative: 12,
+    });
+    encounter = setVitals(encounter, "g1", { currHp: 0, maxHp: 7, ac: 0 });
+    encounter = startCombat(encounter);
+    encounter = advanceTurn(encounter).encounter; // Brakka's turn (index 1)
+    const swept = clearFallen(encounter);
+    expect(currentParticipant(swept)?.id).toBe("a");
+  });
+});
+
+describe("joining a fight already in progress", () => {
+  // Order after startCombat: Maelina 19, Brakka 12, Goblin 7.
+  it("splices a newcomer into initiative position, not the end", () => {
+    let encounter = startCombat(roster());
+    encounter = addParticipant(encounter, {
+      id: "d",
+      name: "Ogre",
+      initiative: 15,
+    });
+    expect(encounter.participants.map((p) => p.name)).toEqual([
+      "Maelina",
+      "Ogre",
+      "Brakka",
+      "Goblin",
+    ]);
+    // Nobody has acted past 15 yet, so the current turn is untouched.
+    expect(currentParticipant(encounter)?.name).toBe("Maelina");
+  });
+
+  it("keeps the current actor current when the newcomer's count already passed", () => {
+    // Advance to Brakka (12) and add a 19 — a slot that came and went this
+    // round. Brakka keeps acting; the newcomer first acts next round.
+    let encounter = advanceTurn(startCombat(roster())).encounter;
+    expect(currentParticipant(encounter)?.name).toBe("Brakka");
+    encounter = addParticipant(encounter, {
+      id: "d",
+      name: "Assassin",
+      initiative: 19,
+    });
+    expect(encounter.participants.map((p) => p.name)).toEqual([
+      "Maelina",
+      "Assassin",
+      "Brakka",
+      "Goblin",
+    ]);
+    expect(currentParticipant(encounter)?.name).toBe("Brakka");
+    // The round comes back around to the newcomer in its proper slot.
+    let step = advanceTurn(encounter); // Goblin
+    step = advanceTurn(step.encounter); // Maelina, new round
+    step = advanceTurn(step.encounter); // Assassin
+    expect(currentParticipant(step.encounter)?.name).toBe("Assassin");
+  });
+
+  it("a tie goes after everyone already holding that count", () => {
+    let encounter = startCombat(roster());
+    encounter = addParticipant(encounter, {
+      id: "d",
+      name: "Wolf",
+      initiative: 12,
+    });
+    expect(encounter.participants.map((p) => p.name)).toEqual([
+      "Maelina",
+      "Brakka",
+      "Wolf",
+      "Goblin",
+    ]);
+  });
+
+  it("the lowest roll still goes last", () => {
+    let encounter = startCombat(roster());
+    encounter = addParticipant(encounter, {
+      id: "d",
+      name: "Zombie",
+      initiative: 1,
+    });
+    expect(encounter.participants.at(-1)?.name).toBe("Zombie");
+    expect(currentParticipant(encounter)?.name).toBe("Maelina");
+  });
+
+  it("still appends out of combat, where display order is sorted anyway", () => {
+    const encounter = addParticipant(roster(), {
+      id: "d",
+      name: "Ogre",
+      initiative: 15,
+    });
+    expect(encounter.participants.at(-1)?.name).toBe("Ogre");
   });
 });
