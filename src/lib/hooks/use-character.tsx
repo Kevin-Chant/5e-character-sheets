@@ -25,6 +25,7 @@ type HistoryEntry = { action: Action; inverse: Action };
 const MAX_HISTORY = 100;
 import { useLazyEffect } from "./use-lazy-effect";
 import { useDatastore } from "./use-datastore";
+import { useDatastoreSelector } from "./use-datastore-selector";
 import { useSettings } from "./use-settings";
 import {
   useHostSharingSession,
@@ -77,6 +78,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const characterRef = useRef(character);
   characterRef.current = character;
   const { save } = useDatastore();
+  const { datastore } = useDatastoreSelector();
   const { settings } = useSettings();
   const getCharacter = useCallback<() => Character | undefined>(() => {
     return character;
@@ -248,8 +250,32 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const reset = useCallback(() => {
     setPast([]);
     setFuture([]);
+    // Closing the character retires its dirty/error state with it. These drive
+    // the nav save indicator, the "● " title prefix and the beforeunload
+    // guard, all of which would otherwise keep warning about unsaved work on a
+    // character that is no longer open — and can no longer be saved, since
+    // `persist` no-ops without one.
+    setUnsavedChanges(false);
+    setSaveError(false);
     dispatch(resetCharacter());
   }, []);
+
+  // Swapping storage backends closes the open character. This lives here rather
+  // than at the call sites because it was a convention there, and conventions
+  // get missed: the Drive sign-in path (`google-auth-initializer`) sets the
+  // datastore without resetting, so signing into Drive with a local sheet open
+  // left it open — and autosave then wrote that local character into Drive.
+  //
+  // Only a defined→defined swap resets. Clearing on *any* change would break
+  // the remote joiner, who is deliberately handed a character with no datastore
+  // at all (see the guard in `sheet-container.tsx`), and the session lobby,
+  // which adopts a datastore from `undefined` while the lobby is on screen.
+  const previousDatastore = useRef(datastore);
+  useEffect(() => {
+    const previous = previousDatastore.current;
+    previousDatastore.current = datastore;
+    if (previous && datastore && previous !== datastore) reset();
+  }, [datastore]);
 
   // startSession/endSession are recreated by their hook on every render; mirror
   // them in refs so the context-facing wrappers can stay stable.

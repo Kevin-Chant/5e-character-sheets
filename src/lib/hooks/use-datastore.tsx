@@ -105,23 +105,49 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   };
 
   useEffect(() => {
+    // Drop the outgoing store's list *before* fetching the new one, whatever
+    // we're moving to. The sidebar and picker render this list directly, and a
+    // Drive init is several network round-trips — long enough to click a
+    // localStorage character out of a list captioned "saved in Google Drive"
+    // and have autosave write it into Drive. Clear first, populate after.
+    setLocalCharacters({});
     if (!datastore) {
-      // Cleared selection (e.g. joining a remote session): drop the old list.
-      setLocalCharacters({});
+      // Cleared selection (e.g. joining a remote session): nothing to fetch,
+      // and any in-flight spinner must come down with the list it belonged to.
+      setCharacterLoading(false);
       return;
     }
     // Mark loading while the (possibly async, e.g. Drive) list is fetched so
     // the picker can show a spinner instead of flashing its empty state.
     setCharacterLoading(true);
-    datastore.initializeDatastore().then(() => {
-      const charList = datastore.listEntriesInDatastore();
-      setLocalCharacters(
-        Object.fromEntries(
-          charList.map((character) => [character.uuid, character]),
-        ),
-      );
-      setCharacterLoading(false);
-    });
+    // A swap mid-fetch must not let the store we left win the race. Local
+    // resolves synchronously while Drive takes a round-trip, so a drive→local
+    // swap would otherwise see Drive's promise land last and repopulate the
+    // list with characters from the backend the user just walked away from.
+    let cancelled = false;
+    datastore
+      .initializeDatastore()
+      .then(() => {
+        if (cancelled) return;
+        const charList = datastore.listEntriesInDatastore();
+        setLocalCharacters(
+          Object.fromEntries(
+            charList.map((character) => [character.uuid, character]),
+          ),
+        );
+        setCharacterLoading(false);
+      })
+      .catch((error) => {
+        // A failed init (expired Drive token, offline) must not strand the
+        // spinner: an empty list with the create affordance is recoverable,
+        // a permanent "Loading..." is not.
+        if (cancelled) return;
+        console.error("Failed to initialize datastore", error);
+        setCharacterLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [datastore]);
 
   // Memoized so consumers only re-render on real state changes; the callbacks
