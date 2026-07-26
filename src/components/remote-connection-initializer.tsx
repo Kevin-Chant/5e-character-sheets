@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRemoteSharingSession } from "src/lib/hooks/use-sharing-session";
@@ -9,7 +9,12 @@ import { isUuid } from "src/lib/types";
 import IdentityFields from "src/components/identity-fields";
 
 export default function RemoteConnectionInitializer() {
-  const [uuidInputValue, setUuidInputValue] = useState("");
+  const location = useLocation();
+  // The sessions route resolves a pasted code before sending it here, so an
+  // arrival with one in hand has already been told this realm exists — asking
+  // for it a second time would be asking the same question twice.
+  const handedCode = (location.state as { code?: string } | null)?.code;
+  const [uuidInputValue, setUuidInputValue] = useState(handedCode ?? "");
   const { dispatch } = useCharacter();
   const navigate = useNavigate();
   const { joinSession, getCharacter } = useRemoteSharingSession(dispatch);
@@ -18,8 +23,7 @@ export default function RemoteConnectionInitializer() {
     setUuidInputValue(e.target.value);
   };
 
-  const attemptConnect = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
+  const attemptConnect = async () => {
     if (!isUuid(uuidInputValue)) {
       window.alert("Invalid connection code!");
       return;
@@ -44,6 +48,17 @@ export default function RemoteConnectionInitializer() {
     navigate("/sheet");
   };
 
+  // Connect straight away when the code was handed to us, and exactly once —
+  // `attemptConnect` alerts on failure, and a retry loop would alert forever.
+  const attemptRef = useRef(attemptConnect);
+  attemptRef.current = attemptConnect;
+  const autoConnected = useRef(false);
+  useEffect(() => {
+    if (!handedCode || autoConnected.current) return;
+    autoConnected.current = true;
+    attemptRef.current();
+  }, [handedCode]);
+
   return (
     <div className="column flex-start">
       <label className="margin-small" htmlFor="uuidInputField">
@@ -62,7 +77,7 @@ export default function RemoteConnectionInitializer() {
       <button
         className="margin-small"
         disabled={!uuidInputValue}
-        onClick={attemptConnect}
+        onClick={() => attemptConnect()}
       >
         Connect
       </button>

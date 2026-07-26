@@ -39,6 +39,8 @@ import {
   ridersFor,
 } from "src/lib/mechanics/riders";
 import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
+import { useEncounter } from "src/lib/hooks/use-encounter";
+import { conditionRollNotes } from "src/lib/play/conditions";
 import {
   AttackContext,
   applicableRiders,
@@ -238,6 +240,7 @@ function CheckControls({
   const {
     settings: { criticalsOnAllRolls, explodingCriticals },
   } = useSettings();
+  const { selfConditions: conditions } = useEncounter();
   // Riders the weapon rules out (Archery on a greatsword, Reckless Attack's
   // note on a bow) are dropped before anything else looks at them.
   const riders = useMemo(
@@ -323,7 +326,14 @@ function CheckControls({
           Adv.
         </button>
       </div>
-      {advantageNotes(riders).map((note) => (
+      {/* Feature riders and active conditions say the same kind of thing — "this
+          roll may have advantage, you decide" — so they share one list rather
+          than arriving as two competing sets of small print. Conditions come
+          from the encounter, which is empty on the sheet and outside a fight. */}
+      {[
+        ...advantageNotes(riders),
+        ...conditionRollNotes(conditions, isAttack ? "attack" : "check"),
+      ].map((note) => (
         <p key={note} className="muted font-small">
           {note}
         </p>

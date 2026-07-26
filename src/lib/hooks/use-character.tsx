@@ -82,16 +82,23 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     return character;
   }, [character]);
 
-  const { broadcast, getRole } = useSharingSessions();
+  const { broadcast, getRole, isBorrowed } = useSharingSessions();
   const { startSession, endSession } = useHostSharingSession(
     dispatch,
     getCharacter,
   );
 
   // Persist the current character now. A character we joined remotely is owned
-  // (and persisted) by the host, so we must not write a divergent copy.
+  // (and persisted) by the host, so we must not write a divergent copy — and a
+  // sheet borrowed from a DM in a play session is the same situation with a
+  // different transport.
   const persist = useCallback(() => {
-    if (!character || getRole(character.uuid) === "remote") return;
+    if (
+      !character ||
+      getRole(character.uuid) === "remote" ||
+      isBorrowed(character.uuid)
+    )
+      return;
     save(character)
       .then(() => {
         setUnsavedChanges(false);
@@ -103,7 +110,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
         console.error("Failed to save character", error);
         setSaveError(true);
       });
-  }, [character, getRole, save]);
+  }, [character, getRole, isBorrowed, save]);
 
   // Debounced autosave (when enabled). Only persist genuine edits — loading an
   // already-persisted character leaves unsavedChanges false, so opening a sheet

@@ -33,6 +33,8 @@
 @import "./styles/tooltip.css";
 @import "./styles/builder.css";
 @import "./styles/trackers.css";
+@import "./styles/play.css";
+@import "./styles/sessions.css";
 
 /* Overrides — these must stay last, in this order. */
 @import "./styles/responsive-sheet.css";

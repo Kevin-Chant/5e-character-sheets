@@ -47,7 +47,11 @@ export default function AbilityActions({
 
 // One action: [level picker] [amount input] [button + cost badge], and the
 // outcome line (reminders / display rolls) from its last use.
-function ActionRow({
+//
+// Exported because the play surface's action board renders these individually,
+// regrouped by action-economy cost rather than by the pool they belong to — a
+// Ki pool is three different things you can do, at two different costs.
+export function ActionRow({
   index,
   ability,
   action,

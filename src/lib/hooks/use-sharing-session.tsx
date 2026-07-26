@@ -114,6 +114,13 @@ interface SharingSessionsContextData {
   // (host only), closes the connection, and forgets it. Safe to call when no
   // session is open. Returns `true` if the server close failed.
   teardownSession: (uuid: UUID) => Promise<boolean>;
+  // Sheets picked up from a DM in a play session. A borrowed sheet is played,
+  // never persisted: the DM owns the stored copy, and lazy-save writing it into
+  // the player's datastore would fork it — same reason a remotely-joined
+  // character isn't saved. Lives here rather than on the encounter because the
+  // save gate is in `CharacterContext`, and this is the context above it.
+  markBorrowed: (uuid: UUID) => void;
+  isBorrowed: (uuid: UUID) => boolean;
 }
 
 export const SharingSessionsContext =
@@ -135,6 +142,8 @@ export const SharingSessionsContext =
     joinPresence: () => {},
     leavePresence: () => {},
     teardownSession: async () => false,
+    markBorrowed: () => {},
+    isBorrowed: () => false,
   });
 
 export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
@@ -179,6 +188,10 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   const lastSeenRef = useRef<Record<UUID, Record<string, number>>>({});
   // Stable id identifying this browser tab, used to drop our own echoed edits.
   const clientIdRef = useRef<string>(randomUUID());
+  // Borrowed play-session sheets, by uuid. A ref, not state: the save gate
+  // reads it inside callbacks and the set is written before the character
+  // loads, so nothing needs to re-render on change.
+  const borrowedRef = useRef<Set<UUID>>(new Set());
   const {
     settings: { liveEditHost },
   } = useSettings();
@@ -380,6 +393,10 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       broadcastSelection,
       joinPresence,
       leavePresence,
+      markBorrowed: (uuid) => {
+        borrowedRef.current.add(uuid);
+      },
+      isBorrowed: (uuid) => borrowedRef.current.has(uuid),
       // Publish a local edit to everyone else in the realm. No-op when there is
       // no open session for this character.
       broadcast: (uuid, action, dirtyAction) => {

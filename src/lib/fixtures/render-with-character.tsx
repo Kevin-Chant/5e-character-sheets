@@ -15,6 +15,11 @@ import {
 } from "src/lib/hooks/use-settings";
 import { TargetedFieldContext } from "src/lib/hooks/use-targeted-field";
 import { SaveContext } from "src/components/modals/modal-container";
+import {
+  ENCOUNTER_STORAGE_KEY,
+  EncounterContextProvider,
+} from "src/lib/hooks/use-encounter";
+import { removeLocalStorage } from "src/lib/local-storage";
 import { Character } from "src/lib/types";
 
 // One harness for the sheet's display components and edit modals.
@@ -73,6 +78,10 @@ export function renderWithCharacter(
   const saveData = vi.fn();
   const commit = vi.fn();
   const setTargetedFieldStack = vi.fn();
+  // The encounter is an app-wide provider that deliberately outlives any one
+  // component, so it also outlives a test unless it's cleared — a spent action
+  // or a lingering condition would otherwise arrive in the next test.
+  removeLocalStorage(ENCOUNTER_STORAGE_KEY);
   // The live character, so a test can read the end state after interacting.
   const latest = { current: initial };
 
@@ -119,23 +128,25 @@ export function renderWithCharacter(
             closeSharingSession: vi.fn(),
           }}
         >
-          <EditModeContext.Provider
-            value={{ editMode, setEditMode: vi.fn(), toggleMode: vi.fn() }}
-          >
-            <TargetedFieldContext.Provider
-              value={{
-                targetedFieldStack:
-                  targetedField === undefined
-                    ? []
-                    : [[targetedField, subField]],
-                setTargetedFieldStack,
-              }}
+          <EncounterContextProvider>
+            <EditModeContext.Provider
+              value={{ editMode, setEditMode: vi.fn(), toggleMode: vi.fn() }}
             >
-              <SaveContext.Provider value={{ saveData, commit }}>
-                {ui}
-              </SaveContext.Provider>
-            </TargetedFieldContext.Provider>
-          </EditModeContext.Provider>
+              <TargetedFieldContext.Provider
+                value={{
+                  targetedFieldStack:
+                    targetedField === undefined
+                      ? []
+                      : [[targetedField, subField]],
+                  setTargetedFieldStack,
+                }}
+              >
+                <SaveContext.Provider value={{ saveData, commit }}>
+                  {ui}
+                </SaveContext.Provider>
+              </TargetedFieldContext.Provider>
+            </EditModeContext.Provider>
+          </EncounterContextProvider>
         </CharacterContext.Provider>
       </>,
     );

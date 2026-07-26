@@ -1,3 +1,4 @@
+import { useEncounter } from "src/lib/hooks/use-encounter";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { RestVariant } from "src/lib/rest";
 import { CritMode } from "src/lib/roll";
@@ -9,6 +10,8 @@ import SettingsSection from "./settings-section";
 // preferences like the theme or autosave.
 export default function GameSettings() {
   const { settings, updateSetting } = useSettings();
+  const { sessionStatus, hasDm, isDm, claimDm } = useEncounter();
+  const canTakeOver = sessionStatus === "connected" && hasDm && !isDm;
   return (
     <div className="settings-sections">
       <SettingsSection
@@ -209,6 +212,22 @@ export default function GameSettings() {
           another set of critical dice
         </label>
       </SettingsSection>
+
+      {/* The escape hatch for a DM who is genuinely never coming back. It lives
+          here rather than on the session bar deliberately: starting a game
+          claims the seat and a reload reclaims it, so the two everyday reasons
+          to press this are gone, and a button on the bar would read like
+          something to compete over at the start of every session. */}
+      {canTakeOver && (
+        <SettingsSection
+          title="Take over the DM seat"
+          description="Someone else is running combat in your session. The seat comes back to them on its own after a refresh or a dropped connection, so only use this if their browser is gone for good."
+        >
+          <button type="button" onClick={claimDm}>
+            Take over as DM
+          </button>
+        </SettingsSection>
+      )}
     </div>
   );
 }

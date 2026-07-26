@@ -1,0 +1,454 @@
+import { UUID } from "crypto";
+import { ConditionName } from "src/lib/play/conditions";
+
+// The three parts of the action economy a turn spends. `free` and `special` are
+// deliberately absent: neither is a finite per-turn resource, and giving them a
+// slot would imply a budget 5e doesn't have.
+//
+// These live here rather than with the `usePlayTurn` hook because the economy is
+// encounter state — the hook is a view onto it, and having the hook own the type
+// made the import graph a cycle. `use-turn` re-exports them for the components
+// that render the economy; **anything upstream of the hook must import them from
+// here**, or the cycle comes back (a component pulls in `use-encounter`, which
+// pulls in `use-turn`, which needs the half-initialised `use-encounter`).
+export type EconomySlot = "action" | "bonusAction" | "reaction";
+
+export const ECONOMY_SLOTS: EconomySlot[] = [
+  "action",
+  "bonusAction",
+  "reaction",
+];
+
+// The encounter: round, order, and the transient state a fight puts on the
+// people in it.
+//
+// **It is its own object, never a field on `Character`.** With one player that
+// looks like an arbitrary distinction — a round counter could live on the sheet
+// — but a round belongs to no single character, and every player holding their
+// own copy of "whose turn is it" is the bug that makes a shared encounter
+// impossible later. Keeping it separate is what makes the session layer an
+// increment rather than a migration.
+//
+// Everything here is pure. Storage and React live in `use-encounter.tsx`.
+
+export interface ActiveCondition {
+  name: ConditionName;
+  // Rounds left, ticked down at the start of the bearer's turn. Absent means
+  // indefinite — "until someone removes it", which is most of them.
+  rounds?: number;
+}
+
+export interface Concentration {
+  spell: string;
+  // The round it started, so the rail can say how long it's been held.
+  startedRound: number;
+}
+
+export type TurnEconomy = Record<EconomySlot, boolean>;
+
+export const NOTHING_SPENT: TurnEconomy = {
+  action: false,
+  bonusAction: false,
+  reaction: false,
+};
+
+// The slice of a character the rest of the party can see. Deliberately tiny:
+// this is what's visible across a table anyway — how hurt someone looks, what
+// they're wearing, what's wrong with them. Nothing here is a secret, which is
+// what lets the session broadcast it without asking.
+export interface ParticipantVitals {
+  currHp: number;
+  maxHp: number;
+  ac: number;
+}
+
+export interface Participant {
+  id: string;
+  name: string;
+  // Set for a character *some* browser has open — in a party session, every
+  // player contributes one. Absent for someone typed into the order by hand
+  // (a monster, an absent ally).
+  characterUuid?: UUID;
+  // Which client contributed this participant, so a client leaving takes its own
+  // character with it and nothing else.
+  ownerClientId?: string;
+  initiative: number;
+  // Advisory: what this participant has spent on the current turn.
+  spent: TurnEconomy;
+  conditions: ActiveCondition[];
+  concentration?: Concentration;
+  // Set by the DM: this sheet may be picked up and played by someone at the
+  // table who came without one. **Offering is a deliberate per-sheet act** —
+  // bringing a sheet into the order shows its projection, offering it is what
+  // consents to the whole sheet travelling. The flag survives a pickup, so the
+  // sheet reverts to offered when its player leaves.
+  claimable?: boolean;
+  // Kept current by the owning client — with one deliberate exception, a DM
+  // edit. See `mergeEncounter`.
+  vitals?: ParticipantVitals;
+  // Bumped on every real vitals change. This is what lets the merge tell "the
+  // DM just set your HP" (a newer write, accept it) apart from "a peer echoed a
+  // stale copy of you" (an older one, keep your own) — without it those two
+  // arrive looking identical, and the fix for one is the bug in the other.
+  vitalsRev?: number;
+}
+
+export interface Encounter {
+  // 0 means "not in combat". The encounter object always exists — the turn
+  // economy and conditions are useful outside a fight too — so `round` is what
+  // distinguishes tracking a fight from merely being open.
+  round: number;
+  turnIndex: number;
+  participants: Participant[];
+  // Who holds the DM seat *right now*, by client id. A **UI gate only**: it
+  // decides which controls render, never who may write. That isn't about absent
+  // DMs — it's that the encounter has to keep working with no session at all
+  // (solo prep, a one-shot, testing), so an unclaimed seat means everybody gets
+  // the controls.
+  dmClientId?: string;
+  // The durable half of the seat. `clientId` is **per-tab**, so a reload mints a
+  // new one and would otherwise cost the DM their seat on every refresh; the
+  // token lives in the DM's own browser and outlives the tab, which is what lets
+  // them walk back in and reclaim. Leaving clears `dmClientId` but keeps this,
+  // so the table isn't gated on someone who's gone while the seat still knows
+  // whose it is.
+  dmToken?: string;
+  // Last-write-wins bookkeeping for the party session. Absent on a purely local
+  // encounter, which is why every read is `?? 0` rather than a migration.
+  revision?: number;
+  revisedBy?: string;
+}
+
+export const EMPTY_ENCOUNTER: Encounter = {
+  round: 0,
+  turnIndex: 0,
+  participants: [],
+};
+
+export function isInCombat(encounter: Encounter): boolean {
+  return encounter.round > 0;
+}
+
+export function currentParticipant(
+  encounter: Encounter,
+): Participant | undefined {
+  return encounter.participants[encounter.turnIndex];
+}
+
+export function participantFor(
+  encounter: Encounter,
+  characterUuid: UUID | undefined,
+): Participant | undefined {
+  if (!characterUuid) return undefined;
+  return encounter.participants.find((p) => p.characterUuid === characterUuid);
+}
+
+function mapParticipant(
+  encounter: Encounter,
+  id: string,
+  change: (participant: Participant) => Participant,
+): Encounter {
+  return {
+    ...encounter,
+    participants: encounter.participants.map((p) =>
+      p.id === id ? change(p) : p,
+    ),
+  };
+}
+
+// --- Roster -----------------------------------------------------------------
+
+// Adding an id that's already in the order is a no-op rather than a duplicate.
+// The case that matters: a DM brings a character into the session and the player
+// who owns it then opens it themselves. Both derive the same participant id from
+// the character uuid, and the fight should contain one of them.
+export function addParticipant(
+  encounter: Encounter,
+  participant: Omit<Participant, "spent" | "conditions">,
+): Encounter {
+  if (encounter.participants.some((p) => p.id === participant.id)) {
+    return encounter;
+  }
+  return {
+    ...encounter,
+    participants: [
+      ...encounter.participants,
+      { ...participant, spent: NOTHING_SPENT, conditions: [] },
+    ],
+  };
+}
+
+export function removeParticipant(encounter: Encounter, id: string): Encounter {
+  const index = encounter.participants.findIndex((p) => p.id === id);
+  if (index === -1) return encounter;
+  const participants = encounter.participants.filter((p) => p.id !== id);
+  // Removing someone earlier in the order would otherwise shift the current
+  // turn onto whoever moved up into their place.
+  const turnIndex =
+    index < encounter.turnIndex ? encounter.turnIndex - 1 : encounter.turnIndex;
+  return {
+    ...encounter,
+    participants,
+    turnIndex: participants.length === 0 ? 0 : turnIndex % participants.length,
+  };
+}
+
+export function setInitiative(
+  encounter: Encounter,
+  id: string,
+  initiative: number,
+): Encounter {
+  return mapParticipant(encounter, id, (p) => ({ ...p, initiative }));
+}
+
+// Highest first, and ties broken by name so the order is stable across
+// re-sorts rather than depending on insertion. (5e breaks initiative ties with
+// a DEX check or a coin flip; neither is something the sheet should invent.)
+export function inInitiativeOrder(participants: Participant[]): Participant[] {
+  return [...participants].sort(
+    (a, b) => b.initiative - a.initiative || a.name.localeCompare(b.name),
+  );
+}
+
+// --- Running the fight ------------------------------------------------------
+
+// What a turn boundary produced, for the caller to act on: the trigger events
+// worth planning against, and the conditions that ran out.
+export interface TurnAdvance {
+  encounter: Encounter;
+  // The participant whose turn just started, if any.
+  active?: Participant;
+  // Conditions that expired on the incoming participant, by name.
+  expired: ConditionName[];
+  // True when the order wrapped and the round counter moved.
+  newRound: boolean;
+}
+
+// Sort into initiative order and start round 1 on whoever is first.
+export function startCombat(encounter: Encounter): Encounter {
+  const participants = inInitiativeOrder(encounter.participants).map((p) => ({
+    ...p,
+    spent: NOTHING_SPENT,
+  }));
+  return { ...encounter, round: 1, turnIndex: 0, participants };
+}
+
+// Drop back out of combat. Conditions and concentration **survive** — a fight
+// ending is not a rest, and a poisoned character is still poisoned afterwards.
+// Only the round, the order position and the per-turn economy reset.
+export function endCombat(encounter: Encounter): Encounter {
+  return {
+    ...encounter,
+    round: 0,
+    turnIndex: 0,
+    participants: encounter.participants.map((p) => ({
+      ...p,
+      spent: NOTHING_SPENT,
+    })),
+  };
+}
+
+// Move to the next participant, wrapping into a new round.
+//
+// A turn *starting* is what does the work: the incoming participant's economy
+// resets (including their reaction, which in 5e refreshes at the start of your
+// turn, not the end) and their conditions tick down. Doing it on the way in
+// rather than on the way out means a condition with "1 round" left is still
+// visible for the whole of the turn it applies to.
+export function advanceTurn(encounter: Encounter): TurnAdvance {
+  if (encounter.participants.length === 0 || !isInCombat(encounter)) {
+    return { encounter, expired: [], newRound: false };
+  }
+
+  const nextIndex = (encounter.turnIndex + 1) % encounter.participants.length;
+  const newRound = nextIndex === 0;
+  const expired: ConditionName[] = [];
+
+  const participants = encounter.participants.map((p, i) => {
+    if (i !== nextIndex) return p;
+    const conditions = p.conditions.flatMap((condition) => {
+      if (condition.rounds === undefined) return [condition];
+      const rounds = condition.rounds - 1;
+      if (rounds <= 0) {
+        expired.push(condition.name);
+        return [];
+      }
+      return [{ ...condition, rounds }];
+    });
+    return { ...p, spent: NOTHING_SPENT, conditions };
+  });
+
+  return {
+    encounter: {
+      ...encounter,
+      round: newRound ? encounter.round + 1 : encounter.round,
+      turnIndex: nextIndex,
+      participants,
+    },
+    active: participants[nextIndex],
+    expired,
+    newRound,
+  };
+}
+
+// --- Per-participant state --------------------------------------------------
+
+export function setSpent(
+  encounter: Encounter,
+  id: string,
+  slot: EconomySlot,
+  spent: boolean,
+): Encounter {
+  return mapParticipant(encounter, id, (p) => ({
+    ...p,
+    spent: { ...p.spent, [slot]: spent },
+  }));
+}
+
+export function clearSpent(encounter: Encounter, id: string): Encounter {
+  return mapParticipant(encounter, id, (p) => ({ ...p, spent: NOTHING_SPENT }));
+}
+
+// Adding a condition already held replaces it, so re-applying with a fresh
+// duration refreshes rather than stacking a second copy.
+export function addCondition(
+  encounter: Encounter,
+  id: string,
+  condition: ActiveCondition,
+): Encounter {
+  return mapParticipant(encounter, id, (p) => ({
+    ...p,
+    conditions: [
+      ...p.conditions.filter((c) => c.name !== condition.name),
+      condition,
+    ],
+  }));
+}
+
+export function removeCondition(
+  encounter: Encounter,
+  id: string,
+  name: ConditionName,
+): Encounter {
+  return mapParticipant(encounter, id, (p) => ({
+    ...p,
+    conditions: p.conditions.filter((c) => c.name !== name),
+  }));
+}
+
+export function setVitals(
+  encounter: Encounter,
+  id: string,
+  vitals: ParticipantVitals,
+): Encounter {
+  const existing = encounter.participants.find((p) => p.id === id)?.vitals;
+  // Identical vitals must not produce a new object: this is written from an
+  // effect on every character change, and a fresh encounter each time would
+  // broadcast a revision bump per keystroke.
+  if (
+    existing &&
+    existing.currHp === vitals.currHp &&
+    existing.maxHp === vitals.maxHp &&
+    existing.ac === vitals.ac
+  ) {
+    return encounter;
+  }
+  return mapParticipant(encounter, id, (p) => ({
+    ...p,
+    vitals,
+    vitalsRev: (p.vitalsRev ?? 0) + 1,
+  }));
+}
+
+// Offer a brought sheet for pickup, or withdraw the offer.
+export function offerSheet(
+  encounter: Encounter,
+  id: string,
+  claimable: boolean,
+): Encounter {
+  const existing = encounter.participants.find((p) => p.id === id);
+  if (!existing || !!existing.claimable === claimable) return encounter;
+  return mapParticipant(encounter, id, (p) => ({ ...p, claimable }));
+}
+
+// The offered sheets someone without a character could pick up right now. "In
+// play" is expressed by ownership: a sheet sitting with the DM's client is a
+// static projection waiting for a player, one owned by anybody else has a
+// browser keeping it live.
+export function claimableSheets(
+  encounter: Encounter,
+  clientId: string,
+): Participant[] {
+  return encounter.participants.filter(
+    (p) =>
+      p.claimable &&
+      p.characterUuid &&
+      p.ownerClientId === encounter.dmClientId &&
+      p.ownerClientId !== clientId,
+  );
+}
+
+// Take over a participant someone else contributed.
+//
+// This is what happens when a DM brings a character into the session and the
+// player it belongs to then opens it: the DM's copy is a static projection, the
+// player's is live, and the live one should win. Ownership decides whose vitals
+// are authoritative in `mergeEncounter` and who takes the participant with them
+// when they leave, so it has to move with the sheet.
+export function claimParticipant(
+  encounter: Encounter,
+  id: string,
+  clientId: string,
+): Encounter {
+  const existing = encounter.participants.find((p) => p.id === id);
+  if (!existing || existing.ownerClientId === clientId) return encounter;
+  return mapParticipant(encounter, id, (p) => ({
+    ...p,
+    ownerClientId: clientId,
+  }));
+}
+
+// Take the seat. Both halves move together: the tab that holds it now, and the
+// browser that may take it back later.
+export function claimDmSeat(
+  encounter: Encounter,
+  clientId: string,
+  token: string,
+): Encounter {
+  return { ...encounter, dmClientId: clientId, dmToken: token };
+}
+
+// Give it up for good — the opposite of `withoutClient`, which only puts the
+// seat down. Releasing drops the token too, so coming back doesn't silently
+// make you the DM again.
+export function releaseDmSeat(encounter: Encounter): Encounter {
+  return { ...encounter, dmClientId: undefined, dmToken: undefined };
+}
+
+// Pick the seat back up in a new tab. This is what makes a refresh, a crash or a
+// dropped connection cost the DM nothing: the token is the same browser, so the
+// seat recognises them without anyone pressing a button.
+export function reclaimDmSeat(
+  encounter: Encounter,
+  clientId: string,
+  token: string | undefined,
+): Encounter {
+  if (!token || encounter.dmToken !== token) return encounter;
+  if (encounter.dmClientId === clientId) return encounter;
+  return { ...encounter, dmClientId: clientId };
+}
+
+// Whether this client should be offered the controls that move the fight along.
+// An unclaimed seat means everyone can, which is the right default for a table
+// whose DM isn't in the app at all.
+export function canRunCombat(encounter: Encounter, clientId: string): boolean {
+  return !encounter.dmClientId || encounter.dmClientId === clientId;
+}
+
+export function setConcentration(
+  encounter: Encounter,
+  id: string,
+  concentration: Concentration | undefined,
+): Encounter {
+  return mapParticipant(encounter, id, (p) => ({ ...p, concentration }));
+}

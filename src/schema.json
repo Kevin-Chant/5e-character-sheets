@@ -1071,6 +1071,22 @@
             ],
             "type": "object"
         },
+        "PlaySessionRef": {
+            "properties": {
+                "code": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
+                },
+                "lastJoined": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "code",
+                "lastJoined"
+            ],
+            "type": "object"
+        },
         "Proficiencies<SkillName>": {
             "properties": {
                 "Acrobatics": {
@@ -2397,6 +2413,12 @@
                 "traits"
             ],
             "type": "object"
+        },
+        "playSessions": {
+            "items": {
+                "$ref": "#/definitions/PlaySessionRef"
+            },
+            "type": "array"
         },
         "playerName": {
             "type": "string"

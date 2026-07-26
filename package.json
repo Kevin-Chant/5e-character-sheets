@@ -10,6 +10,7 @@
     "build": "pnpm generate-schema && pnpm type-check && vite build",
     "preview": "vite preview",
     "screenshot": "node scripts/screenshot.mjs",
+    "session-smoke": "node scripts/session-smoke.mjs",
     "generate-schema": "typescript-json-schema tsconfig.schema.json Character --required > src/schema.json && prettier --write src/schema.json --log-level silent",
     "generate-spells": "node scripts/generate-spells.mjs",
     "schema:check": "pnpm generate-schema && git diff --exit-code -- src/schema.json",

@@ -495,6 +495,7 @@ export enum FIELD {
   pactSlots = "pactSlots",
   limitedUseAbilities = "limitedUseAbilities",
   chosenOptions = "chosenOptions",
+  playSessions = "playSessions",
 }
 
 export const HIT_DICE: Record<OfficialClass, StandardDie> = {

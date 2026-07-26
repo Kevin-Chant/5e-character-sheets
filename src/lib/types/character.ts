@@ -470,6 +470,23 @@ export interface Character {
   // Named options picked from a fixed list a class offers — Metamagic, Battle
   // Master maneuvers, a warlock's Pact Boon. Optional so old saves validate.
   chosenOptions?: ChosenOption[];
+  // Party-session codes this character has joined, most recent first. Session
+  // codes are uuids (the uuid *is* the authentication, as with shared
+  // characters), which makes them unmemorable — and a table rejoins the same
+  // session every week. So the character remembers them rather than asking the
+  // player to find last week's message again.
+  //
+  // On the character rather than in app settings because it is per-character:
+  // your wizard plays in the Tuesday game, your paladin doesn't. Optional, so
+  // old saves validate without a migration.
+  playSessions?: PlaySessionRef[];
+}
+
+// A session this character has been in. `lastJoined` is epoch ms, and is what
+// orders the rejoin list — a code alone can't be told apart from another one.
+export interface PlaySessionRef {
+  code: UUID;
+  lastJoined: number;
 }
 
 export type CharacterField = keyof Character;

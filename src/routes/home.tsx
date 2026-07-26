@@ -78,6 +78,9 @@ export default function Home() {
         </p>
       </div>
 
+      {/* This row answers one question — where your characters live. Sessions
+          are a separate question and live behind the nav, because three of the
+          four ways into one need this answered first. */}
       <div className="option-grid">
         <OptionCard
           to="auth"
@@ -92,13 +95,20 @@ export default function Home() {
           heading="Edit locally"
           description="Keep sheets in this browser - nothing leaves your device."
         />
-        <OptionCard
-          to="/join"
-          onClick={chooseJoin}
-          icon={<FaUsers />}
-          heading="Join a session"
-          description="Enter a friend's code to co-edit a character live."
-        />
+      </div>
+
+      {/* The escape hatch for the one path that genuinely needs no storage:
+          someone arrived holding a code. Kept secondary rather than made a peer
+          of the cards above, because "I'm just joining" isn't a place to keep
+          characters — it's the absence of one. */}
+      <div className="home-arrivals">
+        <p className="text-muted">Been sent a code?</p>
+        <Link className="no-underline" to="/sessions" state={{ join: true }}>
+          <FaUsers /> Join a game or a shared sheet
+        </Link>
+        <Link className="no-underline" to="/join" onClick={chooseJoin}>
+          Join without saving anything
+        </Link>
       </div>
 
       <p className="text-muted home-footnote">

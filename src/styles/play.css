@@ -1,0 +1,888 @@
+/* ============================================================
+   Play surface
+   ============================================================
+
+   The sheet is a paper document: airy boxes, hairline underlines, generous
+   space, everything visible at once because that's what a reference sheet is
+   for. This is the opposite brief — it's read in glances, mid-conversation,
+   often on a laptop balanced on a knee — so it changes *material* rather than
+   palette: same tokens, same accent, but denser, grid-locked, and with the
+   turn economy carrying weight nothing on the sheet carries.
+
+   Deliberately no `@media`-free rule here: unlike the sheet (which reflows
+   inside a container that is only part of the page), the play surface *is* the
+   viewport, so viewport queries are the honest tool. */
+
+.play-surface {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* --- Party session ------------------------------------------------------ */
+
+.session-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+
+.session-join {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.session-btn {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.session-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.session-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Live, and saying so — the broadcast icon is the same one the character
+   sharing UI uses, because it means the same thing. */
+.session-live {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--success);
+  font-weight: 600;
+}
+
+.session-code {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+  letter-spacing: 0.14em;
+  font-size: 0.95rem;
+}
+
+.session-hint {
+  color: var(--text-muted);
+}
+
+/* A uuid, so it needs room and must not be re-wrapped by autocorrect. */
+.session-code-input {
+  width: 22em;
+  max-width: 100%;
+  font-family: var(--font-body);
+}
+
+.session-recent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-basis: 100%;
+  flex-wrap: wrap;
+}
+
+.session-recent ul {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.session-recent li {
+  display: flex;
+  align-items: center;
+}
+
+.session-recent .session-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.session-when {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.session-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+}
+
+/* --- Initiative rail ---------------------------------------------------- */
+
+.initiative-rail {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: var(--space-2) var(--space-3);
+}
+
+.initiative-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.round-counter {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--border-soft);
+}
+
+.round-counter-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.round-counter-value {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+/* The order reads left to right like a timeline, because that's what it is —
+   turns are a sequence, and this is the one place on the surface where a
+   numbered/ordered treatment encodes something true rather than decorating. */
+.initiative-order {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  flex: 1;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.initiative-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.initiative-entry.self .initiative-name {
+  font-weight: 600;
+}
+
+.initiative-entry.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.initiative-score {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.initiative-entry.active .initiative-score {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* A party member's shared vitals. Tabular so a column of them stays readable
+   as numbers change mid-fight. */
+.initiative-hp {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--health);
+}
+
+.initiative-conditions {
+  min-width: 1.1em;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--health-soft);
+  color: var(--health);
+}
+
+.initiative-setup,
+.initiative-setup-entry,
+.initiative-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.initiative-setup {
+  flex: 1;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.initiative-add input[type="text"] {
+  width: 9em;
+}
+
+/* What the last turn boundary did — expired conditions, pools that came back.
+   A line rather than a toast: it should still be readable ten seconds later,
+   when the player finishes talking and looks down. */
+.initiative-receipt {
+  margin: var(--space-2) 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* --- Turn economy: the signature element ------------------------------- */
+
+.play-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.turn-economy {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.turn-economy-slots {
+  gap: var(--space-2);
+}
+
+/* A slot is a block you spend, so it reads as a physical thing with a state —
+   not a checkbox with a caption. Spent is communicated three ways at once
+   (weight, opacity, a struck name) because it is glanced at, never studied. */
+.turn-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 108px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease;
+}
+
+.turn-slot-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.turn-slot-state {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+.turn-slot.spent {
+  border-color: var(--border);
+  background: var(--surface-2);
+  opacity: 0.5;
+}
+
+.turn-slot.spent .turn-slot-name {
+  font-weight: 400;
+  text-decoration: line-through;
+}
+
+.turn-slot.spent .turn-slot-state {
+  color: var(--text-muted);
+}
+
+.turn-end-btn {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.turn-end-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.play-sheet-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.play-sheet-link:hover {
+  color: var(--accent);
+}
+
+/* --- Body: board + vitals rail ----------------------------------------- */
+
+.play-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+/* --- Action board ------------------------------------------------------ */
+
+.action-group {
+  margin-bottom: var(--space-6);
+}
+
+/* Group headings are the board's structure, and the structure is true: these
+   are the parts of a turn, in the order a turn spends them. */
+.action-group-heading {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-2);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.action-row:last-of-type {
+  border-bottom: none;
+}
+
+.action-row-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.action-row-name {
+  font-weight: 600;
+}
+
+.action-row-badge {
+  font-size: 0.72rem;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius);
+  background: var(--arcane-soft);
+  color: var(--arcane);
+  white-space: nowrap;
+}
+
+.action-row-detail {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* The trigger on a reaction spell, or how long a slow cast takes. Long enough
+   to wrap, so it gets the remaining width rather than pushing the control off. */
+.action-row-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  min-width: 0;
+}
+
+.action-row-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Out of slots, empty pool. Dimmed, never disabled — the sheet can't see the
+   whole table, so this states what it knows and leaves the call to the player. */
+.action-row.unavailable .action-row-main {
+  opacity: 0.45;
+}
+
+/* Spending the slot. Quieter than the roll button beside it — the die is the
+   consequential click, this is bookkeeping. */
+.cast-btn {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.cast-btn:hover:not(:disabled) {
+  border-color: var(--arcane);
+  color: var(--arcane);
+}
+
+.cast-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.action-standard {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+/* --- Vitals rail ------------------------------------------------------- */
+
+.play-vitals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  position: sticky;
+  top: var(--space-4);
+}
+
+.play-hp-numbers {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.play-hp-max {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  white-space: nowrap;
+}
+
+/* `TrackerValue` is built for the sheet's HP box, where it's a labelled row in a
+   wide column. Here it's the headline of a 260px rail, so the label comes off
+   the main figure (the bar and "/ 56" beside it already say what it is) and the
+   input is sized to the two or three digits it will ever hold. */
+.play-hp .tracker-value {
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.play-hp-numbers .display-label {
+  display: none;
+}
+
+.play-hp .tracker-input {
+  width: 2.6em;
+  min-width: 0;
+  text-align: center;
+}
+
+.play-hp-temp .tracker-value {
+  justify-content: space-between;
+}
+
+.play-hp-temp .display-label {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.play-hp-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: var(--space-2) 0;
+}
+
+.play-hp-bar-fill {
+  height: 100%;
+  background: var(--health);
+  transition: width 160ms ease;
+}
+
+.play-hp-temp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.play-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  text-align: center;
+}
+
+.play-stats dt {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.play-stats dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.play-rail-heading {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+/* --- Conditions + concentration ----------------------------------------- */
+
+.condition-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+}
+
+/* Crimson, like the HP bar: both mean "something is wrong with you right now".
+   The rail's other semantic hue (arcane) stays with spell resources. */
+.condition-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 1px var(--space-1) 1px var(--space-2);
+  border: 1px solid var(--health);
+  border-radius: 999px;
+  background: var(--health-soft);
+  color: var(--health);
+  font-size: 0.78rem;
+}
+
+.condition-rounds {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--health);
+  color: var(--accent-contrast);
+  font-size: 0.7rem;
+}
+
+.condition-add,
+.concentration-add,
+.concentration-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.8rem;
+}
+
+.condition-add select,
+.concentration-add input {
+  flex: 1;
+  min-width: 0;
+}
+
+.condition-rounds-input {
+  width: 3em;
+  min-width: 0;
+}
+
+.concentration-spell {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--arcane);
+}
+
+.concentration-since {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+/* --- Pools -------------------------------------------------------------- */
+
+.dawn-btn {
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.dawn-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.play-pool-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 0;
+  font-size: 0.85rem;
+}
+
+/* A fixed basis, not `flex: 1`: `SlotPips` brings the shared `.row` utility,
+   which grows, so a growing name next to it collapsed to zero width and the
+   whole rail lost its labels. */
+.play-pool-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pips are sized by their count, and the name takes what's left. Pinning this
+   explicitly matters: `SlotPips` brings the shared `.row` utility, which grows,
+   and a growing name beside a growing row collapsed the name to zero width. */
+.play-pool-row .slot-pips {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.play-pool-count {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Narrow: the rail goes above the board ------------------------------
+   Your hit points outrank the action list on a phone — you look at them more
+   often, and the board is a scroll away either way. */
+@media (max-width: 760px) {
+  .play-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .play-vitals {
+    order: -1;
+    position: static;
+  }
+
+  .turn-slot {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .turn-economy,
+  .turn-economy-slots {
+    width: 100%;
+  }
+}
+
+/* ============================================================
+   The DM board — the roster view behind the seat
+   ============================================================ */
+.dm-board {
+  width: 100%;
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem 2rem;
+}
+
+.dm-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One creature per row: who | vitals | conditions | concentration. Grid rather
+   than a table so a row can restack on a narrow screen without markup games. */
+.dm-row {
+  display: grid;
+  grid-template-columns:
+    minmax(11rem, 1.2fr) minmax(9rem, auto) minmax(0, 2fr)
+    minmax(8rem, 1fr);
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.dm-row.active {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.dm-row-who {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.dm-row-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-row-vitals {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dm-hp-max {
+  color: var(--text-muted);
+}
+
+.dm-row-ac {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.dm-hp-input {
+  width: 5.5rem;
+}
+
+.dm-row-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.dm-row-conditions select {
+  max-width: 9rem;
+}
+
+.dm-row-concentration {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.dm-row-concentration input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .dm-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .dm-row-conditions,
+  .dm-row-concentration {
+    grid-column: 1 / -1;
+  }
+}
+
+/* --- Sheet assignment ------------------------------------- */
+
+.dm-offer-btn {
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dm-offer-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.dm-offer-btn.offered {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.dm-in-play {
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  border-radius: var(--radius);
+  background-color: var(--accent);
+  color: var(--surface);
+  white-space: nowrap;
+}
+
+.play-claimables {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}

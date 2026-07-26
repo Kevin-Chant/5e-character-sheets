@@ -1,0 +1,212 @@
+/* ============================================================
+   Sessions route and the pre-join lobby
+
+   Not the sheet, so ordinary media queries are fine here — the container-query
+   rule in CLAUDE.md governs the character sheet, whose layout has to survive
+   being squeezed inside a panel. This is a full-width page.
+   ============================================================ */
+.sessions,
+.lobby {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2.5rem 1rem;
+  gap: 1rem;
+}
+
+.sessions h2,
+.lobby h2 {
+  margin: 0;
+}
+
+/* "You were in a game" — the way back after a reload. A banner rather than a
+   card: it's transient state, not one of the four standing choices below. */
+.sessions-rejoin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+}
+
+.sessions-rejoin span {
+  font-weight: 600;
+}
+
+.sessions-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.sessions-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.sessions-group h3 svg {
+  color: var(--accent);
+}
+
+.sessions-group p {
+  margin: 0;
+  max-width: 44rem;
+}
+
+.session-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.session-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 1rem 1.15rem;
+  text-align: left;
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+  transition:
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+
+.session-card:hover {
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.session-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.session-card-icon {
+  display: inline-flex;
+  font-size: 1.4rem;
+  color: var(--accent);
+}
+
+.session-card-heading {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.session-card-description {
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+/* --- Lobby ------------------------------------------------- */
+
+.lobby p {
+  margin: 0;
+  max-width: 44rem;
+}
+
+.lobby-storage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* The Drive option is a <Link> and the local one a <button>, because one
+   navigates to the OAuth route and the other just picks a backend. They're the
+   same choice, so they're given the same shape here. */
+.lobby-storage button,
+.lobby-storage .button-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  color: var(--text);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.lobby-storage button:hover,
+.lobby-storage .button-link:hover {
+  border-color: var(--accent);
+}
+
+.lobby-storage svg {
+  color: var(--accent);
+}
+
+.lobby-characters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+  padding: 0;
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.lobby-characters label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--surface);
+  cursor: pointer;
+}
+
+.lobby-characters label:hover {
+  border-color: var(--accent);
+}
+
+.lobby-characters label.chosen {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.lobby-character-name {
+  font-weight: 600;
+}
+
+/* The one line that says what leaves the browser, at the moment the answer can
+   still be no. Quiet, but not so quiet it reads as boilerplate. */
+.lobby-privacy {
+  font-size: 0.85rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.lobby-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* A player at the table with no sheet of their own — the DM, or someone waiting
+   to be handed one. */
+.play-no-sheet {
+  margin: 2rem auto;
+  max-width: 32rem;
+  text-align: center;
+}

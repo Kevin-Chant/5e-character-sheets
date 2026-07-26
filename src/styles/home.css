@@ -27,11 +27,40 @@
   font-size: 1.1rem;
 }
 
+/* Auto-fit rather than a fixed count: the character picker builds its own grid
+   on .option-card too, and that one has as many cards as you have characters. */
 .option-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 1rem;
   width: 100%;
+}
+
+/* Secondary to the storage cards, and styled to say so: arriving with a code is
+   a different kind of answer, not a third place to keep characters. */
+.home-arrivals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem 1.25rem;
+  margin-top: 1.75rem;
+  font-size: 0.95rem;
+}
+
+.home-arrivals p {
+  margin: 0;
+}
+
+.home-arrivals a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent);
+}
+
+.home-arrivals a:hover {
+  text-decoration: underline;
 }
 
 .option-card {

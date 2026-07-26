@@ -1,10 +1,12 @@
 import classNames from "classnames";
 import { UUID } from "crypto";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FaBars,
   FaCheck,
   FaCircle,
+  FaDiceD20,
+  FaFileLines,
   FaFloppyDisk,
   FaGear,
   FaHouse,
@@ -16,6 +18,7 @@ import {
   FaTowerBroadcast,
   FaTrash,
   FaTriangleExclamation,
+  FaUsers,
 } from "react-icons/fa6";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import {
@@ -142,7 +145,7 @@ export default function Root() {
   } = useCharacter();
   const { saving } = useDatastore();
   const { editMode, toggleMode } = useEditMode();
-  const { getRole } = useSharingSessions();
+  const { getRole, isBorrowed } = useSharingSessions();
   const location = useLocation();
   const [fileSelected, setFileSelected] = useState<File | undefined>();
   const [importErrorMessage, setImportErrorMessage] = useState("");
@@ -228,15 +231,31 @@ export default function Root() {
 
   // Derive a title that describes the current page, rather than a static label
   // that reads like it belongs to the adjacent Home button.
+  const onPlaySurface = location.pathname === "/play";
   const pageTitle =
     location.pathname === "/settings"
       ? "Settings"
-      : location.pathname === "/sheet"
-        ? (character?.name ?? "Character Select")
-        : "Home";
+      : location.pathname === "/sessions"
+        ? "Sessions"
+        : location.pathname === "/sheet" || onPlaySurface
+          ? (character?.name ?? "Character Select")
+          : "Home";
 
+  // Not for a sheet you joined remotely or borrowed from a DM — sharing is the
+  // owner's call, and neither of those copies is yours to offer.
   const canShare =
-    !!character && !!datastore && getRole(character.uuid) !== "remote";
+    !!character &&
+    !!datastore &&
+    getRole(character.uuid) !== "remote" &&
+    !isBorrowed(character.uuid);
+
+  // "Share a character" on the sessions page is an intent, not a destination:
+  // it lands on /sheet, which shows the picker when no character is open, and
+  // the modal opens as soon as there is one to share.
+  const shareIntent = (location.state as { share?: boolean } | null)?.share;
+  useEffect(() => {
+    if (shareIntent && canShare) setShareModalOpen(true);
+  }, [shareIntent, canShare]);
 
   return (
     <>
@@ -261,13 +280,33 @@ export default function Root() {
         </nav>
         <div id="right-nav-components">
           <PresenceRoster />
+          {/* Sessions are reachable from anywhere, because deciding to play
+              together happens after you've picked a character, not before. */}
+          <Link to="/sessions">
+            <button className="icon-btn" title="Sessions" aria-label="Sessions">
+              <FaUsers />
+            </button>
+          </Link>
+          {/* Play is a place you go, not a state the sheet is in — so it's a
+              link, and the button says where it takes you. */}
           {character && (
+            <Link to={onPlaySurface ? "/sheet" : "/play"}>
+              <button
+                className="icon-btn"
+                title={onPlaySurface ? "Back to the sheet" : "Play"}
+                aria-label={onPlaySurface ? "Back to the sheet" : "Play"}
+              >
+                {onPlaySurface ? <FaFileLines /> : <FaDiceD20 />}
+              </button>
+            </Link>
+          )}
+          {character && !onPlaySurface && (
             <button
               className="icon-btn"
               onClick={toggleMode}
-              title={editMode ? "Switch to Play mode" : "Switch to Edit mode"}
+              title={editMode ? "Switch to view mode" : "Switch to edit mode"}
               aria-label={
-                editMode ? "Switch to Play mode" : "Switch to Edit mode"
+                editMode ? "Switch to view mode" : "Switch to edit mode"
               }
             >
               {editMode ? <FaLockOpen /> : <FaLock />}
