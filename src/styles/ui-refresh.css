@@ -148,13 +148,31 @@ b.pos-relative.margin-large {
 .character-info-header > .row > .rounded-border-box .display-value.large {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 2.1rem;
+  /* Sized against the box it sits in, not the viewport: these boxes are ~28% of
+     the header, so a viewport-wide "desktop" still gives a long value like
+     "5th Fighter (Champion)" about 190px to live in. The ceiling is the old
+     fixed 2.1rem, so a wide sheet looks exactly as it did; below that the value
+     shrinks smoothly to fit instead of wrapping onto three lines and then being
+     caught by a phone breakpoint.
+     The coefficient is set against the *underline*, which is 70% of the box
+     (`.display-value.large`), not the box itself — sized to the box, a long
+     value overflowed its own underline and ran under the level-up chevron. */
+  font-size: clamp(1.3rem, 11cqi, 2.1rem);
   line-height: 1.1;
   color: var(--text);
   letter-spacing: 0.01em;
 }
 .character-info-header > .row > .rounded-border-box .display-label {
   color: var(--accent);
+}
+
+/* The metadata boxes (class, race, background, …) keep the body face — only the
+   name is the display-face hero — but they need the same fluid sizing, and for
+   the same reason: "5th Fighter (Champion)" at a fixed 2rem overflowed its own
+   underline and ran under the level-up chevron. Ceiling is the old fixed size,
+   so a wide sheet is unchanged. */
+.character-info-header .column .display-value.large {
+  font-size: clamp(1.15rem, 12cqi, 2rem);
 }
 
 /* ---- Home: give the landing title the display face + a hairline flourish ---- */
@@ -183,14 +201,6 @@ b.pos-relative.margin-large {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
-  }
-}
-
-@media (max-width: 640px) {
-  /* Keep the name hero from dominating a phone viewport (more specific than the
-     generic mobile shrink above, so it needs its own clamp). */
-  .character-info-header > .row > .rounded-border-box .display-value.large {
-    font-size: 1.6rem;
   }
 }
 

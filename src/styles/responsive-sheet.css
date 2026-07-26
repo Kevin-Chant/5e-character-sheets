@@ -1,16 +1,34 @@
 /* ============================================================
-   Sheet responsiveness (v0): reflow the identity header and the three
-   main panels so nothing squishes to a single character per line.
-   ============================================================ */
-@media (max-width: 820px) {
-  /* Identity header: stack the portrait/name box above the metadata, and let
-     the metadata fields wrap two-up instead of shrinking to slivers. */
+   Sheet responsiveness.
+   ============================================================
+
+   Everything here keys off a *container* — the panel's own width, or the
+   sheet's — never the viewport. The distinction is the whole point: at a
+   1280px viewport the three panels are ~400px each, so a viewport breakpoint
+   asks the wrong question and answers it too late. The previous version was a
+   pile of `@media` patches, one per panel per breakpoint, and the 641–820px
+   band fell between them.
+
+   Two containers are in play:
+   - `panel`  — one of the three main columns (`layout.css`).
+   - `detail` — the sheet's scroll area, i.e. all the room there is.
+
+   Only rules that genuinely cannot be expressed as "let it shrink" live here.
+   The shrinking itself is `min-width: 0` on `.row`/`.column` in
+   `utilities.css`; these are the cases where the content has a real floor — a
+   table's columns, six ability boxes, a four-up field row — and has to change
+   *shape* instead. */
+
+/* ---- The identity header ---- */
+
+@container identity (max-width: 34rem) {
+  /* Portrait/name above the metadata rather than beside it, and the metadata
+     two-up rather than four slivers — at four across, "Class & Level" and
+     "Background" run into each other before their values do. */
   .character-info-header > .row {
     flex-wrap: wrap;
   }
-  .character-info-header > .row > .rounded-border-box {
-    flex: 1 1 100%;
-  }
+  .character-info-header > .row > .rounded-border-box,
   .character-info-header > .row > .column {
     flex: 1 1 100%;
   }
@@ -20,78 +38,52 @@
   .character-info-header .column > .row > * {
     flex: 1 1 9rem;
   }
+}
 
-  /* Main body: stack the stat, defence, and info panels vertically. */
-  .page-container > .row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
+/* ---- The three panels' interiors ---- */
+
+@container panel (max-width: 30rem) {
+  /* Skill and saving-throw labels are `nowrap` so they stay scannable, which
+     also makes them the hard floor on how narrow the list can get. Just above
+     the width where the list restacks there's a band where the longest label
+     ("Animal Handling (wis)") no longer fits — let those wrap rather than clip.
+     Harmless once stacked, where the list has the full panel. */
+  .stat-and-skill-panel .display-text {
+    white-space: normal;
   }
 }
 
-@media (max-width: 640px) {
-  #detail {
-    padding: 0.5rem;
-  }
-  /* Shrink the oversized identity values so they wrap to a couple of lines
-     rather than dominating the viewport. */
-  .character-info-header .display-value.large {
-    font-size: 1.5rem;
-    width: 90%;
-  }
-  /* Stat blocks and skills stop fitting side by side long before this width —
-     the skills column's min-content is ~256px on its own — so stack them.
-     Setting .stat-display-container to 100% without this leaves both children
-     demanding full width in a row that can't shrink past their combined
-     min-content (~465px), which is what used to scroll the whole sheet
-     sideways. */
+@container panel (max-width: 27rem) {
+  /* Ability boxes and the skills list stop fitting side by side: the skills
+     rows want ~13rem before "Animal Handling (wis)" starts wrapping, and the
+     ability boxes bottom out around 7rem. Below their sum, stack them and pair
+     the boxes up — six full-width boxes is a lot of scrolling, and three
+     across can't hold "Constitution". */
   .stat-and-skill-panel > .row {
     flex-direction: column;
     align-items: stretch;
   }
-
-  /* Six full-width ability boxes is a lot of thumb; pair them up instead. Three
-     across doesn't fit — "Constitution" alone wants ~140px. The boxes carry
-     .margin-large, which a grid track won't absorb, so the gap does the spacing
-     and the margin is dropped. */
   .stat-display-container {
+    width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
-    width: 100%;
   }
+  /* The boxes carry .margin-large, which a grid track won't absorb — the gap
+     does the spacing here instead. */
   .stat-display-container > .stat-display {
     width: auto;
     margin: 0;
   }
+}
 
-  /* Four spellcasting fields sharing one row leaves ~44px each, which clips the
-     class name and overlaps the labels into mush. Wrap them 2x2. */
-  .spellcasting-class-row {
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-  }
-  .spellcasting-class-row > .column {
-    flex: 1 1 40%;
-  }
-  /* At half a phone wide, 2rem is enough to make even a content-sized "Warlock"
-     hit the column edge. Ease it down. */
-  .spellcasting-class-row .display-value.large {
-    font-size: 1.75rem;
-  }
-  /* "Spellcasting Ability" doesn't fit a half-phone column on one line, and
-     .display-label is nowrap by default. */
-  .spellcasting-class-row .display-label {
-    white-space: normal;
-    text-align: center;
-  }
-
-  /* Weapon attacks as stacked cards. Four columns want ~327px of min-content —
-     more than a small phone has — and the name column shreds to one word per
-     line well before that. Each row becomes a card instead: the name and its
-     roll/edit control on top, the to-hit and damage beneath. The header row
-     goes away because the remaining values read for themselves ("+10", "2d6 +
-     4 Slashing"), which is also why the cards carry no labels. */
+@container panel (max-width: 22rem) {
+  /* Weapon attacks as stacked cards. Four columns want ~20rem of min-content
+     and the name column shreds to one word per line well before that. Each row
+     becomes a card: the name and its roll/edit control on top, to-hit and
+     damage beneath. The header row goes away because the remaining values read
+     for themselves ("+10", "2d6 + 4 Slashing") — which is also why the cards
+     carry no labels of their own. */
   .attacks-table,
   .attacks-table tbody {
     display: block;
@@ -133,10 +125,9 @@
     grid-area: action;
   }
 
-  /* Equipment and ammunition rows are name-plus-controls flex rows; the name is
-     min-width:0 so it clips rather than wraps once the controls take their
-     share. Let the name wrap over as many lines as it needs and top-align the
-     controls against it. */
+  /* Equipment and ammunition rows are name-plus-controls flex rows. Let the
+     name take as many lines as it needs and top-align the controls against it,
+     rather than the name clipping once the controls take their share. */
   .equipment-row,
   .ammo-row {
     align-items: flex-start;
@@ -147,6 +138,38 @@
   .ammo-name-edit {
     white-space: normal;
     text-align: left;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+  }
+}
+
+/* ---- Spellcasting (full sheet width, so it keys off `detail`) ---- */
+
+@container detail (max-width: 44rem) {
+  /* Four fields sharing one row leaves each too little to hold a class name.
+     Wrap them two-up. */
+  .spellcasting-class-row {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+  .spellcasting-class-row > .column {
+    flex: 1 1 40%;
+  }
+  /* "Spellcasting Ability" doesn't fit a half-width column on one line, and
+     .display-label is nowrap by default. */
+  .spellcasting-class-row .display-label {
+    white-space: normal;
+    text-align: center;
+  }
+}
+
+/* ---- The sheet as a whole ---- */
+
+/* The one genuinely viewport-shaped rule left: `#detail` is the query
+   container, and an element can't be styled by a query against itself, so its
+   own padding can't be container-driven. It's outer chrome against the device
+   edge rather than a layout decision, which is what a media query is for. */
+@media (max-width: 640px) {
+  #detail {
+    padding: 0.5rem;
   }
 }

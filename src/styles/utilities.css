@@ -89,8 +89,19 @@ p {
   justify-content: space-between;
 }
 
+/* `min-width: 0` is the load-bearing part. A flex item defaults to
+   `min-width: auto`, i.e. "never shrink below your content's min-content
+   width" — so a `.row` of `.row`s had a hard floor equal to the sum of its
+   deepest contents, and everything above it could only overflow. That floor is
+   why the sheet used to need a hand-written patch per panel per breakpoint:
+   nothing could shrink, so every squeeze had to be pre-empted by restacking.
+   With the floor removed, panels shrink to their track and the few things that
+   genuinely can't (a table, a six-box stat column) restack on their own
+   container's width — see the `@container panel` rules in
+   `responsive-sheet.css`. */
 .row {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -99,10 +110,16 @@ p {
 
 .column {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-evenly;
+}
+
+/* The identity header sizes its own reflow, so it's a container too. */
+.character-info-header {
+  container: identity / inline-size;
 }
 
 /* Identity header: keep the value boxes in each row at equal heights so a tall
@@ -153,8 +170,19 @@ p {
   flex: 1 1 0;
   min-width: 0;
 }
+/* Each identity box sizes its own value (below), so each is its own container. */
+.character-info-header > .row > .rounded-border-box,
+.character-info-header .column > .row > * {
+  container-type: inline-size;
+}
+/* `break-word`, not `anywhere`. `anywhere` lets the browser break mid-word when
+   computing min-content, so flexbox would shrink these boxes below their
+   longest word and then break it — which is why a Mountain Dwarf read
+   "Mountai / n Dwarf" and a Champion read "(Champ / ion)" at every width,
+   desktop included. `break-word` keeps the longest word as the floor and only
+   breaks a word that genuinely cannot fit on a line of its own. */
 .character-info-header .display-value {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 /* Left-aligned, gapped vertical stack of full-width buttons. Use instead of
@@ -356,8 +384,14 @@ p {
   flex-wrap: wrap;
 }
 
+/* The six ability boxes. Fluid rather than a fixed 150px so the column gives
+   width back to the skills list beside it as the panel narrows, instead of
+   holding its size and pushing the skills into overflow. The floor is what
+   "Constitution" — the longest ability name — needs at its label size, since
+   the label can't wrap; the ceiling is the old fixed value. */
 .stat-display-container {
-  width: 150px;
+  width: clamp(8.5rem, 34cqi, 9.375rem);
+  flex: 0 0 auto;
 }
 
 /* The panel's direct boxes (e.g. Passive Perception via SingleValueDisplay) are

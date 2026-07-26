@@ -370,20 +370,56 @@
   margin: 0 auto;
 }
 
-/* Give the three panels room to breathe on wide screens: the row spans the
-   capped container width and space-evenly distributes the slack as gaps. */
+/* The three main panels.
+ *
+ * This was a flex row of content-sized columns with `space-evenly`, which gave
+ * the *slack* to the gaps and the *squeeze* to whichever panel had the most in
+ * it — at 1280px the defence panel (attacks table, hit dice, death saves) sat
+ * at ~260px with its column headers broken across three lines, while the
+ * personality column beside it was half empty.
+ *
+ * A grid allocates instead of negotiating. The shares are unequal on purpose:
+ * the panels are not interchangeable, and equal thirds starved the two that
+ * carry real content. The stats column has to hold six ability boxes beside a
+ * twenty-row skills list whose labels don't wrap ("Animal Handling (wis)"), so
+ * it takes the largest share; the defence column carries the attacks table and
+ * takes the next; personality and features are short rows and give width up.
+ *
+ * The column counts below are the only breakpoints left on the sheet, and they
+ * key off `detail` — the room the sheet actually has — not the viewport, which
+ * is what the sidebar and window chrome made unreliable. Each step is set where
+ * a panel would otherwise fall below the 23rem its own contents restack at (see
+ * `responsive-sheet.css`), so the layout never hands a panel less room than it
+ * needs while the sheet still has some to give.
+ */
 .page-container > .row {
+  display: grid;
+  grid-template-columns: 1.35fr 1.15fr 0.8fr;
+  align-items: start;
   gap: 1.5rem;
 }
 
-/* Stack the three main panels only once the sheet is genuinely too narrow for
-   three columns (~1080px, covering the widest of them — the martial equipment
-   table). Keyed off the detail container's width so it reacts to the sheet's
-   real available space rather than the viewport. */
-@container detail (max-width: 1080px) {
+/* Two up: below this, three columns would put the stats panel under 23rem. */
+@container detail (max-width: 64rem) {
   .page-container > .row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
+    grid-template-columns: 1fr 1fr;
   }
+}
+
+/* One up: below this, two columns would leave each panel under ~25rem, which
+   is where the skills list starts clipping its labels. */
+@container detail (max-width: 52rem) {
+  .page-container > .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Each panel is its own query container, so what's *inside* it reflows on the
+   panel's width rather than the viewport's. That distinction is the bug this
+   fixes: at 1280px the viewport says "desktop" while the defence panel has
+   less room than a phone gives it. Named, so a query can't accidentally bind
+   to a nearer unnamed ancestor. */
+.page-container > .row > * {
+  container: panel / inline-size;
+  min-width: 0;
 }
