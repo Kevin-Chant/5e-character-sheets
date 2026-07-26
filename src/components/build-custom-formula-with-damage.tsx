@@ -134,7 +134,7 @@ export default function BuildCustomFormulaWithDamage() {
           <FaPlus /> Add damage type
         </button>
       )}
-      <button className="btn-primary" onClick={saveData}>
+      <button className="btn-primary edit-save" onClick={saveData}>
         Save
       </button>
     </form>

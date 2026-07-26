@@ -53,6 +53,7 @@ import {
   SaveEffect,
   Spell,
 } from "src/lib/types";
+import { FaXmark } from "react-icons/fa6";
 
 const dieLabel = (die: DieDefinition) =>
   typeof die === "string" ? die : `d${die.numFaces}`;
@@ -937,8 +938,13 @@ function Shell({
         <div className="row space-between modal-titlebar">
           <b className="title font-large">Roll: {label}</b>
           <div className="modal-titlebar-buttons">
-            <button className="icon-btn close" onClick={close}>
-              x
+            <button
+              className="icon-btn close"
+              onClick={close}
+              aria-label="Close"
+              title="Close"
+            >
+              <FaXmark />
             </button>
           </div>
         </div>

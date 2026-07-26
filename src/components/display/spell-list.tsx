@@ -1,4 +1,4 @@
-import { FaPencil } from "react-icons/fa6";
+import { FaPencil, FaXmark } from "react-icons/fa6";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
@@ -163,7 +163,7 @@ export default function SpellList({
                       removeSpell(i);
                     }}
                   >
-                    x
+                    <FaXmark />
                   </button>
                 </>
               ) : (

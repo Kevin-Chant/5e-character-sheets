@@ -3,6 +3,7 @@ import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { charPath, updateAt, clearAt, Cursor } from "src/lib/cursor";
 import { Speeds } from "src/lib/types";
 import { useSave } from "./modals/modal-container";
+import { FaXmark } from "react-icons/fa6";
 
 // The optional (non-walking) movement modes, in display order.
 const EXTRA_MODES: Array<[keyof Speeds, string]> = [
@@ -59,7 +60,7 @@ export default function EditSpeeds() {
                 removeMode(key);
               }}
             >
-              x
+              <FaXmark />
             </button>
           </div>
         </label>
@@ -83,7 +84,7 @@ export default function EditSpeeds() {
           </select>
         </label>
       )}
-      <button className="margin-small" onClick={() => saveData()}>
+      <button className="btn-primary edit-save" onClick={() => saveData()}>
         Save
       </button>
     </form>

@@ -76,7 +76,7 @@ export default function ChosenOptionsDisplay() {
           </div>
         );
       })}
-      <b className="margin-large">Class Options</b>
+      <b className="section-heading margin-large">Class Options</b>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
   SpellsStep,
   StartStep,
 } from "src/components/builder/builder-steps";
+import { FaXmark } from "react-icons/fa6";
 
 interface StepDef {
   key: string;
@@ -120,7 +121,7 @@ export default function CharacterBuilder({ onCancel, onFinish }: Props) {
             ))}
           </div>
           <button className="icon-btn" onClick={onCancel} aria-label="Cancel">
-            x
+            <FaXmark />
           </button>
         </div>
 

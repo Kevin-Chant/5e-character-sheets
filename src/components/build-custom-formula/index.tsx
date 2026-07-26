@@ -74,7 +74,7 @@ export default function BuildCustomFormula() {
         <div className="formula-canvas">
           <EditableAtomicVariable atomicVar={formula} setVar={setFormula} />
         </div>
-        <button className="btn-primary" onClick={saveData}>
+        <button className="btn-primary edit-save" onClick={saveData}>
           Save
         </button>
       </form>
@@ -98,7 +98,7 @@ export default function BuildCustomFormula() {
       <div className="formula-canvas">
         <EditableExpression expr={formula} setExpr={setFormula} edit={edit} />
       </div>
-      <button className="btn-primary" onClick={saveData}>
+      <button className="btn-primary edit-save" onClick={saveData}>
         Save
       </button>
     </form>

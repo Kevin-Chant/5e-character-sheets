@@ -13,6 +13,7 @@ import {
 import HitDiceTray from "./hit-dice-tray";
 import PrepareSpellsTask from "./prepare-spells-task";
 import RestLedger from "./rest-ledger";
+import { FaXmark } from "react-icons/fa6";
 
 // Running a rest. Two phases, no wizard steps: you pick short or long from cards
 // that already show what each one would restore (so the fork *is* the preview),
@@ -67,7 +68,7 @@ export default function RestDialog({ onClose }: { onClose: () => void }) {
           <div className="rest-header-right">
             {plan && <span className="rest-duration">{plan.duration}</span>}
             <button className="icon-btn" onClick={onClose} aria-label="Close">
-              x
+              <FaXmark />
             </button>
           </div>
         </div>

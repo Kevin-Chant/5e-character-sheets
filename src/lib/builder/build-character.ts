@@ -49,6 +49,7 @@ import { resolveFinalStats } from "src/lib/builder/resolve";
 import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
 import { getBackground } from "src/lib/builder/backgrounds";
 import { resolveClassLoadout } from "src/lib/builder/equipment";
+import { splitItemCount, weightForItem } from "src/lib/data/equipment-weights";
 import { getSrdSpell } from "src/lib/spells/srd-spells";
 import { buildSpellFromSrd } from "src/lib/spells/srd-spell-adapter";
 
@@ -265,14 +266,25 @@ const text = (title: string, detail?: string): TextComponent =>
     ? { title, titleFormulas: [], detail, detailFormulas: [] }
     : { title, titleFormulas: [] };
 
-// Wrap a free-text equipment line into a structured `EquipmentItem` (quantity 1,
-// unequipped, no attunement) — the builder only produces mundane starting gear.
-const equipmentItem = (title: string): EquipmentItem => ({
-  id: randomUUID(),
-  text: text(title),
-  quantity: 1,
-  equipped: false,
-});
+// Wrap a free-text equipment line into a structured `EquipmentItem` (unequipped,
+// no attunement) — the builder only produces mundane starting gear.
+//
+// A grant of several of something arrives as one line with the count in the name
+// ("Javelin (4)"), so the count is lifted into `quantity` and the SRD per-unit
+// weight attached. Both matter to encumbrance, which multiplies the two; before
+// this, every builder-made character carried 0 lb. Items we have no weight for
+// keep `weight` unset and contribute nothing, exactly as they used to.
+const equipmentItem = (title: string): EquipmentItem => {
+  const { name, count } = splitItemCount(title);
+  const weight = weightForItem(title);
+  return {
+    id: randomUUID(),
+    text: text(count > 1 ? `${name} (${count})` : name),
+    quantity: count,
+    equipped: false,
+    ...(weight === undefined ? {} : { weight }),
+  };
+};
 
 const emptySpells = (): Spells => {
   const spells: Spells = { 0: [] }; // key 0 = cantrips

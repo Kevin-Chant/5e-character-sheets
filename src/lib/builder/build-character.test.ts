@@ -19,6 +19,8 @@ import {
 import { BuilderState, defaultBuilderState } from "src/lib/builder/types";
 import { syncRacePools } from "src/lib/builder/class-pools";
 import { defaultCharacter } from "src/lib/data/default-data";
+import { weightForItem } from "src/lib/data/equipment-weights";
+import { totalEquipmentWeightLb } from "src/lib/rules";
 import {
   chosenIn,
   resistancesFromOptions,
@@ -221,6 +223,51 @@ describe("buildCharacter — class equipment choices, attacks & AC", () => {
     const shield = char.equipment.find((e) => e.text.title === "Shield");
     expect(shield?.equipped).toBe(true);
     expect(shield?.shield).toEqual({ bonus: 2 });
+  });
+});
+
+describe("buildCharacter — starting equipment weights", () => {
+  // Encumbrance is on by default but read 0 lb for every builder-made character,
+  // because nothing ever set `weight`. Carried weight is Σ weight × quantity, so
+  // a multi-item grant needs its count in `quantity`, not just in its name.
+  it("gives granted gear its SRD weight, and lifts a bundled count into quantity", () => {
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "barbarian",
+    });
+    const handaxes = char.equipment.find((e) =>
+      e.text.title.startsWith("Handaxe"),
+    );
+    expect(handaxes?.quantity).toBe(2);
+    expect(handaxes?.weight).toBe(2);
+    const pack = char.equipment.find((e) =>
+      e.text.title.includes("Explorer's Pack"),
+    );
+    expect(pack?.weight).toBe(59);
+  });
+
+  it("weighs armor, so a plate-wearer isn't carrying nothing", () => {
+    const char = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "cleric",
+    });
+    const scaleMail = char.equipment.find((e) => e.text.title === "Scale Mail");
+    expect(scaleMail?.weight).toBe(45);
+    expect(char.equipment.find((e) => e.text.title === "Shield")?.weight).toBe(
+      6,
+    );
+    expect(totalEquipmentWeightLb(char.equipment)).toBeGreaterThan(50);
+  });
+
+  it("leaves flavour items unweighted rather than pretending they weigh zero", () => {
+    // An absent weight contributes nothing to the total — same as before — but
+    // it also isn't a claim that the item is weightless.
+    expect(weightForItem("A token to remember your parents")).toBeUndefined();
+    expect(weightForItem("Explorer's Pack")).toBe(59);
+    // SRD prose uses curly apostrophes; the hand-authored lists use straight.
+    expect(weightForItem("a burglar\u2019s pack")).toBe(44.5);
   });
 });
 

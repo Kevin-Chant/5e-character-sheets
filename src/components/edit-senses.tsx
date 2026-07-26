@@ -77,7 +77,7 @@ export default function EditSenses() {
         />
       </label>
       <button
-        className="margin-small"
+        className="btn-primary edit-save"
         onClick={(e) => {
           e.preventDefault();
           save();

@@ -4,6 +4,7 @@ import {
   FIELD,
   LeveledSpellLevel,
   Operation,
+  RestType,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -135,6 +136,18 @@ export function rechargesOnRest(
   if (trigger.includes("short")) return true;
   if (trigger.includes("long")) return kind === "long";
   return false;
+}
+
+// The recharge trigger as it reads mid-sentence, e.g. the sheet's "per long
+// rest". The presets are stored Title Case ("Long Rest") because they're enum
+// values, but the PHB writes "long rest" in prose and the caption is a sentence
+// fragment. Only the two presets are lowered — homebrew triggers are left alone,
+// since "Dawn" may well be a proper noun at someone's table.
+export function formatRecharge(recharge: RechargeCriteria): string {
+  const trigger = recharge ?? "";
+  return trigger === RestType.shortRest || trigger === RestType.longRest
+    ? trigger.toLowerCase()
+    : trigger;
 }
 
 // Whether a trigger is a rest at all. Anything else ("Dawn") is surfaced to the

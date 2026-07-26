@@ -20,6 +20,7 @@ import {
   LevelUpStepProps,
   LevelUpSubclassStep,
 } from "src/components/builder/level-up-steps";
+import { FaXmark } from "react-icons/fa6";
 
 interface StepDef {
   key: string;
@@ -167,7 +168,7 @@ export default function LevelUpWizard({
             ))}
           </div>
           <button className="icon-btn" onClick={onCancel} aria-label="Cancel">
-            x
+            <FaXmark />
           </button>
         </div>
 

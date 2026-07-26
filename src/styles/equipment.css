@@ -57,10 +57,41 @@
   align-items: center;
   gap: 0.35rem 0.7rem;
 }
+/* Five equal tracks so every denomination fits one row at any column width, with
+   the running total on its own row beneath. `min-width: 0` on the fields is what
+   lets the tracks actually shrink — without it each one floors at the input's
+   intrinsic width and copper wraps again. */
+.coins-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.35rem 0.4rem;
+}
+.coins-strip-grid > .coin-field {
+  min-width: 0;
+}
+.coins-strip-grid > .coin-total {
+  grid-column: 1 / -1;
+}
 .coin-field {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+}
+/* Trimmed padding and a step down in size so a five-figure hoard still reads.
+   The input is right-aligned, so an overflow clips the *leading* digits — 1500
+   showing as "150(" — which is worse than a value that merely looks small. */
+.coins-strip-grid .coin-input {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 0.25rem 0.2rem;
+  font-size: 0.85rem;
+}
+.coins-strip-grid .coin-field {
+  gap: 0.2rem;
+}
+.coins-strip-grid .coin-denom {
+  font-size: 0.62rem;
 }
 .coin-input {
   width: 3.4rem;
@@ -246,8 +277,23 @@
    150% further right, which put it outside the sheet on a phone. */
 .section-add {
   position: absolute;
-  top: -50%;
   right: 0;
+  /* Vertically centred on the caption. `top: -50%` used to hoist it half the
+     caption's height, which left a 2rem button hanging out below the box and
+     nearly touching the section beneath. Centred with a negative margin rather
+     than a transform, for the same reason `.senses-add` does it: the global
+     `button:active` sets `transform: translateY(1px)` and would replace it. */
+  top: 50%;
+  margin-top: -0.75rem;
+  /* The same 1.5rem square as `.prof-add`, so the sheet has one "+" and not two
+     sizes of it sitting a few pixels apart in the same column. */
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Reserve the button's gutter on both sides so the title stays optically
@@ -516,8 +562,16 @@ b.pos-relative.margin-large:has(> .section-add) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.1rem 0.35rem;
+  /* Each chip already carries its own trailing comma, so a 0.35rem column gap
+     on top of it read as a double space ("Simple Weapons,  Martial Weapons").
+     A word space is the right amount between a comma and the next word. */
+  gap: 0.1rem 0.25rem;
   padding: 0.4rem 0.5rem;
+}
+/* The add button isn't part of the comma-separated run, so give it back the
+   breathing room the chips no longer need. */
+.other-proficiencies .prof-values > .prof-add {
+  margin-left: 0.25rem;
 }
 
 .other-proficiencies .prof-chip {
@@ -533,6 +587,10 @@ b.pos-relative.margin-large:has(> .section-add) {
   cursor: pointer;
   padding: 0;
   font: inherit;
+  /* Buttons centre their text by default, which only shows once a value is long
+     enough to wrap — the Armor row's "Light Armor, Medium Armor, Heavy Armor,
+     Shields" centred its second line under left-aligned siblings. */
+  text-align: left;
 }
 
 .other-proficiencies .prof-chip-label:hover {
@@ -808,17 +866,32 @@ b.pos-relative.margin-large:has(> .section-add) {
   padding: 0;
   min-height: 0;
 }
-.section-empty > .section-heading,
-.section-empty > b.section-heading {
+/* Descendant, not child: Weapon Attacks wraps its heading in a `.row` and Senses
+   labels itself with `.prof-title`, so a `>` combinator left those two strips
+   shouting at full strength beside four muted ones in the same column. */
+.section-empty .section-heading,
+.section-empty b.section-heading,
+.section-empty .prof-title {
   margin: 0.3rem 0;
   color: var(--text-muted);
   font-size: 0.8rem;
 }
+/* The gutter below reserves room for an *absolutely positioned* button. In a
+   strip the button is inline, so the reserved right gutter has nothing in it and
+   just shoves the caption off-centre. Specific enough to beat the `:has()` rule.
+   */
+.section-empty b.pos-relative.margin-large.section-heading {
+  padding: 0;
+  text-align: center;
+}
 /* The add button normally floats above the heading's baseline, which needs the
-   frame's height to sit in; in a strip there isn't one, so tuck it inline. */
-.section-empty .section-add {
+   frame's height to sit in; in a strip there isn't one, so tuck it inline.
+   `.senses-add` is absolutely positioned against its own title for the same
+   reason and needs the same release. */
+.section-empty .section-add,
+.section-empty .senses-add {
   position: static;
-  margin-left: 0.4rem;
+  margin: 0 0 0 0.4rem;
 }
 .section-empty .prof-row:last-child {
   border-bottom: none;
@@ -858,6 +931,11 @@ b.pos-relative.margin-large:has(> .section-add) {
   margin: 0.35rem 0 0.1rem;
   font-size: 0.72rem;
   color: var(--text-muted);
+  /* The box is `align-items: stretch`, so the caption is a full-width block and
+     was left-aligned — it only *looked* centred because the gutter reserved for
+     the floating "+" happened to nudge it. Every other section caption on the
+     sheet is centred; say so rather than relying on the coincidence. */
+  text-align: center;
 }
 .multi-line-text {
   padding: 0.4rem 0.7rem 0;

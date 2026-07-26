@@ -15,6 +15,7 @@ import {
 import { AbilityAction, ACTION_COST_LABELS } from "src/lib/mechanics/types";
 import { LimitedUseAbility } from "src/lib/types";
 import { ordinal } from "src/lib/utils";
+import StepperInput from "../stepper-input";
 
 // Play-mode action rows for limited-use abilities the mechanics catalog knows
 // (Second Wind, Font of Magic, Lay on Hands, …). Everything rendered here is
@@ -134,15 +135,22 @@ function ActionRow({
             ))}
           </select>
         )}
+        {/* How much of the pool this use spends — Lay on Hands is the one
+            ability that lets you choose. Labelled, because a bare number box
+            beside a "Use" button says nothing about what it counts; and the
+            shared `StepperInput` rather than a raw number field, so it doesn't
+            sit under the pool's own themed stepper wearing browser spinners. */}
         {needsAmount && (
-          <input
-            type="number"
-            aria-label={`${action.name} amount`}
-            min={1}
-            max={abilityRemainingUses(ability, character)}
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-          />
+          <label className="ability-action-amount">
+            <span className="ability-action-amount-label">Spend</span>
+            <StepperInput
+              value={amount}
+              min={1}
+              max={abilityRemainingUses(ability, character)}
+              ariaLabel={`${action.name} amount`}
+              onChange={setAmount}
+            />
+          </label>
         )}
         <button
           type="button"

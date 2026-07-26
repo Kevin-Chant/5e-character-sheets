@@ -158,13 +158,6 @@
   grid-column: 1 / -1;
 }
 
-/* Keep the primary save aligned to the start, matching field controls. */
-.edit-attack > .btn-primary,
-.formula-with-damage > .btn-primary,
-.build-custom-formula > .btn-primary {
-  align-self: flex-start;
-}
-
 /* "Formula type" selector sits as a labelled control, not centered. */
 .formula-type-row {
   justify-content: flex-start;

@@ -76,3 +76,45 @@ describe("Spellcasting visibility", () => {
     expect(screen.getByText("Fire Bolt")).toBeInTheDocument();
   });
 });
+
+describe("spell slot captions", () => {
+  // A wizard with a single 5th-level slot, which is the case the plural caption
+  // got wrong ("1 SLOTS").
+  const caster = (level: number, slots: number): Character => {
+    const character = nonCaster();
+    character.class = [
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        name: OfficialClass.Wizard,
+        level: 9,
+      },
+    ];
+    character.spellcastingClasses = [{ classId: character.class[0].id }];
+    // `SpellSlots` is keyed for every level, so override the one under test
+    // rather than replacing the whole record.
+    character.spellSlots = {
+      ...character.spellSlots,
+      [level]: { totalOverride: slots, expended: 0 },
+    };
+    return character;
+  };
+
+  it("says slot, singular, when there is exactly one", () => {
+    renderWithCharacter(<Spellcasting />, {
+      character: caster(5, 1),
+      editMode: false,
+    });
+    expect(screen.getByText("Slot")).toBeInTheDocument();
+  });
+
+  it("says slots for every other count", () => {
+    renderWithCharacter(<Spellcasting />, {
+      character: caster(5, 2),
+      editMode: false,
+    });
+    // A 9th-level wizard has slots at every level up to 5, so the plural is
+    // everywhere; what matters is that nothing has gone singular.
+    expect(screen.getAllByText("Slots").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Slot")).not.toBeInTheDocument();
+  });
+});

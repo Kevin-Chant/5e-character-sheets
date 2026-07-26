@@ -49,7 +49,7 @@ export function ControlledEditTextLine({
         {title && <b className="title edit-group-title">{title}</b>}
         <div className="column edit-text-line-fields">
           <div className="field">
-            <span className="field-label">Name / title</span>
+            <span className="field-label">Name</span>
             <EditTextWithFormulas
               text={textComponent.title}
               formulas={textComponent.titleFormulas}

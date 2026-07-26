@@ -62,7 +62,11 @@ export default function CoinsDisplay() {
   const readonlyCoins = held.length ? held : [CoinType.GP];
 
   return (
-    <div className="coins-strip">
+    // Edit mode always shows all five denominations, which is a fixed shape and
+    // so gets a five-track grid that shares the width evenly — as a flex row the
+    // fields were content-sized and copper wrapped onto a line of its own. Play
+    // mode shows only what you hold, a variable count, so it stays a flex row.
+    <div className={editMode ? "coins-strip coins-strip-grid" : "coins-strip"}>
       {editMode
         ? COIN_ORDER.map((type) => (
             <CoinField

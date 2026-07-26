@@ -127,7 +127,7 @@ export default function EditClassLevels() {
           ))}
           <button onClick={addClass}>Add multiclass</button>
         </div>
-        <button className="margin-small" onClick={saveData}>
+        <button className="btn-primary edit-save" onClick={saveData}>
           Save
         </button>
       </div>

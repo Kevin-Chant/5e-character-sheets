@@ -49,9 +49,7 @@ export default function EditChosenOptions() {
             </legend>
             {/* "Pick a type" lists share one effect, described once here rather
                 than repeated against every option. */}
-            {group.summary && (
-              <p className="muted font-small">{group.summary}</p>
-            )}
+            {group.summary && <p className="field-help">{group.summary}</p>}
             {group.options.map((option) => {
               const checked = picked.some((o) => o.name === option.name);
               return (
@@ -74,10 +72,7 @@ export default function EditChosenOptions() {
                   <span>
                     <b>{option.name}</b>
                     {option.summary && (
-                      <span className="muted font-small">
-                        {" "}
-                        — {option.summary}
-                      </span>
+                      <span className="field-help"> — {option.summary}</span>
                     )}
                   </span>
                 </label>
@@ -87,7 +82,7 @@ export default function EditChosenOptions() {
         );
       })}
       <button
-        className="btn-primary"
+        className="btn-primary edit-save"
         onClick={(e) => {
           e.preventDefault();
           saveData();

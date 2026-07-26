@@ -282,7 +282,7 @@ export default function EditAttack() {
       </fieldset>
       <fieldset className="attack-tags">
         <legend className="field-label">Weapon properties</legend>
-        <p className="text-muted font-small">
+        <p className="field-help">
           Used to work out which of your features apply to this attack — Archery
           on a ranged weapon, Rage on a melee Strength hit. Leave blank and
           you&apos;ll be asked each time instead.
@@ -306,7 +306,7 @@ export default function EditAttack() {
           ))}
         </div>
       </fieldset>
-      <button className="btn-primary" onClick={onSubmit}>
+      <button className="btn-primary edit-save" onClick={onSubmit}>
         Save
       </button>
     </form>

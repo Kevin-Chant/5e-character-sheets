@@ -165,7 +165,9 @@ function SpellsTable({ character }: SpellsTableProps) {
       <div className="spell-levels">
         <div className="spell-level-card">
           <div className="spell-level-header">
-            <p className="title">Cantrips</p>
+            {/* Same class as "Level 1"…"Level 9": it's the same kind of card
+                header and was the one rendering in plain body text. */}
+            <span className="spell-level-number">Cantrips</span>
           </div>
           <SpellList
             bucket={charPath(FIELD.spells).k(0)}
@@ -188,7 +190,7 @@ function SpellsTable({ character }: SpellsTableProps) {
                       cursor={charPath(FIELD.spellSlots)
                         .k(level)
                         .k("totalOverride")}
-                      name={"Slots"}
+                      name={total === 1 ? "Slot" : "Slots"}
                       editable
                       removeBorder
                       removeMargin

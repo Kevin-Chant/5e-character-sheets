@@ -21,6 +21,7 @@ import {
   LimitedUseAbility,
 } from "src/lib/types";
 import { ordinal } from "src/lib/utils";
+import { FaXmark } from "react-icons/fa6";
 
 const EFFECT_KINDS = Object.keys(EFFECT_KIND_LABELS) as Effect["effect"][];
 const COSTS = Object.keys(ACTION_COST_LABELS) as ActionCost[];
@@ -71,7 +72,7 @@ export default function EditAbilityMechanics({
     <div className="column edit-ability-mechanics">
       <span className="field-label">Special actions</span>
       {catalogEntry && (
-        <p className="muted font-small">
+        <p className="field-help">
           This ability matches a built-in entry (&ldquo;
           {ability.info.title.trim()}&rdquo;) — its actions appear
           automatically. Adding actions here replaces the built-in ones.
@@ -136,7 +137,7 @@ function ActionEditor({
           ))}
         </select>
         <button type="button" aria-label="Remove action" onClick={remove}>
-          x
+          <FaXmark />
         </button>
       </div>
       <input
@@ -203,7 +204,7 @@ function EffectEditor({
       </select>
       <EffectParams effect={effect} update={update} />
       <button type="button" aria-label="Remove effect" onClick={remove}>
-        x
+        <FaXmark />
       </button>
     </div>
   );

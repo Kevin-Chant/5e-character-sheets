@@ -19,6 +19,11 @@ export default function AmmunitionDisplay() {
   const ammo = character.ammunition;
   const path = charPath(FIELD.ammunition);
 
+  // No pools tracked: in play mode the heading labels nothing and there's no way
+  // to add one, so it goes — the same rule Attunement and every section in the
+  // right-hand column already follow.
+  if (ammo.length === 0 && !editMode) return <></>;
+
   const setCount = (index: number, value: number) =>
     dispatch(updateAt(path.at(index).k("count"), Math.max(0, value || 0)));
   const removeAmmo = (index: number) => {

@@ -84,8 +84,20 @@ button.slot-pip:hover:not(:disabled) {
 .ability-action-row select {
   flex: 0 1 auto;
 }
-.ability-action-row input[type="number"] {
-  width: 3.5rem;
+/* "Spend [ 3 ]" — the caption and its stepper travel together and don't split
+   across a wrap, since the number is meaningless without the word. */
+.ability-action-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+}
+.ability-action-amount-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.ability-action-amount .stepper {
+  width: 3.4rem;
 }
 .ability-action-outcome {
   margin: 0;

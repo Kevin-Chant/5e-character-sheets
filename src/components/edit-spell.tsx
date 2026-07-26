@@ -359,7 +359,7 @@ export default function EditSpell() {
         onChange={(mechanics) => updateSpellField("mechanics", mechanics)}
       />
 
-      <button className="margin-small" onClick={onSubmit}>
+      <button className="btn-primary edit-save" onClick={onSubmit}>
         Save
       </button>
     </form>

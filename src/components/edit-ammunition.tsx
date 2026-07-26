@@ -100,7 +100,7 @@ export default function EditAmmunition() {
         )}
       </fieldset>
       <button
-        className="btn-primary margin-small"
+        className="btn-primary edit-save"
         onClick={(e) => {
           e.preventDefault();
           save();

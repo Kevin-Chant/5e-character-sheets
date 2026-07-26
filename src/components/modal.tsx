@@ -1,4 +1,5 @@
 import { ReactNode, useEffect } from "react";
+import { FaXmark } from "react-icons/fa6";
 
 interface ModalProps {
   title?: string;
@@ -25,8 +26,13 @@ export default function Modal({ title, onClose, children }: ModalProps) {
         <div className="row space-between modal-header">
           {title && <h1>{title}</h1>}
           <div className="close">
-            <button className="icon-btn" onClick={onClose}>
-              x
+            <button
+              className="icon-btn"
+              onClick={onClose}
+              aria-label="Close"
+              title="Close"
+            >
+              <FaXmark />
             </button>
           </div>
         </div>

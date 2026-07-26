@@ -9,6 +9,7 @@ import {
   formToMechanics,
   mechanicsToForm,
 } from "src/lib/spells/mechanics-form";
+import { FaXmark } from "react-icons/fa6";
 
 const DAMAGE_TYPES = Object.values(DamageType);
 const STATS = Object.values(StatKey);
@@ -54,7 +55,7 @@ export default function EditSpellMechanics({
   if (!form) {
     return (
       <fieldset className="spell-mechanics">
-        <legend>Rolling</legend>
+        <legend className="field-label">Rolling</legend>
         <label className="spell-mechanics-enable">
           <input
             type="checkbox"
@@ -97,7 +98,7 @@ export default function EditSpellMechanics({
 
   return (
     <fieldset className="spell-mechanics">
-      <legend>Rolling</legend>
+      <legend className="field-label">Rolling</legend>
       <label className="spell-mechanics-enable">
         <input type="checkbox" checked onChange={() => apply(null)} /> This
         spell rolls damage or healing
@@ -244,7 +245,7 @@ export default function EditSpellMechanics({
                 patch({ damage: form.damage.filter((_, j) => j !== i) });
               }}
             >
-              x
+              <FaXmark />
             </button>
           </div>
         ))}
@@ -297,7 +298,7 @@ export default function EditSpellMechanics({
                 patch({ healing: undefined });
               }}
             >
-              x
+              <FaXmark />
             </button>
           </div>
         ) : (

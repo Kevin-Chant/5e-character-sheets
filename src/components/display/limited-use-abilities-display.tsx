@@ -1,11 +1,12 @@
 import classNames from "classnames";
-import { FaPencil, FaArrowRotateLeft } from "react-icons/fa6";
+import { FaPencil, FaArrowRotateLeft, FaXmark } from "react-icons/fa6";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FIELD } from "src/lib/data/data-definitions";
 import { isTextComponentWithDetail } from "src/lib/types";
 import { charPath, updateAt } from "src/lib/cursor";
+import { formatRecharge } from "src/lib/rest";
 import {
   calculateCustomFormula,
   describeSaveEffect,
@@ -69,9 +70,13 @@ export default function LimitedUseAbilitiesDisplay() {
             formulas={info.titleFormulas}
           />
         );
+        // Carrying detail prose is signalled with the dotted underline the
+        // equipment and feature lists already use for it — not with the
+        // `editable` fill, which put a filled chip beside an outlined one and
+        // read as a state difference (uses left vs spent) rather than "hover me".
         const title = isTextComponentWithDetail(info) ? (
           <ComponentWithPopover
-            componentClass="rounded-border-box pos-relative padding-small editable limited-use-ability-name"
+            componentClass="rounded-border-box pos-relative padding-small detail-hint limited-use-ability-name"
             componentChildren={name}
             popoverChildren={
               <TextWithFormulasDisplay
@@ -98,7 +103,9 @@ export default function LimitedUseAbilitiesDisplay() {
                 </b>
               )}
               {!actionsOnly && (
-                <i className="font-small nowrap">per {ability.recharge}</i>
+                <i className="font-small nowrap">
+                  per {formatRecharge(ability.recharge)}
+                </i>
               )}
               <div className="flex">
                 {!actionsOnly && (
@@ -134,7 +141,7 @@ export default function LimitedUseAbilitiesDisplay() {
                         removeAbility(i);
                       }}
                     >
-                      x
+                      <FaXmark />
                     </button>
                   </>
                 )}

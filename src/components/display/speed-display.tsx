@@ -30,13 +30,17 @@ export default function SpeedDisplay() {
 
   const setModes = MODE_LABELS.filter(([mode]) => speeds[mode] !== undefined);
 
+  // Markup deliberately mirrors SingleValueDisplay's `vertical` form, down to
+  // the `margin-small` on the value: Speed sits between Armor Class and
+  // Initiative, and without that margin its number, underline and label all rode
+  // half a rem higher than theirs.
   const box = (
     <div className="column">
       <p
         className={
           isEditable
-            ? "display-value large editable"
-            : "display-value large readOnly"
+            ? "display-value large margin-small editable"
+            : "display-value large margin-small readOnly"
         }
         onClick={openEditor}
       >
@@ -48,12 +52,12 @@ export default function SpeedDisplay() {
 
   // Only bother with the hover popover when there's more than the walk speed.
   if (setModes.length <= 1) {
-    return <div className="rounded-border-box margin-small">{box}</div>;
+    return <div className="column rounded-border-box margin-small">{box}</div>;
   }
 
   return (
     <ComponentWithPopover
-      componentClass="rounded-border-box margin-small pos-relative editable"
+      componentClass="column rounded-border-box margin-small pos-relative editable"
       componentChildren={box}
       popoverChildren={
         <div className="column">

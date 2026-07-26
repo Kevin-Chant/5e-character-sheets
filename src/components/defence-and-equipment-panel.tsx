@@ -20,7 +20,7 @@ import SpeedDisplay from "./display/speed-display";
 import AmmunitionDisplay from "./display/ammunition-display";
 import DeathSavesDisplay from "./display/death-saves-display";
 import RollButton from "./roll-button";
-import { FaBed, FaPencil } from "react-icons/fa6";
+import { FaBed, FaPencil, FaXmark } from "react-icons/fa6";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useRest } from "src/lib/hooks/use-rest";
@@ -278,7 +278,7 @@ export default function DefenceAndEquipmentPanel() {
                               removeAttackRow(index);
                             }}
                           >
-                            x
+                            <FaXmark />
                           </button>
                         </span>
                       ) : (
@@ -296,10 +296,14 @@ export default function DefenceAndEquipmentPanel() {
               })}
             </tbody>
           </table>
-          <div className="row">
-            <b className="section-heading">Weapon Attacks</b>
-            {editMode && <button onClick={addAttackRow}>+</button>}
-          </div>
+          <b className="section-heading pos-relative margin-large">
+            Weapon Attacks
+            {editMode && (
+              <button className="section-add" onClick={addAttackRow}>
+                +
+              </button>
+            )}
+          </b>
         </div>
       )}
       {/* Equipment */}

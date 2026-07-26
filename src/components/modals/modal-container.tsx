@@ -4,6 +4,7 @@ import reducer from "src/lib/hooks/reducers/reducer";
 import { CharacterContext, useCharacter } from "src/lib/hooks/use-character";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue } from "src/lib/fields";
+import { FaChevronLeft, FaXmark } from "react-icons/fa6";
 
 interface ModalProps {
   back: (() => void) | undefined;
@@ -109,13 +110,25 @@ export default function ModalContainer({
             <div className="row space-between modal-titlebar">
               <b className="title font-large">{title}</b>
               <div className="modal-titlebar-buttons">
+                {/* Icons with explicit names: these were a bare "<" and "x",
+                    which is what a screen reader announced them as. */}
                 {back && (
-                  <button className="icon-btn back" onClick={back}>
-                    {"<"}
+                  <button
+                    className="icon-btn back"
+                    onClick={back}
+                    aria-label="Back"
+                    title="Back"
+                  >
+                    <FaChevronLeft />
                   </button>
                 )}
-                <button className="icon-btn close" onClick={close}>
-                  x
+                <button
+                  className="icon-btn close"
+                  onClick={close}
+                  aria-label="Close"
+                  title="Close"
+                >
+                  <FaXmark />
                 </button>
               </div>
             </div>

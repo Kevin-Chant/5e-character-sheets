@@ -12,6 +12,7 @@ import {
   applyHitDieRoll,
   applyRestPlan,
   DEFAULT_REST_RULES,
+  formatRecharge,
   hitDiceBudget,
   planRest,
   rechargesOnRest,
@@ -101,6 +102,21 @@ describe("rechargesOnRest", () => {
   it("ignores triggers that aren't rests", () => {
     expect(rechargesOnRest("Dawn", "long")).toBe(false);
     expect(rechargesOnRest("", "long")).toBe(false);
+  });
+});
+
+describe("formatRecharge", () => {
+  it("lowercases the two presets so the caption reads as a sentence", () => {
+    expect(formatRecharge(RestType.shortRest)).toBe("short rest");
+    expect(formatRecharge(RestType.longRest)).toBe("long rest");
+  });
+
+  it("leaves homebrew triggers exactly as they were written", () => {
+    // "Dawn" may well be a proper noun at someone's table, and the sheet has no
+    // way to tell — so it isn't the sheet's business to recase it.
+    expect(formatRecharge("Dawn")).toBe("Dawn");
+    expect(formatRecharge("short or long rest")).toBe("short or long rest");
+    expect(formatRecharge("")).toBe("");
   });
 });
 

@@ -81,7 +81,8 @@ export default function AttunementDisplay() {
           }
           title={editMode ? "Edit attunement slots" : "Attunement slots used"}
         >
-          {attunedCount} / {attunementCap} slots
+          {attunedCount} / {attunementCap}{" "}
+          {attunementCap === 1 ? "slot" : "slots"}
         </span>
       </div>
     </div>

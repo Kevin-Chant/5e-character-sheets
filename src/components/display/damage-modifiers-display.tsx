@@ -30,6 +30,31 @@ export default function DamageModifiersDisplay() {
     : ROWS.filter(([key]) => mods[key].length > 0);
   if (visibleRows.length === 0) return <></>;
 
+  // Most characters have none of the three, and three empty rows is a tall way
+  // to say so beside neighbours that collapse to a one-line strip. The strip's
+  // "+" opens Resistances — by far the most common of the three, and the string
+  // editor is one step from the other two — and the full table returns as soon
+  // as there's a single entry anywhere.
+  if (ROWS.every(([key]) => mods[key].length === 0)) {
+    return (
+      <div className="column rounded-border-box other-proficiencies section-empty">
+        <b className="section-heading pos-relative margin-large">
+          Damage Modifiers
+          <button
+            className="section-add"
+            aria-label="Add a damage resistance"
+            onClick={(e) => {
+              e.preventDefault();
+              pushCursor(MODS.k("resistances").at(0));
+            }}
+          >
+            +
+          </button>
+        </b>
+      </div>
+    );
+  }
+
   return (
     <div className="column rounded-border-box other-proficiencies">
       {visibleRows.map(([key, label]) => {

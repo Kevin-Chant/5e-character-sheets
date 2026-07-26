@@ -15,6 +15,7 @@ import {
 import { Character } from "src/lib/types";
 import { charPath } from "src/lib/cursor";
 import { MAX_EXHAUSTION } from "src/lib/rules";
+import { maxHpValue } from "src/lib/mechanics/resolve";
 import AmmunitionDisplay from "./ammunition-display";
 import AttunementDisplay from "./attunement-display";
 import CoinsDisplay from "./coins-display";
@@ -26,6 +27,7 @@ import SpeedDisplay from "./speed-display";
 import TrackerValue from "./tracker-value";
 import DeathSavesDisplay from "./death-saves-display";
 import MultiLineTextDisplay from "./multi-line-text-display";
+import OtherProficienciesDisplay from "./other-proficiencies-display";
 import CharacterInfoPanel from "../character-info-panel";
 
 // The sheet's read-side components. What's worth testing here isn't the markup
@@ -276,6 +278,21 @@ describe("AmmunitionDisplay", () => {
     expect(screen.getByText("Arrows")).toBeInTheDocument();
   });
 
+  it("disappears in play mode with no pools, rather than leaving a bare heading", () => {
+    const { container } = renderWithCharacter(<AmmunitionDisplay />, {
+      editMode: false,
+    });
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("keeps its heading in edit mode with no pools, so a pool can be added", () => {
+    renderWithCharacter(<AmmunitionDisplay />);
+    expect(screen.getByText("Ammunition")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add ammunition" }),
+    ).toBeInTheDocument();
+  });
+
   it("removes a pool by dispatching the whole remaining list", async () => {
     const { dispatch } = renderWithCharacter(<AmmunitionDisplay />, {
       character: withAmmo(),
@@ -285,6 +302,40 @@ describe("AmmunitionDisplay", () => {
     expect(
       (dispatchedValue(dispatch) as { name: string }[]).map((a) => a.name),
     ).toEqual(["Bolts"]);
+  });
+});
+
+describe("OtherProficienciesDisplay separators", () => {
+  // The Tools & Other entries are rich TextComponents, so their label renders
+  // through TextWithFormulasDisplay while the comma separating them is a plain
+  // sibling. When that component wrapped its text in a <div>, the block took the
+  // whole line and pushed the comma onto the next one — an orphaned comma with a
+  // broken line height under it. jsdom has no layout, so pin the cause: the text
+  // run has to be phrasing content for the comma to sit beside it.
+  it("keeps a tool's separator on the same line as its name", () => {
+    const character = aCharacter();
+    character.otherProficiencies.toolsAndOther = [
+      { title: "One type of gaming set", titleFormulas: [] },
+      { title: "Vehicles (land)", titleFormulas: [] },
+    ];
+    renderWithCharacter(<OtherProficienciesDisplay />, { character });
+    const row = screen.getByText("Tools & Other").closest(".prof-row")!;
+    const first = row.querySelectorAll(".prof-chip-label")[0];
+    expect(first.textContent).toBe("One type of gaming set,");
+    expect(first.querySelector("div")).toBeNull();
+    expect(first.querySelector("p")).toBeNull();
+  });
+
+  it("leaves the last entry without a trailing comma", () => {
+    const character = aCharacter();
+    character.otherProficiencies.toolsAndOther = [
+      { title: "Thieves' Tools", titleFormulas: [] },
+    ];
+    renderWithCharacter(<OtherProficienciesDisplay />, { character });
+    const row = screen.getByText("Tools & Other").closest(".prof-row")!;
+    expect(row.querySelector(".prof-chip-label")!.textContent).toBe(
+      "Thieves' Tools",
+    );
   });
 });
 
@@ -359,6 +410,21 @@ describe("LimitedUseAbilitiesDisplay", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("reads the recharge trigger as prose, not as the stored enum value", () => {
+    const character = withPools();
+    character.limitedUseAbilities.push({
+      info: { title: "Bardic Inspiration", titleFormulas: [] },
+      maxUses: 3,
+      // Homebrew triggers aren't presets and keep whatever case they were given.
+      recharge: "Dawn",
+      expended: 0,
+    });
+    renderWithCharacter(<LimitedUseAbilitiesDisplay />, { character });
+    expect(screen.getByText("per short rest")).toBeInTheDocument();
+    expect(screen.getByText("per long rest")).toBeInTheDocument();
+    expect(screen.getByText("per Dawn")).toBeInTheDocument();
+  });
+
   it("removes a pool by dispatching the remaining list", async () => {
     const harness = renderWithCharacter(<LimitedUseAbilitiesDisplay />, {
       character: withPools(),
@@ -368,6 +434,61 @@ describe("LimitedUseAbilitiesDisplay", () => {
     expect(
       harness.character.limitedUseAbilities.map((a) => a.info.title),
     ).toEqual(["Sorcery Points"]);
+  });
+});
+
+describe("AbilityActions — Lay on Hands", () => {
+  // The one ability whose action lets you choose how much of the pool to spend.
+  // Its amount field moved from a raw number input to the shared StepperInput,
+  // which commits on blur/Enter rather than per keystroke — so what's worth
+  // pinning is that a typed amount is still the one the button spends.
+  const paladin = (): Character => {
+    const c = aCharacter();
+    c.currHp = 20;
+    return c;
+  };
+  const layOnHands = (c: Character) =>
+    c.limitedUseAbilities.findIndex((a) => /lay on hands/i.test(a.info.title));
+
+  it("spends the typed amount and heals by it", async () => {
+    const character = paladin();
+    const i = layOnHands(character);
+    expect(i).toBeGreaterThanOrEqual(0);
+    const before = character.limitedUseAbilities[i].expended;
+    const harness = renderWithCharacter(<LimitedUseAbilitiesDisplay />, {
+      character,
+      editMode: false,
+    });
+    const amount = screen.getByRole("spinbutton", {
+      name: "Lay on Hands amount",
+    });
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "7");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use Lay on Hands" }),
+    );
+    expect(harness.character.currHp).toBe(27);
+    expect(harness.character.limitedUseAbilities[i].expended).toBe(before + 7);
+  });
+
+  it("labels the field so the number isn't a bare box", () => {
+    renderWithCharacter(<LimitedUseAbilitiesDisplay />, {
+      character: paladin(),
+      editMode: false,
+    });
+    expect(screen.getByText("Spend")).toBeInTheDocument();
+  });
+
+  it("won't let a full-HP character burn the pool", () => {
+    const character = aCharacter();
+    character.currHp = maxHpValue(character);
+    renderWithCharacter(<LimitedUseAbilitiesDisplay />, {
+      character,
+      editMode: false,
+    });
+    expect(
+      screen.getByRole("button", { name: "Use Lay on Hands" }),
+    ).toBeDisabled();
   });
 });
 

@@ -155,15 +155,20 @@ function ArmorCell() {
   const proficient = Object.values(ArmorType).filter((type) => armor[type]);
   return (
     <div className="prof-values">
-      <button
-        className="prof-chip-label"
-        onClick={(e) => {
-          e.preventDefault();
-          pushCursor(armorCursor);
-        }}
-      >
-        {proficient.length ? proficient.join(", ") : "None"}
-      </button>
+      {/* Wrapped in `.prof-chip` like every other value in this box: without it
+          the armor summary missed the chip's inline-flex alignment and sat on a
+          different vertical rhythm from the rows above and below. */}
+      <span className="prof-chip">
+        <button
+          className="prof-chip-label"
+          onClick={(e) => {
+            e.preventDefault();
+            pushCursor(armorCursor);
+          }}
+        >
+          {proficient.length ? proficient.join(", ") : "None"}
+        </button>
+      </span>
       {editMode && (
         <button
           className="prof-add"

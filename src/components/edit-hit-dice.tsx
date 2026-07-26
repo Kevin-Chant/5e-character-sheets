@@ -67,7 +67,7 @@ export default function EditHitDice() {
           <button className="margin-small" onClick={clearOverride}>
             Clear Override
           </button>
-          <button className="margin-small" onClick={saveData}>
+          <button className="btn-primary edit-save" onClick={saveData}>
             Save
           </button>
         </div>

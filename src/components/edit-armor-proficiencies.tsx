@@ -25,7 +25,7 @@ export default function EditArmorProficiencies() {
             />
           </label>
         ))}
-        <button className="margin-small" onClick={saveData}>
+        <button className="btn-primary edit-save" onClick={saveData}>
           Save
         </button>
       </div>

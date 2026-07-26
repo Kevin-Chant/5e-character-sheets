@@ -37,8 +37,23 @@ p {
   font-size: 1rem;
 }
 
+/* The sheet's dense-caption size, for text sharing a line with content that
+   matters more ("per long rest", "0 / 1 known", a save DC). Was 0.5rem — 8px at
+   default, smaller than anything else on the page and below comfortable
+   legibility. 0.62rem is the step `.tracker-box th` and `.death-save-label`
+   already use, and it stays narrow enough that a limited-use ability's name
+   still fits beside it in the third column. Modal helper prose is not this —
+   it gets `.field-help`, which has a whole dialog to breathe in. */
 .font-small {
-  font-size: 0.5rem;
+  font-size: 0.62rem;
+}
+
+/* Explanatory prose under a field or fieldset legend in an edit modal. Sized as
+   body text one step down, not as a dense caption: it's a sentence or two the
+   reader is meant to actually read, in a container wide enough to allow it. */
+.field-help {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .font-black {

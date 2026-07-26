@@ -38,8 +38,23 @@
 .tracker-box td:not(:first-child) {
   width: 3rem;
 }
+/* Expended is an editable `SingleValueDisplay`, Total is plain table text, and
+   `.display-value.small` sizes the former at 1.5rem — so two numbers reading the
+   same quantity in the same row came out half again bigger on one side. Match
+   the body size and let the underline span its column, which keeps the "you can
+   click this" cue without the shout. */
+.tracker-box .display-value.small {
+  width: 100%;
+  font-size: inherit;
+  padding: 0 0.2rem;
+}
+/* Hit Dice and Death Saves are stretched to a shared height by `.tracker-row`,
+   but only one of them has enough content to fill it — so their captions landed
+   on different baselines. Pin both to the bottom edge instead of letting them
+   float with their content. */
 .tracker-box > b {
-  margin-top: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.4rem;
 }
 
 /* ---- Play-mode trackers: current/temp HP and exhaustion, edited in place ----
@@ -178,7 +193,6 @@
   color: var(--text-muted);
 }
 .death-saves-dormant {
-  justify-content: center;
   gap: 0.1rem;
   opacity: 0.55;
   transition: opacity 0.15s ease;
@@ -186,6 +200,12 @@
 .death-saves-dormant:hover,
 .death-saves-dormant:focus-within {
   opacity: 1;
+}
+/* With the caption pinned to the bottom by `margin-top: auto`, an auto margin
+   above the first row splits the leftover space evenly — the two tracks stay
+   optically centred while the caption still lines up with "Hit Dice". */
+.death-saves-dormant .death-save-row:first-child {
+  margin-top: auto;
 }
 .death-saves-dormant .death-save-row {
   align-items: center;
