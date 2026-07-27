@@ -233,3 +233,13 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* The escape from a collapsed storage door. Sits under the cards and reads as
+   an aside, because changing where your sheets live is a rare errand. */
+.home-switch {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  /* Centred to match the asides below it — left-aligned under a centred grid
+     read as an accident rather than as a caption for the cards. */
+  text-align: center;
+}

@@ -18,14 +18,16 @@ export default function GoogleDriveSettings() {
 
   const connected = googleOauthReady || hasStoredGrant();
 
-  // Return to a clean, disconnected state and send the user to the home picker
-  // so they're not left on a Drive-backed sheet with no session.
+  // Return to a clean, disconnected state and send the user to the front door
+  // so they're not left on a Drive-backed sheet with no session. Clearing the
+  // remembered mode is what makes the hub ask the storage question again
+  // instead of offering a door to a backend this browser just signed out of.
   const disconnect = () => {
     setGoogleOauthReady(false);
     if (readLastDatastore() === "drive") clearLastDatastore();
     setDatastore(undefined);
     reset();
-    navigate("/", { state: { picker: true } });
+    navigate("/");
   };
 
   const handleSignOut = () => {

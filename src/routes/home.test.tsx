@@ -30,6 +30,7 @@ function renderHome() {
             <Route path="/join/:code" element={<JoinProbe />} />
             <Route path="/sheet" element={<h1>Your characters</h1>} />
             <Route path="/host" element={<h1>Start a game</h1>} />
+            <Route path="/auth" element={<h1>authorizing</h1>} />
           </Routes>
         </CharacterContext.Provider>
       </DatastoreSelectorContext.Provider>
@@ -62,6 +63,35 @@ describe("the front door", () => {
     renderHome();
     expect(screen.getByText("My characters")).toBeInTheDocument();
     expect(screen.queryByText("Sync to Google Drive")).toBeNull();
+  });
+
+  it("keeps a way out of the collapsed storage door, both directions", async () => {
+    writeLastDatastore("local");
+    renderHome();
+    expect(
+      screen.getByText(/Your sheets are in this browser/),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use Google Drive instead" }),
+    );
+    // Drive can't be selected without its OAuth round-trip.
+    expect(
+      screen.getByRole("heading", { name: "authorizing" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers the same way out to someone on Drive", async () => {
+    writeLastDatastore("drive");
+    renderHome();
+    expect(
+      screen.getByText(/Your sheets are in Google Drive/),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use this browser instead" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Your characters" }),
+    ).toBeInTheDocument();
   });
 
   it("offers a player their table, named by the character they played", () => {

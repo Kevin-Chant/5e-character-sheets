@@ -294,6 +294,31 @@ export default function Home() {
             </>
           )}
         </div>
+        {/* The way back out of a collapsed door. Answering the storage question
+            turns two cards into one, which is right — it stops being a question
+            once you've answered it — but without this there was no way to
+            change the answer short of finding the Drive tab in Settings, and no
+            way at all to go from Drive back to this browser. Quiet, because
+            switching is rare; present, because it was unreachable. */}
+        {storageMode && (
+          <p className="text-muted home-switch">
+            {storageMode === "drive"
+              ? "Your sheets are in Google Drive."
+              : "Your sheets are in this browser."}{" "}
+            <button
+              type="button"
+              className="link-button"
+              onClick={() =>
+                toCharacters(storageMode === "drive" ? "local" : "drive")
+              }
+            >
+              {storageMode === "drive"
+                ? "Use this browser instead"
+                : "Use Google Drive instead"}
+            </button>{" "}
+            — nothing moves, and each place keeps its own sheets.
+          </p>
+        )}
       </section>
 
       {/* The other kind of sharing — two people editing one sheet. Not a peer
