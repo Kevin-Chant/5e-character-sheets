@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// Reads and writes real `window.localStorage` — that's the datastore under test.
 import { beforeEach, describe, expect, it } from "vitest";
 import type { UUID } from "crypto";
 import LocalDatastore from "./local-datastore";

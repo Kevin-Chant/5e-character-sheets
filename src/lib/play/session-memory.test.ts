@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// The memory it tests lives in `window.localStorage`.
 import { UUID } from "crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import {

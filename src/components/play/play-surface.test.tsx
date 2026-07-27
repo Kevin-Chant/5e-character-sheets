@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { screen } from "@testing-library/react";

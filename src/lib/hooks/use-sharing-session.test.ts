@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// Renders a hook and stubs `window.alert`.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { UUID } from "crypto";

@@ -17,7 +17,20 @@ export default defineConfig({
     allowedHosts: ["kevin-laptop.swordfish-ph.ts.net"],
   },
   test: {
-    environment: "jsdom",
+    // **node by default; a DOM is opted into per file** with a
+    // `// @vitest-environment jsdom` docblock (see `src/test/setup.ts`).
+    //
+    // Most of this suite tests pure functions — the formula engine, the rules
+    // tables, the encounter merge — and building a jsdom for each of those
+    // files cost more than running every test in the repo. Measured over the
+    // 42 files that touch no DOM: 19.86s of environment setup under jsdom
+    // against 9ms under node.
+    //
+    // The default is the fast one because of how each mistake fails. A
+    // component test that forgets the docblock dies immediately and loudly on
+    // `document is not defined`; a pure test that needlessly asked for jsdom
+    // would just quietly be slow forever, which is the state this replaced.
+    environment: "node",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     // Unit tests live in src/; e2e/ is the Playwright suite (`pnpm test:e2e`).
