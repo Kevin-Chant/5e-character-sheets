@@ -1,10 +1,27 @@
 import { FormEvent, useState } from "react";
 import classNames from "classnames";
-import { FaCopy, FaSkullCrossbones, FaXmark } from "react-icons/fa6";
+import {
+  FaCopy,
+  FaEye,
+  FaEyeSlash,
+  FaSkullCrossbones,
+  FaXmark,
+} from "react-icons/fa6";
 import { copyToClipboard } from "src/lib/browser";
+import { useDeferredNumber } from "src/lib/hooks/use-deferred-number";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { CONDITION_NAMES } from "src/lib/play/conditions";
-import { inInitiativeOrder, Participant } from "src/lib/play/encounter";
+import {
+  applyDamage,
+  concentrationDc,
+  inInitiativeOrder,
+  Participant,
+  ParticipantVitals,
+  SHARING_LABELS,
+  SHARING_LEVELS,
+  SharingLevel,
+} from "src/lib/play/encounter";
+import { DamageReport } from "src/lib/play/session";
 import StepperInput from "src/components/stepper-input";
 
 // The DM's side of the play surface.
@@ -36,7 +53,48 @@ export default function DmBoard() {
     sessionStatus,
     present,
     assignSheetTo,
+    damageReports,
+    dismissDamageReport,
+    setCombatantHidden,
+    sharing,
+    setSharingLevel,
   } = useEncounter();
+
+  // Concentration checks this board has noticed and the table hasn't answered:
+  // participant id → save DC. Local UI state — the *reminder* is this DM's,
+  // even though the damage that caused it is everyone's.
+  const [conChecks, setConChecks] = useState<Record<string, number>>({});
+
+  // Every HP write on this board goes through here, so damage landing on a
+  // concentrating creature raises the DC 10-or-half-damage reminder no matter
+  // which control dealt it — the row's stepper or an accepted report.
+  const applyVitals = (
+    participant: Participant,
+    vitals: ParticipantVitals,
+    // Known for an applied report; derived from the pools' drop otherwise.
+    // Temp HP counts — 5e keys the check off damage taken, absorbed or not.
+    damageDealt?: number,
+  ) => {
+    const before = participant.vitals;
+    const dealt =
+      damageDealt ??
+      (before
+        ? Math.max(0, before.currHp - vitals.currHp) +
+          Math.max(0, (before.tempHp ?? 0) - (vitals.tempHp ?? 0))
+        : 0);
+    if (participant.concentration && dealt > 0) {
+      setConChecks((current) => ({
+        ...current,
+        [participant.id]: concentrationDc(dealt),
+      }));
+    }
+    setCombatantVitals(participant.id, vitals);
+  };
+  const resolveConCheck = (id: string) =>
+    setConChecks((current) => {
+      const { [id]: _, ...rest } = current;
+      return rest;
+    });
 
   const order = inCombat
     ? encounter.participants
@@ -50,6 +108,25 @@ export default function DmBoard() {
 
   return (
     <div className="dm-board">
+      {/* Rolled damage waiting on a ruling. Applying goes through the same
+          write as the row's own stepper (concentration reminders included);
+          the amount is editable first, because "I'm halving that, it saved"
+          is a table's most common override. */}
+      {damageReports.length > 0 && (
+        <ul className="dm-damage-queue">
+          {damageReports.map((report) => (
+            <DamageReportRow
+              key={report.reportId}
+              report={report}
+              target={encounter.participants.find(
+                (p) => p.id === report.targetId,
+              )}
+              onApply={applyVitals}
+              onDone={() => dismissDamageReport(report.reportId)}
+            />
+          ))}
+        </ul>
+      )}
       {order.length === 0 ? (
         <div className="dm-empty">
           <p className="text-muted">
@@ -70,24 +147,25 @@ export default function DmBoard() {
                 down:
                   participant.vitals !== undefined &&
                   participant.vitals.currHp <= 0,
+                staged: participant.hidden,
               })}
             >
-              <div className="dm-row-init">
-                {inCombat ? (
-                  <span className="initiative-score">
-                    {participant.initiative}
-                  </span>
-                ) : (
-                  <StepperInput
-                    value={participant.initiative}
-                    min={-10}
-                    ariaLabel={`${participant.name} initiative`}
-                    onChange={(value) =>
-                      setCombatantInitiative(participant.id, value)
-                    }
-                  />
-                )}
-              </div>
+              {/* Labelled, because the HP stepper two inches away is its
+                  visual twin — on a phone, damage typed into this box quietly
+                  re-sorts the roster "by HP". Editable in combat too: a pack
+                  added on one roll can be split after the fact, and the row
+                  re-seats to where the new number says. */}
+              <label className="dm-row-init dm-field-label">
+                <span>Init</span>
+                <StepperInput
+                  value={participant.initiative}
+                  min={-10}
+                  ariaLabel={`${participant.name} initiative`}
+                  onChange={(value) =>
+                    setCombatantInitiative(participant.id, value)
+                  }
+                />
+              </label>
               <div className="dm-row-who">
                 <span className="dm-row-name">{participant.name}</span>
                 {participant.vitals !== undefined &&
@@ -99,6 +177,30 @@ export default function DmBoard() {
                   )}
                 {inCombat && participant.id === nextUp?.id && (
                   <span className="dm-next-chip">next</span>
+                )}
+                {/* Staging: the ambush the players haven't seen yet. Only for
+                    hand-typed rows — a character-backed row is somebody's
+                    seat at the table, not a surprise to spring. */}
+                {!participant.characterUuid && (
+                  <button
+                    type="button"
+                    className="icon-btn dm-hide-btn"
+                    aria-label={
+                      participant.hidden
+                        ? `Reveal ${participant.name}`
+                        : `Hide ${participant.name} from players`
+                    }
+                    title={
+                      participant.hidden
+                        ? "Hidden from players — click to reveal"
+                        : "Hide from players until it strikes"
+                    }
+                    onClick={() =>
+                      setCombatantHidden(participant.id, !participant.hidden)
+                    }
+                  >
+                    {participant.hidden ? <FaEyeSlash /> : <FaEye />}
+                  </button>
                 )}
                 {/* Offering is the deliberate per-sheet act that consents to
                     the whole sheet travelling — bringing it only showed a
@@ -167,12 +269,14 @@ export default function DmBoard() {
               </div>
               <RowVitals
                 participant={participant}
-                onChange={(vitals) =>
-                  setCombatantVitals(participant.id, vitals)
-                }
+                onChange={(vitals) => applyVitals(participant, vitals)}
               />
               <RowConditions participant={participant} />
-              <RowConcentration participant={participant} />
+              <RowConcentration
+                participant={participant}
+                conDc={conChecks[participant.id]}
+                onConResolved={() => resolveConCheck(participant.id)}
+              />
               <button
                 type="button"
                 className="icon-btn dm-row-remove"
@@ -204,7 +308,92 @@ export default function DmBoard() {
           </button>
         )}
       </div>
+
+      {/* Table style, the DM's call: how much health the players see of each
+          other and of the monsters. It lives on the encounter so it reaches
+          every client — and it's here as well as in Settings → Game because
+          the moment a DM decides to tighten it is mid-session. */}
+      <label className="dm-sharing">
+        <span className="text-muted">Players see</span>
+        <select
+          aria-label="What players see of the table's health"
+          value={sharing}
+          onChange={(e) => setSharingLevel(e.target.value as SharingLevel)}
+        >
+          {SHARING_LEVELS.map((level) => (
+            <option key={level} value={level}>
+              {SHARING_LABELS[level]}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
+  );
+}
+
+// One rolled hit, waiting on a ruling: who rolled what at whom, an editable
+// amount (override before applying), Apply, Ignore. A target that has left
+// the fight, or was never tracked, leaves only Ignore — the report still
+// tells the DM what happened, it just has nowhere to land.
+function DamageReportRow({
+  report,
+  target,
+  onApply,
+  onDone,
+}: {
+  report: DamageReport;
+  target?: Participant;
+  onApply: (
+    participant: Participant,
+    vitals: ParticipantVitals,
+    damageDealt: number,
+  ) => void;
+  onDone: () => void;
+}) {
+  const [amount, setAmount] = useState(String(report.amount));
+  const parsed = Number(amount);
+  const applicable = !!target?.vitals && parsed > 0;
+
+  return (
+    <li className="dm-damage-report">
+      <span className="dm-damage-text">
+        <strong>{report.fromName}</strong> rolled{" "}
+        <strong>{report.amount}</strong> ({report.label}) at{" "}
+        <strong>{report.targetName}</strong>
+        {!target && " — no longer in the order"}
+        {target && !target.vitals && " — untracked, give it HP first"}
+      </span>
+      {target?.vitals && (
+        <input
+          type="text"
+          inputMode="numeric"
+          className="dm-hp-input"
+          aria-label={`Damage to apply to ${report.targetName}`}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+      )}
+      <button
+        type="button"
+        className="btn-primary"
+        disabled={!applicable}
+        onClick={() => {
+          if (!target?.vitals) return;
+          // A delta, the way tables speak it — temp HP absorbs first.
+          onApply(
+            target,
+            applyDamage(target.vitals, parsed),
+            Math.floor(parsed),
+          );
+          onDone();
+        }}
+      >
+        Apply{parsed > 0 && parsed !== report.amount ? ` ${parsed}` : ""}
+      </button>
+      <button type="button" onClick={onDone}>
+        Ignore
+      </button>
+    </li>
   );
 }
 
@@ -243,25 +432,29 @@ function AddCombatants({
   onAdd: (
     name: string,
     initiative: number,
-    opts: { count: number; maxHp?: number },
+    opts: { count: number; maxHp?: number; ac?: number },
   ) => void;
 }) {
   const [name, setName] = useState("");
   const [count, setCount] = useState(1);
   const [hp, setHp] = useState("");
+  const [ac, setAc] = useState("");
   const [initiative, setInitiative] = useState(10);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     const maxHp = Number(hp);
+    const armorClass = Number(ac);
     onAdd(name.trim(), initiative, {
       count,
       maxHp: maxHp > 0 ? maxHp : undefined,
+      ac: armorClass > 0 ? armorClass : undefined,
     });
     setName("");
     setCount(1);
     setHp("");
+    setAc("");
   };
 
   return (
@@ -291,6 +484,16 @@ function AddCombatants({
         placeholder="HP each"
         value={hp}
         onChange={(e) => setHp(e.target.value)}
+      />
+      <input
+        type="text"
+        inputMode="numeric"
+        className="dm-ac-input"
+        aria-label="Armor class (optional)"
+        placeholder="AC"
+        title="Tracked with HP — give the pack hit points and this sticks"
+        value={ac}
+        onChange={(e) => setAc(e.target.value)}
       />
       <label className="dm-add-field">
         <span>Init</span>
@@ -358,8 +561,53 @@ function RowVitals({
         onChange={(currHp) => onChange({ ...vitals, currHp })}
       />
       <span className="dm-hp-max">/ {vitals.maxHp}</span>
-      {vitals.ac > 0 && <span className="dm-row-ac">AC {vitals.ac}</span>}
+      {(vitals.tempHp ?? 0) > 0 && (
+        <span
+          className="dm-temp"
+          title="Temporary hit points — damage drains these first"
+        >
+          +{vitals.tempHp}
+        </span>
+      )}
+      {participant.characterUuid ? (
+        // A character's AC derives from its own sheet — the projection is
+        // read-only here, and a DM edit would be overwritten on its next
+        // publish anyway.
+        vitals.ac > 0 && <span className="dm-row-ac">AC {vitals.ac}</span>
+      ) : (
+        <AcInput participant={participant} onChange={onChange} />
+      )}
     </div>
+  );
+}
+
+// AC for a hand-typed combatant, editable in place. Zero shows as an empty
+// box rather than "AC 0" — unset, not naked.
+function AcInput({
+  participant,
+  onChange,
+}: {
+  participant: Participant;
+  onChange: (vitals: { currHp: number; maxHp: number; ac: number }) => void;
+}) {
+  const vitals = participant.vitals!;
+  const { inputProps } = useDeferredNumber({
+    value: vitals.ac,
+    min: 0,
+    onCommit: (ac) => onChange({ ...vitals, ac }),
+  });
+  return (
+    <label className="dm-field-label">
+      <span>AC</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        className="dm-ac-input"
+        aria-label={`${participant.name} armor class`}
+        {...inputProps}
+        value={inputProps.value === "0" ? "" : inputProps.value}
+      />
+    </label>
   );
 }
 
@@ -423,7 +671,18 @@ function RowConditions({ participant }: { participant: Participant }) {
   );
 }
 
-function RowConcentration({ participant }: { participant: Participant }) {
+function RowConcentration({
+  participant,
+  conDc,
+  onConResolved,
+}: {
+  participant: Participant;
+  // A pending concentration check from damage this board applied. Advisory:
+  // the DM rolls the die (or has the player roll it) and reports the outcome
+  // with one of the two buttons.
+  conDc?: number;
+  onConResolved?: () => void;
+}) {
   const { concentrateOn, encounter } = useEncounter();
   const [spell, setSpell] = useState("");
 
@@ -433,15 +692,33 @@ function RowConcentration({ participant }: { participant: Participant }) {
         <span className="concentration-spell">
           {participant.concentration.spell}
         </span>
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label={`${participant.name} drops concentration`}
-          title="Drop concentration"
-          onClick={() => concentrateOn(participant.id, undefined)}
-        >
-          <FaXmark />
-        </button>
+        {conDc !== undefined ? (
+          <span className="dm-con-check">
+            <span>CON DC {conDc}</span>
+            <button type="button" onClick={onConResolved}>
+              Kept
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                concentrateOn(participant.id, undefined);
+                onConResolved?.();
+              }}
+            >
+              Broke
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={`${participant.name} drops concentration`}
+            title="Drop concentration"
+            onClick={() => concentrateOn(participant.id, undefined)}
+          >
+            <FaXmark />
+          </button>
+        )}
       </div>
     );
   }

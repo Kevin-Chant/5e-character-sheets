@@ -71,7 +71,20 @@ export default function Sessions() {
     lastSession,
   } = useEncounter();
 
-  const [stage, setStage] = useState<Stage>({ step: "menu" });
+  // Coming back from /auth mid-errand: the lobby state rode along through the
+  // Drive authorization, so reopen it where they left off, code intact.
+  const lobbyReturn = (
+    location.state as {
+      lobby?: { mode: "host" | "join"; code?: string };
+    } | null
+  )?.lobby;
+  const [stage, setStage] = useState<Stage>(() => {
+    if (lobbyReturn?.mode === "host") return { step: "lobby", mode: "host" };
+    if (lobbyReturn?.mode === "join" && lobbyReturn.code) {
+      return { step: "lobby", mode: "join", code: lobbyReturn.code };
+    }
+    return { step: "menu" };
+  });
   const [code, setCode] = useState("");
   const [probing, setProbing] = useState(false);
   const [error, setError] = useState<string | undefined>();

@@ -1,4 +1,9 @@
 import { useEncounter } from "src/lib/hooks/use-encounter";
+import {
+  SHARING_LABELS,
+  SHARING_LEVELS,
+  SharingLevel,
+} from "src/lib/play/encounter";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { RestVariant } from "src/lib/rest";
 import { CritMode } from "src/lib/roll";
@@ -10,8 +15,19 @@ import SettingsSection from "./settings-section";
 // preferences like the theme or autosave.
 export default function GameSettings() {
   const { settings, updateSetting } = useSettings();
-  const { sessionStatus, hasDm, isDm, claimDm } = useEncounter();
+  const {
+    sessionStatus,
+    hasDm,
+    isDm,
+    claimDm,
+    canRun,
+    sharing,
+    setSharingLevel,
+  } = useEncounter();
   const canTakeOver = sessionStatus === "connected" && hasDm && !isDm;
+  // Whoever runs the table sets its policy — with no seat claimed that's
+  // everybody, same as every other run-combat control.
+  const canSetSharing = canRun;
   return (
     <div className="settings-sections">
       <SettingsSection
@@ -212,6 +228,29 @@ export default function GameSettings() {
           another set of critical dice
         </label>
       </SettingsSection>
+
+      {/* Table policy, not browser preference: this edits the *encounter*, so
+          it syncs to every client, and it only renders for whoever runs the
+          table. Mirrored on the DM board, where the mid-session "let's tighten
+          this" moment actually happens. */}
+      {canSetSharing && (
+        <SettingsSection
+          title="What players see"
+          description="How much of the table's health the players see of each other and the monsters. The DM's own board always shows the numbers."
+        >
+          <select
+            aria-label="What players see of the table's health"
+            value={sharing}
+            onChange={(e) => setSharingLevel(e.target.value as SharingLevel)}
+          >
+            {SHARING_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {SHARING_LABELS[level]}
+              </option>
+            ))}
+          </select>
+        </SettingsSection>
+      )}
 
       {/* The escape hatch for a DM who is genuinely never coming back. It lives
           here rather than on the session bar deliberately: starting a game

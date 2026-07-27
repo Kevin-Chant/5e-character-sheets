@@ -3,19 +3,27 @@ import {
   addCondition,
   addParticipant,
   advanceTurn,
+  applyDamage,
   claimParticipant,
   clearFallen,
   currentParticipant,
+  DEFAULT_SHARING,
   EMPTY_ENCOUNTER,
   fallenParticipants,
+  healthDescriptor,
   Encounter,
   endCombat,
   isInCombat,
   removeParticipant,
+  reseatParticipant,
   setConcentration,
+  setHidden,
+  setSharing,
   setSpent,
   setVitals,
   startCombat,
+  visibleParticipants,
+  vitalsVisibility,
 } from "src/lib/play/encounter";
 
 function roster(): Encounter {
@@ -357,5 +365,118 @@ describe("joining a fight already in progress", () => {
       initiative: 15,
     });
     expect(encounter.participants.at(-1)?.name).toBe("Ogre");
+  });
+});
+
+describe("re-seating an initiative mid-fight", () => {
+  // Order after startCombat: Maelina 19, Brakka 12, Goblin 7.
+  it("moves the row to where the new number says", () => {
+    let encounter = startCombat(roster());
+    encounter = reseatParticipant(encounter, "c", 15); // Goblin 7 -> 15
+    expect(encounter.participants.map((p) => p.name)).toEqual([
+      "Maelina",
+      "Goblin",
+      "Brakka",
+    ]);
+    expect(currentParticipant(encounter)?.name).toBe("Maelina");
+  });
+
+  it("keeps the current actor current when a row moves past them", () => {
+    let encounter = advanceTurn(startCombat(roster())).encounter; // Brakka acting
+    encounter = reseatParticipant(encounter, "c", 21); // Goblin to the top
+    expect(encounter.participants.map((p) => p.name)).toEqual([
+      "Goblin",
+      "Maelina",
+      "Brakka",
+    ]);
+    expect(currentParticipant(encounter)?.name).toBe("Brakka");
+  });
+
+  it("keeps the moved row current when it is the one acting", () => {
+    let encounter = advanceTurn(startCombat(roster())).encounter; // Brakka acting
+    encounter = reseatParticipant(encounter, "a", 1); // Brakka to the bottom
+    expect(encounter.participants.map((p) => p.name)).toEqual([
+      "Maelina",
+      "Goblin",
+      "Brakka",
+    ]);
+    expect(currentParticipant(encounter)?.name).toBe("Brakka");
+  });
+
+  it("is a plain initiative write out of combat", () => {
+    const encounter = reseatParticipant(roster(), "c", 21);
+    expect(encounter.participants.find((p) => p.id === "c")?.initiative).toBe(
+      21,
+    );
+    // Out of combat array position is meaningless; views sort for display.
+    expect(encounter.participants.map((p) => p.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("staging hidden combatants", () => {
+  it("hides and reveals without touching anything else", () => {
+    let encounter = roster();
+    encounter = setHidden(encounter, "c", true);
+    expect(encounter.participants.find((p) => p.id === "c")?.hidden).toBe(true);
+    expect(
+      visibleParticipants(encounter.participants).map((p) => p.id),
+    ).toEqual(["a", "b"]);
+    // The order itself is untouched — a hidden ambusher keeps its slot.
+    expect(encounter.participants.map((p) => p.id)).toEqual(["a", "b", "c"]);
+    encounter = setHidden(encounter, "c", false);
+    expect(visibleParticipants(encounter.participants)).toHaveLength(3);
+  });
+
+  it("no-ops on a repeat or a missing id", () => {
+    const encounter = setHidden(roster(), "c", true);
+    expect(setHidden(encounter, "c", true)).toBe(encounter);
+    expect(setHidden(encounter, "ghost", true)).toBe(encounter);
+  });
+});
+
+describe("damage as a delta", () => {
+  it("drains temporary hit points before current", () => {
+    const hit = applyDamage({ currHp: 20, maxHp: 20, ac: 15, tempHp: 5 }, 8);
+    expect(hit).toEqual({ currHp: 17, maxHp: 20, ac: 15, tempHp: 0 });
+  });
+
+  it("stops at zero and treats absent temp HP as none", () => {
+    expect(applyDamage({ currHp: 3, maxHp: 20, ac: 15 }, 10).currHp).toBe(0);
+    expect(applyDamage({ currHp: 3, maxHp: 20, ac: 15 }, 10).tempHp).toBe(0);
+  });
+
+  it("absorbs entirely within temp HP when it covers the hit", () => {
+    const hit = applyDamage({ currHp: 20, maxHp: 20, ac: 15, tempHp: 12 }, 7);
+    expect(hit.currHp).toBe(20);
+    expect(hit.tempHp).toBe(5);
+  });
+});
+
+describe("the sharing policy", () => {
+  it("maps each level onto ally and enemy visibility", () => {
+    expect(vitalsVisibility("exact", true)).toBe("exact");
+    expect(vitalsVisibility("exact", false)).toBe("exact");
+    expect(vitalsVisibility("bloodied-enemies", true)).toBe("exact");
+    expect(vitalsVisibility("bloodied-enemies", false)).toBe("descriptor");
+    expect(vitalsVisibility("bloodied", true)).toBe("descriptor");
+    expect(vitalsVisibility("private", true)).toBe("none");
+    // Absent means the default.
+    expect(vitalsVisibility(undefined, false)).toBe(
+      vitalsVisibility(DEFAULT_SHARING, false),
+    );
+  });
+
+  it("reads health the way a table calls it out", () => {
+    expect(healthDescriptor({ currHp: 20, maxHp: 20, ac: 0 })).toBe("Healthy");
+    expect(healthDescriptor({ currHp: 10, maxHp: 20, ac: 0 })).toBe("Bloodied");
+    expect(healthDescriptor({ currHp: 0, maxHp: 20, ac: 0 })).toBe("Down");
+  });
+
+  it("writes the policy onto the encounter, no-op on a repeat", () => {
+    const tightened = setSharing(EMPTY_ENCOUNTER, "private");
+    expect(tightened.sharing).toBe("private");
+    expect(setSharing(tightened, "private")).toBe(tightened);
+    // The default level is also a no-op on a fresh encounter.
+    expect(setSharing(EMPTY_ENCOUNTER, DEFAULT_SHARING)).toBe(EMPTY_ENCOUNTER);
   });
 });

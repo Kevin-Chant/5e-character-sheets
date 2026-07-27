@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Spinner from "src/components/spinner";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import GoogleDriveDatastore from "src/datastores/google-drive-datastore";
 import {
   API_KEY,
@@ -29,15 +29,27 @@ export default function GoogleAuthInitializer() {
   } = useGoogleOauth();
   const { setDatastore } = useDatastoreSelector();
   const navigate = useNavigate();
+  const location = useLocation();
   // Set when a silent token refresh fails, so we stop showing "Resuming..."
   // and fall back to the Authorize button.
   const [authPromptNeeded, setAuthPromptNeeded] = useState(false);
+
+  // Whoever sent us here may have been mid-errand — a joiner picking Drive
+  // from the session lobby was about to enter a game, and landing them on
+  // sheet management instead threw the code away. The token client is a
+  // popup, not a page redirect, so router state survives the whole flow and
+  // can carry the errand back.
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
 
   useEffect(() => {
     if (googleOauthReady) {
       setDatastore(GoogleDriveDatastore);
       writeLastDatastore("drive");
-      navigate("/sheet");
+      if (returnTo) {
+        navigate(returnTo, { state: location.state, replace: true });
+      } else {
+        navigate("/sheet");
+      }
     }
   }, [googleOauthReady]);
 

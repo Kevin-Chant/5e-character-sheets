@@ -16,7 +16,7 @@
 //
 // Flags:
 //   --base <url>      dev server (default http://localhost:3000)
-//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | rejoin
+//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | initiative | damage | rejoin
 //   --headed          show the browsers
 //   --slow <ms>       slow motion, for watching a failure happen
 //   --timeout <ms>    per-condition wait budget (default 15000)
@@ -475,6 +475,188 @@ const scenarios = {
     check("the DM sees it in play", true, true);
 
     return [dm, player];
+  },
+
+  // "Alright everyone, roll initiative": the DM's call rolls for the sheets
+  // they brought and prompts every player to roll their own.
+  async initiative(browser) {
+    const dm = await openClient(browser, "martial-fighter", "dm", [
+      "full-caster-wizard",
+    ]);
+    const player = await openClient(browser, "multiclass", "player");
+
+    const code = await startGame(dm, ["Maelina Vael"]);
+    await joinGame(player, code, player.name);
+    await untilRoster(dm.page, ["Maelina Vael", player.name]);
+
+    await dm.page.click("text=Call for initiative");
+
+    // The brought sheet rolled on the DM's side (d20 + DEX can't be 0).
+    await until(
+      dm.page,
+      "the brought sheet's initiative to be rolled",
+      () =>
+        Number(
+          document.querySelector('input[aria-label="Maelina Vael initiative"]')
+            ?.value,
+        ) !== 0,
+    );
+    check("the DM's brought sheet rolled", true, true);
+
+    // The player is prompted, and one click rolls with their own modifier.
+    await untilText(player.page, "Roll initiative!");
+    check("the players hear the call", true, true);
+    await player.page.click(".assign-prompt .btn-primary");
+    await until(
+      player.page,
+      "the player's own initiative to be set",
+      (name) =>
+        Number(
+          document.querySelector(`input[aria-label="${name} initiative"]`)
+            ?.value,
+        ) !== 0,
+      player.name,
+    );
+    check("one click rolls the player in", true, true);
+
+    return [dm, player];
+  },
+
+  // A player rolls damage at a monster and reports it; the DM applies it.
+  // Then both halves of the concentration reminder: the DM's chip when a
+  // concentrating monster takes damage, and the player's banner when the DM's
+  // damage lands on their concentrating character.
+  async damage(browser) {
+    // Roles flipped from the other scenarios: the fighter is the one fixture
+    // with a rollable attack, and here it's the *player* who rolls.
+    const dm = await openClient(browser, "full-caster-wizard", "dm");
+    const player = await openClient(browser, "martial-fighter", "player");
+
+    const code = await startGame(dm);
+    await joinGame(player, code, player.name);
+
+    // One tracked goblin on the table.
+    await dm.page.fill(".dm-add-name", "Goblin");
+    await dm.page.fill('[aria-label="Hit points each (optional)"]', "7");
+    await dm.page.click('.dm-add button[type="submit"]');
+    await untilVisible(dm.page, '[aria-label="Goblin hit points"]');
+
+    // The player rolls Greatsword damage and reports it against the goblin.
+    await untilRoster(player.page, ["Goblin", player.name]);
+    await player.page.click('[aria-label="Roll Greatsword"]');
+    await player.page.click("text=Roll Damage");
+    await untilVisible(player.page, ".roll-report");
+    await player.page.selectOption(
+      '[aria-label="Report this damage against"]',
+      { label: "Goblin" },
+    );
+    await player.page.click("text=Report to DM");
+    await untilText(player.page, "Sent to your DM");
+    await player.page.click('[aria-label="Close"]');
+
+    // The report reaches the seat, and applying it lands on the goblin.
+    await untilVisible(dm.page, ".dm-damage-report");
+    check("the report reaches the DM", true, true);
+    await dm.page.click(".dm-damage-report .btn-primary");
+    await until(
+      dm.page,
+      "the goblin's HP to drop",
+      () =>
+        Number(
+          document.querySelector('input[aria-label="Goblin hit points"]')
+            ?.value,
+        ) < 7,
+    );
+    check("applying the report damages the goblin", true, true);
+
+    // DM-side concentration: give the goblin a spell, hurt it, get the chip.
+    const goblinConc = dm.page.locator(
+      '[aria-label="Goblin concentrating on"]',
+    );
+    await goblinConc.fill("Fog Cloud");
+    await goblinConc.press("Enter");
+    const goblinHp = dm.page.locator('[aria-label="Goblin hit points"]');
+    await goblinHp.fill("7");
+    await goblinHp.press("Enter"); // heal first, so the next write is a drop
+    await goblinHp.fill("3");
+    await goblinHp.press("Enter");
+    await untilText(dm.page, "CON DC 10");
+    check("damaging a concentrating monster raises the check", true, true);
+    await dm.page.click("text=Broke");
+    await until(
+      dm.page,
+      "the goblin's concentration to clear",
+      () => !document.body.innerText.includes("Fog Cloud"),
+    );
+    check("Broke drops the monster's concentration", true, true);
+
+    // Temp HP end to end: a second player buffs up, gets hit by a reported
+    // blow, and the delta drains temp first — on their actual sheet.
+    const ally = await openClient(browser, "multiclass", "ally");
+    await joinGame(ally, code, ally.name);
+    await untilRoster(dm.page, ["Goblin", ally.name, player.name]);
+    const allyHpBefore = await ally.page
+      .locator('[aria-label="Current Hit Points"]')
+      .inputValue();
+    for (let i = 0; i < 3; i += 1) {
+      await ally.page.click('[aria-label="Gain 1 temporary hit point"]');
+    }
+    // Friendly fire: the fighter reports a hit against the ally.
+    await player.page.click('[aria-label="Roll Greatsword"]');
+    await player.page.click("text=Roll Damage");
+    await untilVisible(player.page, ".roll-report");
+    await player.page.selectOption(
+      '[aria-label="Report this damage against"]',
+      { label: ally.name },
+    );
+    await player.page.click("text=Report to DM");
+    await player.page.click('[aria-label="Close"]');
+    await untilVisible(dm.page, ".dm-damage-report");
+    const reported = Number(
+      await dm.page.locator(".dm-damage-report input").inputValue(),
+    );
+    await dm.page.click(".dm-damage-report .btn-primary");
+    // Greatsword is at least 2d6+4, so the 3 temp can't swallow it all:
+    // temp goes to 0 and the remainder comes off the sheet's HP.
+    await until(ally.page, "temp HP to be drained on the ally's sheet", () =>
+      [...document.querySelectorAll(".play-hp-temp input")].some(
+        (i) => i.value === "0",
+      ),
+    );
+    await until(
+      ally.page,
+      "the remainder to come off the ally's HP",
+      (expected) =>
+        document.querySelector('[aria-label="Current Hit Points"]')?.value ===
+        String(expected),
+      Number(allyHpBefore) - (reported - 3),
+    );
+    check("an applied report drains temp HP before HP", true, true);
+
+    // Player-side: concentrating, then the DM's damage lands on their sheet.
+    const playerConc = player.page.locator('[aria-label="Concentrating on"]');
+    await playerConc.fill("Web");
+    await playerConc.press("Enter");
+    const playerRowHp = dm.page.locator(
+      `input[aria-label="${player.name} hit points"]`,
+    );
+    await untilVisible(
+      dm.page,
+      `input[aria-label="${player.name} hit points"]`,
+    );
+    await playerRowHp.fill("40");
+    await playerRowHp.press("Enter");
+    await untilText(player.page, "while concentrating on");
+    check("the player is prompted for the concentration save", true, true);
+    await player.page.click("text=Kept it");
+    await until(
+      player.page,
+      "the prompt to clear",
+      () => !document.body.innerText.includes("while concentrating on"),
+    );
+    check("Kept it dismisses the prompt and keeps the spell", true, true);
+
+    return [dm, player, ally];
   },
 
   // Leaving drops you from everyone's roster; rejoining from the character's

@@ -60,6 +60,10 @@ export interface ParticipantVitals {
   currHp: number;
   maxHp: number;
   ac: number;
+  // Optional so older stored encounters need no migration; absent means 0.
+  // On the wire because damage is: temp HP absorbs first, and a DM applying
+  // "you take 12" can't do that arithmetic against a number they can't see.
+  tempHp?: number;
 }
 
 export interface Participant {
@@ -83,6 +87,13 @@ export interface Participant {
   // consents to the whole sheet travelling. The flag survives a pickup, so the
   // sheet reverts to offered when its player leaves.
   claimable?: boolean;
+  // Staged but not revealed: the ambush in the trees, the second wave. Hidden
+  // rows render only for whoever runs the table — on player clients they
+  // vanish from the rail, and a hidden combatant's turn reads as "the DM is
+  // up to something". This is dramaturgy, not privacy: the row still travels
+  // with the encounter (a shared object has no per-recipient copies), it just
+  // isn't drawn. Real secrets never enter the encounter at all.
+  hidden?: boolean;
   // Kept current by the owning client — with one deliberate exception, a DM
   // edit. See `mergeEncounter`.
   vitals?: ParticipantVitals;
@@ -91,6 +102,60 @@ export interface Participant {
   // stale copy of you" (an older one, keep your own) — without it those two
   // arrive looking identical, and the fix for one is the bug in the other.
   vitalsRev?: number;
+}
+
+// How much of the table's health the players get to see — the DM's call,
+// because it's table style, not privacy: some tables narrate wounds, some
+// read numbers out. On the encounter (not in settings) because policy has to
+// reach every client, and LWW merges it like any other table fact. What it
+// never touches: your own vitals (always yours to see), the DM's board
+// (running the table needs the numbers), and hidden rows (a separate axis).
+export type SharingLevel =
+  | "exact" // numbers for everyone, monsters included
+  | "bloodied-enemies" // allies in numbers, monsters by description
+  | "bloodied" // everyone by description
+  | "private"; // nothing about anyone but yourself
+
+export const SHARING_LEVELS: SharingLevel[] = [
+  "exact",
+  "bloodied-enemies",
+  "bloodied",
+  "private",
+];
+
+export const DEFAULT_SHARING: SharingLevel = "bloodied-enemies";
+
+export const SHARING_LABELS: Record<SharingLevel, string> = {
+  exact: "Open numbers — exact HP for everyone, monsters included",
+  "bloodied-enemies": "Bloodied enemies — party in numbers, monsters by look",
+  bloodied: "Bloodied everyone — health by look only",
+  private: "Private — nobody sees anyone else's health",
+};
+
+// What one player client may render of a participant's vitals.
+export function vitalsVisibility(
+  level: SharingLevel | undefined,
+  isCharacter: boolean,
+): "exact" | "descriptor" | "none" {
+  switch (level ?? DEFAULT_SHARING) {
+    case "exact":
+      return "exact";
+    case "bloodied-enemies":
+      return isCharacter ? "exact" : "descriptor";
+    case "bloodied":
+      return "descriptor";
+    case "private":
+      return "none";
+  }
+}
+
+// The across-the-table read: 5e's community shorthand for "at or under half".
+export function healthDescriptor(
+  vitals: ParticipantVitals,
+): "Healthy" | "Bloodied" | "Down" {
+  if (vitals.currHp <= 0) return "Down";
+  if (vitals.maxHp > 0 && vitals.currHp * 2 <= vitals.maxHp) return "Bloodied";
+  return "Healthy";
 }
 
 export interface Encounter {
@@ -113,6 +178,8 @@ export interface Encounter {
   // so the table isn't gated on someone who's gone while the seat still knows
   // whose it is.
   dmToken?: string;
+  // The table's health-sharing policy. Absent means `DEFAULT_SHARING`.
+  sharing?: SharingLevel;
   // Last-write-wins bookkeeping for the party session. Absent on a purely local
   // encounter, which is why every read is `?? 0` rather than a migration.
   revision?: number;
@@ -265,6 +332,28 @@ export function setInitiative(
   return mapParticipant(encounter, id, (p) => ({ ...p, initiative }));
 }
 
+// Change an initiative mid-fight and move the row where the number now says —
+// the DM splitting a pack that was added on one roll ("the two captains act
+// separately after all"). Out of combat it's just `setInitiative`: nothing is
+// seated yet. In combat the participant is lifted out and re-inserted through
+// the same rules as a late arrival, with one extra guarantee: whoever is
+// acting keeps acting, even if it's the row being moved.
+export function reseatParticipant(
+  encounter: Encounter,
+  id: string,
+  initiative: number,
+): Encounter {
+  if (!isInCombat(encounter)) return setInitiative(encounter, id, initiative);
+  const moving = encounter.participants.find((p) => p.id === id);
+  if (!moving) return encounter;
+  if (moving.initiative === initiative) return encounter;
+  const currentId = currentParticipant(encounter)?.id;
+  const lifted = removeParticipant(encounter, id);
+  const seated = insertParticipant(lifted, { ...moving, initiative });
+  const turnIndex = seated.participants.findIndex((p) => p.id === currentId);
+  return turnIndex === -1 ? seated : { ...seated, turnIndex };
+}
+
 // Highest first, and ties broken by name so the order is stable across
 // re-sorts rather than depending on insertion. (5e breaks initiative ties with
 // a DEX check or a coin flip; neither is something the sheet should invent.)
@@ -400,6 +489,24 @@ export function removeCondition(
   }));
 }
 
+// Damage as tables speak it — "you take 12" — resolved against the vitals the
+// way 5e resolves it: temporary hit points absorb first, the remainder comes
+// off current HP, floored at 0. Returns what actually happened so a caller
+// can say so (a concentration DC is set by damage *taken*, absorbed or not).
+export function applyDamage(
+  vitals: ParticipantVitals,
+  amount: number,
+): ParticipantVitals {
+  const damage = Math.max(0, Math.floor(amount));
+  const temp = vitals.tempHp ?? 0;
+  const absorbed = Math.min(temp, damage);
+  return {
+    ...vitals,
+    tempHp: temp - absorbed,
+    currHp: Math.max(0, vitals.currHp - (damage - absorbed)),
+  };
+}
+
 export function setVitals(
   encounter: Encounter,
   id: string,
@@ -413,7 +520,8 @@ export function setVitals(
     existing &&
     existing.currHp === vitals.currHp &&
     existing.maxHp === vitals.maxHp &&
-    existing.ac === vitals.ac
+    existing.ac === vitals.ac &&
+    (existing.tempHp ?? 0) === (vitals.tempHp ?? 0)
   ) {
     return encounter;
   }
@@ -507,6 +615,38 @@ export function reclaimDmSeat(
 // whose DM isn't in the app at all.
 export function canRunCombat(encounter: Encounter, clientId: string): boolean {
   return !encounter.dmClientId || encounter.dmClientId === clientId;
+}
+
+export function setSharing(
+  encounter: Encounter,
+  sharing: SharingLevel,
+): Encounter {
+  if ((encounter.sharing ?? DEFAULT_SHARING) === sharing) return encounter;
+  return { ...encounter, sharing };
+}
+
+export function setHidden(
+  encounter: Encounter,
+  id: string,
+  hidden: boolean,
+): Encounter {
+  const existing = encounter.participants.find((p) => p.id === id);
+  if (!existing || !!existing.hidden === hidden) return encounter;
+  return mapParticipant(encounter, id, (p) => ({ ...p, hidden }));
+}
+
+// What a player client draws. The turn order itself is untouched — a hidden
+// ambusher still occupies its slot, the players just can't see whose it is.
+export function visibleParticipants(
+  participants: Participant[],
+): Participant[] {
+  return participants.filter((p) => !p.hidden);
+}
+
+// The 5e concentration check: DC 10 or half the damage taken, whichever is
+// higher (halves round down).
+export function concentrationDc(damage: number): number {
+  return Math.max(10, Math.floor(damage / 2));
 }
 
 export function setConcentration(

@@ -340,3 +340,15 @@
 .share-presence-dismiss:hover {
   color: var(--text);
 }
+
+/* "Report to DM": naming a target for the number just rolled. Quieter than
+   the roll itself — the die is the event, this is the courier. */
+.roll-report {
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.roll-report select {
+  max-width: 11rem;
+}

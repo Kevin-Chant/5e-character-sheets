@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import autobahn from "autobahn-browser";
 import { Encounter } from "src/lib/play/encounter";
 import {
+  DamageReport,
   isValidSessionCode,
   newSessionCode,
   normalizeSessionCode,
@@ -45,6 +46,11 @@ interface PlaySessionOptions {
     toClientId: string,
     fromClientId: string,
   ) => void;
+  // The DM called for initiative. Each player client raises its own prompt.
+  onCallInitiative: (fromClientId: string) => void;
+  // A player rolled damage at something. Everyone hears it; whoever holds the
+  // seat queues it for a decision.
+  onDamageReport: (report: DamageReport, fromClientId: string) => void;
   // Someone wants to play an offered sheet: whoever owns it replies.
   onClaimSheet: (participantId: string, fromClientId: string) => void;
   // A whole sheet arrived. The provider checks it's addressed to us and loads
@@ -63,6 +69,8 @@ export function usePlaySession({
   onLeave,
   onPresence,
   onAssignSheet,
+  onCallInitiative,
+  onDamageReport,
   onClaimSheet,
   onSheet,
 }: PlaySessionOptions) {
@@ -83,6 +91,8 @@ export function usePlaySession({
     onLeave,
     onPresence,
     onAssignSheet,
+    onCallInitiative,
+    onDamageReport,
     onClaimSheet,
     onSheet,
   });
@@ -92,6 +102,8 @@ export function usePlaySession({
     onLeave,
     onPresence,
     onAssignSheet,
+    onCallInitiative,
+    onDamageReport,
     onClaimSheet,
     onSheet,
   };
@@ -108,11 +120,15 @@ export function usePlaySession({
             ? PlaySessionEvent.PRESENCE
             : message.kind === "assignSheet"
               ? PlaySessionEvent.ASSIGN
-              : message.kind === "claimSheet"
-                ? PlaySessionEvent.CLAIM_SHEET
-                : message.kind === "sheet"
-                  ? PlaySessionEvent.SHEET
-                  : PlaySessionEvent.LEAVE;
+              : message.kind === "callInitiative"
+                ? PlaySessionEvent.CALL_INITIATIVE
+                : message.kind === "damageReport"
+                  ? PlaySessionEvent.DAMAGE
+                  : message.kind === "claimSheet"
+                    ? PlaySessionEvent.CLAIM_SHEET
+                    : message.kind === "sheet"
+                      ? PlaySessionEvent.SHEET
+                      : PlaySessionEvent.LEAVE;
     try {
       session.publish(topic, [message]);
     } catch {
@@ -134,6 +150,17 @@ export function usePlaySession({
   const assignSheet = useCallback(
     (toClientId: string, participantId: string) =>
       publish({ kind: "assignSheet", clientId, toClientId, participantId }),
+    [publish, clientId],
+  );
+
+  const sendCallInitiative = useCallback(
+    () => publish({ kind: "callInitiative", clientId }),
+    [publish, clientId],
+  );
+
+  const sendDamageReport = useCallback(
+    (report: DamageReport) =>
+      publish({ kind: "damageReport", clientId, report }),
     [publish, clientId],
   );
 
@@ -237,6 +264,24 @@ export function usePlaySession({
               message.clientId,
             );
           }),
+          session.subscribe(PlaySessionEvent.CALL_INITIATIVE, (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (
+              message?.kind !== "callInitiative" ||
+              message.clientId === clientId
+            )
+              return;
+            handlers.current.onCallInitiative(message.clientId);
+          }),
+          session.subscribe(PlaySessionEvent.DAMAGE, (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (
+              message?.kind !== "damageReport" ||
+              message.clientId === clientId
+            )
+              return;
+            handlers.current.onDamageReport(message.report, message.clientId);
+          }),
           session.subscribe(PlaySessionEvent.CLAIM_SHEET, (args: any[]) => {
             const message = args?.[0] as SessionMessage | undefined;
             if (message?.kind !== "claimSheet" || message.clientId === clientId)
@@ -316,6 +361,8 @@ export function usePlaySession({
     broadcastState,
     announcePresence,
     assignSheet,
+    sendCallInitiative,
+    sendDamageReport,
     requestSheet,
     sendSheet,
   };

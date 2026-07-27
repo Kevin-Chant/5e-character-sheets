@@ -1,10 +1,15 @@
 import { Link, Navigate } from "react-router-dom";
 import classNames from "classnames";
-import { FaFileLines } from "react-icons/fa6";
+import { FaCampground, FaFileLines } from "react-icons/fa6";
+import { useRest } from "src/lib/hooks/use-rest";
+import { calculateCustomFormula } from "src/lib/formula";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { EditModeContext } from "src/lib/hooks/use-edit-mode";
-import { RollerProvider } from "src/lib/hooks/use-roller";
+import { RollerProvider, useRoller } from "src/lib/hooks/use-roller";
+import { getPB, modifier } from "src/lib/rules";
+import { initiativeModifierFor } from "src/lib/play/initiative";
+import { rollD20Check } from "src/lib/roll";
 import { usePlayTurn } from "src/lib/play/use-turn";
 import RollModal from "src/components/roll-modal";
 import ActionBoard from "./action-board";
@@ -42,9 +47,13 @@ export default function PlaySurface() {
     inCombat,
     current,
     self,
+    encounter,
     pendingAssignment,
     acceptAssignment,
     declineAssignment,
+    initiativeCalled,
+    dismissInitiativeCall,
+    setCombatantInitiative,
   } = useEncounter();
   const turn = usePlayTurn();
 
@@ -59,6 +68,15 @@ export default function PlaySurface() {
   // nothing locks. A readied action, a DM ruling, a held Sentinel swing —
   // the table decides, so hovering a dimmed group brings it right back.
   const offTurn = inCombat && !!current && !!self && current.id !== self.id;
+  // "You're on deck" — the heads-up every table gives out loud.
+  const nextUp =
+    inCombat && encounter.participants.length > 1
+      ? encounter.participants[
+          (encounter.turnIndex + 1) % encounter.participants.length
+        ]
+      : undefined;
+  const youAreNext = !!self && nextUp?.id === self.id;
+  const dying = !!character && character.currHp <= 0;
 
   // Being in a session without a sheet is a real seat at the table, not a
   // half-loaded page: it's the DM, and it's the player waiting to be handed a
@@ -99,6 +117,34 @@ export default function PlaySurface() {
               </button>
             </div>
           )}
+          {/* "Alright everyone — roll initiative!" One click rolls with the
+              sheet's own modifier and writes it to your row; a player who
+              rolled a physical die dismisses and types theirs in the rail. */}
+          {initiativeCalled && !isDm && character && self && (
+            <div className="assign-prompt">
+              <span>
+                <strong>Roll initiative!</strong> Your DM called for it.
+              </span>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setCombatantInitiative(
+                    self.id,
+                    rollD20Check(initiativeModifierFor(character)).total,
+                  );
+                  dismissInitiativeCall();
+                }}
+              >
+                Roll ({initiativeModifierFor(character) >= 0 ? "+" : ""}
+                {initiativeModifierFor(character)})
+              </button>
+              <button type="button" onClick={dismissInitiativeCall}>
+                I rolled my own
+              </button>
+            </div>
+          )}
+          <ConcentrationCheckBanner />
           <InitiativeRail variant={isDm ? "dm" : "player"} />
           {/* Holding the seat swaps the whole body: a player asks "what can I
               do right now", a DM asks "what is the state of eight creatures".
@@ -119,24 +165,39 @@ export default function PlaySurface() {
                   {offTurn ? (
                     <>
                       <span className="turn-banner-title">
-                        {current.name} is acting
+                        {/* A staged combatant's turn must not leak its name —
+                            the players know something moved, not what. */}
+                        {current.hidden
+                          ? "The DM is up to something…"
+                          : `${current.name} is acting`}
                       </span>
                       <span className="turn-banner-sub">
-                        Your reaction stays ready — and nothing here is locked
-                        if the table rules otherwise.
+                        {youAreNext
+                          ? "You're next — line your turn up."
+                          : "Your reaction stays ready — and nothing here is locked if the table rules otherwise."}
                       </span>
                     </>
                   ) : (
                     <span className="turn-banner-title">Your turn</span>
                   )}
+                  {!offTurn && dying && (
+                    <span className="turn-banner-sub">
+                      You&apos;re at 0 HP — death saving throw first.
+                    </span>
+                  )}
                 </div>
               )}
               <header className="play-header">
                 <TurnEconomy turn={turn} />
-                <Link className="play-sheet-link" to="/sheet">
-                  <FaFileLines />
-                  <span>Open sheet</span>
-                </Link>
+                <div className="play-header-links">
+                  {/* Between fights is when a table rests — mid-combat the
+                      button would only be a misclick. */}
+                  {!inCombat && <RestShortcut />}
+                  <Link className="play-sheet-link" to="/sheet">
+                    <FaFileLines />
+                    <span>Open sheet</span>
+                  </Link>
+                </div>
               </header>
               <div className={classNames("play-body", { "off-turn": offTurn })}>
                 <ActionBoard turn={turn} />
@@ -182,5 +243,82 @@ export default function PlaySurface() {
         <RollModal />
       </RollerProvider>
     </EditModeContext.Provider>
+  );
+}
+
+// "You took 14 while holding Hypnotic Pattern — DC 10, your roll." Raised by
+// the encounter provider whenever the open character's HP drops while their
+// participant is concentrating, whoever dealt the damage. Advisory to the
+// bone: the app offers the roll and takes the player's word for the outcome —
+// nothing drops concentration except the two buttons.
+function ConcentrationCheckBanner() {
+  const {
+    concentrationCheck,
+    clearConcentrationCheck,
+    self,
+    concentrateOn,
+    isDm,
+  } = useEncounter();
+  const { character } = useCharacter();
+  const { openRoller } = useRoller();
+  if (!concentrationCheck || !character || isDm) return null;
+
+  const saveBonus = character.savingThrowBonus
+    ? calculateCustomFormula(character.savingThrowBonus, character)
+    : 0;
+  const conSave =
+    modifier(character.stats.con) +
+    (character.proficiencies.savingThrows.con ? getPB(character) : 0) +
+    saveBonus;
+
+  return (
+    <div className="con-check-banner">
+      <span>
+        You took {concentrationCheck.damage} damage while concentrating on{" "}
+        <strong>{concentrationCheck.spell}</strong> — Constitution save DC{" "}
+        {concentrationCheck.dc}.
+      </span>
+      <button
+        type="button"
+        onClick={() =>
+          openRoller({
+            label: `Concentration save (DC ${concentrationCheck.dc})`,
+            spec: { kind: "check", modifier: conSave },
+          })
+        }
+      >
+        Roll the save
+      </button>
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={clearConcentrationCheck}
+      >
+        Kept it
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (self) concentrateOn(self.id, undefined);
+          clearConcentrationCheck();
+        }}
+      >
+        Lost it
+      </button>
+    </div>
+  );
+}
+
+// The between-fights loop: end combat, sweep the fallen, rest, next fight.
+// The rest dialog is mounted globally by RestProvider, so this is just the
+// door to it — kept off the surface mid-combat where it could only be a
+// misclick.
+function RestShortcut() {
+  const { openRest } = useRest();
+  return (
+    <button type="button" className="play-sheet-link" onClick={openRest}>
+      <FaCampground />
+      <span>Rest</span>
+    </button>
   );
 }

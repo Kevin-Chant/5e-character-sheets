@@ -145,6 +145,19 @@
   background: var(--surface);
 }
 
+/* Damage taken while concentrating: the save the table always forgets.
+   Shaped like the assign prompt — a question, answered and gone. */
+.con-check-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--arcane);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
 /* --- Initiative rail ---------------------------------------------------- */
 
 .initiative-rail {
@@ -422,12 +435,25 @@
   cursor: default;
 }
 
+.play-header-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
 .play-sheet-link {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   color: var(--text-muted);
   text-decoration: none;
+  /* Also a <button> for the rest shortcut — strip the chrome so the two
+     read as the same kind of quiet door. */
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 1rem;
+  cursor: pointer;
 }
 
 .play-sheet-link:hover {
@@ -641,6 +667,18 @@
   gap: var(--space-2);
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+/* Death saves take over the rail the moment they're live. The display styles
+   itself active at 0 HP; this just gives it the row and the roll shortcut. */
+.play-death-saves {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.play-death-saves .tracker-box {
+  margin: 0;
 }
 
 .play-stats {
@@ -892,6 +930,21 @@
   text-decoration-thickness: 1px;
 }
 
+/* Staged: real to the DM, invisible to the table. Dashed, like the invite —
+   the visual language for "not part of the shared picture yet". */
+.dm-row.staged {
+  border-style: dashed;
+  background: var(--surface-2);
+}
+
+.dm-hide-btn {
+  flex-shrink: 0;
+}
+
+.dm-row.staged .dm-hide-btn {
+  color: var(--accent);
+}
+
 .dm-down-mark {
   flex-shrink: 0;
   color: var(--text-muted);
@@ -915,9 +968,26 @@
   justify-content: center;
 }
 
-.dm-row-init .initiative-score {
-  font-size: 0.95rem;
-  padding: 2px var(--space-2);
+/* A small caption welded to its control — what keeps the initiative stepper
+   and the HP stepper from reading as twins, which on a phone had damage typed
+   into the wrong one and the roster "sorting itself by HP". */
+.dm-field-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.dm-field-label > span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.dm-ac-input {
+  width: 3em;
+  min-width: 0;
+  text-align: center;
 }
 
 .dm-row-who {
@@ -987,9 +1057,13 @@
 
 @media (max-width: 900px) {
   .dm-row {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
+  /* The vitals cluster (HP stepper, max, AC) is too wide to share the name's
+     line on a phone — it crushed "Goblin 1" to a single letter. Name line
+     first, then vitals, then conditions, then concentration. */
+  .dm-row-vitals,
   .dm-row-conditions,
   .dm-row-concentration {
     grid-column: 1 / -1;
@@ -999,7 +1073,7 @@
      placement strand it on a row of its own at the bottom left. */
   .dm-row-remove {
     grid-row: 1;
-    grid-column: 4;
+    grid-column: 3;
   }
 
   /* Let the offer/in-play chip drop under the name instead of crushing it. */
@@ -1012,6 +1086,49 @@
   .initiative-rail.dm .rail-turn-callout {
     display: none;
   }
+}
+
+/* --- The damage queue --------------------------------------------------- */
+
+.dm-damage-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dm-damage-report {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.9rem;
+}
+
+.dm-damage-text {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+/* The concentration reminder on a row that just took damage. */
+.dm-con-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--arcane);
+}
+
+.dm-con-check button {
+  padding: 0 var(--space-1);
+  font-size: 0.75rem;
 }
 
 /* --- The empty table and the invite ------------------------------------ */
@@ -1155,4 +1272,45 @@
   justify-content: center;
   gap: 0.75rem;
   margin-top: 0.75rem;
+}
+
+/* --- Sharing policy + health descriptors -------------------------------- */
+
+/* The across-the-table read when the table plays descriptors, not numbers. */
+.initiative-health {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.initiative-health.healthy {
+  color: var(--success);
+}
+
+.initiative-health.bloodied {
+  color: var(--health);
+  font-weight: 700;
+}
+
+.initiative-health.down {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* Temporary hit points on a DM row — drained before HP, so shown beside it. */
+.dm-temp {
+  font-size: 0.78rem;
+  color: var(--arcane);
+  white-space: nowrap;
+}
+
+.dm-sharing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+}
+
+.dm-sharing select {
+  max-width: 26rem;
 }

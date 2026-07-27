@@ -30,6 +30,8 @@ import {
   advanceTurn,
   claimParticipant,
   clearFallen,
+  concentrationDc,
+  DEFAULT_SHARING,
   fallenParticipants,
   Concentration,
   currentParticipant,
@@ -42,8 +44,12 @@ import {
   participantFor,
   removeCondition,
   removeParticipant,
+  reseatParticipant,
   setConcentration,
+  setHidden,
   setInitiative,
+  setSharing,
+  SharingLevel,
   setSpent,
   setVitals,
   startCombat,
@@ -51,6 +57,7 @@ import {
 } from "src/lib/play/encounter";
 import {
   bumpRevision,
+  DamageReport,
   forgetSession,
   PresentClient,
   receiveState,
@@ -59,6 +66,8 @@ import {
   withoutPresence,
   withPresence,
 } from "src/lib/play/session";
+import { initiativeModifierFor } from "src/lib/play/initiative";
+import { rollD20Check } from "src/lib/roll";
 import { charPath, updateAt } from "src/lib/cursor";
 import { Character, PlaySessionRef } from "src/lib/types";
 import { SessionStatus, usePlaySession } from "src/lib/hooks/use-play-session";
@@ -126,12 +135,14 @@ interface EncounterContextData {
   addCombatant: (
     name: string,
     initiative: number,
-    opts?: { count?: number; maxHp?: number },
+    opts?: { count?: number; maxHp?: number; ac?: number },
   ) => void;
   removeCombatant: (id: string) => void;
   // Sweep hand-typed combatants at 0 HP off the table in one move.
   clearFallen: () => void;
   fallen: Participant[];
+  // Stage or reveal a combatant. Hidden rows don't render on player clients.
+  setCombatantHidden: (id: string, hidden: boolean) => void;
   setCombatantInitiative: (id: string, initiative: number) => void;
 
   setSlotSpent: (id: string, slot: EconomySlot, spent: boolean) => void;
@@ -182,6 +193,35 @@ interface EncounterContextData {
   pendingAssignment?: Participant;
   acceptAssignment: () => void;
   declineAssignment: () => void;
+
+  // --- Damage reports ---
+  // Send "I rolled N at that target" to whoever runs the table. A report, not
+  // a write: the HP change happens on the DM's side, or not at all.
+  reportDamage: (targetId: string, amount: number, label: string) => void;
+  // Rolled damage waiting on this client's decision (the seat holder's queue).
+  damageReports: DamageReport[];
+  dismissDamageReport: (reportId: string) => void;
+
+  // --- Concentration ---
+  // Set when the open character took damage while concentrating: the 5e save
+  // is DC 10 or half the damage. Advisory — the player answers it.
+  concentrationCheck?: { spell: string; damage: number; dc: number };
+  clearConcentrationCheck: () => void;
+
+  // --- Table policy ---
+  // How much health the players see of each other and the monsters. On the
+  // encounter (it's table policy, so it must reach every client), DM-set.
+  sharing: SharingLevel;
+  setSharingLevel: (level: SharingLevel) => void;
+
+  // --- The initiative call ---
+  // "Alright everyone, roll initiative": rolls for every sheet this client
+  // brought (their modifiers are in its stored copies) and prompts the table.
+  callForInitiative: () => void;
+  // The DM asked this client to roll. Cleared by rolling, dismissing,
+  // combat starting, or the connection dropping.
+  initiativeCalled: boolean;
+  dismissInitiativeCall: () => void;
   // Ask for an offered sheet. The whole character arrives over the session and
   // opens as a borrowed sheet: played, never persisted here.
   claimSheet: (participantId: string) => void;
@@ -210,6 +250,7 @@ export const EncounterContext = React.createContext<EncounterContextData>({
   removeCombatant: NOOP,
   clearFallen: NOOP,
   fallen: [],
+  setCombatantHidden: NOOP,
   setCombatantInitiative: NOOP,
   setSlotSpent: NOOP,
   setCombatantVitals: NOOP,
@@ -230,6 +271,15 @@ export const EncounterContext = React.createContext<EncounterContextData>({
   assignSheetTo: NOOP,
   acceptAssignment: NOOP,
   declineAssignment: NOOP,
+  reportDamage: NOOP,
+  damageReports: [],
+  dismissDamageReport: NOOP,
+  clearConcentrationCheck: NOOP,
+  sharing: DEFAULT_SHARING,
+  setSharingLevel: NOOP,
+  callForInitiative: NOOP,
+  initiativeCalled: false,
+  dismissInitiativeCall: NOOP,
   claimSheet: NOOP,
   canRun: true,
   hasDm: false,
@@ -256,6 +306,7 @@ function characterVitals(character: Character): ParticipantVitals {
     currHp: character.currHp,
     maxHp: maxHp ? calculateCustomFormula(maxHp, character) : 0,
     ac: calculateCustomFormula(character.acFormula, character),
+    tempHp: character.tempHp,
   };
 }
 
@@ -311,6 +362,16 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const [pendingAssignmentId, setPendingAssignmentId] = useState<
     string | undefined
   >();
+  // Rolled damage waiting on a decision. Everyone receives every report;
+  // only the DM board renders the queue, so for everyone else this is a
+  // small, capped list that clears with the connection.
+  const [damageReports, setDamageReports] = useState<DamageReport[]>([]);
+  // The open character took damage while concentrating — the prompt's data.
+  const [concentrationCheck, setConcentrationCheck] = useState<
+    { spell: string; damage: number; dc: number } | undefined
+  >();
+  // The DM called for initiative and this client hasn't answered yet.
+  const [initiativeCalled, setInitiativeCalled] = useState(false);
 
   // Every local change: persist, then publish. `silent` is for changes that
   // *came from* a peer — re-publishing those is the sync loop the character
@@ -351,12 +412,17 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       // max HP and AC derive from the sheet, and the sheet is the authority on
       // its own formulas.
       const sheet = characterRef.current;
-      if (
-        receipt.ownVitals &&
-        sheet &&
-        receipt.ownVitals.currHp !== sheet.currHp
-      ) {
-        dispatch(updateAt(charPath(FIELD.currHp), receipt.ownVitals.currHp));
+      if (receipt.ownVitals && sheet) {
+        if (receipt.ownVitals.currHp !== sheet.currHp) {
+          dispatch(updateAt(charPath(FIELD.currHp), receipt.ownVitals.currHp));
+        }
+        // Temp HP travels too now — a DM applying "you take 12" drains it
+        // first, and leaving the sheet's copy stale would publish the old
+        // number right back.
+        const temp = receipt.ownVitals.tempHp;
+        if (temp !== undefined && temp !== sheet.tempHp) {
+          dispatch(updateAt(charPath(FIELD.tempHp), temp));
+        }
       }
     },
     // Someone just arrived and knows nothing. Reply with what we have, without
@@ -372,6 +438,16 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     },
     onPresence: (fromClientId, name) =>
       setPresent((current) => withPresence(current, fromClientId, name)),
+    // Queue a peer's rolled damage. Deduped by id (a re-send is a repeat, not
+    // a second hit) and capped — a queue nobody is reading must not grow all
+    // night.
+    onCallInitiative: () => setInitiativeCalled(true),
+    onDamageReport: (report) =>
+      setDamageReports((current) =>
+        current.some((r) => r.reportId === report.reportId)
+          ? current
+          : [...current, report].slice(-20),
+      ),
     // The DM pointed a sheet at us. Nothing has travelled yet — this only
     // raises the prompt, and the sheet moves when the player accepts, through
     // the ordinary claim flow. Ignoring a stale id is the ghost-safe half:
@@ -444,15 +520,58 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     announceRef.current(displayName);
   }, [connectedCode, displayName]);
 
-  // Presence and pending assignments are facts about a connection, and this
-  // browser no longer has one.
+  // Presence, pending assignments and queued reports are facts about a
+  // connection, and this browser no longer has one.
   const disconnected = session.status !== "connected";
   useEffect(() => {
     if (!disconnected) return;
     setPresent([]);
     setPendingAssignmentId(undefined);
     setCustomName(undefined);
+    setDamageReports([]);
+    setInitiativeCalled(false);
   }, [disconnected]);
+
+  // The call is answered by the fight starting, whoever rolled what.
+  const combatUnderway = isInCombat(encounter);
+  useEffect(() => {
+    if (combatUnderway) setInitiativeCalled(false);
+  }, [combatUnderway]);
+
+  // The concentration watcher: the open character's HP dropped while their
+  // participant holds a spell. It watches the *sheet*, not the projection, so
+  // it catches every way damage lands — the player's own edit, a DM oversight
+  // write, an accepted damage report — without caring which one it was.
+  // Temp HP counts: 5e's check keys off damage *taken*, absorbed or not, so
+  // the drop is measured across both pools. The cost is a rare false prompt
+  // when temp HP simply expires — advisory, so a "Kept it" costs one click.
+  const prevHpRef = useRef<{ uuid?: UUID; currHp?: number; tempHp?: number }>(
+    {},
+  );
+  useEffect(() => {
+    const prev = prevHpRef.current;
+    prevHpRef.current = {
+      uuid: character?.uuid,
+      currHp: character?.currHp,
+      tempHp: character?.tempHp,
+    };
+    if (!character || prev.uuid !== character.uuid) return;
+    if (prev.currHp === undefined) return;
+    const damage =
+      Math.max(0, prev.currHp - character.currHp) +
+      Math.max(0, (prev.tempHp ?? 0) - character.tempHp);
+    if (damage <= 0) return;
+    const concentration = participantFor(
+      encounterRef.current,
+      character.uuid,
+    )?.concentration;
+    if (!concentration) return;
+    setConcentrationCheck({
+      spell: concentration.spell,
+      damage,
+      dc: concentrationDc(damage),
+    });
+  }, [character?.currHp, character?.tempHp, character?.uuid]);
 
   const characterUuidForSession = character?.uuid;
   useEffect(() => {
@@ -555,7 +674,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
               next = setVitals(next, id, {
                 currHp: opts.maxHp,
                 maxHp: opts.maxHp,
-                ac: 0,
+                ac: opts.ac && opts.ac > 0 ? opts.ac : 0,
               });
             }
           }
@@ -565,8 +684,12 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         update((current) => removeParticipant(current, id)),
       clearFallen: () => update(clearFallen),
       fallen: fallenParticipants(encounter),
+      setCombatantHidden: (id, hidden) =>
+        update((current) => setHidden(current, id, hidden)),
+      // Re-seats mid-combat: editing a number is declaring where the row acts,
+      // so the row moves there (and whoever is acting keeps acting).
       setCombatantInitiative: (id, initiative) =>
-        update((current) => setInitiative(current, id, initiative)),
+        update((current) => reseatParticipant(current, id, initiative)),
 
       setSlotSpent: (id, slot, spent) =>
         update((current) => setSpent(current, id, slot, spent)),
@@ -624,6 +747,52 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         setPendingAssignmentId(undefined);
       },
       declineAssignment: () => setPendingAssignmentId(undefined),
+      reportDamage: (targetId, amount, label) => {
+        const target = encounter.participants.find((p) => p.id === targetId);
+        if (!target || !(amount > 0)) return;
+        session.sendDamageReport({
+          reportId: randomUUID(),
+          fromName: displayName,
+          targetId,
+          targetName: target.name,
+          amount: Math.floor(amount),
+          label,
+        });
+      },
+      damageReports,
+      dismissDamageReport: (reportId) =>
+        setDamageReports((current) =>
+          current.filter((r) => r.reportId !== reportId),
+        ),
+      concentrationCheck,
+      clearConcentrationCheck: () => setConcentrationCheck(undefined),
+      sharing: encounter.sharing ?? DEFAULT_SHARING,
+      setSharingLevel: (level) =>
+        update((current) => setSharing(current, level)),
+      // "Alright everyone, roll initiative": roll for every sheet this client
+      // brought (their stored copies carry the modifiers), then prompt the
+      // rest of the table to roll their own.
+      callForInitiative: () => {
+        update((current) => {
+          let next = current;
+          for (const p of current.participants) {
+            if (!p.characterUuid || p.ownerClientId !== clientId) continue;
+            const sheet = storedCharactersRef.current.find(
+              (c) => c.uuid === p.characterUuid,
+            );
+            if (!sheet) continue;
+            next = setInitiative(
+              next,
+              p.id,
+              rollD20Check(initiativeModifierFor(sheet)).total,
+            );
+          }
+          return next;
+        });
+        session.sendCallInitiative();
+      },
+      initiativeCalled,
+      dismissInitiativeCall: () => setInitiativeCalled(false),
       claimSheet: session.requestSheet,
       bringCharacters: (characters) =>
         update((current) =>
@@ -671,6 +840,10 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       lastSession,
       present,
       pendingAssignmentId,
+      damageReports,
+      concentrationCheck,
+      displayName,
+      initiativeCalled,
     ],
   );
 

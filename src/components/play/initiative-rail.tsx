@@ -3,7 +3,13 @@ import classNames from "classnames";
 import { FaDiceD20, FaXmark } from "react-icons/fa6";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useEncounter } from "src/lib/hooks/use-encounter";
-import { inInitiativeOrder } from "src/lib/play/encounter";
+import {
+  healthDescriptor,
+  inInitiativeOrder,
+  Participant,
+  SharingLevel,
+  vitalsVisibility,
+} from "src/lib/play/encounter";
 import { planTrigger, TriggerEvent } from "src/lib/play/triggers";
 import { FIELD } from "src/lib/data/data-definitions";
 import { calculateCustomFormula } from "src/lib/formula";
@@ -46,6 +52,9 @@ export default function InitiativeRail({
     removeCombatant,
     setCombatantInitiative,
     canRun,
+    sharing,
+    callForInitiative,
+    sessionStatus,
   } = useEncounter();
   const [newName, setNewName] = useState("");
   const [newInitiative, setNewInitiative] = useState(10);
@@ -105,9 +114,14 @@ export default function InitiativeRail({
     setReceipt(null);
   };
 
-  const order = inCombat
+  // Staged combatants stay off the players' rail — the ambush isn't sprung
+  // yet. Anyone with the run-combat controls still sees them (the unclaimed
+  // -seat fallback: if the DM vanishes mid-stage, the table can still find
+  // the hidden rows rather than fighting ghosts).
+  const listed = canRun
     ? encounter.participants
-    : inInitiativeOrder(encounter.participants);
+    : encounter.participants.filter((p) => !p.hidden);
+  const order = inCombat ? listed : inInitiativeOrder(listed);
 
   return (
     <div className={classNames("initiative-rail", { dm: dmRail })}>
@@ -142,18 +156,11 @@ export default function InitiativeRail({
                       {participant.initiative}
                     </span>
                     <span className="initiative-name">{participant.name}</span>
-                    {/* The projection the party shares. Shown for everyone but
-                        you — your own bar is right there in the vitals rail, and
-                        repeating it here would be the only duplicated number on
-                        the surface. */}
-                    {participant.id !== self?.id && participant.vitals && (
-                      <span
-                        className="initiative-hp"
-                        title={`${participant.vitals.currHp} of ${participant.vitals.maxHp} hit points, AC ${participant.vitals.ac}`}
-                      >
-                        {participant.vitals.currHp}/{participant.vitals.maxHp}
-                      </span>
-                    )}
+                    <SharedVitals
+                      participant={participant}
+                      selfId={self?.id}
+                      sharing={sharing}
+                    />
                     {participant.conditions.length > 0 && (
                       <span
                         className="initiative-conditions"
@@ -208,6 +215,11 @@ export default function InitiativeRail({
                       }
                     />
                     <span className="initiative-name">{participant.name}</span>
+                    <SharedVitals
+                      participant={participant}
+                      selfId={self?.id}
+                      sharing={sharing}
+                    />
                     {/* Your own initiative is the one the app can actually roll —
                         it knows the modifier. Everyone else's is a number someone
                         called out across the table. */}
@@ -280,6 +292,14 @@ export default function InitiativeRail({
                 </button>
               </form>
             )}
+            {/* The pre-combat ritual, said the way a table says it. Rolls
+                for every sheet this client brought and prompts everyone else
+                to roll their own. */}
+            {dmRail && sessionStatus === "connected" && (
+              <button type="button" onClick={callForInitiative}>
+                Call for initiative
+              </button>
+            )}
             {canRun && (
               <button
                 type="button"
@@ -296,4 +316,38 @@ export default function InitiativeRail({
       {receipt && <p className="initiative-receipt">{receipt}</p>}
     </div>
   );
+}
+
+// The projection the party shares, filtered through the table's sharing
+// policy. Shown for everyone but you (your own bar is right there in the
+// vitals rail), in and out of combat alike — "how hurt is everyone" is a
+// between-fights question as much as a mid-fight one.
+function SharedVitals({
+  participant,
+  selfId,
+  sharing,
+}: {
+  participant: Participant;
+  selfId?: string;
+  sharing: SharingLevel;
+}) {
+  if (participant.id === selfId || !participant.vitals) return null;
+  const visibility = vitalsVisibility(sharing, !!participant.characterUuid);
+  if (visibility === "exact") {
+    return (
+      <span
+        className="initiative-hp"
+        title={`${participant.vitals.currHp} of ${participant.vitals.maxHp} hit points, AC ${participant.vitals.ac}`}
+      >
+        {participant.vitals.currHp}/{participant.vitals.maxHp}
+      </span>
+    );
+  }
+  if (visibility === "descriptor") {
+    const read = healthDescriptor(participant.vitals);
+    return (
+      <span className={`initiative-health ${read.toLowerCase()}`}>{read}</span>
+    );
+  }
+  return null;
 }

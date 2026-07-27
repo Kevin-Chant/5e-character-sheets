@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   formatCustomFormula,
   formatCustomFormulaWithDamage,
@@ -795,6 +795,7 @@ function EffectControls({
                     Expend {ordinalSlot(effSmiteLevel!)}-level slot
                   </button>
                 ))}
+              <ReportDamageRow total={damageResult.total} />
             </div>
           )}
         </>
@@ -960,6 +961,58 @@ function Shell({
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+// "That 17 was for Goblin 2." In a session with a DM, a damage roll can name
+// its target and travel to the seat as a *report* — the DM applies, overrides
+// or ignores it, so the table's arithmetic stays with whoever runs the table.
+// Hidden solo, hidden with no DM (there'd be nobody to read it), hidden from
+// the DM (their monsters' HP is right there on the board).
+function ReportDamageRow({ total }: { total: number }) {
+  const { sessionStatus, encounter, self, hasDm, isDm, reportDamage } =
+    useEncounter();
+  const { request } = useRoller();
+  const [targetId, setTargetId] = useState("");
+  const [sent, setSent] = useState(false);
+  // A re-roll is a new number; the old "Sent" mustn't vouch for it.
+  useEffect(() => setSent(false), [total]);
+
+  if (sessionStatus !== "connected" || !hasDm || isDm) return null;
+  // No hidden rows: what a player can't see, they can't call a target.
+  const targets = encounter.participants.filter(
+    (p) => p.id !== self?.id && !p.hidden,
+  );
+  if (targets.length === 0) return null;
+
+  return (
+    <div className="row roll-report">
+      <select
+        aria-label="Report this damage against"
+        value={targetId}
+        onChange={(e) => {
+          setTargetId(e.target.value);
+          setSent(false);
+        }}
+      >
+        <option value="">Against…</option>
+        {targets.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={!targetId || sent}
+        onClick={() => {
+          reportDamage(targetId, total, request?.label ?? "Damage");
+          setSent(true);
+        }}
+      >
+        {sent ? "Sent to your DM" : "Report to DM"}
+      </button>
     </div>
   );
 }

@@ -105,7 +105,17 @@ export default function SessionLobby({
           place, or come in without a sheet.
         </p>
         <div className="lobby-storage">
-          <Link className="button-link no-underline" to="/auth">
+          {/* The auth page sends us back here with this state once Drive is
+              connected — without it, authorizing dumped a joiner on sheet
+              management with their session code gone. */}
+          <Link
+            className="button-link no-underline"
+            to="/auth"
+            state={{
+              returnTo: "/sessions",
+              lobby: { mode, code },
+            }}
+          >
             <FaGoogleDrive /> Use Google Drive
           </Link>
           <button

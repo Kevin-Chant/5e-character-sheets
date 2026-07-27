@@ -55,7 +55,29 @@ export const PlaySessionEvent = {
   // (CLAIM_SHEET → SHEET), so consent stays two-sided and assigning to a dead
   // client costs nothing — no reply, the offer still stands.
   ASSIGN: BASE_APPNAME + ".encounter.assignsheet",
+  // "Alright everyone — roll initiative!" The DM's call, broadcast so every
+  // player gets the prompt at once, same as hearing it across the table.
+  // Carries nothing: the roll and the number stay on each player's side.
+  CALL_INITIATIVE: BASE_APPNAME + ".encounter.callinitiative",
+  // "I rolled damage at that goblin." A *report*, not a write: the roller
+  // names a target and a number, and the DM applies, overrides or ignores it.
+  // Keeping the HP write on the DM's side is what makes this safe to offer
+  // every player — the table's arithmetic stays with whoever runs the table.
+  DAMAGE: BASE_APPNAME + ".encounter.damage",
 };
+
+// A player's rolled damage, waiting on the DM. Transient like presence — it
+// describes an event, not state, so it is never merged and never persisted.
+export interface DamageReport {
+  reportId: string;
+  // Who rolled it, by display name — for the DM's queue, not for authority.
+  fromName: string;
+  targetId: string;
+  targetName: string;
+  amount: number;
+  // What was rolled — "Greatsword", "Fireball at 5th".
+  label: string;
+}
 
 // Session codes are **uuids, and the uuid is the authentication** — the same
 // trust model the character realms already run on.
@@ -140,6 +162,8 @@ export type SessionMessage =
   | { kind: "hello"; clientId: string }
   | { kind: "leave"; clientId: string }
   | { kind: "presence"; clientId: string; name: string }
+  | { kind: "callInitiative"; clientId: string }
+  | { kind: "damageReport"; clientId: string; report: DamageReport }
   | {
       kind: "assignSheet";
       clientId: string;
@@ -347,7 +371,12 @@ function sameVitals(
   b: ParticipantVitals | undefined,
 ): boolean {
   if (!a || !b) return a === b;
-  return a.currHp === b.currHp && a.maxHp === b.maxHp && a.ac === b.ac;
+  return (
+    a.currHp === b.currHp &&
+    a.maxHp === b.maxHp &&
+    a.ac === b.ac &&
+    (a.tempHp ?? 0) === (b.tempHp ?? 0)
+  );
 }
 
 // Merge a newcomer's participants into the state we already have, without

@@ -498,6 +498,86 @@ arbitrarily high rev, and last week's HP must not overwrite the sheet you just
 walked in with; and that correction is **published**, so the room stops showing
 the stale copy immediately rather than at your next sheet change.
 
+## Table asymmetries and advisories
+
+The two families Kevin named after live-testing, and the shape each takes:
+
+**Asymmetries — what players don't see.** A hand-typed combatant's HP and AC
+are the DM's information (the rail shows character-backed vitals only), and a
+combatant can be **staged**: `Participant.hidden` (eye toggle on the DM row,
+hand-typed rows only — a character-backed row is somebody's seat, not a
+surprise). Hidden rows keep their slot in the order but don't render on
+player clients — rail, report-target list, and the turn banner says "The DM
+is up to something…" instead of leaking the name. This is dramaturgy, not
+privacy: the row still travels inside the shared encounter object (no
+per-recipient copies exist), it just isn't drawn — real secrets never enter
+the encounter at all. Anyone holding the run-combat controls still sees
+hidden rows, so an unclaimed-seat table can't end up fighting ghosts.
+
+**The sharing dial** (`Encounter.sharing`, DM-set, defaulting to
+`bloodied-enemies`): how much health players see of each other and the
+monsters. Four levels — open numbers / bloodied enemies / bloodied everyone /
+private — mapped by pure `vitalsVisibility(level, isCharacter)` onto
+exact-numbers, a `healthDescriptor` chip (Healthy / Bloodied at ≤half /
+Down), or nothing. It lives on the encounter rather than in settings because
+it's _table policy_ — it has to reach every client, and LWW merges it like
+any other table fact. Controlled from the DM board and mirrored in
+Settings → Game (gated by `canRun`). It never touches your own vitals, the
+DM's board, or the hidden-row axis. Kevin's "perfect information" tier —
+players reading each other's full sheets, consented at join — is the one
+step not built: it rides on the deliberately-absent full-sheet-read
+machinery and a join-consent flow, a feature of its own.
+
+**Damage is a delta, and temp HP is on the wire.** `ParticipantVitals.tempHp`
+(optional, no migration) travels in the projection, because "you take 12" is
+how tables speak and the DM can't drain a pool they can't see. Pure
+`applyDamage(vitals, amount)` takes temp first, remainder off HP, floored at
+0 — used by the report queue's Apply; the row stepper stays an absolute
+_editor_. `receiveState.ownVitals` now carries `tempHp` back onto the
+target's sheet, and both concentration watchers count absorbed damage (5e
+keys the DC off damage _taken_), at the cost of a rare false prompt when
+temp HP merely expires.
+
+**The initiative call** (`CALL_INITIATIVE`, carries nothing): the DM rail's
+"Call for initiative" rolls d20 + modifier for every sheet this client
+brought (`initiativeModifierFor` in `play/initiative.ts`, shared with the
+rail's self-roll button) and prompts every player — one click rolls with
+their own sheet's modifier and writes their row; "I rolled my own" dismisses
+for the dice-on-the-table player. The prompt clears when combat starts or
+the connection drops.
+
+**Advisories — the loop-smoothing prompts.** Concentration checks and damage
+reports (below); "You're next — line your turn up" when you're on deck; at 0
+HP the vitals rail surfaces the sheet's own `DeathSavesDisplay` with a
+flat-d20 roll shortcut, and the your-turn banner says the death save comes
+first; and out of combat the header offers **Rest** (the door to the
+globally-mounted rest dialog), because between fights is when a table rests
+and multiple-fights-per-session is the mission.
+
+## Damage reports and concentration checks
+
+Two layers riding the same rule — the app suggests, the table decides:
+
+- **A damage roll can name its target** (`ReportDamageRow` in the roll
+  dialog, shown only in a session with a DM who isn't you). It sends a
+  `DAMAGE` message — a _report_, not a write: `{reportId, fromName, targetId,
+targetName, amount, label}`. The DM board queues it with an editable amount
+  ("it saved, halving that"), **Apply** (an ordinary `setVitals` write, so a
+  player-owned target's sheet gets it via `ownVitals`) or **Ignore**. Reports
+  are transient provider state like presence: deduped by id, capped at 20,
+  cleared with the connection. Keeping the HP write on the DM's side is what
+  makes the row safe to offer every player.
+- **Concentration checks fire wherever the damage lands.** `concentrationDc`
+  (max(10, ⌊damage/2⌋), in `encounter.ts`) backs two prompts. DM side: every
+  HP write on the board goes through one `applyVitals` wrapper, so damage to a
+  concentrating row — stepper or accepted report — raises a per-row "CON DC
+  n [Kept] [Broke]" chip. Player side: the provider watches the _sheet's_
+  `currHp` (not the projection), so any drop while the self participant
+  concentrates — own edit, DM oversight, applied report — raises a banner
+  with the DC, a "Roll the save" shortcut into the roll dialog (CON save
+  modifier computed from the sheet), and Kept/Lost buttons. Nothing drops
+  concentration except the buttons.
+
 ## The sessions surface
 
 `src/routes/sessions.tsx` + `src/components/sessions/session-lobby.tsx`.
