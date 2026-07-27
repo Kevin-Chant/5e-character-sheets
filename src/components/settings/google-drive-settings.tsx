@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   hasStoredGrant,
   revokeDriveAccess,
@@ -8,6 +8,7 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useGoogleOauth } from "src/lib/hooks/use-google-oauth";
 import { clearLastDatastore, readLastDatastore } from "src/lib/last-datastore";
+import { useSettingsPanel } from "src/lib/hooks/use-settings-panel";
 import SettingsSection from "./settings-section";
 
 export default function GoogleDriveSettings() {
@@ -15,6 +16,8 @@ export default function GoogleDriveSettings() {
   const { setDatastore } = useDatastoreSelector();
   const { reset } = useCharacter();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { closeSettings } = useSettingsPanel();
 
   const connected = googleOauthReady || hasStoredGrant();
 
@@ -27,6 +30,7 @@ export default function GoogleDriveSettings() {
     if (readLastDatastore() === "drive") clearLastDatastore();
     setDatastore(undefined);
     reset();
+    closeSettings();
     navigate("/");
   };
 
@@ -53,7 +57,15 @@ export default function GoogleDriveSettings() {
           title="Google Drive"
           description="You're not connected to Google Drive."
         >
-          <Link to="/auth">
+          {/* Connecting is a route (the OAuth popup needs one), so the panel
+              steps out of the way and asks to be returned to the surface you
+              opened it from — not to /sheet, which is where this used to land
+              you regardless of where you started. */}
+          <Link
+            to="/auth"
+            state={{ returnTo: location.pathname }}
+            onClick={closeSettings}
+          >
             <button className="btn-primary">Connect Google Drive</button>
           </Link>
         </SettingsSection>

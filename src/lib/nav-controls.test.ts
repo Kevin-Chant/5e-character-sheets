@@ -37,9 +37,11 @@ describe("what the nav offers, per surface", () => {
     ]);
   });
 
-  it("gives settings only the things that work there", () => {
-    // The bug this replaces: identical to the sheet, edit lock and all.
-    expect(shown({ pathname: "/settings" })).toEqual(["characterDrawer"]);
+  it("gives a non-character route only the things that work there", () => {
+    // The bug this replaces: /settings was identical to the sheet, edit lock
+    // and all. It's an overlay now, but the rule it broke still holds for every
+    // route that isn't a character surface.
+    expect(shown({ pathname: "/host" })).toEqual(["characterDrawer"]);
   });
 
   it("leaves sheet-editing controls off the board", () => {
@@ -74,8 +76,7 @@ describe("what the nav offers, per surface", () => {
     expect(navControls(context({ autosave: false })).saveButton).toBe(true);
     // And never where there's no sheet to save.
     expect(
-      navControls(context({ autosave: false, pathname: "/settings" }))
-        .saveButton,
+      navControls(context({ autosave: false, pathname: "/host" })).saveButton,
     ).toBe(false);
   });
 
@@ -94,7 +95,6 @@ describe("what the nav offers, per surface", () => {
 
 describe("the title names the page", () => {
   it("names each route", () => {
-    expect(navTitle("/settings")).toBe("Settings");
     expect(navTitle("/host")).toBe("Start a game");
     // Both used to fall through to "Home".
     expect(navTitle("/auth")).toBe("Google Drive");

@@ -225,11 +225,51 @@ p {
 
 /* Settings: two columns whose nav is pinned to the top (align-items: flex-start)
    so it doesn't drift vertically as the chosen panel's height changes. */
+/* Wider than the default dialog: this is a tabbed surface, not a short form.
+   `.modal-content` already caps height at 90vh and scrolls, so long tabs are
+   handled. */
+.settings-modal {
+  width: min(60rem, 92vw);
+  max-width: 92vw;
+}
+
 .settings-layout {
   display: flex;
   align-items: flex-start;
   gap: 2rem;
-  padding: 1.5rem;
+  /* The modal shell supplies the outer padding now that this isn't a page. */
+  padding: 0.5rem 0 0;
+}
+
+/* Sticky positioning needs a scroll container to stick within; inside the
+   dialog it would pin to the wrong box, and the tab list is short anyway. */
+.settings-modal .settings-nav {
+  position: static;
+}
+
+/* Side-by-side tabs and content don't fit a phone. Stack them and let the tab
+   list run across the top. */
+@media (max-width: 640px) {
+  .settings-layout {
+    flex-direction: column;
+    gap: 1rem;
+    /* Stacked, the cross axis is horizontal, so the `flex-start` above stops
+       meaning "top-aligned" and starts meaning "as wide as your content wants"
+       — which sized the settings body to max-content and clipped every
+       paragraph at the dialog's edge. */
+    align-items: stretch;
+  }
+
+  .settings-modal .settings-nav {
+    flex: 0 0 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .settings-nav button {
+    width: auto;
+  }
 }
 
 .settings-nav {
@@ -254,7 +294,11 @@ p {
   background-color: var(--surface-2);
   box-shadow: none;
 }
-.settings-nav button.active {
+.settings-nav button.active,
+/* Hovering the *selected* tab used to swap in the plain hover background while
+   the label kept its accent-contrast colour — near-white text on light grey.
+   The selected state outranks hover now. */
+.settings-nav button.active:hover:not(:disabled) {
   background-color: var(--accent);
   color: var(--accent-contrast);
 }
@@ -324,6 +368,15 @@ p {
   flex-direction: row;
   align-items: flex-start;
   gap: 1rem;
+  /* The 340px slider plus the checkbox and the delay input don't fit a phone.
+     This never showed while settings was a full-width page; in a dialog it
+     pushed the whole tab wider than the box and clipped every paragraph.
+     `width: 100%` is what stops the row sizing to the slider's fixed width
+     instead of to the space it actually has — without it the slider's own
+     `max-width: 100%` resolves against a box the slider itself defined. */
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
 }
 .autosave-slider {
   width: 340px;

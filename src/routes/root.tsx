@@ -33,6 +33,7 @@ import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import { useSettings } from "src/lib/hooks/use-settings";
+import { useSettingsPanel } from "src/lib/hooks/use-settings-panel";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import Modal from "src/components/modal";
 import Spinner from "src/components/spinner";
@@ -151,6 +152,7 @@ export default function Root() {
   const { editMode, toggleMode } = useEditMode();
   const { rollMode, setRollMode } = useRollMode();
   const { settings } = useSettings();
+  const { settingsOpen, openSettings, closeSettings } = useSettingsPanel();
   const { getRole, isBorrowed } = useSharingSessions();
   const location = useLocation();
   const [fileSelected, setFileSelected] = useState<File | undefined>();
@@ -363,11 +365,18 @@ export default function Root() {
             onExportFile={saveCharacter}
             hasCharacter={!!character}
           />
-          <Link to="/settings">
-            <button className="icon-btn" title="Settings">
-              <FaGear />
-            </button>
-          </Link>
+          {/* A toggle, not a destination. Settings used to be the one
+              interruption you couldn't dismiss — you had to navigate away from
+              it, losing wherever you'd been. */}
+          <button
+            className="icon-btn"
+            onClick={settingsOpen ? closeSettings : openSettings}
+            title={settingsOpen ? "Close settings" : "Settings"}
+            aria-label={settingsOpen ? "Close settings" : "Settings"}
+            aria-expanded={settingsOpen}
+          >
+            <FaGear />
+          </button>
           {controls.saveIndicator && (
             <div id="save-container">
               {/* Undo/redo stay in the nav rather than moving somewhere more

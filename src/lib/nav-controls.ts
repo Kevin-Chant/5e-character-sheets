@@ -71,8 +71,8 @@ export function navControls({
 // back to naming the surface when none is open.
 export function navTitle(pathname: string, characterName?: string): string {
   switch (pathname) {
-    case "/settings":
-      return "Settings";
+    // No "/settings" case: settings is an overlay now, and the alias route
+    // redirects before a title would ever be read.
     case "/host":
       return "Start a game";
     case "/auth":

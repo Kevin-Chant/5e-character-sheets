@@ -81,7 +81,7 @@ The computed-field system has its own deep dive: [`.claude/docs/formula-engine.m
 
 ### State management
 
-React Context + reducers (no Redux). Providers are **deeply nested in `src/index.tsx` and the order matters** — `SharingSessions` sits above `Datastore`/`Character` so broadcast/role state is reachable. Main contexts: `Settings`, `SharingSessions`, `GoogleOauth`, `DatastoreSelector`, `Datastore`, `Character`. `LevelUp` and `Rest` sit innermost — each mounts its dialog once and exposes an `open*()`.
+React Context + reducers (no Redux). Providers are **deeply nested in `src/index.tsx` and the order matters** — `SharingSessions` sits above `Datastore`/`Character` so broadcast/role state is reachable. Main contexts: `Settings`, `SharingSessions`, `GoogleOauth`, `DatastoreSelector`, `Datastore`, `Character`. `LevelUp`, `Rest` and `SettingsPanel` sit innermost — each mounts its dialog once and exposes an `open*()`. **Settings is an overlay, not a route**: it was the only interruption in the app you couldn't dismiss, and leaving it cost you your place (flipping a Game setting mid-fight remounted the board). `/settings` survives as a thin alias that opens the panel and redirects, so a stray bookmark and the Drive OAuth `returnTo` still work.
 
 All character edits funnel through one reducer + the `dispatchAndBroadcast` wrapper. [`.claude/docs/character-state-and-edits.md`](.claude/docs/character-state-and-edits.md) explains the write-path: why `update_*` actions carry a field's _whole_ value (which is what makes undo/redo and live-sync replay fall out for free) and the flags that keep local edits, replays, and remote echoes from looping.
 

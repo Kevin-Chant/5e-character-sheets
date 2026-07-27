@@ -22,8 +22,9 @@ import { GoogleOauthContextProvider } from "./lib/hooks/use-google-oauth";
 import RemoteConnectionInitializer from "./components/remote-connection-initializer";
 import HostGame from "./routes/host-game";
 import JoinSession from "./routes/join-session";
-import SettingsPage from "./routes/settings-page";
+import SettingsAlias from "./routes/settings-alias";
 import { SettingsContextProvider } from "./lib/hooks/use-settings";
+import { SettingsPanelProvider } from "./lib/hooks/use-settings-panel";
 import { SharingSessionsContextProvider } from "./lib/hooks/use-sharing-session";
 import { CharacterBuilderProvider } from "./lib/hooks/use-character-builder";
 import { LevelUpProvider } from "./lib/hooks/use-level-up";
@@ -54,7 +55,12 @@ const router = createBrowserRouter([
                             <CharacterBuilderProvider>
                               <LevelUpProvider>
                                 <RestProvider>
-                                  <Root />
+                                  {/* Innermost, so the panel overlays every
+                                      surface and survives navigating between
+                                      them (the Drive tab leaves for /auth). */}
+                                  <SettingsPanelProvider>
+                                    <Root />
+                                  </SettingsPanelProvider>
                                 </RestProvider>
                               </LevelUpProvider>
                             </CharacterBuilderProvider>
@@ -76,9 +82,12 @@ const router = createBrowserRouter([
         path: "/",
         element: <Home />,
       },
+      // Settings is an overlay, not a page — this keeps the old path working
+      // for a stray bookmark, and gives the Drive round-trip somewhere honest
+      // to return to.
       {
         path: "/settings",
-        element: <SettingsPage />,
+        element: <SettingsAlias />,
       },
       {
         path: "/sheet",
