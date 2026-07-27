@@ -163,6 +163,28 @@ export function isValidSessionCode(input: string): boolean {
   return UUID_PATTERN.test(normalizeSessionCode(input));
 }
 
+// Now that invites travel as `…/join/<code>` links, what lands in the code box
+// is as often the whole URL as the uuid — and trimming it is only obvious to
+// someone who already knows which part is the code. Pull the uuid out of
+// whatever was pasted; fall back to the normalized input so the caller's own
+// validation still produces the error message it would have.
+export function extractSessionCode(input: string): string {
+  const normalized = normalizeSessionCode(input);
+  if (UUID_PATTERN.test(normalized)) return normalized;
+  const found = input
+    .toLowerCase()
+    .match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+  return found ? found[0] : normalized;
+}
+
+// The invite. A code is what the sidecar needs; a link is what a person needs,
+// because it carries the answer to "and where do I put this?" with it. Takes
+// the origin rather than reading `window`, so it stays as testable as the rest
+// of this module.
+export function inviteLink(origin: string, code: string): string {
+  return `${origin.replace(/\/$/, "")}/join/${normalizeSessionCode(code)}`;
+}
+
 // The realm a code maps to. Namespaced away from the character realms
 // (`generateRealm` uses a bare hex uuid) so a session and a shared character can
 // never collide on the sidecar — which matters more now that both are uuids.

@@ -389,9 +389,18 @@ export function usePlaySession({
     [liveEditHost, clientId, publish],
   );
 
-  const host = useCallback(async () => {
-    await connect(newSessionCode(), true);
-  }, [connect]);
+  // A code may be supplied to reopen a table that has gone quiet. Realms only
+  // exist while somebody is connected, so last week's code is dead by this week
+  // — and minting a new one every time meant the invite link a group pinned in
+  // their chat was good for one evening. Reopening the same code is what makes
+  // it durable: the uuid is still the authentication, and the DM who has it is
+  // the person who ran the table.
+  const host = useCallback(
+    async (code?: string) => {
+      await connect(code ?? newSessionCode(), true);
+    },
+    [connect],
+  );
 
   const join = useCallback(
     async (sessionCode: string) => {

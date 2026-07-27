@@ -21,6 +21,8 @@ import {
   withoutPresence,
   withParticipants,
   withPresence,
+  extractSessionCode,
+  inviteLink,
 } from "src/lib/play/session";
 
 const ALICE_CHAR = "11111111-1111-1111-1111-111111111111" as UUID;
@@ -455,5 +457,30 @@ describe("presence", () => {
     let roster = withPresence([], "a", "Nadia");
     roster = withPresence(roster, "b", "Theo");
     expect(withoutPresence(roster, "a").map((c) => c.name)).toEqual(["Theo"]);
+  });
+});
+
+describe("invites", () => {
+  const code = "1f0d2c3b-4a59-4687-9c01-2d3e4f5a6b7c";
+
+  it("pulls the code out of a pasted link, which is what people forward", () => {
+    expect(
+      extractSessionCode(`https://dndcharactersheets.net/join/${code}`),
+    ).toBe(code);
+    expect(extractSessionCode(`  ${code.toUpperCase()}  `)).toBe(code);
+  });
+
+  it("hands back the normalized input when there is no code in it, so the caller's own error message still fires", () => {
+    expect(extractSessionCode("come to my game")).toBe("cometomygame");
+  });
+
+  it("builds a link that lands on the join route", () => {
+    expect(inviteLink("https://dndcharactersheets.net", code)).toBe(
+      `https://dndcharactersheets.net/join/${code}`,
+    );
+    // A trailing slash on the origin shouldn't double up.
+    expect(inviteLink("http://localhost:3000/", code)).toBe(
+      `http://localhost:3000/join/${code}`,
+    );
   });
 });

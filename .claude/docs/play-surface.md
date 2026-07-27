@@ -336,9 +336,11 @@ rather than a UI rule is what would break that.
   cleared by leaving on purpose. It exists because `Character.playSessions` is
   per-character and only records _joins_ — a DM often has no character open, so
   hosting wrote the code nowhere and a refreshed DM was locked out of their own
-  game. The rejoin offer renders on the session bar **and on `/sessions`** —
+  game. The rejoin offer renders on the session bar **and on the front door** —
   the latter is load-bearing: a DM with no character and no session gets bounced
-  off `/play`, so `/sessions` is the only session surface they can reach.
+  off `/play`, so home is the only session surface they can reach. Home's copy
+  of it reads from `play/session-memory.ts`, which is `lastSession` generalised
+  to a list keyed by code (see "The way in" below).
 
 An earlier draft of this section justified the seat's design with "a DM whose
 laptop sleeps must not freeze the table". Kevin pushed back and he was right: a
@@ -631,33 +633,114 @@ toClientId?}` — everyone, or one present client, same routing as sheet
   select + the death-saves checkbox) and mirrored in Settings → Game. Never
   shown where the sharing level already hides vitals entirely.
 
-## The sessions surface
+## The way in
 
-`src/routes/sessions.tsx` + `src/components/sessions/session-lobby.tsx`.
+`src/routes/home.tsx` (the hub) + `src/routes/host-game.tsx` +
+`src/routes/join-session.tsx` + `src/components/sessions/session-entry.tsx` +
+`src/components/sessions/session-lobby.tsx`.
 
-The page leads with a code box, because a code is the one thing every invited
-player arrives holding — and both kinds of code are uuids, so one box takes
-either and the probe works out whether it opens onto a table or a shared
-sheet. (The first draft was a 2×2 of {editing, gameplay} × {start, join},
-which made a guest choose between two "join" doors that led to the same
-hallway.) Below the box sit the two _start_ acts as cards, and those are
-genuinely different objects with different privacy stories: a gameplay
-session is one table with many sheets and no shared sheet at all, an editing
-session is one whole sheet with two editors.
+**The front door asks what you came to do.** It used to ask where your
+characters live, and teleport anyone who had already answered into their sheet
+list. That redirect was a good deal for exactly one person — someone who only
+builds characters — and everyone else paid for it: a DM who doesn't play has no
+answer to the storage question, and a player following an invite link shouldn't
+be asked one. Worse, the answer to _their_ question lived behind a `FaUsers`
+icon in the top-right that you had to already know about.
 
-### Storage sits before this surface, not beside it
+So home is the hub, in three bands:
 
-The home page used to present "Sync to Drive", "Edit locally" and "Join a
-session" as three peers. They aren't: the first two answer _where do my
-characters live_ and the third answers _who am I playing with_. It only looked
-like a peer because a joiner ends up with `datastore === undefined`, which is an
-implementation artefact leaking into the menu.
+1. **Pick up where you left off** — the games this browser has played at, and
+   the sheet it had open. This is what the redirect was worth, paid back as an
+   offer instead of a teleport, and it costs the character-builder one click.
+2. **Been sent a code or a link?** — the arrival with the least context to spend
+   on finding anything. One box, both kinds of code, and it accepts a pasted URL
+   as readily as a bare uuid (`extractSessionCode`), because people forward the
+   whole link.
+3. **Run a game / My characters** — the two things you can start. Storage
+   collapses from two cards to one door once it's been answered, and a _third_
+   thing — co-editing one sheet — is a sentence rather than a card, because it
+   can't be started before a character is open.
 
-Three of the four session paths need a datastore; only "join an editing session"
-genuinely doesn't. So home keeps the two storage cards, `/sessions` lives behind
-the nav, and the storage-less case is a secondary line on home ("been sent a
-code?") rather than a third card. Joining stays tangential to storage — the
-answer "nowhere, I'm just joining" is a real answer, not a dead end.
+There is no Sessions button in the nav any more. A second icon landing where
+Home already lands is the duplicate door this page was written to argue against.
+`/sessions` redirects to `/` for anything still pointing at it.
+
+### The lobby is a URL
+
+`/host` starts a table; `/join/<code>` is the invite link and the destination of
+the code box. Two things fall out of that which were awkward as router state:
+
+- **The invite link is just a link.** A DM copies `…/join/<code>` from the
+  session bar, pastes it into the group chat, and a player who has never opened
+  the app clicks it and lands in the lobby for the right table having answered
+  nothing. It resolves over a static bucket only because the CloudFront
+  distribution already rewrites 403/404 to `/index.html`; no hosting change was
+  needed.
+- **The Drive round-trip is a `returnTo` path.** Picking Google Drive from
+  inside the lobby used to have to ferry a half-answered lobby through an OAuth
+  popup as router state. Now it's `state={{ returnTo: location.pathname }}`.
+
+`session-entry.tsx` is the shared half — lobby, then connect, then `/play` —
+and the routes differ only in which question the lobby leads with.
+
+### Three lobbies, not two
+
+"Hosting" and "running the table" are different questions, and conflating them
+was a bug waiting to happen:
+
+- **Start a table** (`/host`) — multi-select the sheets to bring.
+- **Rejoin the table you run** (`/join/<code>` where memory says `seat: "dm"`) —
+  _asks nothing_. The room already holds everything that was brought, and
+  `bringCharacters` calls `setVitals` from the sheet, so re-bringing mid-fight
+  would re-snapshot three rounds of damage back to full health.
+- **Join someone else's** — pick the sheet you're playing, or don't.
+
+What each one leads with is the whole difference between the people who arrive.
+A DM with no sheets gets "Start the game" as the primary button with storage
+folded into a `<details>`; a player whose DM said not to worry about a character
+sheet gets a name field and "Join the game", with storage in the same
+disclosure. Neither meets a storage picker.
+
+### What the browser remembers, and why it isn't on the character
+
+`play/session-memory.ts` is a localStorage list keyed by code, holding the seat,
+the sheet played, the sheets brought, and an optional local table name. It
+duplicates `Character.playSessions` on purpose, because that one cannot answer:
+
+- **A DM has no character.** The persona that most needs a rejoin shortcut has
+  nothing to hang one on.
+- **The hub renders before any datastore does.** Drive is an OAuth round-trip
+  plus a list fetch; a resume strip that waits for that is one nobody sees.
+
+Entries **merge** rather than replace, which is what lets the connect effect in
+`use-encounter` record the code while the lobby records the seat, with neither
+knowing about the other. The one ordering subtlety: child effects run before
+parent ones, so the lobby's write lands first and the provider's read of
+`seat === "dm"` sees it — which is how a DM's rejoin row avoids being labelled
+"as Guard Captain" just because they had an NPC sheet open.
+
+**Codes churn, so the prefill has a fallback.** A realm exists only while
+somebody is connected, so unless the DM deliberately reopens it, next week's
+code is new and per-code memory has nothing to say. `lastPlayedCharacter()`
+answers the question that's still true — you played Brakka last game — and the
+lobby preselects that.
+
+### A durable invite link
+
+`host()` used to always mint a fresh uuid, which meant the link a group pinned
+in their chat was good for one evening. It now takes an optional code, and
+`/join/<code>` offers **"Open this table again"** when the probe finds nothing
+_and this browser remembers running that code_. A player following the same dead
+link gets the ordinary "ask your DM" message — the offer is made only to the one
+browser that can show it ran the table.
+
+Realms outlive their occupants (nightlife-rabbit keeps one for the server's
+lifetime), so in practice a code dies on a sidecar restart — every deploy. That
+is exactly often enough for this to matter and too rare to reproduce in the
+smoke harness by having everyone leave, which is why the `invite` scenario seeds
+a never-opened code instead.
+
+## Resolving a code
 
 ### One box for both kinds of code
 
@@ -669,11 +752,12 @@ opens a connection to each candidate in turn and sees which survives. There's no
 is the only way to ask. The ordering is pure and testable in `lib/session-codes.ts`;
 the asking is not.
 
-### The lobby
+### What the lobby is for
 
 The step between resolving a code and becoming a participant. It exists because
 three questions have nowhere else to live, and all three are about the sheet
-rather than the session:
+rather than the session — which of them it _leads with_ is "Three lobbies, not
+two" above:
 
 1. **Which sheet am I bringing** — or none, for a player waiting on the DM and
    for a DM who isn't playing a character. A DM's selection is multi-select

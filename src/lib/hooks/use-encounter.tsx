@@ -70,6 +70,10 @@ import {
   withoutPresence,
   withPresence,
 } from "src/lib/play/session";
+import {
+  rememberSessionLocally,
+  sessionMemoryFor,
+} from "src/lib/play/session-memory";
 import { initiativeModifierFor } from "src/lib/play/initiative";
 import { RollCallCheck } from "src/lib/play/checks";
 import { rollD20Check } from "src/lib/roll";
@@ -173,7 +177,9 @@ interface EncounterContextData {
   lastSession?: string;
   // Starting a gameplay session *is* being its DM — the seat is taken at
   // creation rather than raced for afterwards.
-  hostSession: () => Promise<void>;
+  // Opens a new table, or reopens one whose realm has closed — a code that a
+  // group has already pinned somewhere is worth more than a fresh one.
+  hostSession: (reopenCode?: string) => Promise<void>;
   // `displayName` is for the sheetless joiner, who has no character name to
   // announce — the lobby asks what the table should call them.
   joinSession: (code: string, displayName?: string) => Promise<void>;
@@ -600,6 +606,26 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     if (!connectedCode) return;
     writeLocalStorage(LAST_SESSION_STORAGE_KEY, connectedCode);
     setLastSession(connectedCode);
+    // The same fact, recorded per code rather than as a single "last one", so
+    // the front door can offer every table this browser plays at. Entries merge,
+    // which is what lets the lobby record the seat and the sheets brought
+    // without either surface knowing about the other.
+    //
+    // The open sheet is recorded as "who I played" only for a seat that plays
+    // one: a DM usually has some sheet open — an NPC they're voicing, a party
+    // character they're checking — and labelling their rejoin row "as Guard
+    // Captain" would be reading a coincidence as a choice.
+    const seat = sessionMemoryFor(connectedCode)?.seat;
+    rememberSessionLocally({
+      code: connectedCode,
+      lastJoined: Date.now(),
+      ...(seat === "dm"
+        ? {}
+        : {
+            playAsUuid: characterRef.current?.uuid,
+            playAsName: characterRef.current?.name,
+          }),
+    });
   }, [connectedCode]);
   // Say who we are on connect, and again whenever the name changes (opening a
   // character mid-session renames us to it). Peers upsert, so re-announcing is
@@ -801,8 +827,8 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       // Whoever opens the realm is running the table — that's what the entry
       // path said they were doing. Claiming happens locally and rides out on the
       // first `hello` reply, since a realm we just created has nobody in it yet.
-      hostSession: async () => {
-        await session.host();
+      hostSession: async (reopenCode) => {
+        await session.host(reopenCode);
         update((current) => claimDmSeat(current, clientId, dmTokenRef.current));
       },
       joinSession: async (joinCode, joinDisplayName) => {

@@ -28,6 +28,7 @@
 // Every wait below names the thing it is waiting for, so a failure says which
 // step didn't happen rather than "the roster was empty".
 import { readFileSync, mkdirSync } from "fs";
+import { randomUUID } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { chromium } from "@playwright/test";
@@ -129,23 +130,18 @@ async function openClient(browser, fixture, label, extraFixtures = [], mutate) {
     failures += 1;
     console.log(`  ✗ [${label}] page crashed: ${e.message}`);
   });
-  // Home auto-redirects into the last-used datastore, and that redirect is what
-  // selects it — a direct goto to a deeper route leaves the app with none.
+  // The hub is the front door for everyone now — no redirect to wait out.
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
-  await untilVisible(page, '[aria-label="Sessions"]');
+  await untilVisible(page, '[aria-label="Session code or invite link"]');
   return { page, character, label, name: character.name };
 }
-
-const toSessions = async (client) => {
-  await client.page.click('[aria-label="Sessions"]');
-  await untilText(client.page, "Been sent a code?");
-};
 
 // Start a game, optionally bringing sheets. Resolves once we're on /play with a
 // session code in hand.
 async function startGame(client, bring = []) {
-  await toSessions(client);
-  await client.page.click("text=Start a game");
+  await untilVisible(client.page, "text=Run a game");
+  await client.page.click("text=Run a game");
+  await untilPath(client.page, "/host");
   await untilVisible(client.page, ".lobby");
   for (const name of bring) {
     await client.page
@@ -159,20 +155,22 @@ async function startGame(client, bring = []) {
 }
 
 // Join a game by code, optionally as one of your sheets — or sheetless with a
-// table name, which is what the DM's "Hand to…" picker shows. The code box
-// sits inline on /sessions — one box for both kinds of code, no separate step.
+// table name, which is what the DM's "Hand to…" picker shows. The code box is
+// on the hub — one box for both kinds of code, no separate step.
 async function joinGame(client, code, playAs, tableName) {
-  await toSessions(client);
-  await untilVisible(client.page, '[aria-label="Session code"]');
-  await client.page.fill('[aria-label="Session code"]', code);
-  await client.page.click('.session-join button[type="submit"]');
+  await untilVisible(client.page, '[aria-label="Session code or invite link"]');
+  await client.page.fill('[aria-label="Session code or invite link"]', code);
+  await client.page.click('.home-join button[type="submit"]');
   // The probe decides which kind of code this is; reaching the lobby is the
   // assertion that it said "gameplay".
   await untilVisible(client.page, ".lobby");
   if (playAs) {
-    await client.page
-      .locator(".lobby-characters label", { hasText: playAs })
-      .click();
+    const wanted = client.page.locator(".lobby-characters label", {
+      hasText: playAs,
+    });
+    // A prefill from a previous game may already have chosen it; clicking a
+    // chosen radio would leave it chosen anyway, but be explicit.
+    if (!(await wanted.locator("input:checked").count())) await wanted.click();
   } else if (tableName) {
     await client.page.fill('[aria-label="Your name at the table"]', tableName);
   }
@@ -237,8 +235,7 @@ const scenarios = {
     const sharer = await openClient(browser, "multiclass", "sharer");
     const joiner = await openClient(browser, "empty-level-1", "joiner");
 
-    await toSessions(sharer);
-    await sharer.page.click("text=Share a character");
+    await sharer.page.click("text=Open a sheet and share it");
     // No character was open, so /sheet shows the picker: the share intent has
     // to survive picking one.
     await untilPath(sharer.page, "/sheet");
@@ -248,13 +245,15 @@ const scenarios = {
     await sharer.page.click("text=Start live session");
     await untilText(sharer.page, "End live session");
 
-    await toSessions(joiner);
-    await untilVisible(joiner.page, '[aria-label="Session code"]');
+    await untilVisible(
+      joiner.page,
+      '[aria-label="Session code or invite link"]',
+    );
     await joiner.page.fill(
-      '[aria-label="Session code"]',
+      '[aria-label="Session code or invite link"]',
       sharer.character.uuid,
     );
-    await joiner.page.click('.session-join button[type="submit"]');
+    await joiner.page.click('.home-join button[type="submit"]');
     await untilPath(joiner.page, "/sheet");
     await untilText(joiner.page, sharer.name);
     check("a character code opens the shared sheet", true, true);
@@ -275,13 +274,14 @@ const scenarios = {
 
     await dm.page.reload({ waitUntil: "domcontentloaded" });
     // The DM has no character open and no session, so the Play button isn't in
-    // the nav and /play would bounce them — which is exactly why the rejoin
-    // offer lives on /sessions, the one session surface always reachable.
-    await untilVisible(dm.page, '[aria-label="Sessions"]');
-    await dm.page.click('[aria-label="Sessions"]');
-    await untilVisible(dm.page, "text=Rejoin your session");
+    // the nav and /play would bounce them. The front door is where the way back
+    // lives: a reload lands on it, and the table they run is the first thing on
+    // it.
+    await untilVisible(dm.page, "text=The game you're running");
     check("the code survives the reload", true, true);
-    await dm.page.click("text=Rejoin your session");
+    await dm.page.click("text=The game you're running");
+    await untilVisible(dm.page, "text=Rejoin the table");
+    await dm.page.click("text=Rejoin the table");
     await untilPath(dm.page, "/play");
 
     await untilVisible(dm.page, ".session-code code");
@@ -798,6 +798,91 @@ const scenarios = {
     await untilRoster(dm.page, [dm.name, player.name]);
     check(
       "rejoining restores you",
+      await roster(dm.page),
+      [dm.name, player.name].sort(),
+    );
+
+    return [dm, player];
+  },
+
+  // The invite link, end to end — and the escape hatch behind it. A DM hands
+  // out one URL; what makes that URL worth pinning in a group chat is that the
+  // same code can be reopened rather than reminted when the realm behind it is
+  // gone (the sidecar restarts on every deploy, and realms don't survive that).
+  async invite(browser) {
+    const dm = await openClient(browser, "martial-fighter", "dm");
+    const player = await openClient(browser, "full-caster-wizard", "player");
+
+    const code = await startGame(dm, [dm.name]);
+
+    // Straight to the URL: no code box, no storage question, no nav to find.
+    await player.page.goto(`${BASE}/join/${code}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await untilVisible(player.page, ".lobby");
+    check("an invite link lands in the lobby", true, true);
+    await player.page
+      .locator(".lobby-characters label", { hasText: player.name })
+      .click();
+    await player.page.click(".lobby-actions .btn-primary");
+    await untilPath(player.page, "/play");
+    await untilRoster(dm.page, [dm.name, player.name]);
+    check(
+      "joining by link seats you like any other joiner",
+      await roster(dm.page),
+      [dm.name, player.name].sort(),
+    );
+
+    // A code with no realm behind it. Seeded rather than produced by leaving,
+    // because a realm outlives its occupants — only a sidecar restart clears
+    // one, and that isn't a thing a smoke run should do to a shared box. Fresh
+    // per run for the same reason: this scenario opens the code it claims is
+    // unopened, so a fixed one is only unopened the first time.
+    const stale = randomUUID();
+    const staleLink = `${BASE}/join/${stale}`;
+
+    // For a player it's a dead end, and says so without offering them a table
+    // that isn't theirs to open.
+    await player.page.goto(staleLink, { waitUntil: "domcontentloaded" });
+    await untilText(player.page, "No session with that code is open");
+    check("a dead link tells a player to ask their DM", true, true);
+    check(
+      "and doesn't offer them someone else's table",
+      await player.page.locator("text=Open this table again").count(),
+      0,
+    );
+
+    // For the browser that ran that table, it's next Thursday.
+    await dm.page.evaluate(
+      (remembered) => {
+        localStorage.setItem(
+          "dndcharactersheets_playSessionMemory",
+          JSON.stringify([remembered]),
+        );
+      },
+      { code: stale, lastJoined: Date.now(), seat: "dm" },
+    );
+    await dm.page.goto(staleLink, { waitUntil: "domcontentloaded" });
+    await untilVisible(dm.page, "text=Open this table again");
+    check("the DM who ran it is offered it back", true, true);
+    await dm.page.click("text=Open this table again");
+    await untilVisible(dm.page, ".lobby");
+    await dm.page.click(".lobby-actions .btn-primary");
+    await untilPath(dm.page, "/play");
+    await untilVisible(dm.page, ".session-code code");
+    const reopened = (
+      await dm.page.locator(".session-code code").textContent()
+    ).trim();
+    check("reopening keeps the code the group already has", reopened, stale);
+
+    // Which is the whole point: the link handed out before still works.
+    await player.page.goto(staleLink, { waitUntil: "domcontentloaded" });
+    await untilVisible(player.page, ".lobby");
+    await player.page.click(".lobby-actions .btn-primary");
+    await untilPath(player.page, "/play");
+    await untilRoster(dm.page, [dm.name, player.name]);
+    check(
+      "and seats the player at the reopened table",
       await roster(dm.page),
       [dm.name, player.name].sort(),
     );

@@ -1,5 +1,9 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+} from "react-router-dom";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import Root from "./routes/root";
@@ -16,7 +20,8 @@ import { DatastoreContextProvider } from "./lib/hooks/use-datastore";
 import GoogleAuthInitializer from "./components/google-auth-initializer";
 import { GoogleOauthContextProvider } from "./lib/hooks/use-google-oauth";
 import RemoteConnectionInitializer from "./components/remote-connection-initializer";
-import Sessions from "./routes/sessions";
+import HostGame from "./routes/host-game";
+import JoinSession from "./routes/join-session";
 import SettingsPage from "./routes/settings-page";
 import { SettingsContextProvider } from "./lib/hooks/use-settings";
 import { SharingSessionsContextProvider } from "./lib/hooks/use-sharing-session";
@@ -88,10 +93,19 @@ const router = createBrowserRouter([
         element: <GoogleAuthInitializer />,
       },
       {
-        path: "/sessions",
-        element: <Sessions />,
+        path: "/host",
+        element: <HostGame />,
       },
+      // The invite link. Both kinds of code land here and are told apart by a
+      // probe — see `join-session.tsx`.
+      { path: "/join/:code", element: <JoinSession /> },
+      // Manual entry of a character-sharing code, and where `/join/:code`
+      // forwards one that turns out to be a shared sheet.
       { path: "/join", element: <RemoteConnectionInitializer /> },
+      // Sessions used to be a page of its own, behind a nav icon; the front
+      // door does that job now. Kept as a redirect for anyone holding the old
+      // link (and for the muscle memory of the people who built it).
+      { path: "/sessions", element: <Navigate to="/" replace /> },
     ],
   },
 ]);

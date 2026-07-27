@@ -20,7 +20,6 @@ import {
   FaTowerBroadcast,
   FaTrash,
   FaTriangleExclamation,
-  FaUsers,
 } from "react-icons/fa6";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import {
@@ -239,13 +238,15 @@ export default function Root() {
   const pageTitle =
     location.pathname === "/settings"
       ? "Settings"
-      : location.pathname === "/sessions"
-        ? "Sessions"
-        : onPlaySurface
-          ? (character?.name ?? "At the table")
-          : location.pathname === "/sheet"
-            ? (character?.name ?? "Character Select")
-            : "Home";
+      : location.pathname === "/host"
+        ? "Start a game"
+        : location.pathname.startsWith("/join")
+          ? "Join a game"
+          : onPlaySurface
+            ? (character?.name ?? "At the table")
+            : location.pathname === "/sheet"
+              ? (character?.name ?? "Character Select")
+              : "Home";
 
   // Not for a sheet you joined remotely or borrowed from a DM — sharing is the
   // owner's call, and neither of those copies is yours to offer.
@@ -275,10 +276,14 @@ export default function Root() {
           >
             <FaBars />
           </button>
-          {/* Carry picker state so Home shows the storage picker instead of
-              auto-redirecting back into the last-used datastore. */}
-          <Link to="/" state={{ picker: true }}>
-            <button className="icon-btn" title="Home">
+          {/* Home is the hub — characters, games, and the way back into either
+              — so this is a plain link now. It used to have to carry state to
+              stop home from redirecting straight back to where you came from. */}
+          <Link to="/">
+            <button
+              className="icon-btn"
+              title="Home — your characters and games"
+            >
               <FaHouse />
             </button>
           </Link>
@@ -286,13 +291,10 @@ export default function Root() {
         </nav>
         <div id="right-nav-components">
           <PresenceRoster />
-          {/* Sessions are reachable from anywhere, because deciding to play
-              together happens after you've picked a character, not before. */}
-          <Link to="/sessions">
-            <button className="icon-btn" title="Sessions" aria-label="Sessions">
-              <FaUsers />
-            </button>
-          </Link>
+          {/* There is no Sessions button here any more. It existed because the
+              front door couldn't answer "who am I playing with", and a second
+              icon that lands where Home already lands is the duplicate door the
+              sessions page was written to argue against. */}
           {/* Play is a place you go, not a state the sheet is in — so it's a
               link, and the button says where it takes you. */}
           {character && (

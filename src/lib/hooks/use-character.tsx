@@ -16,6 +16,8 @@ import {
 import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
 import { missingProvider } from "src/lib/missing-provider";
+import { writeLastCharacter } from "src/lib/last-character";
+import { readLastDatastore } from "src/lib/last-datastore";
 
 // One reversible edit: the action applied and the action that undoes it.
 type HistoryEntry = { action: Action; inverse: Action };
@@ -145,6 +147,23 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       ? `${unsavedChanges ? "● " : ""}${character.name}`
       : "5e Character Sheets";
   }, [character, unsavedChanges]);
+
+  // Remember the sheet for the front door's "pick up where you left off". Only
+  // sheets this browser can actually reopen: a remotely joined character is the
+  // host's, and a borrowed one belongs to a DM whose table may be over, so
+  // offering either as a shortcut would be offering a dead link.
+  useEffect(() => {
+    if (!character || !datastore) return;
+    if (getRole(character.uuid) === "remote" || isBorrowed(character.uuid))
+      return;
+    const mode = readLastDatastore();
+    if (mode !== "local" && mode !== "drive") return;
+    writeLastCharacter({
+      uuid: character.uuid,
+      name: character.name || "Unnamed",
+      mode,
+    });
+  }, [character?.uuid, character?.name, datastore]);
 
   // Stable via characterRef, so undo/redo (and the keydown effect below) don't
   // have to rebind on every character change.

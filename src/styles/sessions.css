@@ -1,12 +1,12 @@
 /* ============================================================
-   Sessions route and the pre-join lobby
+   The pre-join lobby, and resolving an invite link
 
    Not the sheet, so ordinary media queries are fine here — the container-query
    rule in CLAUDE.md governs the character sheet, whose layout has to survive
    being squeezed inside a panel. This is a full-width page.
    ============================================================ */
-.sessions,
-.lobby {
+.lobby,
+.session-resolving {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -16,137 +16,8 @@
   gap: 1rem;
 }
 
-.sessions h2,
 .lobby h2 {
   margin: 0;
-}
-
-/* "You were in a game" — the way back after a reload. A banner rather than a
-   card: it's transient state, not one of the four standing choices below. */
-.sessions-rejoin {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background-color: var(--surface);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-lg);
-}
-
-.sessions-rejoin span {
-  font-weight: 600;
-}
-
-/* The box every invited player arrives for. It leads the page: pasting a code
-   is the errand, starting something is the decision. */
-.sessions-join-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem 1.15rem;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
-}
-
-.sessions-join-panel h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.sessions-join-panel h3 svg {
-  color: var(--accent);
-}
-
-.sessions-join-panel p {
-  margin: 0;
-}
-
-.sessions-join-panel .session-join {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.sessions-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-}
-
-.sessions-group h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.sessions-group h3 svg {
-  color: var(--accent);
-}
-
-.sessions-group p {
-  margin: 0;
-  max-width: 44rem;
-}
-
-.session-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-.session-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.4rem;
-  padding: 1rem 1.15rem;
-  text-align: left;
-  background-color: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
-  cursor: pointer;
-  transition:
-    box-shadow 0.12s ease,
-    transform 0.12s ease;
-}
-
-.session-card:hover {
-  box-shadow: var(--shadow-2);
-  transform: translateY(-2px);
-}
-
-.session-card:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.session-card-icon {
-  display: inline-flex;
-  font-size: 1.4rem;
-  color: var(--accent);
-}
-
-.session-card-heading {
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.session-card-description {
-  font-size: 0.9rem;
-  line-height: 1.35;
 }
 
 /* --- Lobby ------------------------------------------------- */
@@ -257,4 +128,43 @@
   margin: 2rem auto;
   max-width: 32rem;
   text-align: center;
+}
+
+/* The storage offer under a lobby that doesn't need one. A <details> because
+   the honest shape of it is a question most people here won't open: a DM
+   running from stat blocks and a player whose DM is bringing their sheet both
+   came to press the button above it. */
+.lobby-storage-offer summary {
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
+.lobby-storage-offer > * {
+  margin-top: 0.6rem;
+}
+
+/* Says why a box is already ticked. Quiet, because a correct prefill needs no
+   attention — it only has to be undoable. */
+.lobby-prefill {
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Resolving an invite link — a spinner for a moment, or a dead end explained. */
+.session-resolving {
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.session-resolving .row {
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.session-resolving .row svg {
+  /* Nudged onto the cap height of the first line rather than the middle of a
+     wrapped paragraph. */
+  margin-top: 0.2rem;
+  flex-shrink: 0;
 }

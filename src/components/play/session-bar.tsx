@@ -3,6 +3,7 @@ import classNames from "classnames";
 import { FaCopy, FaTowerBroadcast, FaXmark } from "react-icons/fa6";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { copyToClipboard } from "src/lib/browser";
+import { inviteLink } from "src/lib/play/session";
 
 // Starting or joining a party session.
 //
@@ -54,12 +55,18 @@ export default function SessionBar() {
           <FaTowerBroadcast />
           <span>Live</span>
         </span>
+        {/* Copies the link rather than the bare code: a player who clicks it
+            lands in the lobby for this table having answered nothing, which is
+            a shorter set of instructions than any code plus a place to paste
+            it. The code stays on screen for reading out over the call. */}
         <button
           type="button"
           className="session-code"
-          title="Copy the invite code — players paste it on the Sessions page"
+          title="Copy the invite link — anyone who opens it lands at this table"
           onClick={async () => {
-            await copyToClipboard(sessionCode ?? "");
+            await copyToClipboard(
+              inviteLink(window.location.origin, sessionCode ?? ""),
+            );
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
@@ -67,7 +74,7 @@ export default function SessionBar() {
           <code>{sessionCode}</code>
           <FaCopy />
         </button>
-        {copied && <span className="session-hint">Copied</span>}
+        {copied && <span className="session-hint">Invite link copied</span>}
         {/* The seat gates which controls render, never who may write —
             unclaimed means everyone gets them, which is what keeps the
             encounter usable with no session at all.
@@ -154,7 +161,7 @@ export default function SessionBar() {
             type="button"
             className="session-btn"
             disabled={sessionStatus === "connecting"}
-            onClick={hostSession}
+            onClick={() => hostSession()}
           >
             {sessionStatus === "connecting" ? "Starting…" : "Start a session"}
           </button>

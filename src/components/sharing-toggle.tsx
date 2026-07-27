@@ -3,6 +3,7 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import { copyToClipboard } from "src/lib/browser";
+import { inviteLink } from "src/lib/play/session";
 import { FaCopy, FaCircleExclamation } from "react-icons/fa6";
 import IdentityFields from "src/components/identity-fields";
 
@@ -46,12 +47,15 @@ export default function SharingToggle() {
     closeSharingSession();
   };
 
+  // A link, not a code: it lands on the same `/join/<code>` door a game invite
+  // uses, and the probe there works out that this one opens a sheet.
   const copyCode = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    copyToClipboard(character.uuid);
+    const link = inviteLink(window.location.origin, character.uuid);
+    copyToClipboard(link);
     window.alert(
-      "Your sharing code has been copied to the clipboard.\nShare this code with your friend:\n" +
-        character.uuid,
+      "Your sharing link has been copied to the clipboard.\nSend it to your friend:\n" +
+        link,
     );
   };
 
