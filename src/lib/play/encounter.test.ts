@@ -4,6 +4,7 @@ import {
   addParticipant,
   advanceTurn,
   applyDamage,
+  applyHealing,
   claimParticipant,
   clearFallen,
   currentParticipant,
@@ -449,6 +450,21 @@ describe("damage as a delta", () => {
     const hit = applyDamage({ currHp: 20, maxHp: 20, ac: 15, tempHp: 12 }, 7);
     expect(hit.currHp).toBe(20);
     expect(hit.tempHp).toBe(5);
+  });
+});
+
+describe("healing as a delta", () => {
+  it("clamps to the maximum and leaves temp HP alone", () => {
+    const healed = applyHealing(
+      { currHp: 14, maxHp: 20, ac: 15, tempHp: 3 },
+      10,
+    );
+    expect(healed).toEqual({ currHp: 20, maxHp: 20, ac: 15, tempHp: 3 });
+  });
+
+  it("ignores nonsense amounts", () => {
+    const vitals = { currHp: 14, maxHp: 20, ac: 15 };
+    expect(applyHealing(vitals, -5).currHp).toBe(14);
   });
 });
 

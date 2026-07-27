@@ -5,7 +5,9 @@ import {
   FaBars,
   FaCheck,
   FaCircle,
+  FaDice,
   FaDiceD20,
+  FaHand,
   FaFileLines,
   FaFloppyDisk,
   FaGear,
@@ -30,6 +32,7 @@ import { useCharacterBuilder } from "src/lib/hooks/use-character-builder";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
+import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import Modal from "src/components/modal";
 import Spinner from "src/components/spinner";
@@ -145,6 +148,7 @@ export default function Root() {
   } = useCharacter();
   const { saving } = useDatastore();
   const { editMode, toggleMode } = useEditMode();
+  const { rollMode, setRollMode } = useRollMode();
   const { getRole, isBorrowed } = useSharingSessions();
   const location = useLocation();
   const [fileSelected, setFileSelected] = useState<File | undefined>();
@@ -301,6 +305,29 @@ export default function Root() {
                 {onPlaySurface ? <FaFileLines /> : <FaDiceD20 />}
               </button>
             </Link>
+          )}
+          {/* App dice or real dice, for every roll surface at once. A table
+              posture rather than a setting: in-memory on purpose, and the
+              roll dialogs read it to decide between rolling for you and
+              asking what your dice said. */}
+          {(character || onPlaySurface) && (
+            <button
+              className="icon-btn"
+              onClick={() => setRollMode(rollMode === "app" ? "manual" : "app")}
+              title={
+                rollMode === "app"
+                  ? "The app rolls your dice — switch to rolling real dice"
+                  : "You're rolling real dice — switch to app rolls"
+              }
+              aria-label={
+                rollMode === "app"
+                  ? "Switch to rolling real dice"
+                  : "Switch to app rolls"
+              }
+              aria-pressed={rollMode === "manual"}
+            >
+              {rollMode === "app" ? <FaDice /> : <FaHand />}
+            </button>
           )}
           {character && !onPlaySurface && (
             <button

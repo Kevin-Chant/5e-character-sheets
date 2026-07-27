@@ -142,6 +142,17 @@
   justify-content: center;
   align-items: center;
 }
+/* Real-dice mode: the "type what you rolled" row that stands in for the roll
+   buttons. Sized for a two-digit number, not a sentence. */
+.roll-manual {
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+.roll-manual input {
+  width: 11rem;
+  text-align: center;
+}
 /* Each roll dialog section (To Hit / Damage) stacks with a little breathing room. */
 .roll-section {
   gap: 0.5rem;

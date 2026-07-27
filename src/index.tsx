@@ -24,6 +24,7 @@ import { CharacterBuilderProvider } from "./lib/hooks/use-character-builder";
 import { LevelUpProvider } from "./lib/hooks/use-level-up";
 import { RestProvider } from "./lib/hooks/use-rest";
 import { EncounterContextProvider } from "./lib/hooks/use-encounter";
+import { RollModeContextProvider } from "./lib/hooks/use-roll-mode";
 
 const router = createBrowserRouter([
   {
@@ -39,19 +40,23 @@ const router = createBrowserRouter([
                       dialog reads conditions from the sheet too, and the
                       encounter has to survive navigating between them. */}
                   <EncounterContextProvider>
-                    <EditModeContextProvider>
-                      <ConfirmProvider>
-                        <TargetedFieldContextProvider>
-                          <CharacterBuilderProvider>
-                            <LevelUpProvider>
-                              <RestProvider>
-                                <Root />
-                              </RestProvider>
-                            </LevelUpProvider>
-                          </CharacterBuilderProvider>
-                        </TargetedFieldContextProvider>
-                      </ConfirmProvider>
-                    </EditModeContextProvider>
+                    {/* Above Root so the nav toggle and every roll surface
+                        share the same app-dice/real-dice switch. */}
+                    <RollModeContextProvider>
+                      <EditModeContextProvider>
+                        <ConfirmProvider>
+                          <TargetedFieldContextProvider>
+                            <CharacterBuilderProvider>
+                              <LevelUpProvider>
+                                <RestProvider>
+                                  <Root />
+                                </RestProvider>
+                              </LevelUpProvider>
+                            </CharacterBuilderProvider>
+                          </TargetedFieldContextProvider>
+                        </ConfirmProvider>
+                      </EditModeContextProvider>
+                    </RollModeContextProvider>
                   </EncounterContextProvider>
                 </CharacterContextProvider>
               </DatastoreContextProvider>

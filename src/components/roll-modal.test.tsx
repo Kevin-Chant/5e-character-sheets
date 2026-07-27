@@ -8,6 +8,7 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 import { defaultCharacter } from "src/lib/data/default-data";
+import { RollMode, RollModeContextProvider } from "src/lib/hooks/use-roll-mode";
 import { SettingsContextProvider } from "src/lib/hooks/use-settings";
 import { writeLocalStorage } from "src/lib/local-storage";
 import { Character, CustomFormulaWithDamage, SaveEffect } from "src/lib/types";
@@ -51,13 +52,19 @@ const GREATSWORD: CustomFormulaWithDamage = {
   } as never,
 };
 
-const open = (s: RollSpec, settings: Record<string, unknown> = {}) => {
+const open = (
+  s: RollSpec,
+  settings: Record<string, unknown> = {},
+  rollMode: RollMode = "app",
+) => {
   spec = s;
   // Through the real helper, so the namespaced key can't drift from the app.
   writeLocalStorage("settings", settings);
   render(
     <SettingsContextProvider>
-      <RollModal />
+      <RollModeContextProvider initialMode={rollMode}>
+        <RollModal />
+      </RollModeContextProvider>
     </SettingsContextProvider>,
   );
 };
@@ -207,6 +214,45 @@ describe("RollModal — weapon conditions", () => {
     const tick = screen.getByRole("checkbox", { name: /Archery/ });
     await userEvent.click(tick);
     expect(screen.getByText("d20 +9")).toBeInTheDocument();
+  });
+});
+
+describe("RollModal — real dice (manual mode)", () => {
+  it("swaps the roll buttons for type-in entry and does the arithmetic", async () => {
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "manual");
+    // No RNG anywhere: the dice were rolled at the table.
+    expect(
+      screen.queryByRole("button", { name: "Roll" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Roll.*Damage/ }),
+    ).not.toBeInTheDocument();
+    // The face, not the total — the app adds the modifier it knows about.
+    await userEvent.type(
+      screen.getByLabelText("What did the d20 show?"),
+      "13{enter}",
+    );
+    expect(total()).toBe(13 + 7);
+  });
+
+  it("calls the crit off the entered face", async () => {
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "manual");
+    await userEvent.type(
+      screen.getByLabelText("What did the d20 show?"),
+      "20{enter}",
+    );
+    expect(screen.getByText("Critical Hit")).toBeInTheDocument();
+  });
+
+  it("takes the damage total as rolled, extras shown as reminders", async () => {
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "manual");
+    await userEvent.type(screen.getByLabelText("Total damage"), "17{enter}");
+    expect(total()).toBe(17);
+    // The crit toggle is app-math; with real dice the player already doubled
+    // their own dice, so it isn't offered.
+    expect(
+      screen.queryByRole("checkbox", { name: /Critical/ }),
+    ).not.toBeInTheDocument();
   });
 });
 

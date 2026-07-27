@@ -145,6 +145,12 @@
   background: var(--surface);
 }
 
+/* The real-dice initiative entry sits inline in the prompt — `.row`'s
+   full-width default would shove the other buttons onto their own line. */
+.assign-prompt .roll-manual {
+  width: auto;
+}
+
 /* Damage taken while concentrating: the save the table always forgets.
    Shaped like the assign prompt — a question, answered and gone. */
 .con-check-banner {
@@ -1012,6 +1018,33 @@
 
 .dm-hp-max {
   color: var(--text-muted);
+}
+
+/* The delta box is the row's primary HP write — "takes 9", "+10 heals". */
+.dm-damage-input {
+  width: 3.6em;
+  min-width: 0;
+  text-align: center;
+}
+
+/* The running total, and (clicked) the direct-set escape hatch. Styled as the
+   quiet half of the pair: a plain figure until you hover it. */
+.dm-hp-display {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dm-hp-display:hover,
+.dm-hp-display:focus-visible {
+  border-color: var(--border);
 }
 
 .dm-row-ac {

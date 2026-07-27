@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import classNames from "classnames";
 import { FaCampground, FaFileLines } from "react-icons/fa6";
@@ -7,10 +8,13 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { EditModeContext } from "src/lib/hooks/use-edit-mode";
 import { RollerProvider, useRoller } from "src/lib/hooks/use-roller";
+import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import { getPB, modifier } from "src/lib/rules";
 import { initiativeModifierFor } from "src/lib/play/initiative";
 import { rollD20Check } from "src/lib/roll";
 import { usePlayTurn } from "src/lib/play/use-turn";
+import { TurnFlowProvider } from "src/lib/play/use-turn-flow";
+import { Character } from "src/lib/types";
 import RollModal from "src/components/roll-modal";
 import ActionBoard from "./action-board";
 import DmBoard from "./dm-board";
@@ -90,159 +94,213 @@ export default function PlaySurface() {
   return (
     <EditModeContext.Provider value={PLAY_EDIT_MODE}>
       <RollerProvider>
-        <div className="play-surface">
-          {/* Order matters: the fight comes first, then your turn within it.
+        <TurnFlowProvider>
+          <div className="play-surface">
+            {/* Order matters: the fight comes first, then your turn within it.
               The economy under the rail reads as "and here's what you have left
               this turn", which is the question the rail has just raised. */}
-          <SessionBar />
-          {/* A targeted offer from the DM. Consent stays two-sided: the sheet
+            <SessionBar />
+            {/* A targeted offer from the DM. Consent stays two-sided: the sheet
               hasn't travelled yet, and accepting runs the same claim flow the
               pick-up buttons use. Declining just closes this — the offer
               stays open on the DM's board. */}
-          {pendingAssignment && (
-            <div className="assign-prompt">
-              <span>
-                Your DM is handing you <strong>{pendingAssignment.name}</strong>{" "}
-                to play.
-              </span>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={acceptAssignment}
-              >
-                Play {pendingAssignment.name}
-              </button>
-              <button type="button" onClick={declineAssignment}>
-                Not now
-              </button>
-            </div>
-          )}
-          {/* "Alright everyone — roll initiative!" One click rolls with the
-              sheet's own modifier and writes it to your row; a player who
-              rolled a physical die dismisses and types theirs in the rail. */}
-          {initiativeCalled && !isDm && character && self && (
-            <div className="assign-prompt">
-              <span>
-                <strong>Roll initiative!</strong> Your DM called for it.
-              </span>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  setCombatantInitiative(
-                    self.id,
-                    rollD20Check(initiativeModifierFor(character)).total,
-                  );
-                  dismissInitiativeCall();
-                }}
-              >
-                Roll ({initiativeModifierFor(character) >= 0 ? "+" : ""}
-                {initiativeModifierFor(character)})
-              </button>
-              <button type="button" onClick={dismissInitiativeCall}>
-                I rolled my own
-              </button>
-            </div>
-          )}
-          <ConcentrationCheckBanner />
-          <InitiativeRail variant={isDm ? "dm" : "player"} />
-          {/* Holding the seat swaps the whole body: a player asks "what can I
+            {pendingAssignment && (
+              <div className="assign-prompt">
+                <span>
+                  Your DM is handing you{" "}
+                  <strong>{pendingAssignment.name}</strong> to play.
+                </span>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={acceptAssignment}
+                >
+                  Play {pendingAssignment.name}
+                </button>
+                <button type="button" onClick={declineAssignment}>
+                  Not now
+                </button>
+              </div>
+            )}
+            {/* "Alright everyone — roll initiative!" In app-dice mode one click
+              rolls with the sheet's own modifier; with real dice the prompt
+              asks for the total instead. Either way it lands on your row. */}
+            {initiativeCalled && !isDm && character && self && (
+              <InitiativeCallPrompt
+                character={character}
+                selfId={self.id}
+                setCombatantInitiative={setCombatantInitiative}
+                dismiss={dismissInitiativeCall}
+              />
+            )}
+            <ConcentrationCheckBanner />
+            <InitiativeRail variant={isDm ? "dm" : "player"} />
+            {/* Holding the seat swaps the whole body: a player asks "what can I
               do right now", a DM asks "what is the state of eight creatures".
               A DM who is also playing a character flips to it via the sheet —
               running the table is the job here. */}
-          {isDm ? (
-            <DmBoard />
-          ) : character ? (
-            <>
-              {/* Whose round it is, said once and plainly. The board below
+            {isDm ? (
+              <DmBoard />
+            ) : character ? (
+              <>
+                {/* Whose round it is, said once and plainly. The board below
                   takes its cue from the same fact. */}
-              {inCombat && current && self && (
-                <div
-                  className={classNames("turn-banner", {
-                    "your-turn": !offTurn,
-                  })}
-                >
-                  {offTurn ? (
-                    <>
-                      <span className="turn-banner-title">
-                        {/* A staged combatant's turn must not leak its name —
+                {inCombat && current && self && (
+                  <div
+                    className={classNames("turn-banner", {
+                      "your-turn": !offTurn,
+                    })}
+                  >
+                    {offTurn ? (
+                      <>
+                        <span className="turn-banner-title">
+                          {/* A staged combatant's turn must not leak its name —
                             the players know something moved, not what. */}
-                        {current.hidden
-                          ? "The DM is up to something…"
-                          : `${current.name} is acting`}
-                      </span>
+                          {current.hidden
+                            ? "The DM is up to something…"
+                            : `${current.name} is acting`}
+                        </span>
+                        <span className="turn-banner-sub">
+                          {youAreNext
+                            ? "You're next — line your turn up."
+                            : "Your reaction stays ready — and nothing here is locked if the table rules otherwise."}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="turn-banner-title">Your turn</span>
+                    )}
+                    {!offTurn && dying && (
                       <span className="turn-banner-sub">
-                        {youAreNext
-                          ? "You're next — line your turn up."
-                          : "Your reaction stays ready — and nothing here is locked if the table rules otherwise."}
+                        You&apos;re at 0 HP — death saving throw first.
                       </span>
-                    </>
-                  ) : (
-                    <span className="turn-banner-title">Your turn</span>
-                  )}
-                  {!offTurn && dying && (
-                    <span className="turn-banner-sub">
-                      You&apos;re at 0 HP — death saving throw first.
-                    </span>
-                  )}
-                </div>
-              )}
-              <header className="play-header">
-                <TurnEconomy turn={turn} />
-                <div className="play-header-links">
-                  {/* Between fights is when a table rests — mid-combat the
+                    )}
+                  </div>
+                )}
+                <header className="play-header">
+                  <TurnEconomy turn={turn} />
+                  <div className="play-header-links">
+                    {/* Between fights is when a table rests — mid-combat the
                       button would only be a misclick. */}
-                  {!inCombat && <RestShortcut />}
-                  <Link className="play-sheet-link" to="/sheet">
-                    <FaFileLines />
-                    <span>Open sheet</span>
-                  </Link>
+                    {!inCombat && <RestShortcut />}
+                    <Link className="play-sheet-link" to="/sheet">
+                      <FaFileLines />
+                      <span>Open sheet</span>
+                    </Link>
+                  </div>
+                </header>
+                <div
+                  className={classNames("play-body", { "off-turn": offTurn })}
+                >
+                  <ActionBoard turn={turn} />
+                  <PlayVitals />
                 </div>
-              </header>
-              <div className={classNames("play-body", { "off-turn": offTurn })}>
-                <ActionBoard turn={turn} />
-                <PlayVitals />
-              </div>
-            </>
-          ) : (
-            <div className="play-no-sheet">
-              {/* The other half of sheet assignment: the DM offered, and the
+              </>
+            ) : (
+              <div className="play-no-sheet">
+                {/* The other half of sheet assignment: the DM offered, and the
                   choice of which one to play is yours. Clicking asks the DM's
                   browser for the whole sheet — it opens borrowed, so nothing
                   is written into your storage. */}
-              {pickups.length > 0 ? (
-                <>
+                {pickups.length > 0 ? (
+                  <>
+                    <p className="text-muted">
+                      Your DM is offering {pickups.length === 1 ? "a" : ""}
+                      {pickups.length > 1 ? pickups.length : ""} character
+                      {pickups.length === 1 ? "" : "s"} to play:
+                    </p>
+                    <div className="play-claimables">
+                      {pickups.map((offered) => (
+                        <button
+                          key={offered.id}
+                          type="button"
+                          className="btn-primary"
+                          onClick={() => claimSheet(offered.id)}
+                        >
+                          Play {offered.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : pendingAssignment ? null : ( // the prompt above is the whole story
                   <p className="text-muted">
-                    Your DM is offering {pickups.length === 1 ? "a" : ""}
-                    {pickups.length > 1 ? pickups.length : ""} character
-                    {pickups.length === 1 ? "" : "s"} to play:
+                    You&apos;re at the table without a character. Open one from
+                    the sidebar to play it, or wait for your DM to offer you one
+                    or hand one to you.
                   </p>
-                  <div className="play-claimables">
-                    {pickups.map((offered) => (
-                      <button
-                        key={offered.id}
-                        type="button"
-                        className="btn-primary"
-                        onClick={() => claimSheet(offered.id)}
-                      >
-                        Play {offered.name}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : pendingAssignment ? null : ( // the prompt above is the whole story
-                <p className="text-muted">
-                  You&apos;re at the table without a character. Open one from
-                  the sidebar to play it, or wait for your DM to offer you one
-                  or hand one to you.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        <RollModal />
+                )}
+              </div>
+            )}
+          </div>
+          <RollModal />
+        </TurnFlowProvider>
       </RollerProvider>
     </EditModeContext.Provider>
+  );
+}
+
+// The answer to the DM's call, in whichever dice the player is using: app mode
+// rolls with the sheet's modifier in one click; manual mode takes the total
+// the way the table hears it called out. Both write straight to your row.
+function InitiativeCallPrompt({
+  character,
+  selfId,
+  setCombatantInitiative,
+  dismiss,
+}: {
+  character: Character;
+  selfId: string;
+  setCombatantInitiative: (id: string, initiative: number) => void;
+  dismiss: () => void;
+}) {
+  const { rollMode } = useRollMode();
+  const [raw, setRaw] = useState("");
+  const modifier = initiativeModifierFor(character);
+  const parsed = Number(raw);
+  const valid = raw.trim() !== "" && Number.isFinite(parsed);
+  return (
+    <div className="assign-prompt">
+      <span>
+        <strong>Roll initiative!</strong> Your DM called for it.
+      </span>
+      {rollMode === "manual" ? (
+        <form
+          className="row roll-manual"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!valid) return;
+            setCombatantInitiative(selfId, Math.floor(parsed));
+            dismiss();
+          }}
+        >
+          <input
+            type="text"
+            inputMode="numeric"
+            aria-label="Your initiative total"
+            placeholder={`Your total (d20 ${modifier >= 0 ? "+" : ""}${modifier})`}
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+          />
+          <button type="submit" className="btn-primary" disabled={!valid}>
+            Set
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => {
+            setCombatantInitiative(selfId, rollD20Check(modifier).total);
+            dismiss();
+          }}
+        >
+          Roll ({modifier >= 0 ? "+" : ""}
+          {modifier})
+        </button>
+      )}
+      <button type="button" onClick={dismiss}>
+        Not now
+      </button>
+    </div>
   );
 }
 

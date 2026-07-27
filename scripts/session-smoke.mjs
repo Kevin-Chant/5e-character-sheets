@@ -334,8 +334,11 @@ const scenarios = {
       0,
     );
 
-    // The DM knocks the player down to 5 HP; the player's own sheet follows.
+    // The DM knocks the player down to 5 HP through the direct-set escape
+    // hatch (the delta box is exercised in the damage scenario); the player's
+    // own sheet follows.
     const row = dm.page.locator(".dm-row", { hasText: player.name });
+    await row.locator(".dm-hp-display").click();
     const hpInput = row.locator('input[aria-label*="hit points"]');
     await hpInput.fill("5");
     await hpInput.press("Enter");
@@ -355,8 +358,8 @@ const scenarios = {
       (name) => {
         const rows = [...document.querySelectorAll(".dm-row")];
         const theirs = rows.find((r) => r.textContent.includes(name));
-        const input = theirs?.querySelector('input[aria-label*="hit points"]');
-        return input?.value === "6";
+        const display = theirs?.querySelector(".dm-hp-display");
+        return !!display && display.textContent.startsWith("6/");
       },
       player.name,
     );
@@ -409,8 +412,8 @@ const scenarios = {
       (name) => {
         const rows = [...document.querySelectorAll(".dm-row")];
         const theirs = rows.find((r) => r.textContent.includes(name));
-        const input = theirs?.querySelector('input[aria-label*="hit points"]');
-        return !!input && Number(input.value) < 47;
+        const display = theirs?.querySelector(".dm-hp-display");
+        return !!display && Number.parseInt(display.textContent, 10) < 47;
       },
       offeredName,
     );
@@ -539,7 +542,7 @@ const scenarios = {
     await dm.page.fill(".dm-add-name", "Goblin");
     await dm.page.fill('[aria-label="Hit points each (optional)"]', "7");
     await dm.page.click('.dm-add button[type="submit"]');
-    await untilVisible(dm.page, '[aria-label="Goblin hit points"]');
+    await untilVisible(dm.page, '[aria-label="Damage to Goblin"]');
 
     // The player rolls Greatsword damage and reports it against the goblin.
     await untilRoster(player.page, ["Goblin", player.name]);
@@ -558,15 +561,12 @@ const scenarios = {
     await untilVisible(dm.page, ".dm-damage-report");
     check("the report reaches the DM", true, true);
     await dm.page.click(".dm-damage-report .btn-primary");
-    await until(
-      dm.page,
-      "the goblin's HP to drop",
-      () =>
-        Number(
-          document.querySelector('input[aria-label="Goblin hit points"]')
-            ?.value,
-        ) < 7,
-    );
+    await until(dm.page, "the goblin's HP to drop", () => {
+      const display = document.querySelector(
+        '[aria-label="Set Goblin hit points directly"]',
+      );
+      return !!display && Number.parseInt(display.textContent, 10) < 7;
+    });
     check("applying the report damages the goblin", true, true);
 
     // DM-side concentration: give the goblin a spell, hurt it, get the chip.
@@ -575,11 +575,13 @@ const scenarios = {
     );
     await goblinConc.fill("Fog Cloud");
     await goblinConc.press("Enter");
-    const goblinHp = dm.page.locator('[aria-label="Goblin hit points"]');
-    await goblinHp.fill("7");
-    await goblinHp.press("Enter"); // heal first, so the next write is a drop
-    await goblinHp.fill("3");
-    await goblinHp.press("Enter");
+    // The delta box speaks the table's language: top the goblin up first so
+    // the DC comes off this one hit alone, then "it takes 4".
+    const goblinDamage = dm.page.locator('[aria-label="Damage to Goblin"]');
+    await goblinDamage.fill("+7");
+    await goblinDamage.press("Enter");
+    await goblinDamage.fill("4");
+    await goblinDamage.press("Enter");
     await untilText(dm.page, "CON DC 10");
     check("damaging a concentrating monster raises the check", true, true);
     await dm.page.click("text=Broke");
@@ -637,15 +639,13 @@ const scenarios = {
     const playerConc = player.page.locator('[aria-label="Concentrating on"]');
     await playerConc.fill("Web");
     await playerConc.press("Enter");
-    const playerRowHp = dm.page.locator(
-      `input[aria-label="${player.name} hit points"]`,
+    // Dealt as a delta — the DM's primary write — which lands on the sheet.
+    await untilVisible(dm.page, `[aria-label="Damage to ${player.name}"]`);
+    const playerDamage = dm.page.locator(
+      `[aria-label="Damage to ${player.name}"]`,
     );
-    await untilVisible(
-      dm.page,
-      `input[aria-label="${player.name} hit points"]`,
-    );
-    await playerRowHp.fill("40");
-    await playerRowHp.press("Enter");
+    await playerDamage.fill("9");
+    await playerDamage.press("Enter");
     await untilText(player.page, "while concentrating on");
     check("the player is prompted for the concentration save", true, true);
     await player.page.click("text=Kept it");

@@ -10,11 +10,12 @@ import {
   SharingLevel,
   vitalsVisibility,
 } from "src/lib/play/encounter";
-import { planTrigger, TriggerEvent } from "src/lib/play/triggers";
+import { useTurnFlow } from "src/lib/play/use-turn-flow";
 import { FIELD } from "src/lib/data/data-definitions";
 import { calculateCustomFormula } from "src/lib/formula";
 import { getOptionalInitializer } from "src/lib/rules";
 import { rollD20Check } from "src/lib/roll";
+import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import StepperInput from "src/components/stepper-input";
 
 // The order, the round, and the button that moves the fight along.
@@ -39,15 +40,12 @@ export default function InitiativeRail({
 }: {
   variant?: "player" | "dm";
 }) {
-  const { character, dispatch } = useCharacter();
+  const { character } = useCharacter();
   const {
     encounter,
     self,
     inCombat,
     current,
-    start,
-    end,
-    next,
     addCombatant,
     removeCombatant,
     setCombatantInitiative,
@@ -56,10 +54,12 @@ export default function InitiativeRail({
     callForInitiative,
     sessionStatus,
   } = useEncounter();
+  const { rollMode } = useRollMode();
+  // Shared with the player's "End turn": both move the same fight, and the
+  // receipt below reports whichever boundary happened last.
+  const { receipt, beginCombat, advance, stopCombat } = useTurnFlow();
   const [newName, setNewName] = useState("");
   const [newInitiative, setNewInitiative] = useState(10);
-  // What the last turn boundary did, shown until the next one replaces it.
-  const [receipt, setReceipt] = useState<string | null>(null);
   const dmRail = variant === "dm";
 
   // `initiativeFormula` is an optional override, so resolve it through the
@@ -73,46 +73,6 @@ export default function InitiativeRail({
     character && initiativeFormula
       ? calculateCustomFormula(initiativeFormula, character)
       : 0;
-
-  // Fire an event's recharges and describe what it restored. Auto-applied
-  // rather than confirmed: these are deterministic (a pool goes back to full),
-  // they undo in one step like any edit, and a confirmation dialog on every turn
-  // boundary would cost more than the certainty is worth.
-  const fireTrigger = (event: TriggerEvent): string[] => {
-    // Recharges belong to a sheet. Running the order without one still starts
-    // combat and still advances turns — there is simply nothing of yours to
-    // restore.
-    if (!character) return [];
-    const plan = planTrigger(character, event);
-    plan.updates.forEach((update) => dispatch(update));
-    return plan.changes.map((change) => change.label);
-  };
-
-  const beginCombat = () => {
-    start();
-    const restored = fireTrigger("combatStart");
-    setReceipt(restored.length ? `Regained: ${restored.join(", ")}` : null);
-  };
-
-  const advance = () => {
-    const step = next();
-    if (!step) return;
-    const notes: string[] = [];
-    if (step.expired.length) notes.push(`Ended: ${step.expired.join(", ")}`);
-    // Start-of-turn recharges are this character's, so they only fire when the
-    // turn that started is ours. Somebody else's turn beginning is not an event
-    // on our sheet.
-    if (step.active && step.active.id === self?.id) {
-      const restored = fireTrigger("startOfTurn");
-      if (restored.length) notes.push(`Regained: ${restored.join(", ")}`);
-    }
-    setReceipt(notes.length ? notes.join(" · ") : null);
-  };
-
-  const stopCombat = () => {
-    end();
-    setReceipt(null);
-  };
 
   // Staged combatants stay off the players' rail — the ambush isn't sprung
   // yet. Anyone with the run-combat controls still sees them (the unclaimed
@@ -222,8 +182,9 @@ export default function InitiativeRail({
                     />
                     {/* Your own initiative is the one the app can actually roll —
                         it knows the modifier. Everyone else's is a number someone
-                        called out across the table. */}
-                    {participant.id === self?.id && (
+                        called out across the table. With real dice the button
+                        disappears: the stepper it sits next to *is* the entry. */}
+                    {participant.id === self?.id && rollMode === "app" && (
                       <button
                         type="button"
                         className="icon-btn roll-btn"

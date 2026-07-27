@@ -1,9 +1,11 @@
 import classNames from "classnames";
+import { useEncounter } from "src/lib/hooks/use-encounter";
 import {
   ECONOMY_SLOTS,
   ECONOMY_SLOT_LABELS,
   PlayTurn,
 } from "src/lib/play/use-turn";
+import { useTurnFlow } from "src/lib/play/use-turn-flow";
 
 // The three things a turn spends, as slots that empty as you use them.
 //
@@ -12,6 +14,14 @@ import {
 // out loud every round. It's the spine of the play surface, so it gets the
 // weight; everything below it is quieter by comparison.
 export default function TurnEconomy({ turn }: { turn: PlayTurn }) {
+  const { inCombat, current, self } = useEncounter();
+  const { advance } = useTurnFlow();
+  // Unlike everything else on this surface, ending your own turn needs no
+  // ruling from the table — it's the one call that is entirely yours. So on
+  // your turn the button does the real thing and the order moves on; the DM's
+  // "Next turn" stays as the hatch for the player who forgets. Off-turn (or
+  // out of combat) it falls back to just clearing the slots below.
+  const myTurn = inCombat && !!current && !!self && current.id === self.id;
   return (
     <div className="turn-economy">
       <div className="row turn-economy-slots">
@@ -40,9 +50,14 @@ export default function TurnEconomy({ turn }: { turn: PlayTurn }) {
       </div>
       <button
         type="button"
-        className="turn-end-btn"
-        disabled={!turn.anySpent}
-        onClick={turn.endTurn}
+        className={classNames("turn-end-btn", { "btn-primary": myTurn })}
+        disabled={!myTurn && !turn.anySpent}
+        title={
+          myTurn
+            ? "Done — pass the turn to whoever is next"
+            : "Clear the spent slots"
+        }
+        onClick={myTurn ? advance : turn.endTurn}
       >
         End turn
       </button>

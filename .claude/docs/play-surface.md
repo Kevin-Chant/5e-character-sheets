@@ -95,9 +95,21 @@ follow-ups, prose over automation).
 - **The one exception is `CastButton`,** disabled at zero slots. That's
   arithmetic, not a rules judgement: you cannot expend a slot that doesn't exist.
 
-The turn state is **ephemeral component state**, not on the character. A turn
-isn't a fact about the character, and it lasts about a minute. It's behind a hook
-so it can move onto the shared encounter object later without touching callers.
+The turn state lives on the **participant** (`Participant.spent`), not the
+character — a turn is a fact about the encounter, so it syncs to the table and
+clears when the turn actually comes round again (`advanceTurn` resets the
+incoming actor's economy).
+
+**"End turn" is the one player control that isn't advisory.** Everything else
+on the board needs implicit agreement from the table; relinquishing your own
+turn doesn't — it's entirely the acting player's call. So on your turn the
+button advances the shared order for real (styled primary, via
+`useTurnFlow().advance`), and off-turn / out of combat it falls back to
+clearing the spent slots. The DM's "Next turn" stays as the hatch for the
+player who forgets to press it. The advance-with-triggers logic lives in
+`src/lib/play/use-turn-flow.tsx` (provider mounted by `PlaySurface`), lifted
+out of the initiative rail so both doors move the same fight and the rail's
+receipt line reports whichever boundary happened last.
 
 ## Reuse, and the one context trick
 
@@ -440,9 +452,14 @@ every creature appeared twice with different controls. Now `InitiativeRail`
 takes a `variant`: the `dm` rail is just round + whose-turn callout + advance /
 end (and "Start combat" out of combat), and the board rows carry the
 initiative steppers (pre-combat — in combat the order is frozen and the score
-is a static badge), the add form and remove. A row is init | who | HP |
+is a static badge), the add form and remove. A row is init | who | vitals |
 conditions | concentration | remove; the active row is spotlit and the next
-one carries a small "next" chip.
+one carries a small "next" chip. The vitals cell speaks deltas first: a small
+damage box ("takes 9"; `+N` heals) is the primary write, routed through
+`applyDamage`/`applyHealing` so temp HP drains first and the concentration
+reminder fires with the true dealt number — and the running total beside it
+is a button that opens a direct set-HP edit, the escape hatch for corrections
+a delta can't express.
 
 Workflow pieces the mission ("multiple combats, DM-orchestrated") forced:
 
@@ -532,8 +549,10 @@ machinery and a join-consent flow, a feature of its own.
 (optional, no migration) travels in the projection, because "you take 12" is
 how tables speak and the DM can't drain a pool they can't see. Pure
 `applyDamage(vitals, amount)` takes temp first, remainder off HP, floored at
-0 — used by the report queue's Apply; the row stepper stays an absolute
-_editor_. `receiveState.ownVitals` now carries `tempHp` back onto the
+0 — used by the report queue's Apply **and** by each DM row's damage box
+(`applyHealing` is the `+N` counterpart, clamped to max); direct HP set is
+the click-the-total escape hatch. `receiveState.ownVitals` carries `tempHp`
+back onto the
 target's sheet, and both concentration watchers count absorbed damage (5e
 keys the DC off damage _taken_), at the cost of a rare false prompt when
 temp HP merely expires.
@@ -541,10 +560,12 @@ temp HP merely expires.
 **The initiative call** (`CALL_INITIATIVE`, carries nothing): the DM rail's
 "Call for initiative" rolls d20 + modifier for every sheet this client
 brought (`initiativeModifierFor` in `play/initiative.ts`, shared with the
-rail's self-roll button) and prompts every player — one click rolls with
-their own sheet's modifier and writes their row; "I rolled my own" dismisses
-for the dice-on-the-table player. The prompt clears when combat starts or
-the connection drops.
+rail's self-roll button) and prompts every player. The prompt follows the
+roll-mode toggle (see `rolling.md`): app mode is one click with the sheet's
+own modifier; real-dice mode is a type-your-total box. Either writes the
+row directly; "Not now" dismisses. The prompt clears when combat starts or
+the connection drops. In real-dice mode the rail's self-roll die button
+also disappears — the stepper beside it is the entry.
 
 **Advisories — the loop-smoothing prompts.** Concentration checks and damage
 reports (below); "You're next — line your turn up" when you're on deck; at 0

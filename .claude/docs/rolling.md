@@ -47,6 +47,30 @@ its `roll` `DieOperation` is a fixed stub. Real randomness lives in
 
 `formulaHasDice` / `damageHasDice` decide when a die button is worth showing.
 
+## App dice vs real dice: the roll-mode toggle
+
+Physical dice are first-class, not a workaround. A single top-level switch
+(`useRollMode`, `src/lib/hooks/use-roll-mode.tsx` — a nav-bar toggle, dice icon
+↔ hand icon) flips **every** roll surface between two treatments rather than
+each surface offering both affordances at once:
+
+- **`app`** (default): the Roll buttons as described in this doc.
+- **`manual`**: each dialog section swaps its Roll buttons for a
+  type-what-you-rolled input (`ManualRollInput` in `roll-modal.tsx`). d20
+  checks ask for the **die face** — the app still adds the modifier (ticked
+  bonus riders included) and calls the crit off the entered face; multi-die
+  rolls (damage, healing, hit dice) ask for the **total**, since nobody reads
+  out four dice one at a time. Damage extras (Sneak Attack, Smite) render as
+  reminders instead of checkboxes — the entered total is the authority, so a
+  checkbox that changed nothing would lie. The initiative-call prompt on the
+  play surface and the rail's self-roll button follow the same switch.
+
+The mode is deliberately **in-memory, not a persisted setting**: it's a table
+posture, and a refresh falling back to app dice costs one click. A manually
+entered damage total feeds the same result rendering — including the
+report-to-DM row — so the physical roller participates in the DM's
+adjudication queue exactly like the app roller.
+
 ## The three roll kinds (`RollSpec`)
 
 `RollButton` takes props that resolve to one of three specs:

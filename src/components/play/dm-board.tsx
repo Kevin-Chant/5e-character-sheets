@@ -13,6 +13,7 @@ import { useEncounter } from "src/lib/hooks/use-encounter";
 import { CONDITION_NAMES } from "src/lib/play/conditions";
 import {
   applyDamage,
+  applyHealing,
   concentrationDc,
   inInitiativeOrder,
   Participant,
@@ -269,7 +270,9 @@ export default function DmBoard() {
               </div>
               <RowVitals
                 participant={participant}
-                onChange={(vitals) => applyVitals(participant, vitals)}
+                apply={(vitals, dealt) =>
+                  applyVitals(participant, vitals, dealt)
+                }
               />
               <RowConditions participant={participant} />
               <RowConcentration
@@ -513,10 +516,10 @@ function AddCombatants({
 
 function RowVitals({
   participant,
-  onChange,
+  apply,
 }: {
   participant: Participant;
-  onChange: (vitals: { currHp: number; maxHp: number; ac: number }) => void;
+  apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
 }) {
   const [maxInput, setMaxInput] = useState("");
   const vitals = participant.vitals;
@@ -532,7 +535,7 @@ function RowVitals({
           e.preventDefault();
           const max = Number(maxInput);
           if (!(max > 0)) return;
-          onChange({ currHp: max, maxHp: max, ac: 0 });
+          apply({ currHp: max, maxHp: max, ac: 0 });
           setMaxInput("");
         }}
       >
@@ -554,13 +557,8 @@ function RowVitals({
 
   return (
     <div className="dm-row-vitals">
-      <StepperInput
-        value={vitals.currHp}
-        min={0}
-        ariaLabel={`${participant.name} hit points`}
-        onChange={(currHp) => onChange({ ...vitals, currHp })}
-      />
-      <span className="dm-hp-max">/ {vitals.maxHp}</span>
+      <DamageEntry participant={participant} apply={apply} />
+      <HpDisplay participant={participant} apply={apply} />
       {(vitals.tempHp ?? 0) > 0 && (
         <span
           className="dm-temp"
@@ -575,9 +573,121 @@ function RowVitals({
         // publish anyway.
         vitals.ac > 0 && <span className="dm-row-ac">AC {vitals.ac}</span>
       ) : (
-        <AcInput participant={participant} onChange={onChange} />
+        <AcInput participant={participant} apply={apply} />
       )}
     </div>
+  );
+}
+
+// The primary HP write, in the words a table uses: "the goblin takes 9",
+// "you regain 10" — a delta, never a recomputed absolute. Damage drains temp
+// HP first (same arithmetic as an accepted report) and feeds the concentration
+// reminder; a leading + heals instead. Enter applies, like the concentration
+// box two cells over.
+function DamageEntry({
+  participant,
+  apply,
+}: {
+  participant: Participant;
+  apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
+}) {
+  const [raw, setRaw] = useState("");
+  const vitals = participant.vitals!;
+  return (
+    <form
+      className="dm-damage-entry"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const trimmed = raw.trim();
+        const heals = trimmed.startsWith("+");
+        const amount = Number(heals ? trimmed.slice(1) : trimmed);
+        if (!(amount > 0)) return;
+        if (heals) apply(applyHealing(vitals, amount), 0);
+        else apply(applyDamage(vitals, amount), Math.floor(amount));
+        setRaw("");
+      }}
+    >
+      <input
+        type="text"
+        inputMode="numeric"
+        className="dm-damage-input"
+        aria-label={`Damage to ${participant.name}`}
+        placeholder="dmg"
+        title="Damage dealt — temp HP soaks first. Type +N to heal. Enter applies."
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+      />
+    </form>
+  );
+}
+
+// The current total, doubling as the escape hatch: the number is a button, and
+// clicking it opens a direct "set HP to exactly this" edit for the corrections
+// deltas can't express cleanly (a stat-block fix, an undo by hand).
+function HpDisplay({
+  participant,
+  apply,
+}: {
+  participant: Participant;
+  apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const vitals = participant.vitals!;
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="dm-hp-display"
+        title="Set hit points directly"
+        aria-label={`Set ${participant.name} hit points directly`}
+        onClick={() => setEditing(true)}
+      >
+        {vitals.currHp}
+        <span className="dm-hp-max">/ {vitals.maxHp}</span>
+      </button>
+    );
+  }
+  return (
+    <AbsoluteHpInput
+      participant={participant}
+      apply={apply}
+      done={() => setEditing(false)}
+    />
+  );
+}
+
+function AbsoluteHpInput({
+  participant,
+  apply,
+  done,
+}: {
+  participant: Participant;
+  apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
+  done: () => void;
+}) {
+  const vitals = participant.vitals!;
+  const { inputProps } = useDeferredNumber({
+    value: vitals.currHp,
+    min: 0,
+    onCommit: (currHp) => apply({ ...vitals, currHp }),
+  });
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      className="dm-hp-input"
+      aria-label={`${participant.name} hit points`}
+      autoFocus
+      {...inputProps}
+      onBlur={() => {
+        inputProps.onBlur();
+        done();
+      }}
+      onKeyDown={(e) => {
+        inputProps.onKeyDown(e);
+        if (e.key === "Enter" || e.key === "Escape") done();
+      }}
+    />
   );
 }
 
@@ -585,16 +695,16 @@ function RowVitals({
 // box rather than "AC 0" — unset, not naked.
 function AcInput({
   participant,
-  onChange,
+  apply,
 }: {
   participant: Participant;
-  onChange: (vitals: { currHp: number; maxHp: number; ac: number }) => void;
+  apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
 }) {
   const vitals = participant.vitals!;
   const { inputProps } = useDeferredNumber({
     value: vitals.ac,
     min: 0,
-    onCommit: (ac) => onChange({ ...vitals, ac }),
+    onCommit: (ac) => apply({ ...vitals, ac }, 0),
   });
   return (
     <label className="dm-field-label">

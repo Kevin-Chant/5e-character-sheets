@@ -59,4 +59,21 @@ describe("per-round guidance on the play surface", () => {
     expect(screen.getByText("Your turn")).toBeInTheDocument();
     expect(container.querySelector(".play-body.off-turn")).toBeNull();
   });
+
+  it("End turn passes the turn for real when it's yours", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSurface();
+    await intoCombatWithGoblin(user, container);
+
+    // Off-turn with nothing spent it's the slot-reset button, and inert.
+    expect(screen.getByRole("button", { name: "End turn" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Next turn" }));
+    expect(screen.getByText("Your turn")).toBeInTheDocument();
+
+    // On your turn it's the real thing — no ruling needed, the order moves.
+    await user.click(screen.getByRole("button", { name: "End turn" }));
+    expect(screen.getByText("Goblin is acting")).toBeInTheDocument();
+    expect(container.querySelector(".play-body.off-turn")).not.toBeNull();
+  });
 });

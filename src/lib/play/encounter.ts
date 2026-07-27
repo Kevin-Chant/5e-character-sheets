@@ -507,6 +507,19 @@ export function applyDamage(
   };
 }
 
+// The other half of the table's arithmetic — "you regain 10". Healing never
+// restores temporary hit points and never overshoots the maximum.
+export function applyHealing(
+  vitals: ParticipantVitals,
+  amount: number,
+): ParticipantVitals {
+  const healing = Math.max(0, Math.floor(amount));
+  return {
+    ...vitals,
+    currHp: Math.min(vitals.maxHp, vitals.currHp + healing),
+  };
+}
+
 export function setVitals(
   encounter: Encounter,
   id: string,

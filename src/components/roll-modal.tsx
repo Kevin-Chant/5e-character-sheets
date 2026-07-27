@@ -6,6 +6,7 @@ import {
 } from "src/lib/formula";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRoller } from "src/lib/hooks/use-roller";
+import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import { useSettings } from "src/lib/hooks/use-settings";
 import {
   CheckMode,
@@ -167,6 +168,54 @@ export default function RollModal() {
   );
 }
 
+// The manual half of every roll surface: real dice were rolled off-screen, and
+// this is where the result comes in. One input and a submit, because the player
+// is mid-turn with dice in one hand.
+function ManualRollInput({
+  prompt,
+  buttonLabel = "Enter",
+  min = 1,
+  max,
+  onCommit,
+}: {
+  prompt: string;
+  buttonLabel?: string;
+  min?: number;
+  max?: number;
+  onCommit: (value: number) => void;
+}) {
+  const [raw, setRaw] = useState("");
+  const parsed = Number(raw);
+  const valid =
+    raw.trim() !== "" &&
+    Number.isFinite(parsed) &&
+    parsed >= min &&
+    (max === undefined || parsed <= max);
+  return (
+    <form
+      className="row roll-manual"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!valid) return;
+        onCommit(Math.floor(parsed));
+        setRaw("");
+      }}
+    >
+      <input
+        type="text"
+        inputMode="numeric"
+        aria-label={prompt}
+        placeholder={prompt}
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+      />
+      <button type="submit" className="btn-primary" disabled={!valid}>
+        {buttonLabel}
+      </button>
+    </form>
+  );
+}
+
 // A save-based attack's header: the DC the *target* rolls against. Read-only —
 // the target's roll happens on the other side of the table, so there's nothing
 // here to roll, only the number to call out and what a success does.
@@ -240,6 +289,8 @@ function CheckControls({
   const {
     settings: { criticalsOnAllRolls, explodingCriticals },
   } = useSettings();
+  const { rollMode } = useRollMode();
+  const manual = rollMode === "manual";
   const { selfConditions: conditions } = useEncounter();
   // Riders the weapon rules out (Archery on a greatsword, Reckless Attack's
   // note on a bow) are dropped before anything else looks at them.
@@ -305,27 +356,47 @@ function CheckControls({
           </span>
         </label>
       ))}
-      <div className="row roll-modes">
-        <button
-          aria-label="Roll with disadvantage"
-          onClick={() => roll("disadvantage")}
-        >
-          Disadv.
-        </button>
-        <button
-          aria-label="Roll"
-          className="btn-primary roll-go"
-          onClick={() => roll("normal")}
-        >
-          Roll
-        </button>
-        <button
-          aria-label="Roll with advantage"
-          onClick={() => roll("advantage")}
-        >
-          Adv.
-        </button>
-      </div>
+      {manual ? (
+        // The die face rather than the total: the app still does the
+        // arithmetic (so the ticked bonuses above count) and can call the
+        // crit. Advantage happened at the table — type the die you kept.
+        <ManualRollInput
+          prompt="What did the d20 show?"
+          min={1}
+          max={20}
+          onCommit={(face) => {
+            setResult({
+              dice: [face],
+              kept: face,
+              modifier: effectiveModifier,
+              total: face + effectiveModifier,
+            });
+            onCrit?.(face >= threshold, 0);
+          }}
+        />
+      ) : (
+        <div className="row roll-modes">
+          <button
+            aria-label="Roll with disadvantage"
+            onClick={() => roll("disadvantage")}
+          >
+            Disadv.
+          </button>
+          <button
+            aria-label="Roll"
+            className="btn-primary roll-go"
+            onClick={() => roll("normal")}
+          >
+            Roll
+          </button>
+          <button
+            aria-label="Roll with advantage"
+            onClick={() => roll("advantage")}
+          >
+            Adv.
+          </button>
+        </div>
+      )}
       {/* Feature riders and active conditions say the same kind of thing — "this
           roll may have advantage, you decide" — so they share one list rather
           than arriving as two competing sets of small print. Conditions come
@@ -412,6 +483,8 @@ function EffectControls({
   const {
     settings: { criticalDamageMode },
   } = useSettings();
+  const { rollMode } = useRollMode();
+  const manual = rollMode === "manual";
   const mechanics = spell?.mechanics;
   const isHealing = !!mechanics?.healing;
   const isCantrip = mechanics?.level === 0;
@@ -587,13 +660,22 @@ function EffectControls({
           <p className="roll-formula">
             {formatCustomFormula(healing!, character, false)}
           </p>
-          <button
-            className="btn-primary roll-go"
-            disabled={noSlots}
-            onClick={rollHealEffect}
-          >
-            Roll Healing
-          </button>
+          {manual ? (
+            !noSlots && (
+              <ManualRollInput
+                prompt="Total healing"
+                onCommit={(total) => setHealResult({ total, dice: [] })}
+              />
+            )
+          ) : (
+            <button
+              className="btn-primary roll-go"
+              disabled={noSlots}
+              onClick={rollHealEffect}
+            >
+              Roll Healing
+            </button>
+          )}
           {healResult && (
             <div className="column roll-result">
               <span className="roll-total font-large">{healResult.total}</span>
@@ -611,7 +693,22 @@ function EffectControls({
               ? formatCustomFormulaWithDamage(map, character, false)
               : "No damage dice"}
           </p>
-          {extras.length > 0 && (
+          {/* With real dice the entered total is the authority, so the extras
+              become reminders of what to add at the table instead of
+              checkboxes that would change nothing. */}
+          {manual && extras.length > 0 && (
+            <div className="column roll-extras">
+              {extras.map(({ source, rider }) => (
+                <p key={source} className="muted font-small">
+                  {rider.slot
+                    ? `${source} (${dieLabel(rider.slot.die)}s scale with the slot you expend)`
+                    : `${source} (+${formatCustomFormula(rider.amount, character, false)}${rider.oncePerTurn ? ", once/turn" : ""})`}
+                  {rider.note ? ` — ${rider.note}` : ""}
+                </p>
+              ))}
+            </div>
+          )}
+          {!manual && extras.length > 0 && (
             <div className="column roll-extras">
               {extras.map(({ source, rider, optIn }) => {
                 const toggle = (checked: boolean) =>
@@ -715,7 +812,7 @@ function EffectControls({
               })}
             </div>
           )}
-          {setCritical && hasDamage && (
+          {!manual && setCritical && hasDamage && (
             <label className="row roll-extra-toggle roll-crit-toggle">
               <input
                 type="checkbox"
@@ -725,13 +822,25 @@ function EffectControls({
               <span>Critical hit — {CRIT_MODE_LABELS[criticalDamageMode]}</span>
             </label>
           )}
-          <button
-            className="btn-primary roll-go"
-            disabled={!hasDamage || noSlots}
-            onClick={rollDamageEffect}
-          >
-            Roll {crit && "Critical "}Damage
-          </button>
+          {manual ? (
+            hasDamage &&
+            !noSlots && (
+              <ManualRollInput
+                prompt="Total damage"
+                onCommit={(total) =>
+                  setDamageResult({ total, parts: [], extras: [] })
+                }
+              />
+            )
+          ) : (
+            <button
+              className="btn-primary roll-go"
+              disabled={!hasDamage || noSlots}
+              onClick={rollDamageEffect}
+            >
+              Roll {crit && "Critical "}Damage
+            </button>
+          )}
           {damageResult && (
             <div className="column roll-result">
               <span
@@ -817,6 +926,8 @@ function HitDieControls({
   die: StandardDie;
 }) {
   const { dispatch } = useCharacter();
+  const { rollMode } = useRollMode();
+  const manual = rollMode === "manual";
   const formula: CustomFormula = useMemo(() => hitDieFormula(die), [die]);
   const riders = useMemo(() => ridersFor(character, "hitDie"), [character]);
   const remaining = remainingHitDice(character, die);
@@ -866,13 +977,22 @@ function HitDieControls({
       ) : (
         <p className="muted">No hit dice remaining.</p>
       )}
-      <button
-        className="btn-primary roll-go"
-        disabled={remaining <= 0}
-        onClick={roll}
-      >
-        Roll
-      </button>
+      {manual ? (
+        remaining > 0 && (
+          <ManualRollInput
+            prompt="Your total, modifiers included"
+            onCommit={(total) => setResult({ total, dice: [], applied: null })}
+          />
+        )
+      ) : (
+        <button
+          className="btn-primary roll-go"
+          disabled={remaining <= 0}
+          onClick={roll}
+        >
+          Roll
+        </button>
+      )}
       {result && (
         <div className="column roll-result">
           <span className="roll-total font-large">{healing}</span>
@@ -907,6 +1027,7 @@ function FormulaControls({
   character: Character;
   formula: CustomFormula;
 }) {
+  const { rollMode } = useRollMode();
   const [result, setResult] = useState<{
     total: number;
     dice: number[];
@@ -920,9 +1041,16 @@ function FormulaControls({
       <p className="roll-formula">
         {formatCustomFormula(formula, character, false)}
       </p>
-      <button className="btn-primary roll-go" onClick={roll}>
-        Roll
-      </button>
+      {rollMode === "manual" ? (
+        <ManualRollInput
+          prompt="Your total"
+          onCommit={(total) => setResult({ total, dice: [] })}
+        />
+      ) : (
+        <button className="btn-primary roll-go" onClick={roll}>
+          Roll
+        </button>
+      )}
       {result && (
         <div className="column roll-result">
           <span className="roll-total font-large">{result.total}</span>
