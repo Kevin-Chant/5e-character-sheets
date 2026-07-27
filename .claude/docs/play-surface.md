@@ -599,6 +599,38 @@ targetName, amount, label}`. The DM board queues it with an editable amount
   modifier computed from the sheet), and Kept/Lost buttons. Nothing drops
   concentration except the buttons.
 
+## Roll calls, healing routing, and death saves
+
+Three more loops on the same report-never-write pattern:
+
+- **Ad-hoc checks and roll calls.** `src/lib/play/checks.ts` models any save /
+  ability check / skill as data (`RollCallCheck`), with `checkModifier`
+  mirroring the sheet's skill-column math (it lives beside `initiative.ts`
+  because the bonus formulas need the engine, which `rules.ts` can't import).
+  Player side: a `CheckLauncher` select in the play header opens the ordinary
+  roll dialog — advantage, condition notes and real-dice mode included. DM
+  side: the board's "Ask for a roll" form sends `ROLL_CALL {check,
+toClientId?}` — everyone, or one present client, same routing as sheet
+  assignment. The prompt (`RollCallPrompt`) answers in one click (Disadv. /
+  Roll / Adv., or a type-your-total box in real-dice mode) and sends
+  `ROLL_RESULT {fromName, label, total}` back; the seat's queue shows "Brakka
+  rolled 17 (Perception)" with a Got-it dismiss. The prompt keeps showing
+  what was sent until dismissed, so the player knows what left their hands.
+- **Healing routes through the DM, then the recipient.** The roll dialog's
+  healing result gets the same report row (`healing: true` on the shared
+  `DamageReport`). On the DM queue, approving splits by ownership: a
+  hand-typed row applies directly (`applyHealing`); a character-backed row
+  sends `HEAL {targetId, amount, fromName}` and the _recipient_ gets an
+  "N healing incoming from A — Apply / Ignore" banner whose Apply is their
+  own sheet write. Nobody ever writes a sheet that isn't theirs.
+- **Death saves ride the projection** (`ParticipantVitals.deathSaves`,
+  present only while down or mid-saves). The DM row always shows the "2✓ 1✗"
+  chip; the party rail shows it by default behind
+  `Encounter.hideDeathSaves` — table policy like the sharing level, set from
+  the board's grouped visibility controls (`.dm-visibility`: the sharing
+  select + the death-saves checkbox) and mirrored in Settings → Game. Never
+  shown where the sharing level already hides vitals entirely.
+
 ## The sessions surface
 
 `src/routes/sessions.tsx` + `src/components/sessions/session-lobby.tsx`.

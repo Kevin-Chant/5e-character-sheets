@@ -51,6 +51,7 @@ export default function InitiativeRail({
     setCombatantInitiative,
     canRun,
     sharing,
+    hideDeathSaves,
     callForInitiative,
     sessionStatus,
   } = useEncounter();
@@ -120,6 +121,7 @@ export default function InitiativeRail({
                       participant={participant}
                       selfId={self?.id}
                       sharing={sharing}
+                      showDeathSaves={!hideDeathSaves}
                     />
                     {participant.conditions.length > 0 && (
                       <span
@@ -179,6 +181,7 @@ export default function InitiativeRail({
                       participant={participant}
                       selfId={self?.id}
                       sharing={sharing}
+                      showDeathSaves={!hideDeathSaves}
                     />
                     {/* Your own initiative is the one the app can actually roll —
                         it knows the modifier. Everyone else's is a number someone
@@ -287,28 +290,47 @@ function SharedVitals({
   participant,
   selfId,
   sharing,
+  showDeathSaves,
 }: {
   participant: Participant;
   selfId?: string;
   sharing: SharingLevel;
+  showDeathSaves: boolean;
 }) {
   if (participant.id === selfId || !participant.vitals) return null;
   const visibility = vitalsVisibility(sharing, !!participant.characterUuid);
+  if (visibility === "none") return null;
+  // Death saves are the table's drama by default — everyone leans in when
+  // someone is down — behind the DM's hide toggle for tables that keep it
+  // private. Never shown when the sharing level hides vitals entirely.
+  const deathSaves =
+    showDeathSaves && participant.vitals.deathSaves ? (
+      <span
+        className="initiative-death-saves"
+        title="Death saving throws — successes · failures"
+      >
+        {participant.vitals.deathSaves.successes}✓{" "}
+        {participant.vitals.deathSaves.failures}✗
+      </span>
+    ) : null;
   if (visibility === "exact") {
     return (
-      <span
-        className="initiative-hp"
-        title={`${participant.vitals.currHp} of ${participant.vitals.maxHp} hit points, AC ${participant.vitals.ac}`}
-      >
-        {participant.vitals.currHp}/{participant.vitals.maxHp}
-      </span>
+      <>
+        <span
+          className="initiative-hp"
+          title={`${participant.vitals.currHp} of ${participant.vitals.maxHp} hit points, AC ${participant.vitals.ac}`}
+        >
+          {participant.vitals.currHp}/{participant.vitals.maxHp}
+        </span>
+        {deathSaves}
+      </>
     );
   }
-  if (visibility === "descriptor") {
-    const read = healthDescriptor(participant.vitals);
-    return (
+  const read = healthDescriptor(participant.vitals);
+  return (
+    <>
       <span className={`initiative-health ${read.toLowerCase()}`}>{read}</span>
-    );
-  }
-  return null;
+      {deathSaves}
+    </>
+  );
 }

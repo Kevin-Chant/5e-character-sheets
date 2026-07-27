@@ -23,6 +23,8 @@ export default function GameSettings() {
     canRun,
     sharing,
     setSharingLevel,
+    hideDeathSaves,
+    setDeathSavesHidden,
   } = useEncounter();
   const canTakeOver = sessionStatus === "connected" && hasDm && !isDm;
   // Whoever runs the table sets its policy — with no seat claimed that's
@@ -249,6 +251,15 @@ export default function GameSettings() {
               </option>
             ))}
           </select>
+          <label className="settings-checkbox">
+            <input
+              type="checkbox"
+              checked={!hideDeathSaves}
+              onChange={(e) => setDeathSavesHidden(!e.target.checked)}
+            />
+            The party sees each other&apos;s death saving throws (the DM always
+            does)
+          </label>
         </SettingsSection>
       )}
 

@@ -7,6 +7,7 @@ import {
   ParticipantVitals,
   reclaimDmSeat,
 } from "src/lib/play/encounter";
+import { RollCallCheck } from "src/lib/play/checks";
 import { PlaySessionRef } from "src/lib/types";
 
 // The party session: one shared encounter across several browsers.
@@ -64,6 +65,17 @@ export const PlaySessionEvent = {
   // Keeping the HP write on the DM's side is what makes this safe to offer
   // every player — the table's arithmetic stays with whoever runs the table.
   DAMAGE: BASE_APPNAME + ".encounter.damage",
+  // "Brakka, give me a Perception check." The DM's ask, addressed to one
+  // client or (toClientId absent) the whole table — the same routing shape as
+  // the initiative call, but for any d20 the game asks for.
+  ROLL_CALL: BASE_APPNAME + ".encounter.rollcall",
+  // The answer coming back: a name, a label and a total for the DM's queue.
+  // A report like DAMAGE — never merged, never persisted.
+  ROLL_RESULT: BASE_APPNAME + ".encounter.rollresult",
+  // "8 healing incoming from Brakka." Sent by the DM *after* approving a
+  // healing report; the recipient applies it to their own sheet (or ignores
+  // it) — their vitals, their write, same authority rule as everywhere else.
+  HEAL: BASE_APPNAME + ".encounter.heal",
 };
 
 // A player's rolled damage, waiting on the DM. Transient like presence — it
@@ -77,6 +89,36 @@ export interface DamageReport {
   amount: number;
   // What was rolled — "Greatsword", "Fireball at 5th".
   label: string;
+  // A healing report rides the same queue with the sign flipped: the DM
+  // approves it, and for a character-backed target the approval becomes a
+  // HEAL offer to the recipient rather than a direct write.
+  healing?: boolean;
+}
+
+// The DM asked for a d20. `toClientId` absent means everyone — "alright
+// everyone, roll a DEX save".
+export interface RollCall {
+  callId: string;
+  check: RollCallCheck;
+  toClientId?: string;
+}
+
+// A player's answer to a roll call (or any ad-hoc check they chose to send).
+export interface RollResult {
+  resultId: string;
+  fromName: string;
+  label: string;
+  total: number;
+}
+
+// Approved healing on its way to the recipient, who applies or ignores it.
+export interface HealingOffer {
+  offerId: string;
+  // The participant being healed; each client checks whether that row is its
+  // own open character.
+  targetId: string;
+  amount: number;
+  fromName: string;
 }
 
 // Session codes are **uuids, and the uuid is the authentication** — the same
@@ -164,6 +206,9 @@ export type SessionMessage =
   | { kind: "presence"; clientId: string; name: string }
   | { kind: "callInitiative"; clientId: string }
   | { kind: "damageReport"; clientId: string; report: DamageReport }
+  | { kind: "rollCall"; clientId: string; call: RollCall }
+  | { kind: "rollResult"; clientId: string; result: RollResult }
+  | { kind: "healingOffer"; clientId: string; offer: HealingOffer }
   | {
       kind: "assignSheet";
       clientId: string;
@@ -375,7 +420,9 @@ function sameVitals(
     a.currHp === b.currHp &&
     a.maxHp === b.maxHp &&
     a.ac === b.ac &&
-    (a.tempHp ?? 0) === (b.tempHp ?? 0)
+    (a.tempHp ?? 0) === (b.tempHp ?? 0) &&
+    (a.deathSaves?.successes ?? 0) === (b.deathSaves?.successes ?? 0) &&
+    (a.deathSaves?.failures ?? 0) === (b.deathSaves?.failures ?? 0)
   );
 }
 

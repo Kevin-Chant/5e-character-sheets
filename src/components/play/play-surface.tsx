@@ -11,7 +11,13 @@ import { RollerProvider, useRoller } from "src/lib/hooks/use-roller";
 import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import { getPB, modifier } from "src/lib/rules";
 import { initiativeModifierFor } from "src/lib/play/initiative";
-import { rollD20Check } from "src/lib/roll";
+import {
+  CHECK_GROUPS,
+  checkForValue,
+  checkLabel,
+  checkModifier,
+} from "src/lib/play/checks";
+import { CheckMode, rollD20Check } from "src/lib/roll";
 import { usePlayTurn } from "src/lib/play/use-turn";
 import { TurnFlowProvider } from "src/lib/play/use-turn-flow";
 import { Character } from "src/lib/types";
@@ -133,6 +139,8 @@ export default function PlaySurface() {
                 dismiss={dismissInitiativeCall}
               />
             )}
+            <RollCallPrompt />
+            <IncomingHealingBanner />
             <ConcentrationCheckBanner />
             <InitiativeRail variant={isDm ? "dm" : "player"} />
             {/* Holding the seat swaps the whole body: a player asks "what can I
@@ -179,6 +187,10 @@ export default function PlaySurface() {
                 <header className="play-header">
                   <TurnEconomy turn={turn} />
                   <div className="play-header-links">
+                    {/* "Give me a Perception check" — the most common DM
+                        sentence there is, so answering shouldn't need a trip
+                        to the sheet and back. */}
+                    <CheckLauncher character={character} />
                     {/* Between fights is when a table rests — mid-combat the
                       button would only be a misclick. */}
                     {!inCombat && <RestShortcut />}
@@ -299,6 +311,156 @@ function InitiativeCallPrompt({
       )}
       <button type="button" onClick={dismiss}>
         Not now
+      </button>
+    </div>
+  );
+}
+
+// The ad-hoc d20 picker: any save, ability check or skill, one pick away.
+// Opens the ordinary roll dialog, so advantage, condition notes and the
+// real-dice mode all come along for free.
+function CheckLauncher({ character }: { character: Character }) {
+  const { openRoller } = useRoller();
+  return (
+    <select
+      className="check-launcher"
+      aria-label="Roll a check or save"
+      value=""
+      onChange={(e) => {
+        const check = checkForValue(e.target.value);
+        if (!check) return;
+        openRoller({
+          label: checkLabel(check),
+          spec: { kind: "check", modifier: checkModifier(character, check) },
+        });
+      }}
+    >
+      <option value="">Roll a check…</option>
+      {CHECK_GROUPS.map(({ group, options }) => (
+        <optgroup key={group} label={group}>
+          {options.map(({ value, check }) => (
+            <option key={value} value={value}>
+              {checkLabel(check)}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
+// "Brakka — give me a Perception check." The DM's ask, routed through the
+// tool: answer with one click (or type your real-dice total) and the number
+// travels back to the seat. The result stays visible until dismissed, so the
+// player knows what they sent.
+function RollCallPrompt() {
+  const { rollCall, dismissRollCall, submitRollResult, isDm } = useEncounter();
+  const { character } = useCharacter();
+  const { rollMode } = useRollMode();
+  const [raw, setRaw] = useState("");
+  const [answered, setAnswered] = useState<{
+    callId: string;
+    total: number;
+  } | null>(null);
+  if (!rollCall || isDm || !character) return null;
+
+  const label = checkLabel(rollCall.check);
+  const mod = checkModifier(character, rollCall.check);
+  const sent = answered?.callId === rollCall.callId ? answered : null;
+  const send = (total: number) => {
+    submitRollResult(label, total);
+    setAnswered({ callId: rollCall.callId, total });
+  };
+  const rollAndSend = (mode: CheckMode) => send(rollD20Check(mod, mode).total);
+
+  return (
+    <div className="assign-prompt">
+      <span>
+        Your DM asks for a <strong>{label}</strong>.
+      </span>
+      {sent ? (
+        <>
+          <span>
+            You sent <strong>{sent.total}</strong>.
+          </span>
+          <button type="button" onClick={dismissRollCall}>
+            Done
+          </button>
+        </>
+      ) : (
+        <>
+          {rollMode === "manual" ? (
+            <form
+              className="row roll-manual"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const parsed = Number(raw);
+                if (!raw.trim() || !Number.isFinite(parsed)) return;
+                send(Math.floor(parsed));
+                setRaw("");
+              }}
+            >
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label="Your roll total"
+                placeholder={`Your total (d20 ${mod >= 0 ? "+" : ""}${mod})`}
+                value={raw}
+                onChange={(e) => setRaw(e.target.value)}
+              />
+              <button type="submit" className="btn-primary">
+                Send
+              </button>
+            </form>
+          ) : (
+            <span className="row roll-manual">
+              <button type="button" onClick={() => rollAndSend("disadvantage")}>
+                Disadv.
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => rollAndSend("normal")}
+              >
+                Roll ({mod >= 0 ? "+" : ""}
+                {mod})
+              </button>
+              <button type="button" onClick={() => rollAndSend("advantage")}>
+                Adv.
+              </button>
+            </span>
+          )}
+          <button type="button" onClick={dismissRollCall}>
+            Not now
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// "8 healing incoming from Maelina." The last leg of a healing report: the DM
+// approved it, and applying it is the recipient's own write on their own
+// sheet — consent all the way down.
+function IncomingHealingBanner() {
+  const { incomingHealing, applyIncomingHealing, declineIncomingHealing } =
+    useEncounter();
+  if (!incomingHealing) return null;
+  return (
+    <div className="assign-prompt">
+      <span>
+        <strong>{incomingHealing.amount} healing</strong> incoming from{" "}
+        <strong>{incomingHealing.fromName}</strong>.
+      </span>
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={applyIncomingHealing}
+      >
+        Apply +{incomingHealing.amount}
+      </button>
+      <button type="button" onClick={declineIncomingHealing}>
+        Ignore
       </button>
     </div>
   );

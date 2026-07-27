@@ -4,6 +4,9 @@ import autobahn from "autobahn-browser";
 import { Encounter } from "src/lib/play/encounter";
 import {
   DamageReport,
+  HealingOffer,
+  RollCall,
+  RollResult,
   isValidSessionCode,
   newSessionCode,
   normalizeSessionCode,
@@ -51,6 +54,13 @@ interface PlaySessionOptions {
   // A player rolled damage at something. Everyone hears it; whoever holds the
   // seat queues it for a decision.
   onDamageReport: (report: DamageReport, fromClientId: string) => void;
+  // The DM asked for a d20 — everyone, or one addressed client.
+  onRollCall: (call: RollCall, fromClientId: string) => void;
+  // A player's answer came back. Whoever holds the seat shows it.
+  onRollResult: (result: RollResult, fromClientId: string) => void;
+  // Approved healing looking for its recipient — each client checks whether
+  // the target participant is its own open character.
+  onHealingOffer: (offer: HealingOffer, fromClientId: string) => void;
   // Someone wants to play an offered sheet: whoever owns it replies.
   onClaimSheet: (participantId: string, fromClientId: string) => void;
   // A whole sheet arrived. The provider checks it's addressed to us and loads
@@ -71,6 +81,9 @@ export function usePlaySession({
   onAssignSheet,
   onCallInitiative,
   onDamageReport,
+  onRollCall,
+  onRollResult,
+  onHealingOffer,
   onClaimSheet,
   onSheet,
 }: PlaySessionOptions) {
@@ -93,6 +106,9 @@ export function usePlaySession({
     onAssignSheet,
     onCallInitiative,
     onDamageReport,
+    onRollCall,
+    onRollResult,
+    onHealingOffer,
     onClaimSheet,
     onSheet,
   });
@@ -104,6 +120,9 @@ export function usePlaySession({
     onAssignSheet,
     onCallInitiative,
     onDamageReport,
+    onRollCall,
+    onRollResult,
+    onHealingOffer,
     onClaimSheet,
     onSheet,
   };
@@ -124,11 +143,17 @@ export function usePlaySession({
                 ? PlaySessionEvent.CALL_INITIATIVE
                 : message.kind === "damageReport"
                   ? PlaySessionEvent.DAMAGE
-                  : message.kind === "claimSheet"
-                    ? PlaySessionEvent.CLAIM_SHEET
-                    : message.kind === "sheet"
-                      ? PlaySessionEvent.SHEET
-                      : PlaySessionEvent.LEAVE;
+                  : message.kind === "rollCall"
+                    ? PlaySessionEvent.ROLL_CALL
+                    : message.kind === "rollResult"
+                      ? PlaySessionEvent.ROLL_RESULT
+                      : message.kind === "healingOffer"
+                        ? PlaySessionEvent.HEAL
+                        : message.kind === "claimSheet"
+                          ? PlaySessionEvent.CLAIM_SHEET
+                          : message.kind === "sheet"
+                            ? PlaySessionEvent.SHEET
+                            : PlaySessionEvent.LEAVE;
     try {
       session.publish(topic, [message]);
     } catch {
@@ -161,6 +186,21 @@ export function usePlaySession({
   const sendDamageReport = useCallback(
     (report: DamageReport) =>
       publish({ kind: "damageReport", clientId, report }),
+    [publish, clientId],
+  );
+
+  const sendRollCall = useCallback(
+    (call: RollCall) => publish({ kind: "rollCall", clientId, call }),
+    [publish, clientId],
+  );
+
+  const sendRollResult = useCallback(
+    (result: RollResult) => publish({ kind: "rollResult", clientId, result }),
+    [publish, clientId],
+  );
+
+  const sendHealingOffer = useCallback(
+    (offer: HealingOffer) => publish({ kind: "healingOffer", clientId, offer }),
     [publish, clientId],
   );
 
@@ -282,6 +322,27 @@ export function usePlaySession({
               return;
             handlers.current.onDamageReport(message.report, message.clientId);
           }),
+          session.subscribe(PlaySessionEvent.ROLL_CALL, (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (message?.kind !== "rollCall" || message.clientId === clientId)
+              return;
+            handlers.current.onRollCall(message.call, message.clientId);
+          }),
+          session.subscribe(PlaySessionEvent.ROLL_RESULT, (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (message?.kind !== "rollResult" || message.clientId === clientId)
+              return;
+            handlers.current.onRollResult(message.result, message.clientId);
+          }),
+          session.subscribe(PlaySessionEvent.HEAL, (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (
+              message?.kind !== "healingOffer" ||
+              message.clientId === clientId
+            )
+              return;
+            handlers.current.onHealingOffer(message.offer, message.clientId);
+          }),
           session.subscribe(PlaySessionEvent.CLAIM_SHEET, (args: any[]) => {
             const message = args?.[0] as SessionMessage | undefined;
             if (message?.kind !== "claimSheet" || message.clientId === clientId)
@@ -363,6 +424,9 @@ export function usePlaySession({
     assignSheet,
     sendCallInitiative,
     sendDamageReport,
+    sendRollCall,
+    sendRollResult,
+    sendHealingOffer,
     requestSheet,
     sendSheet,
   };

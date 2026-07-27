@@ -19,6 +19,7 @@ import {
   reseatParticipant,
   setConcentration,
   setHidden,
+  setHideDeathSaves,
   setSharing,
   setSpent,
   setVitals,
@@ -450,6 +451,34 @@ describe("damage as a delta", () => {
     const hit = applyDamage({ currHp: 20, maxHp: 20, ac: 15, tempHp: 12 }, 7);
     expect(hit.currHp).toBe(20);
     expect(hit.tempHp).toBe(5);
+  });
+});
+
+describe("death saves in the projection", () => {
+  it("setVitals treats a death-save change as a real change", () => {
+    let encounter = roster();
+    const base = { currHp: 0, maxHp: 20, ac: 15 };
+    encounter = setVitals(encounter, "a", base);
+    const withSaves = setVitals(encounter, "a", {
+      ...base,
+      deathSaves: { successes: 1, failures: 0 },
+    });
+    expect(withSaves).not.toBe(encounter);
+    // And an identical write is still a no-op.
+    expect(
+      setVitals(withSaves, "a", {
+        ...base,
+        deathSaves: { successes: 1, failures: 0 },
+      }),
+    ).toBe(withSaves);
+  });
+
+  it("the hide toggle is table policy with a no-op guard", () => {
+    const encounter = roster();
+    expect(setHideDeathSaves(encounter, false)).toBe(encounter);
+    const hidden = setHideDeathSaves(encounter, true);
+    expect(hidden.hideDeathSaves).toBe(true);
+    expect(setHideDeathSaves(hidden, true)).toBe(hidden);
   });
 });
 

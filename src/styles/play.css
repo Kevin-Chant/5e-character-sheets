@@ -1020,6 +1020,17 @@
   color: var(--text-muted);
 }
 
+/* Death-save pips in miniature: "2✓ 1✗" wherever someone is down. */
+.dm-death-saves,
+.initiative-death-saves {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--danger, #a33);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
 /* The delta box is the row's primary HP write — "takes 9", "+10 heals". */
 .dm-damage-input {
   width: 3.6em;
@@ -1346,4 +1357,27 @@
 
 .dm-sharing select {
   max-width: 26rem;
+}
+
+/* The table-visibility knobs, kept together: one place to answer "what does
+   my party see". */
+.dm-visibility {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* "Ask for a roll" — the DM's side of a roll call. */
+.dm-roll-call {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+}
+
+/* The player's ad-hoc check picker in the play header. */
+.check-launcher {
+  max-width: 11rem;
 }

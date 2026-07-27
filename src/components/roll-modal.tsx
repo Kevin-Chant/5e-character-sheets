@@ -683,6 +683,7 @@ function EffectControls({
                 HP
                 {breakdown(healResult.total, healResult.dice)}
               </span>
+              <ReportDamageRow total={healResult.total} healing />
             </div>
           )}
         </>
@@ -1097,10 +1098,25 @@ function Shell({
 // its target and travel to the seat as a *report* — the DM applies, overrides
 // or ignores it, so the table's arithmetic stays with whoever runs the table.
 // Hidden solo, hidden with no DM (there'd be nobody to read it), hidden from
-// the DM (their monsters' HP is right there on the board).
-function ReportDamageRow({ total }: { total: number }) {
-  const { sessionStatus, encounter, self, hasDm, isDm, reportDamage } =
-    useEncounter();
+// the DM (their monsters' HP is right there on the board). With `healing` the
+// same row reports a heal instead: the DM approves it and the *recipient*
+// applies it, so nobody writes to a sheet that isn't theirs.
+function ReportDamageRow({
+  total,
+  healing = false,
+}: {
+  total: number;
+  healing?: boolean;
+}) {
+  const {
+    sessionStatus,
+    encounter,
+    self,
+    hasDm,
+    isDm,
+    reportDamage,
+    reportHealing,
+  } = useEncounter();
   const { request } = useRoller();
   const [targetId, setTargetId] = useState("");
   const [sent, setSent] = useState(false);
@@ -1117,14 +1133,16 @@ function ReportDamageRow({ total }: { total: number }) {
   return (
     <div className="row roll-report">
       <select
-        aria-label="Report this damage against"
+        aria-label={
+          healing ? "Report this healing for" : "Report this damage against"
+        }
         value={targetId}
         onChange={(e) => {
           setTargetId(e.target.value);
           setSent(false);
         }}
       >
-        <option value="">Against…</option>
+        <option value="">{healing ? "For…" : "Against…"}</option>
         {targets.map((p) => (
           <option key={p.id} value={p.id}>
             {p.name}
@@ -1135,7 +1153,9 @@ function ReportDamageRow({ total }: { total: number }) {
         type="button"
         disabled={!targetId || sent}
         onClick={() => {
-          reportDamage(targetId, total, request?.label ?? "Damage");
+          const label = request?.label ?? (healing ? "Healing" : "Damage");
+          if (healing) reportHealing(targetId, total, label);
+          else reportDamage(targetId, total, label);
           setSent(true);
         }}
       >

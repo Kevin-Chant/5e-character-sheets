@@ -23,6 +23,7 @@ import {
   SharingLevel,
 } from "src/lib/play/encounter";
 import { DamageReport } from "src/lib/play/session";
+import { CHECK_GROUPS, checkForValue, checkLabel } from "src/lib/play/checks";
 import StepperInput from "src/components/stepper-input";
 
 // The DM's side of the play surface.
@@ -59,6 +60,12 @@ export default function DmBoard() {
     setCombatantHidden,
     sharing,
     setSharingLevel,
+    hideDeathSaves,
+    setDeathSavesHidden,
+    offerHealing,
+    rollResults,
+    dismissRollResult,
+    callForRoll,
   } = useEncounter();
 
   // Concentration checks this board has noticed and the table hasn't answered:
@@ -123,8 +130,29 @@ export default function DmBoard() {
                 (p) => p.id === report.targetId,
               )}
               onApply={applyVitals}
+              onOfferHealing={offerHealing}
               onDone={() => dismissDamageReport(report.reportId)}
             />
+          ))}
+        </ul>
+      )}
+      {/* Answered roll calls. Read, ruled on out loud, dismissed — nothing
+          here writes anything. */}
+      {rollResults.length > 0 && (
+        <ul className="dm-damage-queue">
+          {rollResults.map((result) => (
+            <li key={result.resultId} className="dm-damage-report">
+              <span className="dm-damage-text">
+                <strong>{result.fromName}</strong> rolled{" "}
+                <strong>{result.total}</strong> ({result.label})
+              </span>
+              <button
+                type="button"
+                onClick={() => dismissRollResult(result.resultId)}
+              >
+                Got it
+              </button>
+            </li>
           ))}
         </ul>
       )}
@@ -312,36 +340,122 @@ export default function DmBoard() {
         )}
       </div>
 
-      {/* Table style, the DM's call: how much health the players see of each
-          other and of the monsters. It lives on the encounter so it reaches
-          every client — and it's here as well as in Settings → Game because
-          the moment a DM decides to tighten it is mid-session. */}
-      <label className="dm-sharing">
-        <span className="text-muted">Players see</span>
-        <select
-          aria-label="What players see of the table's health"
-          value={sharing}
-          onChange={(e) => setSharingLevel(e.target.value as SharingLevel)}
-        >
-          {SHARING_LEVELS.map((level) => (
-            <option key={level} value={level}>
-              {SHARING_LABELS[level]}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/* "Brakka, give me a Perception check" — the ask routed through the
+          tool. Everyone, or one present player; the answers land in the
+          queue above. */}
+      {sessionStatus === "connected" && (
+        <RollCallForm present={present} callForRoll={callForRoll} />
+      )}
+
+      {/* Table visibility, the DM's call, grouped in one place: how much
+          health the players see, and whether death saves are the table's
+          drama or private. On the encounter so it reaches every client — and
+          here as well as in Settings → Game because the moment a DM decides
+          to tighten it is mid-session. */}
+      <div className="dm-visibility">
+        <label className="dm-sharing">
+          <span className="text-muted">Players see</span>
+          <select
+            aria-label="What players see of the table's health"
+            value={sharing}
+            onChange={(e) => setSharingLevel(e.target.value as SharingLevel)}
+          >
+            {SHARING_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {SHARING_LABELS[level]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="dm-sharing">
+          <input
+            type="checkbox"
+            checked={!hideDeathSaves}
+            onChange={(e) => setDeathSavesHidden(!e.target.checked)}
+            aria-label="Party sees death saves"
+          />
+          <span className="text-muted">Party sees death saves</span>
+        </label>
+      </div>
     </div>
   );
 }
 
-// One rolled hit, waiting on a ruling: who rolled what at whom, an editable
-// amount (override before applying), Apply, Ignore. A target that has left
-// the fight, or was never tracked, leaves only Ignore — the report still
-// tells the DM what happened, it just has nowhere to land.
+// The DM's side of a roll call: pick the d20, pick who rolls (the whole
+// table by default), ask. The prompt lands like the initiative call and the
+// answers come back as reports.
+function RollCallForm({
+  present,
+  callForRoll,
+}: {
+  present: { clientId: string; name: string }[];
+  callForRoll: (
+    check: NonNullable<ReturnType<typeof checkForValue>>,
+    toClientId?: string,
+  ) => void;
+}) {
+  const [checkValue, setCheckValue] = useState("");
+  const [audience, setAudience] = useState("");
+  return (
+    <form
+      className="dm-roll-call"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const check = checkForValue(checkValue);
+        if (!check) return;
+        callForRoll(check, audience || undefined);
+        setCheckValue("");
+      }}
+    >
+      <span className="text-muted">Ask for a roll</span>
+      <select
+        aria-label="Which check or save to ask for"
+        value={checkValue}
+        onChange={(e) => setCheckValue(e.target.value)}
+      >
+        <option value="">Check or save…</option>
+        {CHECK_GROUPS.map(({ group, options }) => (
+          <optgroup key={group} label={group}>
+            {options.map(({ value, check }) => (
+              <option key={value} value={value}>
+                {checkLabel(check)}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <select
+        aria-label="Who should roll"
+        value={audience}
+        onChange={(e) => setAudience(e.target.value)}
+      >
+        <option value="">Everyone</option>
+        {present.map((client) => (
+          <option key={client.clientId} value={client.clientId}>
+            {client.name}
+          </option>
+        ))}
+      </select>
+      <button type="submit" disabled={!checkValue}>
+        Ask
+      </button>
+    </form>
+  );
+}
+
+// One rolled hit (or heal), waiting on a ruling: who rolled what at whom, an
+// editable amount (override before applying), Apply, Ignore. A target that
+// has left the fight, or was never tracked, leaves only Ignore — the report
+// still tells the DM what happened, it just has nowhere to land.
+//
+// Approving healing splits by who owns the target: a hand-typed row is the
+// DM's, so it applies directly; a character-backed row belongs to a player,
+// so approval sends an offer and *they* apply it to their own sheet.
 function DamageReportRow({
   report,
   target,
   onApply,
+  onOfferHealing,
   onDone,
 }: {
   report: DamageReport;
@@ -351,18 +465,33 @@ function DamageReportRow({
     vitals: ParticipantVitals,
     damageDealt: number,
   ) => void;
+  onOfferHealing: (targetId: string, amount: number, fromName: string) => void;
   onDone: () => void;
 }) {
   const [amount, setAmount] = useState(String(report.amount));
   const parsed = Number(amount);
   const applicable = !!target?.vitals && parsed > 0;
+  const offersInstead = !!report.healing && !!target?.characterUuid;
+
+  const approve = () => {
+    if (!target?.vitals) return;
+    if (report.healing) {
+      if (offersInstead) onOfferHealing(target.id, parsed, report.fromName);
+      else onApply(target, applyHealing(target.vitals, parsed), 0);
+    } else {
+      // A delta, the way tables speak it — temp HP absorbs first.
+      onApply(target, applyDamage(target.vitals, parsed), Math.floor(parsed));
+    }
+    onDone();
+  };
 
   return (
     <li className="dm-damage-report">
       <span className="dm-damage-text">
         <strong>{report.fromName}</strong> rolled{" "}
-        <strong>{report.amount}</strong> ({report.label}) at{" "}
-        <strong>{report.targetName}</strong>
+        <strong>{report.amount}</strong>
+        {report.healing ? " healing" : ""} ({report.label}){" "}
+        {report.healing ? "for" : "at"} <strong>{report.targetName}</strong>
         {!target && " — no longer in the order"}
         {target && !target.vitals && " — untracked, give it HP first"}
       </span>
@@ -371,7 +500,7 @@ function DamageReportRow({
           type="text"
           inputMode="numeric"
           className="dm-hp-input"
-          aria-label={`Damage to apply to ${report.targetName}`}
+          aria-label={`${report.healing ? "Healing" : "Damage"} to apply to ${report.targetName}`}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
@@ -380,18 +509,15 @@ function DamageReportRow({
         type="button"
         className="btn-primary"
         disabled={!applicable}
-        onClick={() => {
-          if (!target?.vitals) return;
-          // A delta, the way tables speak it — temp HP absorbs first.
-          onApply(
-            target,
-            applyDamage(target.vitals, parsed),
-            Math.floor(parsed),
-          );
-          onDone();
-        }}
+        title={
+          offersInstead
+            ? "Send it on — the player applies it to their own sheet"
+            : undefined
+        }
+        onClick={approve}
       >
-        Apply{parsed > 0 && parsed !== report.amount ? ` ${parsed}` : ""}
+        {offersInstead ? "Approve" : "Apply"}
+        {parsed > 0 && parsed !== report.amount ? ` ${parsed}` : ""}
       </button>
       <button type="button" onClick={onDone}>
         Ignore
@@ -559,6 +685,17 @@ function RowVitals({
     <div className="dm-row-vitals">
       <DamageEntry participant={participant} apply={apply} />
       <HpDisplay participant={participant} apply={apply} />
+      {/* Death-save progress rides the projection while someone is making
+          them. The DM always sees it — the party toggle below never gates
+          this board. */}
+      {vitals.deathSaves && (
+        <span
+          className="dm-death-saves"
+          title="Death saving throws — successes · failures"
+        >
+          {vitals.deathSaves.successes}✓ {vitals.deathSaves.failures}✗
+        </span>
+      )}
       {(vitals.tempHp ?? 0) > 0 && (
         <span
           className="dm-temp"

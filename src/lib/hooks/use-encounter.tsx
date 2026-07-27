@@ -47,6 +47,7 @@ import {
   reseatParticipant,
   setConcentration,
   setHidden,
+  setHideDeathSaves,
   setInitiative,
   setSharing,
   SharingLevel,
@@ -58,6 +59,9 @@ import {
 import {
   bumpRevision,
   DamageReport,
+  HealingOffer,
+  RollCall,
+  RollResult,
   forgetSession,
   PresentClient,
   receiveState,
@@ -67,6 +71,7 @@ import {
   withPresence,
 } from "src/lib/play/session";
 import { initiativeModifierFor } from "src/lib/play/initiative";
+import { RollCallCheck } from "src/lib/play/checks";
 import { rollD20Check } from "src/lib/roll";
 import { charPath, updateAt } from "src/lib/cursor";
 import { Character, PlaySessionRef } from "src/lib/types";
@@ -198,9 +203,32 @@ interface EncounterContextData {
   // Send "I rolled N at that target" to whoever runs the table. A report, not
   // a write: the HP change happens on the DM's side, or not at all.
   reportDamage: (targetId: string, amount: number, label: string) => void;
-  // Rolled damage waiting on this client's decision (the seat holder's queue).
+  // The healing twin: same queue, sign flipped, and DM approval turns into an
+  // offer to the recipient rather than a write.
+  reportHealing: (targetId: string, amount: number, label: string) => void;
+  // Rolled damage/healing waiting on this client's decision (the seat
+  // holder's queue).
   damageReports: DamageReport[];
   dismissDamageReport: (reportId: string) => void;
+  // The DM approved a healing report at a character-backed row: offer it to
+  // whoever owns that character, who applies it themselves.
+  offerHealing: (targetId: string, amount: number, fromName: string) => void;
+  // Healing addressed to the open character, waiting on the player.
+  incomingHealing?: HealingOffer;
+  applyIncomingHealing: () => void;
+  declineIncomingHealing: () => void;
+
+  // --- Roll calls ---
+  // "Give me a Perception check" — to everyone, or one present client.
+  callForRoll: (check: RollCallCheck, toClientId?: string) => void;
+  // A call addressed to (or including) this client, awaiting an answer.
+  rollCall?: RollCall;
+  dismissRollCall: () => void;
+  // Answer the pending call (or send any ad-hoc result to the seat).
+  submitRollResult: (label: string, total: number) => void;
+  // Answered calls, for the seat holder's queue.
+  rollResults: RollResult[];
+  dismissRollResult: (resultId: string) => void;
 
   // --- Concentration ---
   // Set when the open character took damage while concentrating: the 5e save
@@ -213,6 +241,9 @@ interface EncounterContextData {
   // encounter (it's table policy, so it must reach every client), DM-set.
   sharing: SharingLevel;
   setSharingLevel: (level: SharingLevel) => void;
+  // Whether the party sees each other's death-save pips (the DM always does).
+  hideDeathSaves: boolean;
+  setDeathSavesHidden: (hide: boolean) => void;
 
   // --- The initiative call ---
   // "Alright everyone, roll initiative": rolls for every sheet this client
@@ -272,11 +303,22 @@ export const EncounterContext = React.createContext<EncounterContextData>({
   acceptAssignment: NOOP,
   declineAssignment: NOOP,
   reportDamage: NOOP,
+  reportHealing: NOOP,
   damageReports: [],
   dismissDamageReport: NOOP,
+  offerHealing: NOOP,
+  applyIncomingHealing: NOOP,
+  declineIncomingHealing: NOOP,
+  callForRoll: NOOP,
+  dismissRollCall: NOOP,
+  submitRollResult: NOOP,
+  rollResults: [],
+  dismissRollResult: NOOP,
   clearConcentrationCheck: NOOP,
   sharing: DEFAULT_SHARING,
   setSharingLevel: NOOP,
+  hideDeathSaves: false,
+  setDeathSavesHidden: NOOP,
   callForInitiative: NOOP,
   initiativeCalled: false,
   dismissInitiativeCall: NOOP,
@@ -302,11 +344,27 @@ function characterVitals(character: Character): ParticipantVitals {
   const maxHp =
     character.maxHp ??
     getOptionalInitializer(FIELD.maxHp, undefined, character);
+  // Death saves ride along only while they mean something — down, or pips
+  // already marked. The table watches these together; hiding them from the
+  // *party* is the `hideDeathSaves` toggle's job at render time, not this
+  // projection's.
+  const dying =
+    character.currHp <= 0 ||
+    character.deathSaves.successes > 0 ||
+    character.deathSaves.failures > 0;
   return {
     currHp: character.currHp,
     maxHp: maxHp ? calculateCustomFormula(maxHp, character) : 0,
     ac: calculateCustomFormula(character.acFormula, character),
     tempHp: character.tempHp,
+    ...(dying
+      ? {
+          deathSaves: {
+            successes: character.deathSaves.successes,
+            failures: character.deathSaves.failures,
+          },
+        }
+      : {}),
   };
 }
 
@@ -372,6 +430,14 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   >();
   // The DM called for initiative and this client hasn't answered yet.
   const [initiativeCalled, setInitiativeCalled] = useState(false);
+  // The DM asked this client (or everyone) for a d20, unanswered.
+  const [rollCall, setRollCall] = useState<RollCall | undefined>();
+  // Answered calls, for the seat holder. Same lifecycle as damage reports.
+  const [rollResults, setRollResults] = useState<RollResult[]>([]);
+  // Approved healing addressed to the open character, unanswered.
+  const [incomingHealing, setIncomingHealing] = useState<
+    HealingOffer | undefined
+  >();
 
   // Every local change: persist, then publish. `silent` is for changes that
   // *came from* a peer — re-publishing those is the sync loop the character
@@ -448,6 +514,29 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
           ? current
           : [...current, report].slice(-20),
       ),
+    // A roll call lands on everyone; each client keeps it only if it's
+    // addressed to them (or to the whole table). Latest ask wins — a table
+    // answers one question at a time.
+    onRollCall: (call) => {
+      if (call.toClientId && call.toClientId !== clientId) return;
+      setRollCall(call);
+    },
+    onRollResult: (result) =>
+      setRollResults((current) =>
+        current.some((r) => r.resultId === result.resultId)
+          ? current
+          : [...current, result].slice(-20),
+      ),
+    // Approved healing looking for its recipient: keep it only if the target
+    // participant is the character open in this browser.
+    onHealingOffer: (offer) => {
+      const mine = participantFor(
+        encounterRef.current,
+        characterRef.current?.uuid,
+      );
+      if (!mine || mine.id !== offer.targetId) return;
+      setIncomingHealing(offer);
+    },
     // The DM pointed a sheet at us. Nothing has travelled yet — this only
     // raises the prompt, and the sheet moves when the player accepts, through
     // the ordinary claim flow. Ignoring a stale id is the ghost-safe half:
@@ -530,6 +619,9 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     setCustomName(undefined);
     setDamageReports([]);
     setInitiativeCalled(false);
+    setRollCall(undefined);
+    setRollResults([]);
+    setIncomingHealing(undefined);
   }, [disconnected]);
 
   // The call is answered by the fight starting, whoever rolled what.
@@ -759,16 +851,83 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
           label,
         });
       },
+      reportHealing: (targetId, amount, label) => {
+        const target = encounter.participants.find((p) => p.id === targetId);
+        if (!target || !(amount > 0)) return;
+        session.sendDamageReport({
+          reportId: randomUUID(),
+          fromName: displayName,
+          targetId,
+          targetName: target.name,
+          amount: Math.floor(amount),
+          label,
+          healing: true,
+        });
+      },
       damageReports,
       dismissDamageReport: (reportId) =>
         setDamageReports((current) =>
           current.filter((r) => r.reportId !== reportId),
+        ),
+      offerHealing: (targetId, amount, fromName) => {
+        if (!(amount > 0)) return;
+        session.sendHealingOffer({
+          offerId: randomUUID(),
+          targetId,
+          amount: Math.floor(amount),
+          fromName,
+        });
+      },
+      incomingHealing,
+      // The recipient's write, on their own sheet — which is the whole point
+      // of routing healing as an offer rather than a vitals edit.
+      applyIncomingHealing: () => {
+        const sheet = characterRef.current;
+        if (incomingHealing && sheet) {
+          const maxHpFormula =
+            sheet.maxHp ??
+            getOptionalInitializer(FIELD.maxHp, undefined, sheet);
+          const max = maxHpFormula
+            ? calculateCustomFormula(maxHpFormula, sheet)
+            : 0;
+          const healed = sheet.currHp + incomingHealing.amount;
+          dispatch(
+            updateAt(
+              charPath(FIELD.currHp),
+              max > 0 ? Math.min(max, healed) : healed,
+            ),
+          );
+        }
+        setIncomingHealing(undefined);
+      },
+      declineIncomingHealing: () => setIncomingHealing(undefined),
+      callForRoll: (check, toClientId) =>
+        session.sendRollCall({ callId: randomUUID(), check, toClientId }),
+      rollCall,
+      dismissRollCall: () => setRollCall(undefined),
+      // Deliberately doesn't clear `rollCall` — the prompt keeps showing what
+      // was sent until the player dismisses it (or the next call replaces it).
+      submitRollResult: (label, total) => {
+        session.sendRollResult({
+          resultId: randomUUID(),
+          fromName: displayName,
+          label,
+          total: Math.floor(total),
+        });
+      },
+      rollResults,
+      dismissRollResult: (resultId) =>
+        setRollResults((current) =>
+          current.filter((r) => r.resultId !== resultId),
         ),
       concentrationCheck,
       clearConcentrationCheck: () => setConcentrationCheck(undefined),
       sharing: encounter.sharing ?? DEFAULT_SHARING,
       setSharingLevel: (level) =>
         update((current) => setSharing(current, level)),
+      hideDeathSaves: !!encounter.hideDeathSaves,
+      setDeathSavesHidden: (hide) =>
+        update((current) => setHideDeathSaves(current, hide)),
       // "Alright everyone, roll initiative": roll for every sheet this client
       // brought (their stored copies carry the modifiers), then prompt the
       // rest of the table to roll their own.
@@ -841,6 +1000,9 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       present,
       pendingAssignmentId,
       damageReports,
+      rollCall,
+      rollResults,
+      incomingHealing,
       concentrationCheck,
       displayName,
       initiativeCalled,

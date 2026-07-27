@@ -16,7 +16,7 @@
 //
 // Flags:
 //   --base <url>      dev server (default http://localhost:3000)
-//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | initiative | damage | rejoin
+//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | initiative | damage | table | rejoin
 //   --headed          show the browsers
 //   --slow <ms>       slow motion, for watching a failure happen
 //   --timeout <ms>    per-condition wait budget (default 15000)
@@ -109,10 +109,13 @@ const roster = (page) =>
 
 // --- Clients -----------------------------------------------------------------
 
-async function openClient(browser, fixture, label, extraFixtures = []) {
+async function openClient(browser, fixture, label, extraFixtures = [], mutate) {
   const load = (name) =>
     JSON.parse(readFileSync(join(FIXTURES, `${name}.json`), "utf8"));
   const character = load(fixture);
+  // Scenario-specific fixture tweaks (e.g. granting a healing spell) without
+  // forking a whole fixture file for one scenario.
+  mutate?.(character);
   const stored = Object.fromEntries(
     [character, ...extraFixtures.map(load)].map((c) => [c.uuid, c]),
   );
@@ -657,6 +660,116 @@ const scenarios = {
     check("Kept it dismisses the prompt and keeps the spell", true, true);
 
     return [dm, player, ally];
+  },
+
+  // The rest of the table loop: a targeted roll call answered through the
+  // tool, healing routed player → DM → recipient, and death saves visible to
+  // the DM and (until hidden) the party.
+  async table(browser) {
+    const dm = await openClient(browser, "full-caster-wizard", "dm");
+    const player = await openClient(browser, "martial-fighter", "player");
+    const healer = await openClient(
+      browser,
+      "multiclass",
+      "healer",
+      [],
+      // Grant a rollable heal: Bless stands in for Cure Wounds.
+      (f) => {
+        f.spells.First[0].mechanics = {
+          level: 1,
+          resolution: { kind: "auto" },
+          healing: [2, "d8", "roll"],
+        };
+      },
+    );
+
+    const code = await startGame(dm);
+    await joinGame(player, code, player.name);
+    await joinGame(healer, code, healer.name);
+
+    // A roll call addressed to one player: only they get the prompt, and the
+    // answer comes back to the seat.
+    await until(
+      dm.page,
+      "the audience picker to know both players",
+      () =>
+        document.querySelectorAll('[aria-label="Who should roll"] option')
+          .length >= 3,
+    );
+    await dm.page.selectOption(
+      '[aria-label="Which check or save to ask for"]',
+      "skill:Perception",
+    );
+    const audience = await dm.page
+      .locator('[aria-label="Who should roll"] option', {
+        hasText: player.name,
+      })
+      .getAttribute("value");
+    await dm.page.selectOption('[aria-label="Who should roll"]', audience);
+    await dm.page.click('.dm-roll-call button[type="submit"]');
+    await untilText(player.page, "Your DM asks for a");
+    check(
+      "the unaddressed player is not prompted",
+      await healer.page.locator("text=Your DM asks for a").count(),
+      0,
+    );
+    await player.page.click(".assign-prompt .btn-primary");
+    await untilText(player.page, "You sent");
+    await untilText(dm.page, "rolled");
+    check("the answer reaches the seat", true, true);
+    await dm.page.click("text=Got it");
+
+    // Healing, routed through the DM: the healer reports it, the DM approves,
+    // and the *recipient* applies it to their own sheet.
+    const hp = player.page.locator('[aria-label="Current Hit Points"]');
+    await hp.fill("20");
+    await hp.press("Enter");
+    await healer.page.click('[aria-label="Roll Bless"]');
+    await healer.page.click("text=Roll Healing");
+    await untilVisible(healer.page, ".roll-report");
+    const healed = Number(
+      await healer.page.locator(".roll-total").last().textContent(),
+    );
+    await healer.page.selectOption('[aria-label="Report this healing for"]', {
+      label: player.name,
+    });
+    await healer.page.click("text=Report to DM");
+    await healer.page.click('[aria-label="Close"]');
+    await untilVisible(dm.page, ".dm-damage-report");
+    await dm.page.click(".dm-damage-report .btn-primary"); // Approve
+    await untilText(player.page, "incoming from");
+    check("approved healing reaches the recipient", true, true);
+    await player.page.click(`text=Apply +${healed}`);
+    await until(
+      player.page,
+      "the heal to land on the recipient's sheet",
+      (expected) =>
+        document.querySelector('[aria-label="Current Hit Points"]')?.value ===
+        String(expected),
+      Math.min(49, 20 + healed),
+    );
+    check("applying writes the recipient's own sheet", true, true);
+
+    // Death saves: on the wire once someone is down, DM always sees them,
+    // the party by default until the DM hides them.
+    await hp.fill("0");
+    await hp.press("Enter");
+    await untilVisible(dm.page, ".dm-death-saves");
+    await untilVisible(healer.page, ".initiative-death-saves");
+    check("death saves reach the DM and the party", true, true);
+    await dm.page.click('[aria-label="Party sees death saves"]');
+    await until(
+      healer.page,
+      "the party's death-save chip to hide",
+      () => !document.querySelector(".initiative-death-saves"),
+    );
+    check(
+      "hiding blanks the party's view, never the DM's",
+      await dm.page.locator(".dm-death-saves").count(),
+      1,
+    );
+
+    return [dm, player, healer];
   },
 
   // Leaving drops you from everyone's roster; rejoining from the character's

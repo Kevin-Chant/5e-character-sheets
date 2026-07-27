@@ -64,6 +64,11 @@ export interface ParticipantVitals {
   // On the wire because damage is: temp HP absorbs first, and a DM applying
   // "you take 12" can't do that arithmetic against a number they can't see.
   tempHp?: number;
+  // Death-save progress, present only while it means something (down, or
+  // saves in progress). In the projection because a table watches these
+  // together — the DM always sees them; the party by default, behind
+  // `Encounter.hideDeathSaves`.
+  deathSaves?: { successes: number; failures: number };
 }
 
 export interface Participant {
@@ -180,6 +185,9 @@ export interface Encounter {
   dmToken?: string;
   // The table's health-sharing policy. Absent means `DEFAULT_SHARING`.
   sharing?: SharingLevel;
+  // Table policy like `sharing`: death saves show to the party by default
+  // (the DM's view never hides them); some tables keep the drama private.
+  hideDeathSaves?: boolean;
   // Last-write-wins bookkeeping for the party session. Absent on a purely local
   // encounter, which is why every read is `?? 0` rather than a migration.
   revision?: number;
@@ -534,7 +542,10 @@ export function setVitals(
     existing.currHp === vitals.currHp &&
     existing.maxHp === vitals.maxHp &&
     existing.ac === vitals.ac &&
-    (existing.tempHp ?? 0) === (vitals.tempHp ?? 0)
+    (existing.tempHp ?? 0) === (vitals.tempHp ?? 0) &&
+    (existing.deathSaves?.successes ?? 0) ===
+      (vitals.deathSaves?.successes ?? 0) &&
+    (existing.deathSaves?.failures ?? 0) === (vitals.deathSaves?.failures ?? 0)
   ) {
     return encounter;
   }
@@ -636,6 +647,14 @@ export function setSharing(
 ): Encounter {
   if ((encounter.sharing ?? DEFAULT_SHARING) === sharing) return encounter;
   return { ...encounter, sharing };
+}
+
+export function setHideDeathSaves(
+  encounter: Encounter,
+  hide: boolean,
+): Encounter {
+  if (!!encounter.hideDeathSaves === hide) return encounter;
+  return { ...encounter, hideDeathSaves: hide };
 }
 
 export function setHidden(
