@@ -32,6 +32,7 @@ import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useRollMode } from "src/lib/hooks/use-roll-mode";
+import { useSettings } from "src/lib/hooks/use-settings";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import Modal from "src/components/modal";
 import Spinner from "src/components/spinner";
@@ -40,6 +41,7 @@ import ShareModal from "src/components/share-modal";
 import NavOverflowMenu from "src/components/nav-overflow-menu";
 import PresenceRoster from "src/components/presence-roster";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
+import { navControls, navTitle } from "src/lib/nav-controls";
 
 function Sidebar({ close }: { close: () => void }) {
   const { datastore } = useDatastoreSelector();
@@ -148,6 +150,7 @@ export default function Root() {
   const { saving } = useDatastore();
   const { editMode, toggleMode } = useEditMode();
   const { rollMode, setRollMode } = useRollMode();
+  const { settings } = useSettings();
   const { getRole, isBorrowed } = useSharingSessions();
   const location = useLocation();
   const [fileSelected, setFileSelected] = useState<File | undefined>();
@@ -232,21 +235,10 @@ export default function Root() {
     </Tooltip>
   );
 
-  // Derive a title that describes the current page, rather than a static label
-  // that reads like it belongs to the adjacent Home button.
+  // Still needed locally: this one control's icon and label depend on which of
+  // the two character surfaces you're looking at, not just on whether it shows.
   const onPlaySurface = location.pathname === "/play";
-  const pageTitle =
-    location.pathname === "/settings"
-      ? "Settings"
-      : location.pathname === "/host"
-        ? "Start a game"
-        : location.pathname.startsWith("/join")
-          ? "Join a game"
-          : onPlaySurface
-            ? (character?.name ?? "At the table")
-            : location.pathname === "/sheet"
-              ? (character?.name ?? "Character Select")
-              : "Home";
+  const pageTitle = navTitle(location.pathname, character?.name);
 
   // Not for a sheet you joined remotely or borrowed from a DM — sharing is the
   // owner's call, and neither of those copies is yours to offer.
@@ -255,6 +247,17 @@ export default function Root() {
     !!datastore &&
     getRole(character.uuid) !== "remote" &&
     !isBorrowed(character.uuid);
+
+  // Which controls this surface gets. The matrix — and the reasoning for it —
+  // lives in `lib/nav-controls.ts`, so a new route declares itself in one place
+  // instead of in eight scattered conditions.
+  const controls = navControls({
+    pathname: location.pathname,
+    hasCharacter: !!character,
+    hasDatastore: !!datastore,
+    canShare,
+    autosave: settings.autosave,
+  });
 
   // "Share a character" on the sessions page is an intent, not a destination:
   // it lands on /sheet, which shows the picker when no character is open, and
@@ -267,15 +270,18 @@ export default function Root() {
   return (
     <>
       <div id="nav">
-        {/* TODO: mobile-friendly nav */}
         <nav id="main-nav">
-          <button
-            className="icon-btn"
-            onClick={toggleSidebar}
-            title="Characters"
-          >
-            <FaBars />
-          </button>
+          {/* The drawer lists saved characters, so with no datastore it opens
+              on "Not connected to saved characters" and nothing to click. */}
+          {controls.characterDrawer && (
+            <button
+              className="icon-btn"
+              onClick={toggleSidebar}
+              title="Characters"
+            >
+              <FaBars />
+            </button>
+          )}
           {/* Home is the hub — characters, games, and the way back into either
               — so this is a plain link now. It used to have to carry state to
               stop home from redirecting straight back to where you came from. */}
@@ -297,7 +303,7 @@ export default function Root() {
               sessions page was written to argue against. */}
           {/* Play is a place you go, not a state the sheet is in — so it's a
               link, and the button says where it takes you. */}
-          {character && (
+          {controls.playToggle && (
             <Link to={onPlaySurface ? "/sheet" : "/play"}>
               <button
                 className="icon-btn"
@@ -312,7 +318,7 @@ export default function Root() {
               posture rather than a setting: in-memory on purpose, and the
               roll dialogs read it to decide between rolling for you and
               asking what your dice said. */}
-          {(character || onPlaySurface) && (
+          {controls.rollMode && (
             <button
               className="icon-btn"
               onClick={() => setRollMode(rollMode === "app" ? "manual" : "app")}
@@ -331,7 +337,7 @@ export default function Root() {
               {rollMode === "app" ? <FaDice /> : <FaHand />}
             </button>
           )}
-          {character && !onPlaySurface && (
+          {controls.editMode && (
             <button
               className="icon-btn"
               onClick={toggleMode}
@@ -343,7 +349,7 @@ export default function Root() {
               {editMode ? <FaLockOpen /> : <FaLock />}
             </button>
           )}
-          {canShare && (
+          {controls.share && (
             <button
               className="icon-btn"
               onClick={() => setShareModalOpen(true)}
@@ -362,32 +368,49 @@ export default function Root() {
               <FaGear />
             </button>
           </Link>
-          {character && (
+          {controls.saveIndicator && (
             <div id="save-container">
-              <button
-                className="icon-btn"
-                onClick={undo}
-                disabled={!canUndo}
-                title="Undo (⌘Z / Ctrl+Z)"
-              >
-                <FaRotateLeft />
-              </button>
-              <button
-                className="icon-btn"
-                onClick={redo}
-                disabled={!canRedo}
-                title="Redo (⇧⌘Z / Ctrl+Y)"
-              >
-                <FaRotateRight />
-              </button>
+              {/* Undo/redo stay in the nav rather than moving somewhere more
+                  sheet-local: they have keyboard shortcuts, so this is the only
+                  place anyone discovers they exist. They edit the sheet, so
+                  they're scoped to it — on the board they'd invite the
+                  expectation that they undo the *fight*, which has no undo. */}
+              {controls.undoRedo && (
+                <>
+                  <button
+                    className="icon-btn"
+                    onClick={undo}
+                    disabled={!canUndo}
+                    title="Undo (⌘Z / Ctrl+Z)"
+                  >
+                    <FaRotateLeft />
+                  </button>
+                  <button
+                    className="icon-btn"
+                    onClick={redo}
+                    disabled={!canRedo}
+                    title="Redo (⇧⌘Z / Ctrl+Y)"
+                  >
+                    <FaRotateRight />
+                  </button>
+                </>
+              )}
+              {/* Status, not an action — worth seeing on the board too, where a
+                  failed save is exactly the thing you'd want to know about. */}
               <p>{saveIndicator}</p>
-              <button
-                className="icon-btn"
-                onClick={saveNow}
-                title="Save character (⌘S / Ctrl+S)"
-              >
-                <FaFloppyDisk />
-              </button>
+              {/* With autosave on (the default) this button duplicates what the
+                  indicator beside it already says, and ⌘S covers the impatient.
+                  It's the only way to save with autosave *off*, so it follows
+                  that setting rather than disappearing outright. */}
+              {controls.saveButton && (
+                <button
+                  className="icon-btn"
+                  onClick={saveNow}
+                  title="Save character (⌘S / Ctrl+S)"
+                >
+                  <FaFloppyDisk />
+                </button>
+              )}
             </div>
           )}
         </div>

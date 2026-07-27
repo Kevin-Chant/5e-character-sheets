@@ -131,6 +131,12 @@
 #nav {
   display: flex;
   align-items: center;
+  /* Wrap rather than crush. `#main-nav` is the only flex child that shrinks, so
+     when the right-hand controls outgrew the bar they didn't overflow it — they
+     squeezed the left group to nothing and pushed Home off the screen entirely.
+     A second row is worse than one row and better than an unreachable button. */
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
   width: 100%;
   padding: 8px 16px;
   border-bottom: 2px solid var(--border);
@@ -199,7 +205,20 @@
   align-items: center;
   gap: 0.5rem;
   flex: 1;
-  min-width: 0;
+  /* Deliberately *not* `min-width: 0`. That let this group shrink past its own
+     buttons, so instead of the bar wrapping, the drawer and Home spilled out of
+     it and off the screen. At `auto` the minimum is min-content — the buttons,
+     since the title below contributes nothing to it — so the right-hand group
+     is the thing that wraps, which is the one that can afford to. */
+  min-width: auto;
+}
+
+/* The buttons keep their size; the title absorbs the squeeze. `overflow: hidden`
+   is also what makes the title's min-content contribution zero, which is what
+   lets the rule above resolve to just the buttons. */
+#main-nav > a,
+#main-nav > button {
+  flex-shrink: 0;
 }
 
 #main-nav h1 {
@@ -309,6 +328,8 @@
 #right-nav-components {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-left: auto;
 }
