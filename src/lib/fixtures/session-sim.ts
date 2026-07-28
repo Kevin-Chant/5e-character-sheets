@@ -43,6 +43,23 @@ export class Broker {
   // endless echo between two peers is a real failure mode here and it looks
   // like success unless you count.
   readonly traffic: Message[] = [];
+  private held: Message[] | undefined;
+
+  // Two writes that cross on the wire. Anything published inside `run` is held
+  // and delivered afterwards, which is the only way to model "both of them
+  // typed before either had heard the other" — the broker is otherwise
+  // synchronous, so every write here would arrive politely in turn and the
+  // races that actually bite a table would be untestable.
+  crossing(run: () => void) {
+    this.held = [];
+    try {
+      run();
+    } finally {
+      const queued = this.held;
+      this.held = undefined;
+      for (const message of queued) this.publish(message);
+    }
+  }
 
   join(client: SimClient) {
     this.clients.push(client);
@@ -54,6 +71,10 @@ export class Broker {
   }
 
   publish(message: Message) {
+    if (this.held) {
+      this.held.push(message);
+      return;
+    }
     this.traffic.push(message);
     // A copy per recipient: a shared object reference would let one client's
     // merge mutate another's view and make every test optimistic.

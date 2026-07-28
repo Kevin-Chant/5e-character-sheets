@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import classNames from "classnames";
 import {
   FaCopy,
@@ -22,7 +22,16 @@ import {
   SHARING_LEVELS,
   SharingLevel,
 } from "src/lib/play/encounter";
-import { DamageReport } from "src/lib/play/session";
+import {
+  beatsAc,
+  Exchange,
+  exchanges,
+  ExchangeStage,
+  formatFaces,
+  ReportedDamage,
+  RollReport,
+  RollVerdict,
+} from "src/lib/play/reports";
 import { CHECK_GROUPS, checkForValue, checkLabel } from "src/lib/play/checks";
 import StepperInput from "src/components/stepper-input";
 
@@ -55,16 +64,17 @@ export default function DmBoard() {
     sessionStatus,
     present,
     assignSheetTo,
-    damageReports,
-    dismissDamageReport,
+    reports,
+    dismissExchange,
+    clearReports,
+    ruleOnAttack,
+    verdicts,
     setCombatantHidden,
     sharing,
     setSharingLevel,
     hideDeathSaves,
     setDeathSavesHidden,
     offerHealing,
-    rollResults,
-    dismissRollResult,
     callForRoll,
   } = useEncounter();
 
@@ -116,45 +126,44 @@ export default function DmBoard() {
 
   return (
     <div className="dm-board">
-      {/* Rolled damage waiting on a ruling. Applying goes through the same
-          write as the row's own stepper (concentration reminders included);
-          the amount is editable first, because "I'm halving that, it saved"
-          is a table's most common override. */}
-      {damageReports.length > 0 && (
-        <ul className="dm-damage-queue">
-          {damageReports.map((report) => (
-            <DamageReportRow
-              key={report.reportId}
-              report={report}
-              target={encounter.participants.find(
-                (p) => p.id === report.targetId,
-              )}
-              onApply={applyVitals}
-              onOfferHealing={offerHealing}
-              onDone={() => dismissDamageReport(report.reportId)}
-            />
-          ))}
-        </ul>
-      )}
-      {/* Answered roll calls. Read, ruled on out loud, dismissed — nothing
-          here writes anything. */}
-      {rollResults.length > 0 && (
-        <ul className="dm-damage-queue">
-          {rollResults.map((result) => (
-            <li key={result.resultId} className="dm-damage-report">
-              <span className="dm-damage-text">
-                <strong>{result.fromName}</strong> rolled{" "}
-                <strong>{result.total}</strong> ({result.label})
-              </span>
-              <button
-                type="button"
-                onClick={() => dismissRollResult(result.resultId)}
-              >
-                Got it
-              </button>
-            </li>
-          ))}
-        </ul>
+      {/* What the table has rolled, as it rolls it. One card per act, so an
+          attack reads as the small conversation it is — the to-hit against
+          the target's AC, then the damage — instead of two bare numbers
+          arriving a minute apart with nothing tying them together. Applying
+          goes through the same write as the row's own stepper (concentration
+          reminders included); the amount is editable first, because "I'm
+          halving that, it saved" is a table's most common override. */}
+      {reports.length > 0 && (
+        <div className="dm-report-queue">
+          <div className="row space-between dm-queue-head">
+            <span className="text-muted">Rolls at the table</span>
+            <button type="button" onClick={clearReports}>
+              Clear all
+            </button>
+          </div>
+          <ul className="dm-damage-queue">
+            {exchanges(reports).map((exchange) => (
+              <ExchangeCard
+                key={exchange.exchangeId}
+                exchange={exchange}
+                target={encounter.participants.find(
+                  (p) => p.id === exchange.targetId,
+                )}
+                verdict={verdicts[exchange.exchangeId]}
+                onRule={(outcome) =>
+                  ruleOnAttack(
+                    exchange.exchangeId,
+                    exchange.fromClientId,
+                    outcome,
+                  )
+                }
+                onApply={applyVitals}
+                onOfferHealing={offerHealing}
+                onDone={() => dismissExchange(exchange.exchangeId)}
+              />
+            ))}
+          </ul>
+        </div>
       )}
       {order.length === 0 ? (
         <div className="dm-empty">
@@ -443,86 +452,339 @@ function RollCallForm({
   );
 }
 
-// One rolled hit (or heal), waiting on a ruling: who rolled what at whom, an
-// editable amount (override before applying), Apply, Ignore. A target that
-// has left the fight, or was never tracked, leaves only Ignore — the report
-// still tells the DM what happened, it just has nowhere to land.
+// One act at the table, waiting on a ruling: who rolled what at whom, with
+// every stage of it and every re-roll of every stage. A target that has left
+// the fight, or was never tracked, still shows — the card tells the DM what
+// happened, it just has nowhere to land.
 //
 // Approving healing splits by who owns the target: a hand-typed row is the
 // DM's, so it applies directly; a character-backed row belongs to a player,
 // so approval sends an offer and *they* apply it to their own sheet.
-function DamageReportRow({
-  report,
+function ExchangeCard({
+  exchange,
   target,
+  verdict,
+  onRule,
   onApply,
   onOfferHealing,
   onDone,
 }: {
-  report: DamageReport;
+  exchange: Exchange;
   target?: Participant;
+  verdict?: RollVerdict["outcome"];
+  onRule: (outcome: RollVerdict["outcome"]) => void;
   onApply: (
     participant: Participant,
     vitals: ParticipantVitals,
     damageDealt: number,
   ) => void;
-  onOfferHealing: (targetId: string, amount: number, fromName: string) => void;
+  onOfferHealing: (
+    targetId: string,
+    amount: number,
+    fromName: string,
+    label?: string,
+  ) => void;
   onDone: () => void;
 }) {
-  const [amount, setAmount] = useState(String(report.amount));
-  const parsed = Number(amount);
-  const applicable = !!target?.vitals && parsed > 0;
-  const offersInstead = !!report.healing && !!target?.characterUuid;
-
-  const approve = () => {
-    if (!target?.vitals) return;
-    if (report.healing) {
-      if (offersInstead) onOfferHealing(target.id, parsed, report.fromName);
-      else onApply(target, applyHealing(target.vitals, parsed), 0);
-    } else {
-      // A delta, the way tables speak it — temp HP absorbs first.
-      onApply(target, applyDamage(target.vitals, parsed), Math.floor(parsed));
-    }
-    onDone();
-  };
-
   return (
-    <li className="dm-damage-report">
-      <span className="dm-damage-text">
-        <strong>{report.fromName}</strong> rolled{" "}
-        <strong>{report.amount}</strong>
-        {report.healing ? " healing" : ""} ({report.label}){" "}
-        {report.healing ? "for" : "at"} <strong>{report.targetName}</strong>
-        {!target && " — no longer in the order"}
-        {target && !target.vitals && " — untracked, give it HP first"}
-      </span>
-      {target?.vitals && (
-        <input
-          type="text"
-          inputMode="numeric"
-          className="dm-hp-input"
-          aria-label={`${report.healing ? "Healing" : "Damage"} to apply to ${report.targetName}`}
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+    <li className="dm-exchange">
+      <div className="dm-exchange-head">
+        <strong>{exchange.fromName}</strong>
+        {exchange.targetName && (
+          <>
+            <span className="dm-exchange-arrow">→</span>
+            <strong>{exchange.targetName}</strong>
+          </>
+        )}
+        <span className="dm-exchange-label">{exchange.label}</span>
+        {target && !target.vitals && (
+          <span className="text-muted"> — untracked, give it HP first</span>
+        )}
+        {exchange.targetId && !target && (
+          <span className="text-muted"> — no longer in the order</span>
+        )}
+        <button
+          type="button"
+          className="icon-btn dm-row-remove"
+          aria-label={`Dismiss ${exchange.fromName}'s ${exchange.label}`}
+          onClick={onDone}
+        >
+          <FaXmark />
+        </button>
+      </div>
+      {exchange.stages.map((stage) => (
+        <StageRow
+          key={stage.stage}
+          stage={stage}
+          target={target}
+          fromName={exchange.fromName}
+          verdict={verdict}
+          onRule={onRule}
+          onApply={onApply}
+          onOfferHealing={onOfferHealing}
+          onResolved={onDone}
+        />
+      ))}
+    </li>
+  );
+}
+
+function StageRow({
+  stage,
+  target,
+  fromName,
+  verdict,
+  onRule,
+  onApply,
+  onOfferHealing,
+  onResolved,
+}: {
+  stage: ExchangeStage;
+  target?: Participant;
+  fromName: string;
+  verdict?: RollVerdict["outcome"];
+  onRule: (outcome: RollVerdict["outcome"]) => void;
+  onApply: (
+    participant: Participant,
+    vitals: ParticipantVitals,
+    damageDealt: number,
+  ) => void;
+  onOfferHealing: (
+    targetId: string,
+    amount: number,
+    fromName: string,
+    label?: string,
+  ) => void;
+  onResolved: () => void;
+}) {
+  const roll = stage.latest;
+  const heals = stage.stage === "healing";
+  return (
+    <div className="dm-exchange-stage">
+      <span className="dm-stage-name">{STAGE_LABELS[stage.stage]}</span>
+      <span className="dm-stage-total">{roll.total}</span>
+      <RollDetail roll={roll} />
+      {/* The re-roll trail. Nothing was blocked and nothing is being accused
+          — but a number that was rolled twice says so, which is the only
+          honesty this layer can offer and, at most tables, the only one it
+          needs. */}
+      {stage.superseded.length > 0 && (
+        <span className="dm-stage-rerolled" title="Rolled more than once">
+          re-rolled ×{stage.superseded.length} — was{" "}
+          {stage.superseded.map((r) => r.total).join(", ")}
+        </span>
+      )}
+      {stage.stage === "toHit" && (
+        <ToHitRuling
+          roll={roll}
+          target={target}
+          verdict={verdict}
+          onRule={onRule}
         />
       )}
+      {(stage.stage === "damage" || heals) && target?.vitals && (
+        <ApplyAmount
+          roll={roll}
+          target={target}
+          fromName={fromName}
+          healing={heals}
+          onApply={onApply}
+          onOfferHealing={onOfferHealing}
+          onResolved={onResolved}
+        />
+      )}
+    </div>
+  );
+}
+
+const STAGE_LABELS: Record<ExchangeStage["stage"], string> = {
+  toHit: "To hit",
+  damage: "Damage",
+  healing: "Healing",
+  check: "Check",
+};
+
+// Everything about a roll that isn't its total: the faces behind it, whether
+// it was a crit, the save it has to beat, what it's made of. Most of this
+// never used to leave the roller's screen, which left the DM ruling on
+// resistance, save DCs and once-per-turn riders from memory.
+function RollDetail({ roll }: { roll: RollReport }) {
+  const faces = formatFaces(roll);
+  return (
+    <span className="dm-stage-detail text-muted">
+      {faces && <span>{faces}</span>}
+      {roll.critical && <span className="dm-stage-chip crit">crit</span>}
+      {roll.fumble && <span className="dm-stage-chip">nat 1</span>}
+      {roll.crit && <span className="dm-stage-chip crit">critical damage</span>}
+      {roll.manual && (
+        <span
+          className="dm-stage-chip"
+          title="Typed from real dice, not rolled by the app"
+        >
+          typed
+        </span>
+      )}
+      {roll.save && (
+        <span className="dm-stage-chip save">
+          DC {roll.save.dc}
+          {roll.save.stat ? ` ${roll.save.stat.toUpperCase()}` : ""}
+          {roll.save.onSuccess === "half"
+            ? " — half on a save"
+            : roll.save.onSuccess === "none"
+              ? " — none on a save"
+              : ""}
+        </span>
+      )}
+      {/* Itemised only when the breakdown says something the total doesn't:
+          one untyped lump of slashing beside the number "7" is just "7"
+          twice. Two types, or a rider carrying its source, is a ruling. */}
+      {itemised(roll).map((part, i) => (
+        <span key={`${part.source ?? part.damageType ?? i}`}>
+          {part.total} {part.damageType ?? "damage"}
+          {part.source ? ` (${part.source})` : ""}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+// The damage lines worth printing: nothing when the whole roll is one plain
+// lump (the total already said it), everything otherwise.
+function itemised(roll: RollReport): ReportedDamage[] {
+  const parts = roll.parts?.filter((p) => p.total > 0) ?? [];
+  if (parts.length <= 1 && !parts.some((p) => p.source)) return [];
+  return parts;
+}
+
+// "15 against AC 13 — that hits." The ruling that used to be a sentence
+// shouted across the table, and the reason a player had to stop between two
+// halves of their own attack. Advisory in both directions: the app offers an
+// opinion from the AC it knows, and the DM's answer is the one that counts —
+// a Shield reaction turns a hit into a miss and the button says so.
+function ToHitRuling({
+  roll,
+  target,
+  verdict,
+  onRule,
+}: {
+  roll: RollReport;
+  target?: Participant;
+  verdict?: RollVerdict["outcome"];
+  onRule: (outcome: RollVerdict["outcome"]) => void;
+}) {
+  const ac = target?.vitals?.ac;
+  const opinion = beatsAc(roll.total, ac);
+  return (
+    <span className="dm-stage-ruling">
+      {ac ? (
+        <span
+          className={classNames("dm-vs-ac", {
+            hits: opinion === "hits",
+            misses: opinion === "misses",
+          })}
+        >
+          vs AC {ac} — {opinion}
+        </span>
+      ) : (
+        <span className="text-muted">no AC on record</span>
+      )}
+      {verdict ? (
+        <span className="dm-ruled">
+          you said <strong>{verdict}</strong>
+        </span>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => onRule("hit")}
+          >
+            Hit
+          </button>
+          <button type="button" onClick={() => onRule("miss")}>
+            Miss
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
+
+// The applyable half, unchanged in spirit: an editable amount (override
+// before applying) and one button. Damage drains temp HP first; healing on a
+// character-backed row becomes an offer its owner applies themselves.
+function ApplyAmount({
+  roll,
+  target,
+  fromName,
+  healing,
+  onApply,
+  onOfferHealing,
+  onResolved,
+}: {
+  roll: RollReport;
+  target: Participant;
+  fromName: string;
+  healing: boolean;
+  onApply: (
+    participant: Participant,
+    vitals: ParticipantVitals,
+    damageDealt: number,
+  ) => void;
+  onOfferHealing: (
+    targetId: string,
+    amount: number,
+    fromName: string,
+    label?: string,
+  ) => void;
+  // Applying resolves the whole act, not just this line: the number has
+  // landed, so the card comes off the queue. With every roll at the table
+  // arriving here, a queue that only grew would be unreadable by round three.
+  onResolved: () => void;
+}) {
+  const [amount, setAmount] = useState(String(roll.total));
+  // A re-roll is a new number; a box still holding the old one would be a trap.
+  useEffect(() => setAmount(String(roll.total)), [roll.reportId]);
+
+  const parsed = Number(amount);
+  const offersInstead = healing && !!target.characterUuid;
+  const vitals = target.vitals!;
+
+  return (
+    <span className="dm-stage-ruling">
+      <input
+        type="text"
+        inputMode="numeric"
+        className="dm-hp-input"
+        aria-label={`${healing ? "Healing" : "Damage"} to apply to ${target.name}`}
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+      />
       <button
         type="button"
         className="btn-primary"
-        disabled={!applicable}
+        disabled={!(parsed > 0)}
         title={
           offersInstead
             ? "Send it on — the player applies it to their own sheet"
             : undefined
         }
-        onClick={approve}
+        onClick={() => {
+          if (!(parsed > 0)) return;
+          if (healing) {
+            if (offersInstead)
+              onOfferHealing(target.id, parsed, fromName, roll.label);
+            else onApply(target, applyHealing(vitals, parsed), 0);
+          } else {
+            onApply(target, applyDamage(vitals, parsed), Math.floor(parsed));
+          }
+          onResolved();
+        }}
       >
         {offersInstead ? "Approve" : "Apply"}
-        {parsed > 0 && parsed !== report.amount ? ` ${parsed}` : ""}
+        {parsed > 0 && parsed !== roll.total ? ` ${parsed}` : ""}
       </button>
-      <button type="button" onClick={onDone}>
-        Ignore
-      </button>
-    </li>
+    </span>
   );
 }
 

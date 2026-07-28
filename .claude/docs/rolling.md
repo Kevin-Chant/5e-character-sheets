@@ -113,6 +113,12 @@ than auto-applying it. See
 
 For an `attack` spec the modal renders:
 
+- **Target** — first, above the dice, and only at a table (a session with a DM
+  who isn't you). Picking who you're swinging at _before_ rolling is what lets
+  every stage travel addressed and on its own; see the roll-report section of
+  [`play-surface.md`](./play-surface.md) for what crosses the wire and why
+  re-rolls are numbered rather than blocked. Defaults to whoever you attacked
+  last.
 - **To Hit** — shown when `toHit` is set (weapon attack bonus, or spell attack
   bonus via `getSpellAttackBonus`). A d20 check with advantage/disadvantage.
 - **Saving Throw** — shown instead when `save` is set. Deliberately **not
@@ -187,6 +193,12 @@ Two reusable seams keep the wiring cheap: `ProficiencyDisplay`'s `rollLabel` and
 `SingleValueDisplay`'s `rollCheck` add a d20 button to any row whose transformed
 value is a modifier — so future check surfaces are a one-prop change.
 
+One thing worth knowing about the dialog's lifecycle: `RollRequest` carries an
+`id` stamped by `openRoller`, and the modal is **keyed on it**. Two jobs — the
+contents remount, so yesterday's result can't linger in a freshly opened dialog
+(the sections sit at the same tree position and React would otherwise reuse
+them), and the id doubles as the `exchangeId` every roll inside is reported
+under.
+
 Not yet wired: death saves (a `check` with modifier 0 and its own pass/fail
-semantics) and spell **save-DC** display in the roll dialog (save spells roll
-damage but don't yet surface "DC N" as a target).
+semantics).

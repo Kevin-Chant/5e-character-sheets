@@ -285,11 +285,12 @@ const scenarios = {
     await untilPath(dm.page, "/play");
 
     await untilVisible(dm.page, ".session-code code");
-    check(
-      "the DM seat comes back on its own",
-      await dm.page.locator("text=Release DM seat").count(),
-      1,
-    );
+    // Waited for, not sampled: the seat comes back off the *first state* a peer
+    // sends, which lands a round trip after the code does. Reading it the
+    // instant the code renders was checking the wrong moment, and had been
+    // failing for it.
+    await untilVisible(dm.page, "text=Release DM seat");
+    check("the DM seat comes back on its own", true, true);
     await untilRoster(dm.page, [dm.name, player.name]);
     check(
       "the roster comes back too",
@@ -547,23 +548,20 @@ const scenarios = {
     await dm.page.click('.dm-add button[type="submit"]');
     await untilVisible(dm.page, '[aria-label="Damage to Goblin"]');
 
-    // The player rolls Greatsword damage and reports it against the goblin.
+    // The player names the goblin, then swings: each stage travels as it
+    // lands, and the damage roll needs no second answer to "at what?".
     await untilRoster(player.page, ["Goblin", player.name]);
     await player.page.click('[aria-label="Roll Greatsword"]');
-    await player.page.click("text=Roll Damage");
-    await untilVisible(player.page, ".roll-report");
-    await player.page.selectOption(
-      '[aria-label="Report this damage against"]',
-      { label: "Goblin" },
-    );
-    await player.page.click("text=Report to DM");
-    await untilText(player.page, "Sent to your DM");
+    await player.page.selectOption('[aria-label="Who you are attacking"]', {
+      label: "Goblin",
+    });
+    await player.page.getByRole("button", { name: /Roll .*Damage/ }).click();
     await player.page.click('[aria-label="Close"]');
 
     // The report reaches the seat, and applying it lands on the goblin.
-    await untilVisible(dm.page, ".dm-damage-report");
+    await untilVisible(dm.page, ".dm-exchange .dm-hp-input");
     check("the report reaches the DM", true, true);
-    await dm.page.click(".dm-damage-report .btn-primary");
+    await dm.page.click(".dm-exchange .dm-hp-input + .btn-primary");
     await until(dm.page, "the goblin's HP to drop", () => {
       const display = document.querySelector(
         '[aria-label="Set Goblin hit points directly"]',
@@ -606,21 +604,35 @@ const scenarios = {
     for (let i = 0; i < 3; i += 1) {
       await ally.page.click('[aria-label="Gain 1 temporary hit point"]');
     }
-    // Friendly fire: the fighter reports a hit against the ally.
+    // Friendly fire, in the order the table plays it: name the target first,
+    // then every stage travels on its own as it lands.
     await player.page.click('[aria-label="Roll Greatsword"]');
-    await player.page.click("text=Roll Damage");
-    await untilVisible(player.page, ".roll-report");
-    await player.page.selectOption(
-      '[aria-label="Report this damage against"]',
-      { label: ally.name },
+    await player.page.selectOption('[aria-label="Who you are attacking"]', {
+      label: ally.name,
+    });
+    await player.page.click('[aria-label="Roll"]');
+    await untilVisible(dm.page, ".dm-exchange");
+    check(
+      "the to-hit roll reaches the seat with the target's AC beside it",
+      await dm.page.locator(".dm-vs-ac").count(),
+      1,
     );
-    await player.page.click("text=Report to DM");
+    // The ruling that used to be shouted across the table.
+    await dm.page.click(".dm-stage-ruling .btn-primary");
+    await untilText(player.page, "Your DM says");
+    check("the DM's verdict lands under the player's roll", true, true);
+    // Re-rolling is never blocked, and never silent.
+    await player.page.click('[aria-label="Roll"]');
+    await untilText(dm.page, "re-rolled");
+    check("a second try is marked as one on the DM's card", true, true);
+
+    await player.page.getByRole("button", { name: /Roll .*Damage/ }).click();
     await player.page.click('[aria-label="Close"]');
-    await untilVisible(dm.page, ".dm-damage-report");
+    await untilVisible(dm.page, ".dm-exchange .dm-hp-input");
     const reported = Number(
-      await dm.page.locator(".dm-damage-report input").inputValue(),
+      await dm.page.locator(".dm-exchange .dm-hp-input").inputValue(),
     );
-    await dm.page.click(".dm-damage-report .btn-primary");
+    await dm.page.click(".dm-exchange .dm-hp-input + .btn-primary");
     // Greatsword is at least 2d6+4, so the 3 temp can't swallow it all:
     // temp goes to 0 and the remainder comes off the sheet's HP.
     await until(ally.page, "temp HP to be drained on the ally's sheet", () =>
@@ -715,9 +727,9 @@ const scenarios = {
     );
     await player.page.click(".assign-prompt .btn-primary");
     await untilText(player.page, "You sent");
-    await untilText(dm.page, "rolled");
+    await untilText(dm.page, "Perception");
     check("the answer reaches the seat", true, true);
-    await dm.page.click("text=Got it");
+    await dm.page.click("text=Clear all");
 
     // Healing, routed through the DM: the healer reports it, the DM approves,
     // and the *recipient* applies it to their own sheet.
@@ -725,18 +737,16 @@ const scenarios = {
     await hp.fill("20");
     await hp.press("Enter");
     await healer.page.click('[aria-label="Roll Bless"]');
+    await healer.page.selectOption('[aria-label="Who you are healing"]', {
+      label: player.name,
+    });
     await healer.page.click("text=Roll Healing");
-    await untilVisible(healer.page, ".roll-report");
     const healed = Number(
       await healer.page.locator(".roll-total").last().textContent(),
     );
-    await healer.page.selectOption('[aria-label="Report this healing for"]', {
-      label: player.name,
-    });
-    await healer.page.click("text=Report to DM");
     await healer.page.click('[aria-label="Close"]');
-    await untilVisible(dm.page, ".dm-damage-report");
-    await dm.page.click(".dm-damage-report .btn-primary"); // Approve
+    await untilVisible(dm.page, ".dm-exchange .dm-hp-input");
+    await dm.page.click(".dm-exchange .dm-hp-input + .btn-primary"); // Approve
     await untilText(player.page, "incoming from");
     check("approved healing reaches the recipient", true, true);
     await player.page.click(`text=Apply +${healed}`);

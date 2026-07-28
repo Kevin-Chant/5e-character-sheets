@@ -352,14 +352,31 @@
   color: var(--text);
 }
 
-/* "Report to DM": naming a target for the number just rolled. Quieter than
-   the roll itself — the die is the event, this is the courier. */
-.roll-report {
+/* Who the attack is aimed at, asked before the dice. It sits above the roll
+   rather than under the result because that is now the order of the act —
+   the courier travels with every stage instead of chasing the last one. */
+.roll-target {
+  align-items: center;
   gap: 0.4rem;
-  margin-top: 0.4rem;
+  margin-bottom: 0.4rem;
   font-size: 0.85rem;
 }
 
-.roll-report select {
+.roll-target select {
   max-width: 11rem;
+}
+
+/* "Your DM says: that hits." The answer that used to be shouted across the
+   table, landing under the roll it answers. */
+.roll-verdict {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+}
+
+.roll-verdict.hit {
+  color: var(--success);
+}
+
+.roll-verdict.miss {
+  color: var(--text-muted);
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   DamageType,
@@ -18,6 +18,13 @@ import {
   WEAPON_PRESETS,
   buildAttackFromPreset,
 } from "src/lib/data/weapon-presets";
+import {
+  EncounterContext,
+  EncounterContextData,
+  NO_ENCOUNTER,
+} from "src/lib/hooks/use-encounter";
+import { EMPTY_ENCOUNTER, Participant } from "src/lib/play/encounter";
+import { OutgoingRoll } from "src/lib/play/reports";
 import RollModal from "./roll-modal";
 
 // The roll dialog reads the character and the open roll request from context
@@ -33,6 +40,9 @@ const character: Character = (() => {
 
 const dispatch = vi.fn();
 let spec: RollSpec;
+// Stable, because it doubles as the exchange id every roll in the dialog is
+// reported under.
+const EXCHANGE = "exchange-1";
 
 vi.mock("src/lib/hooks/use-character", () => ({
   useCharacter: () => ({ character, dispatch }),
@@ -40,7 +50,7 @@ vi.mock("src/lib/hooks/use-character", () => ({
 vi.mock("src/lib/hooks/use-roller", async (orig) => ({
   ...(await orig<object>()),
   useRoller: () => ({
-    request: { label: "Greatsword", spec },
+    request: { id: EXCHANGE, label: "Greatsword", spec },
     closeRoller: vi.fn(),
   }),
 }));
@@ -57,6 +67,9 @@ const open = (
   s: RollSpec,
   settings: Record<string, unknown> = {},
   rollMode: RollMode = "app",
+  // The table, when there is one. Solo (the default) nothing is reported and
+  // no target is asked for, which is the shape most of this file tests.
+  encounter?: Partial<EncounterContextData>,
 ) => {
   spec = s;
   // Through the real helper, so the namespaced key can't drift from the app.
@@ -64,7 +77,9 @@ const open = (
   render(
     <SettingsContextProvider>
       <RollModeContextProvider initialMode={rollMode}>
-        <RollModal />
+        <EncounterContext.Provider value={{ ...NO_ENCOUNTER, ...encounter }}>
+          <RollModal />
+        </EncounterContext.Provider>
       </RollModeContextProvider>
     </SettingsContextProvider>,
   );
@@ -264,5 +279,133 @@ describe("RollModal — result breakdowns", () => {
     // 2d6 (maxed to 6 each) + STR 5 = 17 — and the +5 is written out, not left
     // for the player to infer from "(6 + 6)".
     expect(screen.getByText(/6 \+ 6 \+ 5/)).toBeInTheDocument();
+  });
+});
+
+// An attack at a table is a small conversation, and the dialog now holds it:
+// the target is named before the dice, and each stage travels to the seat as
+// it lands. What these pin is invisible here — it shows up on a DM board this
+// test doesn't render — so they assert on the courier.
+describe("RollModal — reporting to the table", () => {
+  const GOBLIN: Participant = {
+    id: "combatant:goblin",
+    name: "Goblin 2",
+    initiative: 12,
+    spent: { action: false, bonusAction: false, reaction: false },
+    conditions: [],
+    vitals: { currHp: 7, maxHp: 7, ac: 13 },
+  };
+
+  let sendReport: ReturnType<typeof vi.fn>;
+  let rememberTarget: ReturnType<typeof vi.fn>;
+
+  const atTable = (over: Partial<EncounterContextData> = {}) => {
+    sendReport = vi.fn();
+    rememberTarget = vi.fn();
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "app", {
+      encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN] },
+      reportsEnabled: true,
+      sendReport,
+      rememberTarget,
+      ...over,
+    });
+  };
+  const reports = () => sendReport.mock.calls.map((c) => c[0] as OutgoingRoll);
+  const target = () => screen.getByLabelText("Who you are attacking");
+  const aim = () => userEvent.selectOptions(target(), GOBLIN.id);
+  const toHit = () =>
+    userEvent.click(screen.getByRole("button", { name: "Roll" }));
+  const damage = () =>
+    userEvent.click(screen.getByRole("button", { name: /Roll.*Damage/ }));
+
+  it("asks who the attack is aimed at, before any dice", () => {
+    atTable();
+    expect(target()).toBeInTheDocument();
+  });
+
+  it("asks nothing when there is no table to tell", () => {
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD });
+    expect(
+      screen.queryByLabelText("Who you are attacking"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sends the to-hit roll as it lands, addressed and with its faces", async () => {
+    atTable();
+    await aim();
+    await toHit();
+    const [report] = reports();
+    expect(report.stage).toBe("toHit");
+    expect(report.targetId).toBe(GOBLIN.id);
+    expect(report.attempt).toBe(1);
+    expect(report.faces).toEqual([20]);
+    expect(report.critical).toBe(true);
+  });
+
+  it("carries the same target and exchange into the damage roll", async () => {
+    atTable();
+    await aim();
+    await toHit();
+    await damage();
+    const [, dmg] = reports();
+    expect(dmg.stage).toBe("damage");
+    expect(dmg.targetId).toBe(GOBLIN.id);
+    expect(dmg.exchangeId).toBe(EXCHANGE);
+    // Itemised by type: the DM rules resistance, and can't from a lump sum.
+    expect(dmg.parts?.[0].damageType).toBe(DamageType.Slashing);
+  });
+
+  it("numbers a re-roll rather than blocking it", async () => {
+    atTable();
+    await aim();
+    await toHit();
+    await toHit();
+    expect(reports().map((r) => r.attempt)).toEqual([1, 2]);
+  });
+
+  it("holds a roll made before a target is named, then sends its true attempt", async () => {
+    atTable();
+    // Rolling first and picking after would otherwise be the way to make a bad
+    // roll disappear — only the last would ever be seen, as an innocent first.
+    await toHit();
+    await toHit();
+    await toHit();
+    expect(sendReport).not.toHaveBeenCalled();
+    await aim();
+    expect(reports()).toHaveLength(1);
+    expect(reports()[0].attempt).toBe(3);
+    expect(reports()[0].targetId).toBe(GOBLIN.id);
+  });
+
+  it("remembers the target, and opens on it next time", async () => {
+    atTable();
+    await aim();
+    expect(rememberTarget).toHaveBeenCalledWith(GOBLIN.id);
+    cleanup();
+    atTable({ lastTargetId: GOBLIN.id });
+    expect((target() as HTMLSelectElement).value).toBe(GOBLIN.id);
+  });
+
+  it("shows the DM's ruling under the roll it answers", () => {
+    atTable({ verdicts: { [EXCHANGE]: "miss" } });
+    expect(screen.getByText(/that misses/)).toBeInTheDocument();
+  });
+
+  it("marks a typed total as asserted rather than rolled", async () => {
+    sendReport = vi.fn();
+    rememberTarget = vi.fn();
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "manual", {
+      encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN] },
+      reportsEnabled: true,
+      sendReport,
+      rememberTarget,
+    });
+    await aim();
+    await userEvent.type(
+      screen.getByLabelText("What did the d20 show?"),
+      "13{enter}",
+    );
+    expect(reports()[0].manual).toBe(true);
+    expect(reports()[0].total).toBe(20);
   });
 });

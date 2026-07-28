@@ -276,8 +276,27 @@ Anyone may write; the DM seat is a UI gate, not a lock. So convergence is
 simultaneous writers land on the same answer in every browser instead of
 swapping states forever.
 
-Three exceptions, all learned the hard way:
+Four exceptions, all learned the hard way:
 
+- **A participant is two independently versioned lanes, not one value.**
+  `vitals` (the DM's oversight write, versioned by `vitalsRev`) and the rest of
+  the row — conditions, concentration, initiative, spent — versioned by `rev`.
+  The document race decides membership and the encounter-level fields; each
+  lane of each row is then resolved on its own counter, ties going to the
+  document winner. Without this, the ordinary shape of a fight loses data: the
+  DM types "you take 9" while the player, hearing the same sentence, ticks the
+  spell they're holding. Both writes start from the same revision, so the
+  clientId tiebreak discards one of them whole — observed in the two-browser
+  harness as the concentration vanishing twice and the DM's damage vanishing
+  the third time, with nobody told either had happened. Two writes to the
+  _same_ lane are still genuinely ambiguous and still resolve by the coarse
+  race; all that's promised there is that everyone picks the same one.
+  Consequently **losing the document race is now a reason to publish**: it used
+  to mean "their state was discarded and ours is presumed known", which is
+  exactly how the losing half of a simultaneous edit disappeared for good. The
+  reply carries a higher revision, so the peer's next receive is a plain win
+  and the exchange stops rather than ping-ponging (`session-convergence.test.ts`
+  counts the traffic to prove it).
 - **You are authoritative for your own vitals.** A peer's copy of your HP is only
   as fresh as the last state they received, so accepting it wholesale makes your
   own HP bar jump backwards every time somebody else advances the turn.
@@ -577,19 +596,45 @@ first; and out of combat the header offers **Rest** (the door to the
 globally-mounted rest dialog), because between fights is when a table rests
 and multiple-fights-per-session is the mission.
 
-## Damage reports and concentration checks
+## Roll reports: the attack as a conversation
 
-Two layers riding the same rule — the app suggests, the table decides:
+`src/lib/play/reports.ts` is the pure core; `REPORT` / `VERDICT` carry it.
 
-- **A damage roll can name its target** (`ReportDamageRow` in the roll
-  dialog, shown only in a session with a DM who isn't you). It sends a
-  `DAMAGE` message — a _report_, not a write: `{reportId, fromName, targetId,
-targetName, amount, label}`. The DM board queues it with an editable amount
-  ("it saved, halving that"), **Apply** (an ordinary `setVitals` write, so a
-  player-owned target's sheet gets it via `ownVitals`) or **Ignore**. Reports
-  are transient provider state like presence: deduped by id, capped at 20,
-  cleared with the connection. Keeping the HP write on the DM's side is what
-  makes the row safe to offer every player.
+An attack is not one roll, it's a small exchange, and the first draft made the
+player hold that exchange out loud: roll to hit, ask the DM whether it landed,
+roll damage, _then_ pick a target from a dropdown and press "Report to DM" to
+send a bare number. Four steps, three of them invisible to the person who has
+to rule on them. The order is now **target first, then dice**:
+
+- **A `RollReport` is one roll, published as it lands.** Rolls made in one
+  opening of the dialog share an `exchangeId` (the `RollRequest.id`), so the
+  seat reads one filling-in card rather than unrelated numbers. It carries what
+  the DM actually needs to rule: the d20 faces and adv/disadv `mode`,
+  `critical`/`fumble`, damage itemised by type _and by rider source_
+  (resistance is a ruling, and a second Sneak Attack in one round should be
+  visible), the save `dc`, and `manual` — whether the number was generated or
+  typed from real dice. All of that used to stay on the roller's screen.
+- **Re-rolls are numbered, never blocked** (`attempt`). Click Roll having
+  forgotten your advantage and you just roll again; the card says
+  "re-rolled ×1 — was 8". A roll made _before_ a target is named is **held and
+  flushed with its true attempt** the moment one is, because roll-then-target
+  was otherwise the way to make a bad roll disappear. That is the whole
+  enforcement model and it is deliberately social: a rogue client can publish
+  anything, so the goal is only to make the ordinary, half-innocent re-roll
+  visible. What can't be stopped can still be witnessed.
+- **The DM rules in-app.** `ToHitRuling` shows the roll against the target's
+  `vitals.ac` with a `beatsAc` opinion, and **Hit / Miss** sends a `VERDICT`
+  back to the roller, who sees "Your DM says: that hits" under the roll it
+  answers. Advisory both ways — the opinion can't see a Shield reaction, and
+  the damage button never waited on the answer.
+- **Damage still lands the same way**: an editable amount ("it saved, halving
+  that") and **Apply**, an ordinary `setVitals` write, so a player-owned
+  target's sheet gets it via `ownVitals`. Applying dismisses the card — with
+  every roll at the table arriving here, a queue that only grew would be
+  unreadable by round three. Reports are transient provider state like
+  presence: deduped by id, capped at `REPORT_CAP`, cleared with the connection.
+- **The target is remembered** (`lastTargetId`, local to the browser), so a
+  second swing at the same goblin needs no second pick.
 - **Concentration checks fire wherever the damage lands.** `concentrationDc`
   (max(10, ⌊damage/2⌋), in `encounter.ts`) backs two prompts. DM side: every
   HP write on the board goes through one `applyVitals` wrapper, so damage to a
@@ -614,15 +659,18 @@ Three more loops on the same report-never-write pattern:
   side: the board's "Ask for a roll" form sends `ROLL_CALL {check,
 toClientId?}` — everyone, or one present client, same routing as sheet
   assignment. The prompt (`RollCallPrompt`) answers in one click (Disadv. /
-  Roll / Adv., or a type-your-total box in real-dice mode) and sends
-  `ROLL_RESULT {fromName, label, total}` back; the seat's queue shows "Brakka
-  rolled 17 (Perception)" with a Got-it dismiss. The prompt keeps showing
-  what was sent until dismissed, so the player knows what left their hands.
+  Roll / Adv., or a type-your-total box in real-dice mode) and sends a
+  `check`-stage `RollReport` keyed on the call's own id, so a second answer
+  lands under the first as attempt 2 rather than as an unrelated number. The
+  prompt doesn't close on being answered — same bargain as the attack dialog:
+  never block the re-roll, always show it. Any check rolled through the dialog
+  while at a table reports itself the same way, which is what picking up a d20
+  in front of your DM has always meant.
 - **Healing routes through the DM, then the recipient.** The roll dialog's
-  healing result gets the same report row (`healing: true` on the shared
-  `DamageReport`). On the DM queue, approving splits by ownership: a
+  healing result rides the same exchange with `stage: "healing"`. On the DM
+  queue, approving splits by ownership: a
   hand-typed row applies directly (`applyHealing`); a character-backed row
-  sends `HEAL {targetId, amount, fromName}` and the _recipient_ gets an
+  sends `HEAL {targetId, amount, fromName, label}` and the _recipient_ gets an
   "N healing incoming from A — Apply / Ignore" banner whose Apply is their
   own sheet write. Nobody ever writes a sheet that isn't theirs.
 - **Death saves ride the projection** (`ParticipantVitals.deathSaves`,

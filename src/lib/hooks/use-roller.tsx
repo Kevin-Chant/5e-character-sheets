@@ -1,4 +1,5 @@
 import React, { useContext, useState } from "react";
+import { randomUUID } from "src/lib/browser";
 import { StandardDie } from "src/lib/data/data-definitions";
 import {
   Attack,
@@ -42,13 +43,20 @@ export type RollSpec =
     };
 
 export interface RollRequest {
+  // Identity for *this opening of the dialog*. Two jobs: it keys the dialog's
+  // contents, so yesterday's result can't linger in a freshly opened one (the
+  // components sit at the same tree position and would otherwise be reused),
+  // and it is the `exchangeId` every roll made inside is reported under — the
+  // to-hit and the damage of one swing are one act, and the DM reads them as
+  // one card.
+  id: string;
   label: string;
   spec: RollSpec;
 }
 
 interface RollerContextData {
   request: RollRequest | null;
-  openRoller: (request: RollRequest) => void;
+  openRoller: (request: Omit<RollRequest, "id">) => void;
   closeRoller: () => void;
 }
 
@@ -67,7 +75,7 @@ export function RollerProvider(props: React.PropsWithChildren) {
     <RollerContext.Provider
       value={{
         request,
-        openRoller: setRequest,
+        openRoller: (opened) => setRequest({ ...opened, id: randomUUID() }),
         closeRoller: () => setRequest(null),
       }}
     >

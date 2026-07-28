@@ -351,90 +351,110 @@ function CheckLauncher({ character }: { character: Character }) {
 
 // "Brakka — give me a Perception check." The DM's ask, routed through the
 // tool: answer with one click (or type your real-dice total) and the number
-// travels back to the seat. The result stays visible until dismissed, so the
-// player knows what they sent.
+// travels back to the seat. Nothing here closes on being answered — a player
+// who rolled before hearing "with advantage" just rolls again, and the seat
+// sees both, keyed to the same ask. That is the same bargain the attack
+// dialog strikes: never block the re-roll, always show it.
 function RollCallPrompt() {
-  const { rollCall, dismissRollCall, submitRollResult, isDm } = useEncounter();
+  const { rollCall, dismissRollCall, sendReport, isDm } = useEncounter();
   const { character } = useCharacter();
   const { rollMode } = useRollMode();
   const [raw, setRaw] = useState("");
   const [answered, setAnswered] = useState<{
     callId: string;
     total: number;
+    attempt: number;
   } | null>(null);
   if (!rollCall || isDm || !character) return null;
 
   const label = checkLabel(rollCall.check);
   const mod = checkModifier(character, rollCall.check);
   const sent = answered?.callId === rollCall.callId ? answered : null;
-  const send = (total: number) => {
-    submitRollResult(label, total);
-    setAnswered({ callId: rollCall.callId, total });
+  const send = (
+    total: number,
+    detail: {
+      faces?: number[];
+      kept?: number;
+      mode?: CheckMode;
+      manual?: true;
+    },
+  ) => {
+    const attempt = (sent?.attempt ?? 0) + 1;
+    // The ask's own id is the exchange, so a second answer lands under the
+    // first rather than arriving as an unrelated number.
+    sendReport({
+      exchangeId: rollCall.callId,
+      stage: "check",
+      attempt,
+      label,
+      total,
+      ...detail,
+    });
+    setAnswered({ callId: rollCall.callId, total, attempt });
   };
-  const rollAndSend = (mode: CheckMode) => send(rollD20Check(mod, mode).total);
+  const rollAndSend = (mode: CheckMode) => {
+    const rolled = rollD20Check(mod, mode);
+    send(rolled.total, {
+      faces: rolled.dice,
+      kept: rolled.kept,
+      mode,
+    });
+  };
 
   return (
     <div className="assign-prompt">
       <span>
         Your DM asks for a <strong>{label}</strong>.
       </span>
-      {sent ? (
-        <>
-          <span>
-            You sent <strong>{sent.total}</strong>.
-          </span>
-          <button type="button" onClick={dismissRollCall}>
-            Done
-          </button>
-        </>
-      ) : (
-        <>
-          {rollMode === "manual" ? (
-            <form
-              className="row roll-manual"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const parsed = Number(raw);
-                if (!raw.trim() || !Number.isFinite(parsed)) return;
-                send(Math.floor(parsed));
-                setRaw("");
-              }}
-            >
-              <input
-                type="text"
-                inputMode="numeric"
-                aria-label="Your roll total"
-                placeholder={`Your total (d20 ${mod >= 0 ? "+" : ""}${mod})`}
-                value={raw}
-                onChange={(e) => setRaw(e.target.value)}
-              />
-              <button type="submit" className="btn-primary">
-                Send
-              </button>
-            </form>
-          ) : (
-            <span className="row roll-manual">
-              <button type="button" onClick={() => rollAndSend("disadvantage")}>
-                Disadv.
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => rollAndSend("normal")}
-              >
-                Roll ({mod >= 0 ? "+" : ""}
-                {mod})
-              </button>
-              <button type="button" onClick={() => rollAndSend("advantage")}>
-                Adv.
-              </button>
-            </span>
-          )}
-          <button type="button" onClick={dismissRollCall}>
-            Not now
-          </button>
-        </>
+      {sent && (
+        <span>
+          You sent <strong>{sent.total}</strong>.
+        </span>
       )}
+      {rollMode === "manual" ? (
+        <form
+          className="row roll-manual"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const parsed = Number(raw);
+            if (!raw.trim() || !Number.isFinite(parsed)) return;
+            send(Math.floor(parsed), { manual: true });
+            setRaw("");
+          }}
+        >
+          <input
+            type="text"
+            inputMode="numeric"
+            aria-label="Your roll total"
+            placeholder={`Your total (d20 ${mod >= 0 ? "+" : ""}${mod})`}
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+          />
+          <button type="submit" className="btn-primary">
+            {sent ? "Send again" : "Send"}
+          </button>
+        </form>
+      ) : (
+        <span className="row roll-manual">
+          <button type="button" onClick={() => rollAndSend("disadvantage")}>
+            Disadv.
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => rollAndSend("normal")}
+          >
+            {sent ? "Roll again" : "Roll"} ({mod >= 0 ? "+" : ""}
+            {mod})
+          </button>
+          <button type="button" onClick={() => rollAndSend("advantage")}>
+            Adv.
+          </button>
+        </span>
+      )}
+      <button type="button" onClick={dismissRollCall}>
+        {sent ? "Done" : "Not now"}
+      </button>
     </div>
   );
 }

@@ -1160,6 +1160,133 @@
   min-width: 0;
 }
 
+.dm-queue-head {
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.dm-queue-head button {
+  padding: 0 var(--space-2);
+  font-size: 0.75rem;
+}
+
+/* One act at the table: a header naming who swung at whom, then a line per
+   stage. The card is a card (rather than three list rows) because reading an
+   attack as one thing is the whole reason the stages share an id. */
+.dm-exchange {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.9rem;
+}
+
+.dm-exchange-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.dm-exchange-arrow {
+  color: var(--text-muted);
+}
+
+.dm-exchange-label {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.dm-exchange-head .dm-row-remove {
+  margin-left: auto;
+}
+
+.dm-exchange-stage {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding-left: var(--space-2);
+}
+
+.dm-stage-name {
+  min-width: 4.5rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.dm-stage-total {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dm-stage-detail {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+}
+
+.dm-stage-chip {
+  padding: 0 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dm-stage-chip.crit {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.dm-stage-chip.save {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* A re-roll is never blocked and never hidden. Marked, not scolded — the
+   colour says "look at this", not "someone cheated". */
+.dm-stage-rerolled {
+  color: var(--arcane);
+  font-size: 0.75rem;
+}
+
+.dm-stage-ruling {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+
+.dm-stage-ruling button {
+  padding: 0 var(--space-2);
+  font-size: 0.78rem;
+}
+
+.dm-stage-ruling .dm-hp-input {
+  width: 3.5rem;
+}
+
+.dm-vs-ac {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dm-vs-ac.hits {
+  color: var(--success);
+}
+
+.dm-ruled {
+  color: var(--text-muted);
+}
+
 /* The concentration reminder on a row that just took damage. */
 .dm-con-check {
   display: flex;

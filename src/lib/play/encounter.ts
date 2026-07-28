@@ -107,6 +107,13 @@ export interface Participant {
   // stale copy of you" (an older one, keep your own) — without it those two
   // arrive looking identical, and the fix for one is the bug in the other.
   vitalsRev?: number;
+  // Bumped on every change to the *rest* of the row — initiative, conditions,
+  // concentration, spent, the offer flag. The row is two independently
+  // versioned lanes, not one, because the two are written by different people
+  // at the same instant all evening: the DM types your damage while you tick
+  // the spell you're holding. Resolving the row as one blob means one of those
+  // two disappears. See `mergeEncounter`.
+  rev?: number;
 }
 
 // How much of the table's health the players get to see — the DM's call,
@@ -218,7 +225,23 @@ export function participantFor(
   return encounter.participants.find((p) => p.characterUuid === characterUuid);
 }
 
+// Edit one participant's row, bumping its `rev`. Everything that changes a
+// participant goes through here — except `setVitals`, which owns the other
+// lane and bumps `vitalsRev` instead. Keeping the two counters apart is what
+// lets a DM's damage and a player's concentration, written at the same
+// moment, both survive; see `mergeEncounter`.
 function mapParticipant(
+  encounter: Encounter,
+  id: string,
+  change: (participant: Participant) => Participant,
+): Encounter {
+  return mapRow(encounter, id, (p) => ({
+    ...change(p),
+    rev: (p.rev ?? 0) + 1,
+  }));
+}
+
+function mapRow(
   encounter: Encounter,
   id: string,
   change: (participant: Participant) => Participant,
@@ -549,7 +572,10 @@ export function setVitals(
   ) {
     return encounter;
   }
-  return mapParticipant(encounter, id, (p) => ({
+  // `mapRow`, not `mapParticipant`: a vitals write must leave the row's own
+  // `rev` alone, or it would collide with the edits it is meant to coexist
+  // with.
+  return mapRow(encounter, id, (p) => ({
     ...p,
     vitals,
     vitalsRev: (p.vitalsRev ?? 0) + 1,

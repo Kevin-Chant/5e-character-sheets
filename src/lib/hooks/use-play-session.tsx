@@ -3,10 +3,8 @@ import { useCallback, useRef, useState } from "react";
 import autobahn from "autobahn-browser";
 import { Encounter } from "src/lib/play/encounter";
 import {
-  DamageReport,
   HealingOffer,
   RollCall,
-  RollResult,
   isValidSessionCode,
   newSessionCode,
   normalizeSessionCode,
@@ -14,6 +12,7 @@ import {
   realmForSession,
   SessionMessage,
 } from "src/lib/play/session";
+import { RollReport, RollVerdict } from "src/lib/play/reports";
 import { useSettings } from "src/lib/hooks/use-settings";
 
 // The party session's transport. Everything it *decides* lives in
@@ -51,13 +50,13 @@ interface PlaySessionOptions {
   ) => void;
   // The DM called for initiative. Each player client raises its own prompt.
   onCallInitiative: (fromClientId: string) => void;
-  // A player rolled damage at something. Everyone hears it; whoever holds the
-  // seat queues it for a decision.
-  onDamageReport: (report: DamageReport, fromClientId: string) => void;
+  // A player rolled something at the table — a to-hit, damage, an answered
+  // check. Everyone hears it; whoever holds the seat queues it.
+  onRollReport: (report: RollReport, fromClientId: string) => void;
+  // The DM ruled on a to-hit roll. Each client keeps the ones addressed to it.
+  onRollVerdict: (verdict: RollVerdict, fromClientId: string) => void;
   // The DM asked for a d20 — everyone, or one addressed client.
   onRollCall: (call: RollCall, fromClientId: string) => void;
-  // A player's answer came back. Whoever holds the seat shows it.
-  onRollResult: (result: RollResult, fromClientId: string) => void;
   // Approved healing looking for its recipient — each client checks whether
   // the target participant is its own open character.
   onHealingOffer: (offer: HealingOffer, fromClientId: string) => void;
@@ -80,9 +79,9 @@ export function usePlaySession({
   onPresence,
   onAssignSheet,
   onCallInitiative,
-  onDamageReport,
+  onRollReport,
+  onRollVerdict,
   onRollCall,
-  onRollResult,
   onHealingOffer,
   onClaimSheet,
   onSheet,
@@ -105,9 +104,9 @@ export function usePlaySession({
     onPresence,
     onAssignSheet,
     onCallInitiative,
-    onDamageReport,
+    onRollReport,
+    onRollVerdict,
     onRollCall,
-    onRollResult,
     onHealingOffer,
     onClaimSheet,
     onSheet,
@@ -119,9 +118,9 @@ export function usePlaySession({
     onPresence,
     onAssignSheet,
     onCallInitiative,
-    onDamageReport,
+    onRollReport,
+    onRollVerdict,
     onRollCall,
-    onRollResult,
     onHealingOffer,
     onClaimSheet,
     onSheet,
@@ -141,12 +140,12 @@ export function usePlaySession({
               ? PlaySessionEvent.ASSIGN
               : message.kind === "callInitiative"
                 ? PlaySessionEvent.CALL_INITIATIVE
-                : message.kind === "damageReport"
-                  ? PlaySessionEvent.DAMAGE
-                  : message.kind === "rollCall"
-                    ? PlaySessionEvent.ROLL_CALL
-                    : message.kind === "rollResult"
-                      ? PlaySessionEvent.ROLL_RESULT
+                : message.kind === "rollReport"
+                  ? PlaySessionEvent.REPORT
+                  : message.kind === "rollVerdict"
+                    ? PlaySessionEvent.VERDICT
+                    : message.kind === "rollCall"
+                      ? PlaySessionEvent.ROLL_CALL
                       : message.kind === "healingOffer"
                         ? PlaySessionEvent.HEAL
                         : message.kind === "claimSheet"
@@ -183,19 +182,19 @@ export function usePlaySession({
     [publish, clientId],
   );
 
-  const sendDamageReport = useCallback(
-    (report: DamageReport) =>
-      publish({ kind: "damageReport", clientId, report }),
+  const sendRollReport = useCallback(
+    (report: RollReport) => publish({ kind: "rollReport", clientId, report }),
+    [publish, clientId],
+  );
+
+  const sendRollVerdict = useCallback(
+    (verdict: RollVerdict) =>
+      publish({ kind: "rollVerdict", clientId, verdict }),
     [publish, clientId],
   );
 
   const sendRollCall = useCallback(
     (call: RollCall) => publish({ kind: "rollCall", clientId, call }),
-    [publish, clientId],
-  );
-
-  const sendRollResult = useCallback(
-    (result: RollResult) => publish({ kind: "rollResult", clientId, result }),
     [publish, clientId],
   );
 
@@ -313,26 +312,26 @@ export function usePlaySession({
               return;
             handlers.current.onCallInitiative(message.clientId);
           }),
-          session.subscribe(PlaySessionEvent.DAMAGE, (args: any[]) => {
+          session.subscribe(PlaySessionEvent.REPORT, (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (message?.kind !== "rollReport" || message.clientId === clientId)
+              return;
+            handlers.current.onRollReport(message.report, message.clientId);
+          }),
+          session.subscribe(PlaySessionEvent.VERDICT, (args: any[]) => {
             const message = args?.[0] as SessionMessage | undefined;
             if (
-              message?.kind !== "damageReport" ||
+              message?.kind !== "rollVerdict" ||
               message.clientId === clientId
             )
               return;
-            handlers.current.onDamageReport(message.report, message.clientId);
+            handlers.current.onRollVerdict(message.verdict, message.clientId);
           }),
           session.subscribe(PlaySessionEvent.ROLL_CALL, (args: any[]) => {
             const message = args?.[0] as SessionMessage | undefined;
             if (message?.kind !== "rollCall" || message.clientId === clientId)
               return;
             handlers.current.onRollCall(message.call, message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.ROLL_RESULT, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "rollResult" || message.clientId === clientId)
-              return;
-            handlers.current.onRollResult(message.result, message.clientId);
           }),
           session.subscribe(PlaySessionEvent.HEAL, (args: any[]) => {
             const message = args?.[0] as SessionMessage | undefined;
@@ -432,9 +431,9 @@ export function usePlaySession({
     announcePresence,
     assignSheet,
     sendCallInitiative,
-    sendDamageReport,
+    sendRollReport,
+    sendRollVerdict,
     sendRollCall,
-    sendRollResult,
     sendHealingOffer,
     requestSheet,
     sendSheet,

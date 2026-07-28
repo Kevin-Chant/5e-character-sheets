@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import classNames from "classnames";
 import {
   formatCustomFormula,
   formatCustomFormulaWithDamage,
@@ -42,6 +43,10 @@ import {
 import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { conditionRollNotes } from "src/lib/play/conditions";
+import { OutgoingRoll, ReportedDamage, RollStage } from "src/lib/play/reports";
+import { calculateCustomFormula } from "src/lib/formula";
+import { RollRequest } from "src/lib/hooks/use-roller";
+import { Participant } from "src/lib/play/encounter";
 import {
   AttackContext,
   applicableRiders,
@@ -94,6 +99,25 @@ const CRIT_MODE_LABELS: Record<CritMode, string> = {
 export default function RollModal() {
   const { character } = useCharacter();
   const { request, closeRoller } = useRoller();
+  if (!request || !character) return <></>;
+  // Keyed on the opening, not the shape: two attacks in a row land on the same
+  // component instances, and without this the second one opens showing the
+  // first one's result.
+  return (
+    <Shell key={request.id} label={request.label} close={closeRoller}>
+      <RollBody request={request} character={character} />
+    </Shell>
+  );
+}
+
+function RollBody({
+  request,
+  character,
+}: {
+  request: RollRequest;
+  character: Character;
+}) {
+  const spec = request.spec;
   // Shared between the two halves of an attack: the to-hit roll sets it when the
   // kept d20 lands in the crit range, and the damage half inflates its dice.
   // Kept manually overridable — the sheet can't see the many other ways a hit
@@ -104,19 +128,54 @@ export default function RollModal() {
   // The weapon properties the rider conditions read. Derived once for both
   // halves of an attack, so the to-hit and damage sections agree about which
   // riders are in play.
-  const spec = request?.spec;
   const context = useMemo(
     () =>
-      spec?.kind === "attack" && spec.attack
+      spec.kind === "attack" && spec.attack
         ? attackContext(spec.attack)
         : NO_CONTEXT,
     [spec],
   );
-  if (!request || !character || !spec) return <></>;
+
+  const isHealing = spec.kind === "attack" && !!spec.spell?.mechanics?.healing;
+  const targeting = useTargeting(request.id, spec.kind === "attack");
+  const { targetId, report } = targeting;
+
+  // The save a target rolls, as a number the DM can rule with. It never used
+  // to leave this dialog — a save-based spell's damage arrived at the seat as
+  // a bare total, and the DC had to be said out loud.
+  const save =
+    spec.kind === "attack" && spec.save
+      ? {
+          dc: calculateCustomFormula(spec.save.dc, character),
+          ...(spec.save.stat ? { stat: spec.save.stat } : {}),
+          ...(spec.save.onSuccess ? { onSuccess: spec.save.onSuccess } : {}),
+        }
+      : undefined;
+
   return (
-    <Shell label={request.label} close={closeRoller}>
+    <>
+      {/* Who this is aimed at, asked *before* the dice — which is the whole
+          reordering. The old flow rolled first and picked a target last, so
+          every stage of an attack reached the DM as one anonymous number
+          after the fact, if at all. Picking first means the to-hit and the
+          damage both arrive addressed, and the damage roll needs no second
+          answer to a question already answered. */}
+      {targeting.enabled && (
+        <TargetPicker
+          healing={isHealing}
+          targets={targeting.targets}
+          targetId={targeting.targetId}
+          setTargetId={targeting.setTargetId}
+        />
+      )}
       {spec.kind === "check" && (
-        <CheckControls character={character} modifier={spec.modifier} />
+        <CheckControls
+          character={character}
+          modifier={spec.modifier}
+          onRolled={(rolled) =>
+            report({ stage: "check", label: request.label, ...rolled }, false)
+          }
+        />
       )}
       {spec.kind === "formula" && (
         <FormulaControls character={character} formula={spec.formula} />
@@ -137,6 +196,12 @@ export default function RollModal() {
                 setCritical(crit);
                 setExtraSets(explosions);
               }}
+              onRolled={(rolled) =>
+                report(
+                  { stage: "toHit", label: request.label, ...rolled },
+                  true,
+                )
+              }
             />
           )}
           {spec.save && <SaveControls character={character} save={spec.save} />}
@@ -149,6 +214,18 @@ export default function RollModal() {
             titled={spec.toHit !== undefined || spec.save !== undefined}
             critical={critical}
             extraSets={extraSets}
+            onRolled={({ castLevel, ...rolled }) =>
+              report(
+                {
+                  ...rolled,
+                  label: castLevel
+                    ? `${request.label} (${ordinalSlot(castLevel)})`
+                    : request.label,
+                  ...(save ? { save } : {}),
+                },
+                true,
+              )
+            }
             // Only a to-hit roll can crit — a save-based spell never does, so
             // that variant gets no toggle.
             setCritical={
@@ -162,9 +239,145 @@ export default function RollModal() {
                 : undefined
             }
           />
+          {/* The answer that used to be a sentence across the table. Purely
+              informational here: the damage button never waited on it, and
+              still doesn't. */}
+          <VerdictLine exchangeId={request.id} />
+          {targeting.enabled && (
+            <p className="muted font-small">
+              {targetId
+                ? "Your DM sees each roll as it lands — re-roll if you need to."
+                : "Pick a target and your DM sees these rolls as they land."}
+            </p>
+          )}
         </>
       )}
-    </Shell>
+    </>
+  );
+}
+
+// What the dialog needs to report its rolls: the chosen target, and a `report`
+// that stamps each roll with the exchange and its attempt number.
+function useTargeting(exchangeId: string, isAttack: boolean) {
+  const {
+    encounter,
+    self,
+    reportsEnabled,
+    sendReport,
+    lastTargetId,
+    rememberTarget,
+  } = useEncounter();
+  // No hidden rows: what a player can't see, they can't call a target.
+  const targets = useMemo(
+    () => encounter.participants.filter((p) => p.id !== self?.id && !p.hidden),
+    [encounter.participants, self?.id],
+  );
+  const enabled = isAttack && reportsEnabled && targets.length > 0;
+  // The last thing this player swung at, which in a fight is very often the
+  // next thing too. Dropped if it has left the order.
+  const [targetId, setTargetId] = useState(() =>
+    lastTargetId && targets.some((t) => t.id === lastTargetId)
+      ? lastTargetId
+      : "",
+  );
+  const targetRef = useRef(targetId);
+  targetRef.current = targetId;
+  // Attempts per stage, counted locally. Rolling three times before naming a
+  // target and then naming one must not report "attempt 1" — the point of the
+  // number is that a re-roll can't hide behind the moment it was sent.
+  const attempts = useRef<Record<string, number>>({});
+  const held = useRef<Record<string, OutgoingRoll>>({});
+
+  const report = useCallback(
+    (
+      roll: Omit<OutgoingRoll, "exchangeId" | "attempt" | "targetId"> & {
+        stage: RollStage;
+      },
+      needsTarget: boolean,
+    ) => {
+      const attempt = (attempts.current[roll.stage] ?? 0) + 1;
+      attempts.current[roll.stage] = attempt;
+      const full: OutgoingRoll = {
+        ...roll,
+        exchangeId,
+        attempt,
+        ...(targetRef.current ? { targetId: targetRef.current } : {}),
+      };
+      // Rolled before choosing: hold it rather than drop it, and send it the
+      // moment a target is named. Rolling first and picking after is otherwise
+      // the way to make a bad roll disappear.
+      if (needsTarget && !targetRef.current) {
+        held.current[roll.stage] = full;
+        return;
+      }
+      delete held.current[roll.stage];
+      sendReport(full);
+    },
+    [exchangeId, sendReport],
+  );
+
+  useEffect(() => {
+    if (!targetId) return;
+    rememberTarget(targetId);
+    const flushing = Object.values(held.current);
+    held.current = {};
+    flushing.forEach((roll) => sendReport({ ...roll, targetId }));
+  }, [targetId]);
+
+  return { enabled, targets, targetId, setTargetId, report };
+}
+
+function TargetPicker({
+  healing,
+  targets,
+  targetId,
+  setTargetId,
+}: {
+  healing: boolean;
+  targets: Participant[];
+  targetId: string;
+  setTargetId: (id: string) => void;
+}) {
+  return (
+    <label className="row roll-target">
+      <span>{healing ? "Healing" : "Attacking"}</span>
+      <select
+        aria-label={healing ? "Who you are healing" : "Who you are attacking"}
+        value={targetId}
+        onChange={(e) => setTargetId(e.target.value)}
+      >
+        <option value="">Choose a target…</option>
+        {targets.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// "Your DM says: that hits." Shown once a ruling comes back for this exchange.
+function VerdictLine({ exchangeId }: { exchangeId: string }) {
+  const { verdicts } = useEncounter();
+  const outcome = verdicts[exchangeId];
+  if (!outcome) return null;
+  return (
+    <p
+      className={classNames("roll-verdict", {
+        hit: outcome !== "miss",
+        miss: outcome === "miss",
+      })}
+    >
+      Your DM says:{" "}
+      <strong>
+        {outcome === "critical"
+          ? "critical hit"
+          : outcome === "hit"
+            ? "that hits"
+            : "that misses"}
+      </strong>
+    </p>
   );
 }
 
@@ -272,6 +485,7 @@ function CheckControls({
   isAttack = false,
   context = NO_CONTEXT,
   onCrit,
+  onRolled,
 }: {
   character: Character;
   modifier: number;
@@ -285,6 +499,14 @@ function CheckControls({
   // repeats followed), so the damage half can inflate its dice. Re-rolling
   // reports the new verdict (including "not a crit").
   onCrit?: (crit: boolean, explosions: number) => void;
+  // Every d20 that lands here, on its way to the table. Called for re-rolls
+  // too — that's the point of it.
+  onRolled?: (
+    rolled: Pick<
+      OutgoingRoll,
+      "total" | "faces" | "kept" | "mode" | "critical" | "fumble" | "manual"
+    >,
+  ) => void;
 }) {
   const {
     settings: { criticalsOnAllRolls, explodingCriticals },
@@ -330,6 +552,15 @@ function CheckControls({
     );
     setResult(rolled);
     onCrit?.(rolled.kept >= threshold, rolled.explosions ?? 0);
+    onRolled?.({
+      total: rolled.total,
+      faces: rolled.dice,
+      kept: rolled.kept,
+      mode,
+      ...(isAttack
+        ? { critical: rolled.kept >= threshold, fumble: rolled.kept === 1 }
+        : {}),
+    });
   };
   return (
     <div className="column roll-section">
@@ -372,6 +603,15 @@ function CheckControls({
               total: face + effectiveModifier,
             });
             onCrit?.(face >= threshold, 0);
+            onRolled?.({
+              total: face + effectiveModifier,
+              faces: [face],
+              kept: face,
+              manual: true,
+              ...(isAttack
+                ? { critical: face >= threshold, fumble: face === 1 }
+                : {}),
+            });
           }}
         />
       ) : (
@@ -464,6 +704,7 @@ function EffectControls({
   critical = false,
   extraSets = 0,
   setCritical,
+  onRolled,
 }: {
   character: Character;
   damage?: CustomFormulaWithDamage;
@@ -479,6 +720,18 @@ function EffectControls({
   // Omitted when the effect can't crit (a save-based spell) — which also hides
   // the toggle.
   setCritical?: (crit: boolean) => void;
+  // The rolled effect, on its way to the table: itemised by damage type (the
+  // DM rules resistance, and can't from a lump sum) and by rider source (a
+  // second Sneak Attack in one round is visible rather than folded in).
+  onRolled?: (rolled: {
+    stage: Extract<RollStage, "damage" | "healing">;
+    total: number;
+    parts?: ReportedDamage[];
+    crit?: boolean;
+    manual?: boolean;
+    // The slot the spell went out at, so the label can say so.
+    castLevel?: number;
+  }) => void;
 }) {
   const {
     settings: { criticalDamageMode },
@@ -580,31 +833,49 @@ function EffectControls({
     setCritical && critical
       ? { mode: criticalDamageMode, extraSets }
       : undefined;
+  // The spell's slot, when there was one — a cantrip and a weapon go out at no
+  // level, and labelling either "(1st)" would be a lie.
+  const reportedLevel = spell && !isCantrip ? castLevel : undefined;
   const rollDamageEffect = () => {
     const damageRiders = applicableRiders(
       ridersFor(character, "damage"),
       context,
     );
-    setDamageResult(
-      resolveDamage({
-        character,
-        map,
-        extras,
-        chosen,
-        riders: damageRiders,
-        crit,
-        slot:
-          smiteActive && slotExtra
-            ? {
-                entry: slotExtra,
-                level: effSmiteLevel!,
-                withBonus: smiteBonus,
-              }
-            : undefined,
-        applyTotals: (t) =>
-          applyTotalRiders(t, damageRiders, character, context),
-      }),
-    );
+    const resolution = resolveDamage({
+      character,
+      map,
+      extras,
+      chosen,
+      riders: damageRiders,
+      crit,
+      slot:
+        smiteActive && slotExtra
+          ? {
+              entry: slotExtra,
+              level: effSmiteLevel!,
+              withBonus: smiteBonus,
+            }
+          : undefined,
+      applyTotals: (t) => applyTotalRiders(t, damageRiders, character, context),
+    });
+    setDamageResult(resolution);
+    onRolled?.({
+      stage: "damage",
+      total: resolution.total,
+      parts: [
+        ...resolution.parts.map((p) => ({
+          total: p.total,
+          damageType: p.damageType,
+        })),
+        ...resolution.extras.map((e) => ({
+          total: e.total,
+          damageType: e.damageType,
+          source: e.source,
+        })),
+      ],
+      crit: !!resolution.critical,
+      castLevel: reportedLevel,
+    });
   };
   // Spend the chosen slot that powers the smite (an explicit, one-time commit,
   // mirroring the hit-die apply — so it syncs/undoes like any edit).
@@ -620,14 +891,13 @@ function EffectControls({
   const rollHealEffect = () => {
     const dice: number[] = [];
     const healingRiders = ridersFor(character, "healing");
-    setHealResult({
-      total: applyTotalRiders(
-        rollFormula(healing!, character, dice, healingRiders),
-        healingRiders,
-        character,
-      ),
-      dice,
-    });
+    const total = applyTotalRiders(
+      rollFormula(healing!, character, dice, healingRiders),
+      healingRiders,
+      character,
+    );
+    setHealResult({ total, dice });
+    onRolled?.({ stage: "healing", total, castLevel: reportedLevel });
   };
 
   return (
@@ -664,7 +934,15 @@ function EffectControls({
             !noSlots && (
               <ManualRollInput
                 prompt="Total healing"
-                onCommit={(total) => setHealResult({ total, dice: [] })}
+                onCommit={(total) => {
+                  setHealResult({ total, dice: [] });
+                  onRolled?.({
+                    stage: "healing",
+                    total,
+                    manual: true,
+                    castLevel: reportedLevel,
+                  });
+                }}
               />
             )
           ) : (
@@ -683,7 +961,6 @@ function EffectControls({
                 HP
                 {breakdown(healResult.total, healResult.dice)}
               </span>
-              <ReportDamageRow total={healResult.total} healing />
             </div>
           )}
         </>
@@ -828,9 +1105,16 @@ function EffectControls({
             !noSlots && (
               <ManualRollInput
                 prompt="Total damage"
-                onCommit={(total) =>
-                  setDamageResult({ total, parts: [], extras: [] })
-                }
+                onCommit={(total) => {
+                  setDamageResult({ total, parts: [], extras: [] });
+                  onRolled?.({
+                    stage: "damage",
+                    total,
+                    manual: true,
+                    crit: !!crit,
+                    castLevel: reportedLevel,
+                  });
+                }}
               />
             )
           ) : (
@@ -905,7 +1189,6 @@ function EffectControls({
                     Expend {ordinalSlot(effSmiteLevel!)}-level slot
                   </button>
                 ))}
-              <ReportDamageRow total={damageResult.total} />
             </div>
           )}
         </>
@@ -1090,77 +1373,6 @@ function Shell({
         </div>
         {children}
       </div>
-    </div>
-  );
-}
-
-// "That 17 was for Goblin 2." In a session with a DM, a damage roll can name
-// its target and travel to the seat as a *report* — the DM applies, overrides
-// or ignores it, so the table's arithmetic stays with whoever runs the table.
-// Hidden solo, hidden with no DM (there'd be nobody to read it), hidden from
-// the DM (their monsters' HP is right there on the board). With `healing` the
-// same row reports a heal instead: the DM approves it and the *recipient*
-// applies it, so nobody writes to a sheet that isn't theirs.
-function ReportDamageRow({
-  total,
-  healing = false,
-}: {
-  total: number;
-  healing?: boolean;
-}) {
-  const {
-    sessionStatus,
-    encounter,
-    self,
-    hasDm,
-    isDm,
-    reportDamage,
-    reportHealing,
-  } = useEncounter();
-  const { request } = useRoller();
-  const [targetId, setTargetId] = useState("");
-  const [sent, setSent] = useState(false);
-  // A re-roll is a new number; the old "Sent" mustn't vouch for it.
-  useEffect(() => setSent(false), [total]);
-
-  if (sessionStatus !== "connected" || !hasDm || isDm) return null;
-  // No hidden rows: what a player can't see, they can't call a target.
-  const targets = encounter.participants.filter(
-    (p) => p.id !== self?.id && !p.hidden,
-  );
-  if (targets.length === 0) return null;
-
-  return (
-    <div className="row roll-report">
-      <select
-        aria-label={
-          healing ? "Report this healing for" : "Report this damage against"
-        }
-        value={targetId}
-        onChange={(e) => {
-          setTargetId(e.target.value);
-          setSent(false);
-        }}
-      >
-        <option value="">{healing ? "For…" : "Against…"}</option>
-        {targets.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        disabled={!targetId || sent}
-        onClick={() => {
-          const label = request?.label ?? (healing ? "Healing" : "Damage");
-          if (healing) reportHealing(targetId, total, label);
-          else reportDamage(targetId, total, label);
-          setSent(true);
-        }}
-      >
-        {sent ? "Sent to your DM" : "Report to DM"}
-      </button>
     </div>
   );
 }

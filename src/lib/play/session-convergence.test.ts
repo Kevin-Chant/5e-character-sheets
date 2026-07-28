@@ -6,6 +6,7 @@ import {
   claimParticipant,
   offerSheet,
   releaseDmSeat,
+  setConcentration,
   setVitals,
   startCombat,
 } from "src/lib/play/encounter";
@@ -307,5 +308,70 @@ describe("leaving", () => {
     alice.join(broker);
     alice.bringSelf();
     expect(master.participantNames).toEqual(["Alice", "Bob"]);
+  });
+});
+
+// Two people writing to the same row at the same moment.
+//
+// This is not an exotic race — it is the ordinary shape of a fight. The DM
+// types "you take 9" while the player, hearing the same sentence, ticks the
+// spell they're holding. Both writes start from the same revision, so a
+// document-level last-write-wins is a coin flip that silently discards one of
+// them; found in the two-browser harness, where the concentration vanished in
+// two runs and the DM's damage vanished in the third.
+describe("simultaneous writes to one participant", () => {
+  const aliceRow = `self:${ALICE}`;
+  const hurt = (c: Parameters<typeof setVitals>[0]) =>
+    setVitals(c, aliceRow, { currHp: 1, maxHp: 10, ac: 12 });
+  const holding = (c: Parameters<typeof setConcentration>[0]) =>
+    setConcentration(c, aliceRow, { spell: "Web", startedRound: 1 });
+
+  const crossed = () => {
+    const t = table();
+    t.broker.crossing(() => {
+      t.master.edit(hurt);
+      t.alice.edit(holding);
+    });
+    return t;
+  };
+  const row = (c: SimClient) =>
+    c.encounter.participants.find((p) => p.id === aliceRow)!;
+
+  it("keeps the DM's damage and the player's concentration", () => {
+    const { master, alice, bob } = crossed();
+    for (const client of [master, alice, bob]) {
+      expect(row(client).vitals?.currHp).toBe(1);
+      expect(row(client).concentration?.spell).toBe("Web");
+    }
+  });
+
+  it("converges the whole table on one answer", () => {
+    const { master, alice, bob } = crossed();
+    expect(row(alice)).toEqual(row(master));
+    expect(row(bob)).toEqual(row(master));
+  });
+
+  it("does not start an endless exchange to get there", () => {
+    // The loser of a document race now speaks up instead of staying quiet,
+    // which is the fix — but its reply carries a higher revision, so the peer's
+    // next receive is a plain win and the conversation stops.
+    const { broker } = crossed();
+    const settled = broker.traffic.length;
+    expect(settled).toBeLessThan(30);
+    expect(broker.traffic.length).toBe(settled);
+  });
+
+  it("still lets the loser's lane lose when it is the same lane", () => {
+    // Two writes to the *same* lane are genuinely ambiguous, and one of them
+    // has to go. All that's promised there is that everyone picks the same one.
+    const { broker, master, alice, bob } = table();
+    broker.crossing(() => {
+      master.edit((c) =>
+        setConcentration(c, aliceRow, { spell: "Bless", startedRound: 1 }),
+      );
+      alice.edit(holding);
+    });
+    expect(row(alice).concentration).toEqual(row(master).concentration);
+    expect(row(bob).concentration).toEqual(row(master).concentration);
   });
 });

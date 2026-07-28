@@ -58,10 +58,8 @@ import {
 } from "src/lib/play/encounter";
 import {
   bumpRevision,
-  DamageReport,
   HealingOffer,
   RollCall,
-  RollResult,
   forgetSession,
   PresentClient,
   receiveState,
@@ -70,6 +68,13 @@ import {
   withoutPresence,
   withPresence,
 } from "src/lib/play/session";
+import {
+  OutgoingRoll,
+  RollReport,
+  RollVerdict,
+  withoutExchange,
+  withReport,
+} from "src/lib/play/reports";
 import {
   rememberSessionLocally,
   sessionMemoryFor,
@@ -124,7 +129,7 @@ function dmToken(): string {
   return created;
 }
 
-interface EncounterContextData {
+export interface EncounterContextData {
   encounter: Encounter;
   // The participant standing in for the open character, created on demand.
   self?: Participant;
@@ -205,20 +210,43 @@ interface EncounterContextData {
   acceptAssignment: () => void;
   declineAssignment: () => void;
 
-  // --- Damage reports ---
-  // Send "I rolled N at that target" to whoever runs the table. A report, not
-  // a write: the HP change happens on the DM's side, or not at all.
-  reportDamage: (targetId: string, amount: number, label: string) => void;
-  // The healing twin: same queue, sign flipped, and DM approval turns into an
-  // offer to the recipient rather than a write.
-  reportHealing: (targetId: string, amount: number, label: string) => void;
-  // Rolled damage/healing waiting on this client's decision (the seat
-  // holder's queue).
-  damageReports: DamageReport[];
-  dismissDamageReport: (reportId: string) => void;
+  // --- Roll reports ---
+  // Publish a roll as it lands. A report, not a write: the HP change happens
+  // on the DM's side, or not at all. No-ops unless there is a table to report
+  // to, so callers can wire it up unconditionally.
+  sendReport: (roll: OutgoingRoll) => void;
+  // Whether rolls made here reach anyone — a session, with a DM, who isn't
+  // us. The roll dialog uses it to decide whether to ask for a target.
+  reportsEnabled: boolean;
+  // Every roll the table has made, newest last (the seat holder's queue).
+  // Grouped into cards by `exchanges()`; capped and cleared with the
+  // connection, because these describe events, not state.
+  reports: RollReport[];
+  dismissExchange: (exchangeId: string) => void;
+  clearReports: () => void;
+  // The DM's answer to a to-hit roll — "that hits" — sent back to the roller
+  // and remembered here so the card shows what was said.
+  ruleOnAttack: (
+    exchangeId: string,
+    toClientId: string,
+    outcome: RollVerdict["outcome"],
+  ) => void;
+  // Rulings, by exchange: the DM's own on the board, the roller's own in the
+  // roll dialog.
+  verdicts: Record<string, RollVerdict["outcome"]>;
+  // Who this client attacked last, so a second swing at the same goblin needs
+  // no second pick. Local to the browser — a target is a choice in progress,
+  // not table state.
+  lastTargetId?: string;
+  rememberTarget: (targetId: string) => void;
   // The DM approved a healing report at a character-backed row: offer it to
   // whoever owns that character, who applies it themselves.
-  offerHealing: (targetId: string, amount: number, fromName: string) => void;
+  offerHealing: (
+    targetId: string,
+    amount: number,
+    fromName: string,
+    label?: string,
+  ) => void;
   // Healing addressed to the open character, waiting on the player.
   incomingHealing?: HealingOffer;
   applyIncomingHealing: () => void;
@@ -230,11 +258,6 @@ interface EncounterContextData {
   // A call addressed to (or including) this client, awaiting an answer.
   rollCall?: RollCall;
   dismissRollCall: () => void;
-  // Answer the pending call (or send any ad-hoc result to the seat).
-  submitRollResult: (label: string, total: number) => void;
-  // Answered calls, for the seat holder's queue.
-  rollResults: RollResult[];
-  dismissRollResult: (resultId: string) => void;
 
   // --- Concentration ---
   // Set when the open character took damage while concentrating: the 5e save
@@ -276,7 +299,8 @@ const NOOP = () => {};
 // The default is a real, empty encounter rather than `undefined`: `RollModal`
 // renders on the sheet too, where no provider decision has been made, and a
 // hook that can return undefined would push that check into every caller.
-export const EncounterContext = React.createContext<EncounterContextData>({
+// Exported so a test can override two fields of it without restating fifty.
+export const NO_ENCOUNTER: EncounterContextData = {
   encounter: EMPTY_ENCOUNTER,
   inCombat: false,
   selfConditions: [],
@@ -308,18 +332,19 @@ export const EncounterContext = React.createContext<EncounterContextData>({
   assignSheetTo: NOOP,
   acceptAssignment: NOOP,
   declineAssignment: NOOP,
-  reportDamage: NOOP,
-  reportHealing: NOOP,
-  damageReports: [],
-  dismissDamageReport: NOOP,
+  sendReport: NOOP,
+  reportsEnabled: false,
+  reports: [],
+  dismissExchange: NOOP,
+  clearReports: NOOP,
+  ruleOnAttack: NOOP,
+  verdicts: {},
+  rememberTarget: NOOP,
   offerHealing: NOOP,
   applyIncomingHealing: NOOP,
   declineIncomingHealing: NOOP,
   callForRoll: NOOP,
   dismissRollCall: NOOP,
-  submitRollResult: NOOP,
-  rollResults: [],
-  dismissRollResult: NOOP,
   clearConcentrationCheck: NOOP,
   sharing: DEFAULT_SHARING,
   setSharingLevel: NOOP,
@@ -334,7 +359,10 @@ export const EncounterContext = React.createContext<EncounterContextData>({
   isDm: false,
   claimDm: NOOP,
   releaseDm: NOOP,
-});
+};
+
+export const EncounterContext =
+  React.createContext<EncounterContextData>(NO_ENCOUNTER);
 
 // A participant id derived from the character, so the same sheet is the same row
 // no matter who put it in the order — the player who opened it or the DM who
@@ -426,10 +454,17 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const [pendingAssignmentId, setPendingAssignmentId] = useState<
     string | undefined
   >();
-  // Rolled damage waiting on a decision. Everyone receives every report;
-  // only the DM board renders the queue, so for everyone else this is a
-  // small, capped list that clears with the connection.
-  const [damageReports, setDamageReports] = useState<DamageReport[]>([]);
+  // Every roll the table has made. Everyone receives every report; only the
+  // DM board renders the queue, so for everyone else this is a small, capped
+  // list that clears with the connection.
+  const [reports, setReports] = useState<RollReport[]>([]);
+  // Rulings by exchange — what the DM said about a to-hit roll. Kept on both
+  // sides: the board shows its own answer, the roller's dialog shows theirs.
+  const [verdicts, setVerdicts] = useState<
+    Record<string, RollVerdict["outcome"]>
+  >({});
+  // The last thing this client aimed at. See `lastTargetId`.
+  const [lastTargetId, setLastTargetId] = useState<string | undefined>();
   // The open character took damage while concentrating — the prompt's data.
   const [concentrationCheck, setConcentrationCheck] = useState<
     { spell: string; damage: number; dc: number } | undefined
@@ -438,8 +473,6 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const [initiativeCalled, setInitiativeCalled] = useState(false);
   // The DM asked this client (or everyone) for a d20, unanswered.
   const [rollCall, setRollCall] = useState<RollCall | undefined>();
-  // Answered calls, for the seat holder. Same lifecycle as damage reports.
-  const [rollResults, setRollResults] = useState<RollResult[]>([]);
   // Approved healing addressed to the open character, unanswered.
   const [incomingHealing, setIncomingHealing] = useState<
     HealingOffer | undefined
@@ -514,12 +547,17 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     // a second hit) and capped — a queue nobody is reading must not grow all
     // night.
     onCallInitiative: () => setInitiativeCalled(true),
-    onDamageReport: (report) =>
-      setDamageReports((current) =>
-        current.some((r) => r.reportId === report.reportId)
-          ? current
-          : [...current, report].slice(-20),
-      ),
+    onRollReport: (report) =>
+      setReports((current) => withReport(current, report)),
+    // A ruling from the seat. Kept only by the client it was addressed to —
+    // everyone hears it, the same as every other message on this broker.
+    onRollVerdict: (verdict) => {
+      if (verdict.toClientId !== clientId) return;
+      setVerdicts((current) => ({
+        ...current,
+        [verdict.exchangeId]: verdict.outcome,
+      }));
+    },
     // A roll call lands on everyone; each client keeps it only if it's
     // addressed to them (or to the whole table). Latest ask wins — a table
     // answers one question at a time.
@@ -527,12 +565,6 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       if (call.toClientId && call.toClientId !== clientId) return;
       setRollCall(call);
     },
-    onRollResult: (result) =>
-      setRollResults((current) =>
-        current.some((r) => r.resultId === result.resultId)
-          ? current
-          : [...current, result].slice(-20),
-      ),
     // Approved healing looking for its recipient: keep it only if the target
     // participant is the character open in this browser.
     onHealingOffer: (offer) => {
@@ -643,10 +675,11 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     setPresent([]);
     setPendingAssignmentId(undefined);
     setCustomName(undefined);
-    setDamageReports([]);
+    setReports([]);
+    setVerdicts({});
+    setLastTargetId(undefined);
     setInitiativeCalled(false);
     setRollCall(undefined);
-    setRollResults([]);
     setIncomingHealing(undefined);
   }, [disconnected]);
 
@@ -765,6 +798,14 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     return result;
   }, [update]);
 
+  // A roll only has somewhere to go when there's a table, someone running it,
+  // and it isn't us. Derived once here so both the gate in `sendReport` and
+  // the roll dialog's target picker read the same fact.
+  const reportsEnabled =
+    session.status === "connected" &&
+    !!encounter.dmClientId &&
+    encounter.dmClientId !== clientId;
+
   const providerData = useMemo<EncounterContextData>(
     () => ({
       encounter,
@@ -865,43 +906,43 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         setPendingAssignmentId(undefined);
       },
       declineAssignment: () => setPendingAssignmentId(undefined),
-      reportDamage: (targetId, amount, label) => {
-        const target = encounter.participants.find((p) => p.id === targetId);
-        if (!target || !(amount > 0)) return;
-        session.sendDamageReport({
+      // Publishing a roll is unconditional at the call site and gated here:
+      // solo, with no DM, or *as* the DM there is nobody to tell, and a roll
+      // surface shouldn't have to know that.
+      sendReport: (roll) => {
+        if (!reportsEnabled) return;
+        const target = roll.targetId
+          ? encounter.participants.find((p) => p.id === roll.targetId)
+          : undefined;
+        session.sendRollReport({
+          ...roll,
           reportId: randomUUID(),
+          fromClientId: clientId,
           fromName: displayName,
-          targetId,
-          targetName: target.name,
-          amount: Math.floor(amount),
-          label,
+          total: Math.floor(roll.total),
+          ...(target ? { targetName: target.name } : { targetId: undefined }),
         });
       },
-      reportHealing: (targetId, amount, label) => {
-        const target = encounter.participants.find((p) => p.id === targetId);
-        if (!target || !(amount > 0)) return;
-        session.sendDamageReport({
-          reportId: randomUUID(),
-          fromName: displayName,
-          targetId,
-          targetName: target.name,
-          amount: Math.floor(amount),
-          label,
-          healing: true,
-        });
+      reportsEnabled,
+      reports,
+      dismissExchange: (exchangeId) =>
+        setReports((current) => withoutExchange(current, exchangeId)),
+      clearReports: () => setReports([]),
+      ruleOnAttack: (exchangeId, toClientId, outcome) => {
+        setVerdicts((current) => ({ ...current, [exchangeId]: outcome }));
+        session.sendRollVerdict({ exchangeId, toClientId, outcome });
       },
-      damageReports,
-      dismissDamageReport: (reportId) =>
-        setDamageReports((current) =>
-          current.filter((r) => r.reportId !== reportId),
-        ),
-      offerHealing: (targetId, amount, fromName) => {
+      verdicts,
+      lastTargetId,
+      rememberTarget: setLastTargetId,
+      offerHealing: (targetId, amount, fromName, label) => {
         if (!(amount > 0)) return;
         session.sendHealingOffer({
           offerId: randomUUID(),
           targetId,
           amount: Math.floor(amount),
           fromName,
+          ...(label ? { label } : {}),
         });
       },
       incomingHealing,
@@ -931,21 +972,6 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         session.sendRollCall({ callId: randomUUID(), check, toClientId }),
       rollCall,
       dismissRollCall: () => setRollCall(undefined),
-      // Deliberately doesn't clear `rollCall` — the prompt keeps showing what
-      // was sent until the player dismisses it (or the next call replaces it).
-      submitRollResult: (label, total) => {
-        session.sendRollResult({
-          resultId: randomUUID(),
-          fromName: displayName,
-          label,
-          total: Math.floor(total),
-        });
-      },
-      rollResults,
-      dismissRollResult: (resultId) =>
-        setRollResults((current) =>
-          current.filter((r) => r.resultId !== resultId),
-        ),
       concentrationCheck,
       clearConcentrationCheck: () => setConcentrationCheck(undefined),
       sharing: encounter.sharing ?? DEFAULT_SHARING,
@@ -1025,9 +1051,11 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       lastSession,
       present,
       pendingAssignmentId,
-      damageReports,
+      reports,
+      verdicts,
+      lastTargetId,
+      reportsEnabled,
       rollCall,
-      rollResults,
       incomingHealing,
       concentrationCheck,
       displayName,

@@ -8,6 +8,7 @@ import {
   reclaimDmSeat,
 } from "src/lib/play/encounter";
 import { RollCallCheck } from "src/lib/play/checks";
+import { RollReport, RollVerdict } from "src/lib/play/reports";
 import { PlaySessionRef } from "src/lib/types";
 
 // The party session: one shared encounter across several browsers.
@@ -60,40 +61,26 @@ export const PlaySessionEvent = {
   // player gets the prompt at once, same as hearing it across the table.
   // Carries nothing: the roll and the number stay on each player's side.
   CALL_INITIATIVE: BASE_APPNAME + ".encounter.callinitiative",
-  // "I rolled damage at that goblin." A *report*, not a write: the roller
-  // names a target and a number, and the DM applies, overrides or ignores it.
-  // Keeping the HP write on the DM's side is what makes this safe to offer
-  // every player — the table's arithmetic stays with whoever runs the table.
-  DAMAGE: BASE_APPNAME + ".encounter.damage",
+  // "I rolled 15 to hit Goblin 2." Every roll a player makes at the table, as
+  // it lands. A *report*, not a write: the roller names a target and a number,
+  // and the DM applies, overrides or ignores it. Keeping the HP write on the
+  // DM's side is what makes this safe to offer every player — the table's
+  // arithmetic stays with whoever runs the table. See `play/reports.ts` for
+  // why the stages of one attack travel as separate messages.
+  REPORT: BASE_APPNAME + ".encounter.report",
+  // "That hits." The DM's answer to a to-hit roll, addressed back to whoever
+  // rolled it — the sentence that used to have to be said out loud.
+  VERDICT: BASE_APPNAME + ".encounter.verdict",
   // "Brakka, give me a Perception check." The DM's ask, addressed to one
   // client or (toClientId absent) the whole table — the same routing shape as
-  // the initiative call, but for any d20 the game asks for.
+  // the initiative call, but for any d20 the game asks for. The answer comes
+  // back on REPORT like every other roll.
   ROLL_CALL: BASE_APPNAME + ".encounter.rollcall",
-  // The answer coming back: a name, a label and a total for the DM's queue.
-  // A report like DAMAGE — never merged, never persisted.
-  ROLL_RESULT: BASE_APPNAME + ".encounter.rollresult",
   // "8 healing incoming from Brakka." Sent by the DM *after* approving a
   // healing report; the recipient applies it to their own sheet (or ignores
   // it) — their vitals, their write, same authority rule as everywhere else.
   HEAL: BASE_APPNAME + ".encounter.heal",
 };
-
-// A player's rolled damage, waiting on the DM. Transient like presence — it
-// describes an event, not state, so it is never merged and never persisted.
-export interface DamageReport {
-  reportId: string;
-  // Who rolled it, by display name — for the DM's queue, not for authority.
-  fromName: string;
-  targetId: string;
-  targetName: string;
-  amount: number;
-  // What was rolled — "Greatsword", "Fireball at 5th".
-  label: string;
-  // A healing report rides the same queue with the sign flipped: the DM
-  // approves it, and for a character-backed target the approval becomes a
-  // HEAL offer to the recipient rather than a direct write.
-  healing?: boolean;
-}
 
 // The DM asked for a d20. `toClientId` absent means everyone — "alright
 // everyone, roll a DEX save".
@@ -101,14 +88,6 @@ export interface RollCall {
   callId: string;
   check: RollCallCheck;
   toClientId?: string;
-}
-
-// A player's answer to a roll call (or any ad-hoc check they chose to send).
-export interface RollResult {
-  resultId: string;
-  fromName: string;
-  label: string;
-  total: number;
 }
 
 // Approved healing on its way to the recipient, who applies or ignores it.
@@ -119,6 +98,9 @@ export interface HealingOffer {
   targetId: string;
   amount: number;
   fromName: string;
+  // What healed them — "Cure Wounds (2nd)". The recipient was being asked to
+  // accept an anonymous number otherwise.
+  label?: string;
 }
 
 // Session codes are **uuids, and the uuid is the authentication** — the same
@@ -227,9 +209,9 @@ export type SessionMessage =
   | { kind: "leave"; clientId: string }
   | { kind: "presence"; clientId: string; name: string }
   | { kind: "callInitiative"; clientId: string }
-  | { kind: "damageReport"; clientId: string; report: DamageReport }
+  | { kind: "rollReport"; clientId: string; report: RollReport }
+  | { kind: "rollVerdict"; clientId: string; verdict: RollVerdict }
   | { kind: "rollCall"; clientId: string; call: RollCall }
-  | { kind: "rollResult"; clientId: string; result: RollResult }
   | { kind: "healingOffer"; clientId: string; offer: HealingOffer }
   | {
       kind: "assignSheet";
@@ -274,6 +256,37 @@ function wins(incoming: Encounter, local: Encounter): boolean {
   return (incoming.revisedBy ?? "") > (local.revisedBy ?? "");
 }
 
+// Merge one participant that both sides know about.
+//
+// A row is **two independently versioned lanes**, and this is where that pays
+// off. `vitals` is the DM's oversight write; everything else — conditions,
+// concentration, initiative, spent — is usually the row's own player. Both get
+// written at the same instant all evening ("you take 9" landing while the
+// player ticks the spell they're holding), and both writes start from the same
+// revision, so the document race is a coin flip that throws one of them away.
+// Observed both ways round: the concentration vanished, or the damage did, and
+// nobody was told either had happened.
+//
+// So the coarse race decides `base` (and every encounter-level field), and each
+// lane is then resolved on its own counter. Ties go to `base`, which keeps the
+// old behaviour everywhere the lanes agree.
+function mergeParticipant(base: Participant, other: Participant): Participant {
+  const rest = (other.rev ?? 0) > (base.rev ?? 0) ? other : base;
+  // A side with no vitals at all can't win the lane — an untracked copy of a
+  // row must never blank a tracked one.
+  const vital =
+    other.vitals && (other.vitalsRev ?? 0) > (base.vitalsRev ?? 0)
+      ? other
+      : base;
+  if (rest === base && vital === base) return base;
+  return {
+    ...rest,
+    ...(vital.vitals
+      ? { vitals: vital.vitals, vitalsRev: vital.vitalsRev }
+      : {}),
+  };
+}
+
 // Apply an encounter that arrived from a peer.
 //
 // One exception to last-write-wins: **you are authoritative for your own
@@ -310,7 +323,27 @@ export function mergeEncounter(
   //
   // A newcomer has nothing to be authoritative about, so it defers to the room
   // and contributes only its own participants (re-added below).
-  if (!adopt && !wins(incoming, local)) return local;
+  const incomingWins = adopt || wins(incoming, local);
+  // The losing document is no longer discarded whole. Its *membership* and its
+  // encounter-level fields lose, as before — but the rows it holds are merged
+  // in lane by lane, because "who wrote most recently" is too coarse a question
+  // to ask of a row two people are editing. See `mergeParticipant`.
+  const base = incomingWins ? incoming : local;
+  const other = incomingWins ? local : incoming;
+  const theirRows = new Map(other.participants.map((p) => [p.id, p]));
+  let merged = false;
+  const rows = base.participants.map((p) => {
+    const theirs = theirRows.get(p.id);
+    if (!theirs) return p;
+    const combined = mergeParticipant(p, theirs);
+    if (combined !== p) merged = true;
+    return combined;
+  });
+  // Nothing of the loser's survived, and the loser was us: this is the old
+  // "discard it" path, and it must stay identity so an unchanged encounter
+  // isn't persisted and re-broadcast.
+  if (!incomingWins && !merged) return local;
+  const winner: Encounter = merged ? { ...base, participants: rows } : base;
 
   const mine = selfCharacterUuid
     ? local.participants.find((p) => p.characterUuid === selfCharacterUuid)
@@ -330,10 +363,10 @@ export function mergeEncounter(
   const ours = selfClientId
     ? local.participants.filter((p) => p.ownerClientId === selfClientId)
     : [];
-  const incomingIds = new Set(incoming.participants.map((p) => p.id));
+  const incomingIds = new Set(winner.participants.map((p) => p.id));
   const missing = ours.filter((p) => !incomingIds.has(p.id));
 
-  const participants = incoming.participants.map((p) =>
+  const participants = winner.participants.map((p) =>
     keepOwnVitals && p.characterUuid === selfCharacterUuid
       ? {
           ...p,
@@ -348,7 +381,7 @@ export function mergeEncounter(
   // Re-seated by initiative rather than appended: with a fight in progress the
   // array is the turn order, and a joiner should land where their roll says —
   // on every peer's copy, not just their own.
-  return missing.reduce(insertParticipant, { ...incoming, participants });
+  return missing.reduce(insertParticipant, { ...winner, participants });
 }
 
 // Who this client is, for the decisions below.
@@ -386,6 +419,7 @@ export function receiveState(
   incoming: Encounter,
   self: SessionSelf,
 ): StateReceipt {
+  const incomingWins = !!self.adopt || wins(incoming, local);
   const merged = mergeEncounter(
     local,
     incoming,
@@ -421,6 +455,14 @@ export function receiveState(
   // order, the seat now pointing at this tab, or our own vitals corrected over
   // their stale copy of us (the rejoin case — without this the room keeps
   // showing last week's HP until the sheet next changes).
+  //
+  // **Losing the document race is now also a reason to speak up.** It used to
+  // be a reason to stay quiet: the peer's state was discarded and ours was
+  // presumed known. It isn't — a write of ours they haven't seen is exactly
+  // what makes us win, and saying nothing is how the losing half of a
+  // simultaneous edit disappeared for good. This doesn't ping-pong: our reply
+  // carries a higher revision, so the peer's next receive is a plain win for
+  // them and they fall silent.
   const theirs = new Set(incoming.participants.map((p) => p.id));
   const correctedOwnVitals =
     !!mineAfter?.vitals &&
@@ -428,6 +470,7 @@ export function receiveState(
     !sameVitals(mineAfter.vitals, theirCopyOfMe.vitals);
   const publish =
     seated !== merged ||
+    !incomingWins ||
     correctedOwnVitals ||
     seated.participants.some((p) => !theirs.has(p.id));
   return { encounter: seated, publish, ownVitals };
