@@ -16,6 +16,8 @@
 //
 // Flags:
 //   --base <url>      dev server (default http://localhost:3000)
+//   --sidecar <url>   the live-edit sidecar to point every client at
+//                     (default http://localhost:9000 — never the cloud one)
 //   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | initiative | damage | table | rejoin
 //   --headed          show the browsers
 //   --slow <ms>       slow motion, for watching a failure happen
@@ -44,6 +46,12 @@ const flag = (name, fallback) => {
 const has = (name) => argv.includes(`--${name}`);
 
 const BASE = flag("base", "http://localhost:3000");
+// **Pinned, not inherited.** The app's default sharing host is the *cloud*
+// sidecar (there is no .env, so `VITE_LIVE_EDIT_HOST` falls back to it), and
+// `--base` only redirects the page — so an idle `pnpm session-smoke` used to
+// open eleven scenarios' worth of realms on production. Stored settings beat
+// env in the app, so seeding one is what makes a hand-check stay at home.
+const SIDECAR = flag("sidecar", "http://localhost:9000");
 const TIMEOUT = Number(flag("timeout", 15000));
 const SHOTS = flag("shots", undefined);
 const ONLY = flag("only", undefined);
@@ -121,10 +129,18 @@ async function openClient(browser, fixture, label, extraFixtures = [], mutate) {
     [character, ...extraFixtures.map(load)].map((c) => [c.uuid, c]),
   );
   const ctx = await browser.newContext();
-  await ctx.addInitScript((chars) => {
-    localStorage.setItem("dndcharactersheets_characters", chars);
-    localStorage.setItem("dndcharactersheets_lastDatastore", '"local"');
-  }, JSON.stringify(stored));
+  await ctx.addInitScript(
+    ({ chars, sidecar }) => {
+      localStorage.setItem("dndcharactersheets_characters", chars);
+      localStorage.setItem("dndcharactersheets_lastDatastore", '"local"');
+      // A partial settings object; the provider merges it over the defaults.
+      localStorage.setItem(
+        "dndcharactersheets_settings",
+        JSON.stringify({ liveEditHost: sidecar }),
+      );
+    },
+    { chars: JSON.stringify(stored), sidecar: SIDECAR },
+  );
   const page = await ctx.newPage();
   page.on("pageerror", (e) => {
     failures += 1;
@@ -932,6 +948,22 @@ for (const [name, scenario] of Object.entries(scenarios)) {
   } catch (e) {
     failures += 1;
     console.log(`  ✗ ${e.message}`);
+    // A scenario that threw never returned its clients, so the shots below
+    // never happened — exactly when a picture is worth having. Shoot whatever
+    // is still open instead, labelled by position rather than by role.
+    if (SHOTS) {
+      let index = 0;
+      for (const context of browser.contexts()) {
+        for (const page of context.pages()) {
+          await page
+            .screenshot({
+              path: join(SHOTS, `${name}-failed-${index++}.png`),
+              fullPage: true,
+            })
+            .catch(() => {});
+        }
+      }
+    }
   }
   console.log(`  (${((Date.now() - started) / 1000).toFixed(1)}s)`);
   for (const client of clients) {

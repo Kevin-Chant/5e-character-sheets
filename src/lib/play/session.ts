@@ -230,6 +230,25 @@ export type SessionMessage =
       character: unknown;
     };
 
+// Which topic each message goes out on. A table rather than a chain of
+// conditionals in the transport: it is exhaustively checked, so adding a member
+// to `SessionMessage` without giving it a topic is a type error rather than a
+// message that quietly publishes to LEAVE.
+export const TOPIC_FOR: Record<SessionMessage["kind"], string> = {
+  state: PlaySessionEvent.STATE,
+  hello: PlaySessionEvent.HELLO,
+  leave: PlaySessionEvent.LEAVE,
+  presence: PlaySessionEvent.PRESENCE,
+  callInitiative: PlaySessionEvent.CALL_INITIATIVE,
+  rollReport: PlaySessionEvent.REPORT,
+  rollVerdict: PlaySessionEvent.VERDICT,
+  rollCall: PlaySessionEvent.ROLL_CALL,
+  healingOffer: PlaySessionEvent.HEAL,
+  assignSheet: PlaySessionEvent.ASSIGN,
+  claimSheet: PlaySessionEvent.CLAIM_SHEET,
+  sheet: PlaySessionEvent.SHEET,
+};
+
 // --- Merging -----------------------------------------------------------------
 
 // Anyone may write to the encounter — the DM seat is a UI gate, not a lock, so
@@ -342,8 +361,29 @@ export function mergeEncounter(
   // Nothing of the loser's survived, and the loser was us: this is the old
   // "discard it" path, and it must stay identity so an unchanged encounter
   // isn't persisted and re-broadcast.
-  if (!incomingWins && !merged) return local;
-  const winner: Encounter = merged ? { ...base, participants: rows } : base;
+  // The DM seat is a third lane, resolved on `seatRev`. Without it a client
+  // that has never heard of the DM can erase them just by winning the coarse
+  // race — and because `dmToken` goes too, the seat is then unrecoverable by
+  // anyone. The window is small but it is exactly the moment a table starts:
+  // two players joining at once, one adopting the other's not-yet-synced
+  // state. A joiner (`adopt`) takes the room's seat regardless, having nothing
+  // to be authoritative about.
+  const seat =
+    !adopt && (other.seatRev ?? 0) > (base.seatRev ?? 0) ? other : base;
+  const seatMoved =
+    seat.dmClientId !== base.dmClientId || seat.dmToken !== base.dmToken;
+  if (!incomingWins && !merged && !seatMoved) return local;
+  const winner: Encounter = {
+    ...base,
+    ...(merged ? { participants: rows } : {}),
+    ...(seatMoved
+      ? {
+          dmClientId: seat.dmClientId,
+          dmToken: seat.dmToken,
+          seatRev: seat.seatRev,
+        }
+      : {}),
+  };
 
   const mine = selfCharacterUuid
     ? local.participants.find((p) => p.characterUuid === selfCharacterUuid)
@@ -471,6 +511,8 @@ export function receiveState(
   const publish =
     seated !== merged ||
     !incomingWins ||
+    // We kept a seat the peer's state had already forgotten.
+    merged.dmClientId !== incoming.dmClientId ||
     correctedOwnVitals ||
     seated.participants.some((p) => !theirs.has(p.id));
   return { encounter: seated, publish, ownVitals };

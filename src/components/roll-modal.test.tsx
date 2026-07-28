@@ -23,6 +23,11 @@ import {
   EncounterContextData,
   NO_ENCOUNTER,
 } from "src/lib/hooks/use-encounter";
+import {
+  NO_TABLE_TALK,
+  TableTalkContext,
+  TableTalkData,
+} from "src/lib/hooks/use-table-talk";
 import { EMPTY_ENCOUNTER, Participant } from "src/lib/play/encounter";
 import { OutgoingRoll } from "src/lib/play/reports";
 import RollModal from "./roll-modal";
@@ -69,7 +74,10 @@ const open = (
   rollMode: RollMode = "app",
   // The table, when there is one. Solo (the default) nothing is reported and
   // no target is asked for, which is the shape most of this file tests.
+  // Two contexts because they answer two questions: who is in the fight
+  // (`encounter`), and what is being said about it (`talk`).
   encounter?: Partial<EncounterContextData>,
+  talk?: Partial<TableTalkData>,
 ) => {
   spec = s;
   // Through the real helper, so the namespaced key can't drift from the app.
@@ -78,7 +86,9 @@ const open = (
     <SettingsContextProvider>
       <RollModeContextProvider initialMode={rollMode}>
         <EncounterContext.Provider value={{ ...NO_ENCOUNTER, ...encounter }}>
-          <RollModal />
+          <TableTalkContext.Provider value={{ ...NO_TABLE_TALK, ...talk }}>
+            <RollModal />
+          </TableTalkContext.Provider>
         </EncounterContext.Provider>
       </RollModeContextProvider>
     </SettingsContextProvider>,
@@ -299,16 +309,16 @@ describe("RollModal — reporting to the table", () => {
   let sendReport: ReturnType<typeof vi.fn>;
   let rememberTarget: ReturnType<typeof vi.fn>;
 
-  const atTable = (over: Partial<EncounterContextData> = {}) => {
+  const atTable = (over: Partial<TableTalkData> = {}) => {
     sendReport = vi.fn();
     rememberTarget = vi.fn();
-    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "app", {
-      encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN] },
-      reportsEnabled: true,
-      sendReport,
-      rememberTarget,
-      ...over,
-    });
+    open(
+      { kind: "attack", toHit: 7, damage: GREATSWORD },
+      {},
+      "app",
+      { encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN] } },
+      { reportsEnabled: true, sendReport, rememberTarget, ...over },
+    );
   };
   const reports = () => sendReport.mock.calls.map((c) => c[0] as OutgoingRoll);
   const target = () => screen.getByLabelText("Who you are attacking");
@@ -394,12 +404,13 @@ describe("RollModal — reporting to the table", () => {
   it("marks a typed total as asserted rather than rolled", async () => {
     sendReport = vi.fn();
     rememberTarget = vi.fn();
-    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "manual", {
-      encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN] },
-      reportsEnabled: true,
-      sendReport,
-      rememberTarget,
-    });
+    open(
+      { kind: "attack", toHit: 7, damage: GREATSWORD },
+      {},
+      "manual",
+      { encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN] } },
+      { reportsEnabled: true, sendReport, rememberTarget },
+    );
     await aim();
     await userEvent.type(
       screen.getByLabelText("What did the d20 show?"),

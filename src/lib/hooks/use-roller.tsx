@@ -21,6 +21,12 @@ export type RollSpec =
   // afterRoll callback) so the modal can gate on the live character — remaining
   // dice, max-HP clamp, Durable's minimum.
   | { kind: "hitDie"; die: StandardDie }
+  // A death saving throw: a flat d20 that reads its own outcome (10 or better
+  // is a success, a nat 1 costs two failures, a nat 20 puts you back up) and
+  // offers to write it onto the pips. Its own kind rather than a `check` with
+  // modifier 0 because none of that arithmetic belongs to the player, and
+  // because it is the roll a table most wants made in the open.
+  | { kind: "deathSave" }
   // Using a weapon or spell: an optional to-hit roll and its damage, handled
   // together in one dialog. `spell` carries the model so the modal can offer a
   // cast-level selector and expand scaling; otherwise `damage` is fixed.

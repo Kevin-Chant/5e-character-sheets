@@ -11,6 +11,7 @@ import {
   carryingCapacityLb,
   expendedSpellSlots,
   countAttunedItems,
+  describeDeathSave,
   equippedArmorAC,
   formatWeight,
   getHpFormula,
@@ -18,6 +19,7 @@ import {
   maxSpellLevelForClass,
   officialSpellcastingClasses,
   remainingHitDice,
+  resolveDeathSave,
   saveDcFormula,
   totalEquipmentWeightLb,
   totalSpellSlots,
@@ -483,5 +485,54 @@ describe("preparedSpellCount", () => {
     // One at level 1 and one at level 2: the unticked one, the other class's,
     // and the cantrip are all excluded.
     expect(preparedSpellsFor(char, klass.id)).toBe(2);
+  });
+});
+
+describe("death saving throws", () => {
+  const none = { successes: 0, failures: 0 };
+
+  it("takes a success on 10 or better and a failure below it", () => {
+    expect(resolveDeathSave(10, none).verdict).toBe("success");
+    expect(resolveDeathSave(9, none).verdict).toBe("failure");
+  });
+
+  it("costs two failures on a natural 1", () => {
+    expect(resolveDeathSave(1, none).failures).toBe(2);
+  });
+
+  it("kills on the third failure, however it was reached", () => {
+    expect(resolveDeathSave(5, { successes: 0, failures: 2 }).verdict).toBe(
+      "dead",
+    );
+    // A nat 1 from one failure is two more, so the third lands here too.
+    expect(resolveDeathSave(1, { successes: 0, failures: 1 }).verdict).toBe(
+      "dead",
+    );
+  });
+
+  it("stabilises on the third success and wipes the track", () => {
+    const result = resolveDeathSave(15, { successes: 2, failures: 1 });
+    expect(result.verdict).toBe("stable");
+    expect(result).toMatchObject({ successes: 0, failures: 0 });
+  });
+
+  it("brings you back up on a natural 20, whatever the track said", () => {
+    const result = resolveDeathSave(20, { successes: 0, failures: 2 });
+    expect(result.verdict).toBe("revived");
+    expect(result.revivedAtHp).toBe(1);
+    expect(result).toMatchObject({ successes: 0, failures: 0 });
+  });
+
+  it("never counts past three", () => {
+    expect(resolveDeathSave(1, { successes: 0, failures: 2 }).failures).toBe(3);
+  });
+
+  it("says what happened in the words a table uses", () => {
+    expect(describeDeathSave(resolveDeathSave(12, none))).toBe(
+      "success (1 of 3)",
+    );
+    expect(describeDeathSave(resolveDeathSave(20, none))).toBe(
+      "natural 20 — conscious at 1 HP",
+    );
   });
 });

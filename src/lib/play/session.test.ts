@@ -16,6 +16,7 @@ import {
   normalizeSessionCode,
   realmForSession,
   REMEMBERED_SESSIONS,
+  TOPIC_FOR,
   rememberSession,
   withoutClient,
   withoutPresence,
@@ -482,5 +483,21 @@ describe("invites", () => {
     expect(inviteLink("http://localhost:3000/", code)).toBe(
       `http://localhost:3000/join/${code}`,
     );
+  });
+});
+
+describe("the topic table", () => {
+  it("gives every message kind its own topic", () => {
+    // A copy-paste collision here is silent and awful: two kinds sharing a
+    // topic means both handlers see both messages and each drops the other's
+    // as "wrong kind", so a feature simply stops working with nothing logged.
+    const topics = Object.values(TOPIC_FOR);
+    expect(new Set(topics).size).toBe(topics.length);
+  });
+
+  it("namespaces every one of them, so a realm can't collide with a peer app", () => {
+    for (const topic of Object.values(TOPIC_FOR)) {
+      expect(topic.startsWith("net.dndcharactersheets.")).toBe(true);
+    }
   });
 });

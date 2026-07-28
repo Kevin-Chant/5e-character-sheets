@@ -4,6 +4,7 @@ import { Broker, SimClient } from "src/lib/fixtures/session-sim";
 import {
   addParticipant,
   claimParticipant,
+  Encounter,
   offerSheet,
   releaseDmSeat,
   setConcentration,
@@ -373,5 +374,60 @@ describe("simultaneous writes to one participant", () => {
     });
     expect(row(alice).concentration).toEqual(row(master).concentration);
     expect(row(bob).concentration).toEqual(row(master).concentration);
+  });
+});
+
+// The seat is a third lane, for the same reason vitals are one.
+describe("the DM seat against a peer who never heard of it", () => {
+  // What a second joiner holds in the moment before the room's first reply
+  // reaches it: everything else about the fight, and no idea there is a DM.
+  const seatless = (encounter: Encounter, revision: number) => ({
+    ...encounter,
+    dmClientId: undefined,
+    dmToken: undefined,
+    seatRev: undefined,
+    revision,
+    revisedBy: "stranger",
+  });
+
+  it("is not erased by a state that simply predates it", () => {
+    const { broker, master, alice } = table();
+    expect(master.isDm).toBe(true);
+    broker.publish({
+      kind: "state",
+      clientId: "stranger",
+      // A revision high enough to win the coarse race outright.
+      encounter: seatless(
+        master.encounter,
+        (master.encounter.revision ?? 0) + 5,
+      ),
+    });
+    expect(master.isDm).toBe(true);
+    expect(alice.encounter.dmClientId).toBe(master.clientId);
+  });
+
+  it("keeps the token, so the seat stays recoverable rather than merely unheld", () => {
+    // Losing `dmToken` is the part that can't be undone: `reclaimDmSeat`
+    // matches on it, so a table that drops it has no way back to a DM at all.
+    const { broker, master } = table();
+    broker.publish({
+      kind: "state",
+      clientId: "stranger",
+      encounter: seatless(
+        master.encounter,
+        (master.encounter.revision ?? 0) + 5,
+      ),
+    });
+    expect(master.encounter.dmToken).toBe("dm-token");
+  });
+
+  it("still goes when its holder gives it up on purpose", () => {
+    // A release is a decision and carries a newer seatRev, so it wins the lane
+    // — the guard is against ignorance, not against intent.
+    const { master, alice } = table();
+    master.edit(releaseDmSeat);
+    expect(master.isDm).toBe(false);
+    expect(alice.encounter.dmClientId).toBeUndefined();
+    expect(alice.encounter.dmToken).toBeUndefined();
   });
 });

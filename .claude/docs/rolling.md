@@ -71,9 +71,9 @@ entered damage total feeds the same result rendering — including the
 report-to-DM row — so the physical roller participates in the DM's
 adjudication queue exactly like the app roller.
 
-## The three roll kinds (`RollSpec`)
+## The four roll kinds (`RollSpec`)
 
-`RollButton` takes props that resolve to one of three specs:
+`RollButton` takes props that resolve to one of four specs:
 
 - **`check`** (a number) → `d20 + modifier`, with Disadv./Roll/Adv. buttons.
   Every "roll a d20 and add a number" surface.
@@ -86,6 +86,17 @@ adjudication queue exactly like the app roller.
   step goes through the mechanics resolver (`resolveEffects` → normal
   `dispatch`es; see [`ability-mechanics.md`](./ability-mechanics.md)) —
   play-mode dispatching is fine, only the edit-modal machinery is off-limits.
+- **`deathSave`** (a boolean) → a flat d20 that **reads its own outcome** and
+  offers to write it. Its own kind rather than a `check` with modifier 0,
+  because none of the arithmetic belongs to the player: 10 or better is a
+  success, a nat 1 costs _two_ failures, a nat 20 skips the track entirely and
+  puts you back up at 1 hit point, and three of either ends it. The rules are
+  `resolveDeathSave`/`describeDeathSave` in `rules.ts` (pure, tested); marking
+  is a separate deliberate press, like the hit-die spend. No advantage buttons —
+  nothing in 5e improves this roll, and offering the choice would imply
+  otherwise. At a table it reports itself with the verdict in the label ("Death
+  save — failure (2 of 3)"), which is the point: it is the roll a group most
+  wants made in the open and it used to be the one nobody could see.
 
 Every roll consults the character's **riders** for its kind — rerolls, minimum
 dice, crit range, minimums — via `ridersFor` (see
@@ -187,6 +198,7 @@ never healing, and never a save-based spell (no to-hit roll → no toggle).
 | Initiative     | `single-value-display.tsx` (`rollCheck`) | `check` = init modifier                       |
 | Weapon attack  | `defence-and-equipment-panel.tsx`        | `attack` = to-hit + damage                    |
 | Hit dice       | `defence-and-equipment-panel.tsx`        | `hitDie` = spend a die, heal HP               |
+| Death saves    | `death-saves-display.tsx`                | `deathSave` = roll, score it, mark the pip    |
 | Spells         | `spell-list.tsx`                         | `attack` = spell (+ to-hit for attack spells) |
 
 Two reusable seams keep the wiring cheap: `ProficiencyDisplay`'s `rollLabel` and
@@ -200,5 +212,9 @@ contents remount, so yesterday's result can't linger in a freshly opened dialog
 them), and the id doubles as the `exchangeId` every roll inside is reported
 under.
 
-Not yet wired: death saves (a `check` with modifier 0 and its own pass/fail
-semantics).
+The death-save button lives on the pips it writes (`DeathSavesDisplay`), not
+beside them, and only while the character is actually dying — the pips stay
+operable when dormant, because a DM tracking HP elsewhere still needs to tick a
+failure, but _rolling_ a save you aren't making is nonsense rather than a
+shortcut. `PlayVitals` renders the same component rather than adding a second
+button, which it briefly did: two buttons for one act.

@@ -29,7 +29,11 @@ import {
   spellExtrasForCast,
 } from "src/lib/attack-roll";
 import { spellHealingAtLevel } from "src/lib/spells/spell-scaling";
-import { remainingHitDice } from "src/lib/rules";
+import {
+  describeDeathSave,
+  remainingHitDice,
+  resolveDeathSave,
+} from "src/lib/rules";
 import { hitDieFormula } from "src/lib/rest";
 import {
   advantageNotes,
@@ -42,6 +46,7 @@ import {
 } from "src/lib/mechanics/riders";
 import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
 import { useEncounter } from "src/lib/hooks/use-encounter";
+import { useTableTalk } from "src/lib/hooks/use-table-talk";
 import { conditionRollNotes } from "src/lib/play/conditions";
 import { OutgoingRoll, ReportedDamage, RollStage } from "src/lib/play/reports";
 import { calculateCustomFormula } from "src/lib/formula";
@@ -62,6 +67,8 @@ import {
   Spell,
 } from "src/lib/types";
 import { FaXmark } from "react-icons/fa6";
+import { charPath, updateAt } from "src/lib/cursor";
+import { FIELD } from "src/lib/data/data-definitions";
 
 const dieLabel = (die: DieDefinition) =>
   typeof die === "string" ? die : `d${die.numFaces}`;
@@ -183,6 +190,12 @@ function RollBody({
       {spec.kind === "hitDie" && (
         <HitDieControls character={character} die={spec.die} />
       )}
+      {spec.kind === "deathSave" && (
+        <DeathSaveControls
+          character={character}
+          onRolled={(rolled) => report({ stage: "check", ...rolled }, false)}
+        />
+      )}
       {spec.kind === "attack" && (
         <>
           {spec.toHit !== undefined && (
@@ -259,14 +272,9 @@ function RollBody({
 // What the dialog needs to report its rolls: the chosen target, and a `report`
 // that stamps each roll with the exchange and its attempt number.
 function useTargeting(exchangeId: string, isAttack: boolean) {
-  const {
-    encounter,
-    self,
-    reportsEnabled,
-    sendReport,
-    lastTargetId,
-    rememberTarget,
-  } = useEncounter();
+  const { encounter, self } = useEncounter();
+  const { reportsEnabled, sendReport, lastTargetId, rememberTarget } =
+    useTableTalk();
   // No hidden rows: what a player can't see, they can't call a target.
   const targets = useMemo(
     () => encounter.participants.filter((p) => p.id !== self?.id && !p.hidden),
@@ -359,7 +367,7 @@ function TargetPicker({
 
 // "Your DM says: that hits." Shown once a ruling comes back for this exchange.
 function VerdictLine({ exchangeId }: { exchangeId: string }) {
-  const { verdicts } = useEncounter();
+  const { verdicts } = useTableTalk();
   const outcome = verdicts[exchangeId];
   if (!outcome) return null;
   return (
@@ -1295,6 +1303,112 @@ function HitDieControls({
               {gained < healing
                 ? `Heal +${gained} HP (max) & spend 1 ${die}`
                 : `Heal +${gained} HP & spend 1 ${die}`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A death saving throw. Flat d20 — no modifier, no advantage buttons, because
+// nothing in 5e improves this roll and offering the choice would imply
+// otherwise.
+//
+// The dialog reads the outcome rather than leaving the player to: a nat 1
+// costs two failures, a nat 20 skips the track entirely and puts you back up
+// at 1 hit point, and three of either ends it. Applying is still a separate,
+// deliberate press, like the hit-die spend — the app never marks your own
+// death saves for you.
+function DeathSaveControls({
+  character,
+  onRolled,
+}: {
+  character: Character;
+  onRolled?: (
+    rolled: Pick<
+      OutgoingRoll,
+      "label" | "total" | "faces" | "kept" | "critical" | "fumble" | "manual"
+    >,
+  ) => void;
+}) {
+  const { dispatch } = useCharacter();
+  const { rollMode } = useRollMode();
+  const [face, setFace] = useState<number | null>(null);
+  const [applied, setApplied] = useState(false);
+  const saves = character.deathSaves;
+  const result = face === null ? null : resolveDeathSave(face, saves);
+
+  const land = (rolled: number, manual?: true) => {
+    setFace(rolled);
+    setApplied(false);
+    const outcome = resolveDeathSave(rolled, saves);
+    onRolled?.({
+      // The verdict rides in the label, so the seat reads "failure (2 of 3)"
+      // rather than a bare number it would have to score itself.
+      label: `Death save — ${describeDeathSave(outcome)}`,
+      total: rolled,
+      faces: [rolled],
+      kept: rolled,
+      ...(rolled >= 20 ? { critical: true } : {}),
+      ...(rolled <= 1 ? { fumble: true } : {}),
+      ...(manual ? { manual } : {}),
+    });
+  };
+
+  const apply = () => {
+    if (!result || applied) return;
+    dispatch(
+      updateAt(charPath(FIELD.deathSaves), {
+        successes: result.successes,
+        failures: result.failures,
+      }),
+    );
+    if (result.revivedAtHp !== undefined) {
+      dispatch(updateAt(charPath(FIELD.currHp), result.revivedAtHp));
+    }
+    setApplied(true);
+  };
+
+  return (
+    <div className="column roll-section">
+      <p className="roll-formula">d20</p>
+      <p className="muted font-small">
+        {saves.successes} of 3 successes · {saves.failures} of 3 failures
+      </p>
+      {rollMode === "manual" ? (
+        <ManualRollInput
+          prompt="What did the d20 show?"
+          min={1}
+          max={20}
+          onCommit={(rolled) => land(rolled, true)}
+        />
+      ) : (
+        <button
+          className="btn-primary roll-go"
+          onClick={() => land(rollD20Check(0).kept)}
+        >
+          Roll
+        </button>
+      )}
+      {result && (
+        <div className="column roll-result">
+          <span
+            className={classNames("roll-total font-large", {
+              "roll-crit-success": result.verdict === "revived",
+              "roll-crit-fail": result.verdict === "dead",
+            })}
+          >
+            {face}
+          </span>
+          <span className="roll-part">{describeDeathSave(result)}</span>
+          {applied ? (
+            <span className="roll-part muted">Marked</span>
+          ) : (
+            <button onClick={apply}>
+              {result.revivedAtHp !== undefined
+                ? "Get back up at 1 HP"
+                : "Mark it"}
             </button>
           )}
         </div>

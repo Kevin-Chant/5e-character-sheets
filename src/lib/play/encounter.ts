@@ -190,6 +190,15 @@ export interface Encounter {
   // so the table isn't gated on someone who's gone while the seat still knows
   // whose it is.
   dmToken?: string;
+  // The seat's own version, bumped by every deliberate move of it — claiming,
+  // releasing, reclaiming after a reload, and a departing DM putting it down.
+  // It is a lane like `vitalsRev`, and for the same reason: a peer who has
+  // simply *never heard* of the DM must not be able to erase them by winning a
+  // revision race. That happens the moment two players join at once — one
+  // adopts the other's not-yet-synced state and publishes a seatless encounter
+  // back — and it takes `dmToken` with it, so the seat becomes unrecoverable
+  // rather than merely unheld.
+  seatRev?: number;
   // The table's health-sharing policy. Absent means `DEFAULT_SHARING`.
   sharing?: SharingLevel;
   // Table policy like `sharing`: death saves show to the party by default
@@ -637,14 +646,24 @@ export function claimDmSeat(
   clientId: string,
   token: string,
 ): Encounter {
-  return { ...encounter, dmClientId: clientId, dmToken: token };
+  return {
+    ...encounter,
+    dmClientId: clientId,
+    dmToken: token,
+    seatRev: (encounter.seatRev ?? 0) + 1,
+  };
 }
 
 // Give it up for good — the opposite of `withoutClient`, which only puts the
 // seat down. Releasing drops the token too, so coming back doesn't silently
 // make you the DM again.
 export function releaseDmSeat(encounter: Encounter): Encounter {
-  return { ...encounter, dmClientId: undefined, dmToken: undefined };
+  return {
+    ...encounter,
+    dmClientId: undefined,
+    dmToken: undefined,
+    seatRev: (encounter.seatRev ?? 0) + 1,
+  };
 }
 
 // Pick the seat back up in a new tab. This is what makes a refresh, a crash or a
@@ -657,7 +676,11 @@ export function reclaimDmSeat(
 ): Encounter {
   if (!token || encounter.dmToken !== token) return encounter;
   if (encounter.dmClientId === clientId) return encounter;
-  return { ...encounter, dmClientId: clientId };
+  return {
+    ...encounter,
+    dmClientId: clientId,
+    seatRev: (encounter.seatRev ?? 0) + 1,
+  };
 }
 
 // Whether this client should be offered the controls that move the fight along.

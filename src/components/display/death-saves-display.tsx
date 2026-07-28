@@ -2,6 +2,7 @@ import classNames from "classnames";
 import { FIELD } from "src/lib/data/data-definitions";
 import { charPath, updateAt } from "src/lib/cursor";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
+import RollButton from "src/components/roll-button";
 import SlotPips from "./slot-pips";
 
 // Death saves, which matter at exactly one hit point total: zero.
@@ -48,7 +49,13 @@ export default function DeathSavesDisplay() {
     >
       {pips("Successes", successes, "successes")}
       {pips("Failures", failures, "failures")}
-      <b className="section-heading">Death Saves</b>
+      <b className="section-heading">
+        Death Saves
+        {/* Only while it's live. The pips stay operable when dormant (a DM who
+            tracks HP elsewhere still needs to tick a failure), but *rolling* a
+            death save you aren't making is nonsense rather than a shortcut. */}
+        {dying && <RollButton label="Death saving throw" deathSave />}
+      </b>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useRest } from "src/lib/hooks/use-rest";
 import { calculateCustomFormula } from "src/lib/formula";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useEncounter } from "src/lib/hooks/use-encounter";
+import { useTableTalk } from "src/lib/hooks/use-table-talk";
 import { EditModeContext } from "src/lib/hooks/use-edit-mode";
 import { RollerProvider, useRoller } from "src/lib/hooks/use-roller";
 import { useRollMode } from "src/lib/hooks/use-roll-mode";
@@ -356,7 +357,8 @@ function CheckLauncher({ character }: { character: Character }) {
 // sees both, keyed to the same ask. That is the same bargain the attack
 // dialog strikes: never block the re-roll, always show it.
 function RollCallPrompt() {
-  const { rollCall, dismissRollCall, sendReport, isDm } = useEncounter();
+  const { isDm } = useEncounter();
+  const { rollCall, dismissRollCall, sendReport } = useTableTalk();
   const { character } = useCharacter();
   const { rollMode } = useRollMode();
   const [raw, setRaw] = useState("");
@@ -464,7 +466,7 @@ function RollCallPrompt() {
 // sheet — consent all the way down.
 function IncomingHealingBanner() {
   const { incomingHealing, applyIncomingHealing, declineIncomingHealing } =
-    useEncounter();
+    useTableTalk();
   if (!incomingHealing) return null;
   return (
     <div className="assign-prompt">

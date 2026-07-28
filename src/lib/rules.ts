@@ -894,6 +894,82 @@ export function getOptionalInitializer(
   return OPTIONAL_FIELD_INITIALIZERS[field]?.(character, subField);
 }
 
+// --- Death saving throws ------------------------------------------------------
+
+// The verdict on a death save, and the pips it leaves behind.
+//
+// The one roll in 5e that nothing can improve — no modifier, no proficiency, no
+// magic item — which is exactly why it is the roll a table most wants to see
+// made in the open. It is also the one where the arithmetic is fiddly enough to
+// be worth doing for the player: a nat 1 costs *two* failures, a nat 20 skips
+// the whole track and puts you back up at 1 hit point.
+export type DeathSaveVerdict =
+  | "success"
+  | "failure"
+  // Three successes: stable, no longer dying, pips wiped.
+  | "stable"
+  // Three failures.
+  | "dead"
+  // A natural 20 — conscious again with one hit point.
+  | "revived";
+
+export interface DeathSaveResult {
+  verdict: DeathSaveVerdict;
+  successes: number;
+  failures: number;
+  // Set when the character is back on their feet, which is a hit-point change
+  // rather than a pip one.
+  revivedAtHp?: number;
+}
+
+export function resolveDeathSave(
+  face: number,
+  saves: { successes: number; failures: number },
+): DeathSaveResult {
+  // Up at 1 HP, and the track is wiped — the saves that got you here stop
+  // meaning anything the moment you're conscious.
+  if (face >= 20) {
+    return { verdict: "revived", successes: 0, failures: 0, revivedAtHp: 1 };
+  }
+  if (face <= 1) {
+    const failures = Math.min(3, saves.failures + 2);
+    return {
+      verdict: failures >= 3 ? "dead" : "failure",
+      successes: saves.successes,
+      failures,
+    };
+  }
+  if (face >= 10) {
+    const successes = Math.min(3, saves.successes + 1);
+    // Stabilised: the pips have done their job, so they clear rather than
+    // sitting there implying a set still in progress.
+    if (successes >= 3) return { verdict: "stable", successes: 0, failures: 0 };
+    return { verdict: "success", successes, failures: saves.failures };
+  }
+  const failures = Math.min(3, saves.failures + 1);
+  return {
+    verdict: failures >= 3 ? "dead" : "failure",
+    successes: saves.successes,
+    failures,
+  };
+}
+
+// How the table hears it: "failure — two of three".
+export function describeDeathSave(result: DeathSaveResult): string {
+  switch (result.verdict) {
+    case "revived":
+      return "natural 20 — conscious at 1 HP";
+    case "stable":
+      return "third success — stable";
+    case "dead":
+      return "third failure — dead";
+    case "success":
+      return `success (${result.successes} of 3)`;
+    default:
+      return `failure (${result.failures} of 3)`;
+  }
+}
+
 // The static preset/option-list data used to live in this file; it moved to
 // src/lib/data/ (this file is for rules logic). Re-exported here so existing
 // imports keep working.

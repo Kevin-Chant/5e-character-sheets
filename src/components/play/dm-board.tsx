@@ -10,6 +10,7 @@ import {
 import { copyToClipboard } from "src/lib/browser";
 import { useDeferredNumber } from "src/lib/hooks/use-deferred-number";
 import { useEncounter } from "src/lib/hooks/use-encounter";
+import { useTableTalk } from "src/lib/hooks/use-table-talk";
 import { CONDITION_NAMES } from "src/lib/play/conditions";
 import {
   applyDamage,
@@ -64,19 +65,21 @@ export default function DmBoard() {
     sessionStatus,
     present,
     assignSheetTo,
-    reports,
-    dismissExchange,
-    clearReports,
-    ruleOnAttack,
-    verdicts,
     setCombatantHidden,
     sharing,
     setSharingLevel,
     hideDeathSaves,
     setDeathSavesHidden,
+  } = useEncounter();
+  const {
+    reports,
+    dismissExchange,
+    clearReports,
+    ruleOnAttack,
+    verdicts,
     offerHealing,
     callForRoll,
-  } = useEncounter();
+  } = useTableTalk();
 
   // Concentration checks this board has noticed and the table hasn't answered:
   // participant id → save DC. Local UI state — the *reminder* is this DM's,

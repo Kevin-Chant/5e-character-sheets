@@ -15,7 +15,6 @@ import { hasTriggerFor, planTrigger } from "src/lib/play/triggers";
 import SlotPips from "src/components/display/slot-pips";
 import TrackerValue from "src/components/display/tracker-value";
 import DeathSavesDisplay from "src/components/display/death-saves-display";
-import { useRoller } from "src/lib/hooks/use-roller";
 import ConditionsPanel from "./conditions-panel";
 
 const SLOT_LEVELS: LeveledSpellLevel[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -32,7 +31,6 @@ const PIP_THRESHOLD = 6;
 export default function PlayVitals() {
   const { character, dispatch } = useLoadedCharacter();
   const { self } = useEncounter();
-  const { openRoller } = useRoller();
   // Down, or mid-way through saves that haven't been cleared: the moment
   // death saves stop being sheet furniture and become the whole turn.
   const dying =
@@ -106,24 +104,13 @@ export default function PlayVitals() {
         </div>
       </div>
 
-      {/* The sheet's own death-save tracker, surfaced the moment it's the
-          only thing that matters. The roll is a flat d20 — no modifier, and
-          the outcome lands on these pips by the player's hand, same as at a
-          paper table. */}
+      {/* The sheet's own death-save tracker, surfaced the moment it's the only
+          thing that matters — and it brings its own die button, so the roll
+          sits on the pips it writes rather than beside them. A separate "Roll a
+          death save" button here was two buttons for one act. */}
       {dying && (
         <div className="play-death-saves">
           <DeathSavesDisplay />
-          <button
-            type="button"
-            onClick={() =>
-              openRoller({
-                label: "Death saving throw",
-                spec: { kind: "check", modifier: 0 },
-              })
-            }
-          >
-            Roll a death save
-          </button>
         </div>
       )}
 

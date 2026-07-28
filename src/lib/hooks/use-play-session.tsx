@@ -8,9 +8,9 @@ import {
   isValidSessionCode,
   newSessionCode,
   normalizeSessionCode,
-  PlaySessionEvent,
   realmForSession,
   SessionMessage,
+  TOPIC_FOR,
 } from "src/lib/play/session";
 import { RollReport, RollVerdict } from "src/lib/play/reports";
 import { useSettings } from "src/lib/hooks/use-settings";
@@ -129,32 +129,8 @@ export function usePlaySession({
   const publish = useCallback((message: SessionMessage) => {
     const session = sessionRef.current;
     if (!session) return;
-    const topic =
-      message.kind === "state"
-        ? PlaySessionEvent.STATE
-        : message.kind === "hello"
-          ? PlaySessionEvent.HELLO
-          : message.kind === "presence"
-            ? PlaySessionEvent.PRESENCE
-            : message.kind === "assignSheet"
-              ? PlaySessionEvent.ASSIGN
-              : message.kind === "callInitiative"
-                ? PlaySessionEvent.CALL_INITIATIVE
-                : message.kind === "rollReport"
-                  ? PlaySessionEvent.REPORT
-                  : message.kind === "rollVerdict"
-                    ? PlaySessionEvent.VERDICT
-                    : message.kind === "rollCall"
-                      ? PlaySessionEvent.ROLL_CALL
-                      : message.kind === "healingOffer"
-                        ? PlaySessionEvent.HEAL
-                        : message.kind === "claimSheet"
-                          ? PlaySessionEvent.CLAIM_SHEET
-                          : message.kind === "sheet"
-                            ? PlaySessionEvent.SHEET
-                            : PlaySessionEvent.LEAVE;
     try {
-      session.publish(topic, [message]);
+      session.publish(TOPIC_FOR[message.kind], [message]);
     } catch {
       // A publish into a realm that has just closed is not worth surfacing —
       // `onclose` is about to move the UI to "offline" anyway.
@@ -260,107 +236,66 @@ export function usePlaySession({
         opened = true;
         sessionRef.current = session;
         connectionRef.current = connection;
+        // One shape for all twelve: check the kind, drop our own echo (the
+        // broker does not honour `exclude_me`), hand the message to the current
+        // handler. Written out per topic it was ten lines each and the
+        // self-echo filter had to be remembered every time.
+        const on = <K extends SessionMessage["kind"]>(
+          kind: K,
+          handle: (message: Extract<SessionMessage, { kind: K }>) => void,
+        ) =>
+          session.subscribe(TOPIC_FOR[kind], (args: any[]) => {
+            const message = args?.[0] as SessionMessage | undefined;
+            if (message?.kind !== kind || message.clientId === clientId) return;
+            handle(message as Extract<SessionMessage, { kind: K }>);
+          });
+
         // **Await the subscriptions before announcing.** `subscribe` is a round
         // trip to the broker, and a `hello` published before it completes gets a
         // reply this client isn't listening for yet — which looks exactly like
         // joining a session nobody is in. It's a race, so it fails
         // intermittently and only with a peer already present.
         await Promise.all([
-          session.subscribe(PlaySessionEvent.STATE, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "state" || message.clientId === clientId)
-              return;
-            handlers.current.onRemoteState(message.encounter, message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.HELLO, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "hello" || message.clientId === clientId)
-              return;
-            handlers.current.onHello(message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.LEAVE, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "leave" || message.clientId === clientId)
-              return;
-            handlers.current.onLeave(message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.PRESENCE, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "presence" || message.clientId === clientId)
-              return;
-            handlers.current.onPresence(message.clientId, message.name);
-          }),
-          session.subscribe(PlaySessionEvent.ASSIGN, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (
-              message?.kind !== "assignSheet" ||
-              message.clientId === clientId
-            )
-              return;
+          on("state", (m) =>
+            handlers.current.onRemoteState(m.encounter, m.clientId),
+          ),
+          on("hello", (m) => handlers.current.onHello(m.clientId)),
+          on("leave", (m) => handlers.current.onLeave(m.clientId)),
+          on("presence", (m) =>
+            handlers.current.onPresence(m.clientId, m.name),
+          ),
+          on("assignSheet", (m) =>
             handlers.current.onAssignSheet(
-              message.participantId,
-              message.toClientId,
-              message.clientId,
-            );
-          }),
-          session.subscribe(PlaySessionEvent.CALL_INITIATIVE, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (
-              message?.kind !== "callInitiative" ||
-              message.clientId === clientId
-            )
-              return;
-            handlers.current.onCallInitiative(message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.REPORT, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "rollReport" || message.clientId === clientId)
-              return;
-            handlers.current.onRollReport(message.report, message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.VERDICT, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (
-              message?.kind !== "rollVerdict" ||
-              message.clientId === clientId
-            )
-              return;
-            handlers.current.onRollVerdict(message.verdict, message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.ROLL_CALL, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "rollCall" || message.clientId === clientId)
-              return;
-            handlers.current.onRollCall(message.call, message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.HEAL, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (
-              message?.kind !== "healingOffer" ||
-              message.clientId === clientId
-            )
-              return;
-            handlers.current.onHealingOffer(message.offer, message.clientId);
-          }),
-          session.subscribe(PlaySessionEvent.CLAIM_SHEET, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "claimSheet" || message.clientId === clientId)
-              return;
-            handlers.current.onClaimSheet(
-              message.participantId,
-              message.clientId,
-            );
-          }),
-          session.subscribe(PlaySessionEvent.SHEET, (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== "sheet" || message.clientId === clientId)
-              return;
+              m.participantId,
+              m.toClientId,
+              m.clientId,
+            ),
+          ),
+          on("callInitiative", (m) =>
+            handlers.current.onCallInitiative(m.clientId),
+          ),
+          on("rollReport", (m) =>
+            handlers.current.onRollReport(m.report, m.clientId),
+          ),
+          on("rollVerdict", (m) =>
+            handlers.current.onRollVerdict(m.verdict, m.clientId),
+          ),
+          on("rollCall", (m) =>
+            handlers.current.onRollCall(m.call, m.clientId),
+          ),
+          on("healingOffer", (m) =>
+            handlers.current.onHealingOffer(m.offer, m.clientId),
+          ),
+          on("claimSheet", (m) =>
+            handlers.current.onClaimSheet(m.participantId, m.clientId),
+          ),
+          on("sheet", (m) =>
             handlers.current.onSheet(
-              message.participantId,
-              message.character,
-              message.toClientId,
-            );
-          }),
+              m.participantId,
+              m.character,
+              m.toClientId,
+            ),
+          ),
         ]);
         setCode(normalized);
         setStatus("connected");

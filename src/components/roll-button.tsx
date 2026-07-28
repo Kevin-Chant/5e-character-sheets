@@ -20,6 +20,8 @@ interface RollButtonProps {
   formula?: CustomFormula;
   // Spend a hit die of this size: roll it, apply healing, expend the die.
   hitDie?: StandardDie;
+  // Roll a death saving throw and mark the pip it lands on.
+  deathSave?: boolean;
   // An attack: a to-hit modifier and/or damage, resolved together. `spell`
   // supplies level-scaled damage; `damage` is a fixed map. `save` replaces
   // `toHit` when the target rolls to avoid rather than the character rolling to
@@ -40,6 +42,7 @@ export default function RollButton({
   check,
   formula,
   hitDie,
+  deathSave,
   toHit,
   save,
   damage,
@@ -61,9 +64,11 @@ export default function RollButton({
         ? { kind: "formula", formula }
         : hitDie
           ? { kind: "hitDie", die: hitDie }
-          : isAttack
-            ? { kind: "attack", toHit, save, damage, spell, attack }
-            : undefined;
+          : deathSave
+            ? { kind: "deathSave" }
+            : isAttack
+              ? { kind: "attack", toHit, save, damage, spell, attack }
+              : undefined;
   if (!spec) return <></>;
 
   return (

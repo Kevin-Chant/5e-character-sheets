@@ -276,7 +276,7 @@ Anyone may write; the DM seat is a UI gate, not a lock. So convergence is
 simultaneous writers land on the same answer in every browser instead of
 swapping states forever.
 
-Four exceptions, all learned the hard way:
+Five exceptions, all learned the hard way:
 
 - **A participant is two independently versioned lanes, not one value.**
   `vitals` (the DM's oversight write, versioned by `vitalsRev`) and the rest of
@@ -297,6 +297,16 @@ Four exceptions, all learned the hard way:
   reply carries a higher revision, so the peer's next receive is a plain win
   and the exchange stops rather than ping-ponging (`session-convergence.test.ts`
   counts the traffic to prove it).
+- **The DM seat is a lane too** (`Encounter.seatRev`, bumped by claim, release,
+  reclaim and a departing DM putting it down). Without it a client that has
+  simply never heard of the DM erases them by winning the coarse race — and
+  since `dmToken` goes with it, the seat becomes _unrecoverable_ rather than
+  merely unheld, because `reclaimDmSeat` matches on that token. The window is
+  small but it is exactly the moment a table starts: two players joining at
+  once, one adopting the other's not-yet-synced state and publishing a seatless
+  encounter back. Measured at 3 tables in 6 before the fix. A deliberate release
+  carries a newer `seatRev` and still wins — the guard is against ignorance, not
+  intent.
 - **You are authoritative for your own vitals.** A peer's copy of your HP is only
   as fresh as the last state they received, so accepting it wholesale makes your
   own HP bar jump backwards every time somebody else advances the turn.
@@ -598,7 +608,21 @@ and multiple-fights-per-session is the mission.
 
 ## Roll reports: the attack as a conversation
 
-`src/lib/play/reports.ts` is the pure core; `REPORT` / `VERDICT` carry it.
+`src/lib/play/reports.ts` is the pure core; `REPORT` / `VERDICT` carry it; and
+`use-table-talk.tsx` holds the state.
+
+**Why a second context.** The encounter is a shared document — merged,
+versioned, persisted. None of that applies to a rolled 17, a "give me a
+Perception check", a ruling of "that hits" or an offer of 8 healing: each
+describes a moment rather than a state, is addressed to somebody, is answered or
+ignored, and is gone when the connection is. They lived in the encounter
+provider because that is where the transport is, and it reached 1075 lines
+behind a 68-member context as a result. The split is **by lifetime, not by
+feature** — everything born from an arriving message and dying with the socket
+moves out, with an explicit input contract. It is still mounted by the encounter
+provider (the handlers must reach `usePlaySession` at creation while the senders
+only exist afterwards; `bind` closes that loop, as `broadcastRef` does for
+state).
 
 An attack is not one roll, it's a small exchange, and the first draft made the
 player hold that exchange out loud: roll to hit, ask the DM whether it landed,
