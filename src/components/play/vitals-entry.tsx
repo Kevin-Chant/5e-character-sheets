@@ -48,6 +48,14 @@ export function VitalsEntry({
     if (healing) apply(applyHealing(vitals, amount), 0);
     else apply(applyDamage(vitals, amount), Math.floor(amount));
     setRaw("");
+    // Back to damage after every apply, rather than staying where it was left.
+    // The mode being visible isn't enough on its own — a DM types the number
+    // while looking at the roster, not at this glyph, so a healing mode left
+    // over from a minute ago would quietly heal the next hit. Damage is both
+    // the overwhelming majority and the direction you'd notice going wrong,
+    // and a heal is still one keystroke away via the sign key, so making every
+    // heal deliberate costs nothing and bounds a mis-set mode to one entry.
+    setHealing(false);
   };
 
   return (

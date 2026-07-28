@@ -108,15 +108,18 @@ describe("the DM board", () => {
     await user.type(screen.getByLabelText("Healing for Ogre"), "6{Enter}");
     expect(total()).toHaveTextContent("45/ 59");
 
-    // Still healing — the mode is sticky, so a second heal needs no re-flip.
-    await user.type(screen.getByLabelText("Healing for Ogre"), "4{Enter}");
-    expect(total()).toHaveTextContent("49/ 59");
-
-    // A leading minus moves the glyph back rather than landing in the box.
-    const back = screen.getByLabelText("Healing for Ogre");
-    await user.type(back, "-9{Enter}");
-    expect(total()).toHaveTextContent("40/ 59");
+    // And back to damage on its own. A healing mode left over from a minute ago
+    // would quietly heal the next hit — the DM is looking at the roster, not at
+    // this glyph — so every heal is deliberate and a mis-set mode costs one
+    // entry rather than the rest of the fight.
     expect(screen.getByLabelText("Damage to Ogre")).toHaveValue("");
+    await user.type(screen.getByLabelText("Damage to Ogre"), "5{Enter}");
+    expect(total()).toHaveTextContent("40/ 59");
+
+    // A leading plus is the whole gesture for a one-off heal: it moves the
+    // glyph rather than landing in the box, so healing stays one keystroke.
+    await user.type(screen.getByLabelText("Damage to Ogre"), "+9{Enter}");
+    expect(total()).toHaveTextContent("49/ 59");
   });
 
   // Adding a condition is one act; how long it lasts is a separate thought,

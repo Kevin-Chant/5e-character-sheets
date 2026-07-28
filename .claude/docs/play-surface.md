@@ -180,7 +180,12 @@ the panels are only layout:
   The mode is a coloured glyph in front of the field; a leading `+`/`−`
   keystroke moves the glyph rather than sitting in the box. Not a stepper —
   `StepperInput` holds initiative one cell over, and chevrons here read as
-  "step by 1".
+  "step by 1". **The mode resets to damage after every apply**, deliberately:
+  visible isn't the same as looked-at, and a DM types the number while watching
+  the roster, so a sticky healing mode would quietly heal the next hit. Damage
+  is the overwhelming majority and a heal is still one keystroke (`+9`), so
+  making every heal deliberate costs nothing and bounds a mis-set mode to one
+  entry.
 - `conditions-control.tsx` — chips plus the adder. The duration lives **on the
   chip**, not in the adder, so adding is one act and "for how long" is a
   separate thought answered on the thing it describes. That's also what makes a

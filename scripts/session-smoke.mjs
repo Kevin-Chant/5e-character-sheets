@@ -116,6 +116,44 @@ const roster = (page) =>
     .allTextContents()
     .then((n) => n.map((s) => s.trim()).sort());
 
+// Current HP on the play rail is the shared `HpTotal` — the same control the
+// DM's row uses — so it reads as text ("47/ 56"), not as an input value.
+// `parseInt` stops at the slash.
+const HP_TOTAL = ".play-hp-numbers .hp-total";
+const readHp = (page) =>
+  page
+    .locator(HP_TOTAL)
+    .textContent()
+    .then((t) => Number.parseInt(t, 10));
+
+// Both the selector and the target have to travel in `arg` — the predicate is
+// serialised into the page, so it can't close over anything Node-side.
+const untilHp = (page, expected) =>
+  until(
+    page,
+    `own HP to reach ${expected}`,
+    ({ sel, want }) =>
+      Number.parseInt(document.querySelector(sel)?.textContent, 10) === want,
+    { sel: HP_TOTAL, want: expected },
+  );
+
+// The player's own HP write is the same delta box the DM's row uses — a bare
+// number damages, a leading + heals — so ±1 is an entry, not a stepper click.
+async function ownDelta(page, entry) {
+  const box = page.locator(".play-vitals .vitals-amount");
+  await box.fill(entry);
+  await box.press("Enter");
+}
+
+// Setting an exact total is the reveal-to-edit hatch, not a permanent field:
+// click the figure, then type into the input it becomes.
+async function setHp(page, value) {
+  await page.click(HP_TOTAL);
+  const input = page.locator(".hp-total-input");
+  await input.fill(String(value));
+  await input.press("Enter");
+}
+
 // --- Clients -----------------------------------------------------------------
 
 async function openClient(browser, fixture, label, extraFixtures = [], mutate) {
@@ -358,27 +396,22 @@ const scenarios = {
     // hatch (the delta box is exercised in the damage scenario); the player's
     // own sheet follows.
     const row = dm.page.locator(".dm-row", { hasText: player.name });
-    await row.locator(".dm-hp-display").click();
+    await row.locator(".hp-total").click();
     const hpInput = row.locator('input[aria-label*="hit points"]');
     await hpInput.fill("5");
     await hpInput.press("Enter");
-    await until(
-      player.page,
-      "the player's HP tracker to show 5",
-      // The number lives in the tracker's <input>, not in text content.
-      () => document.querySelector(".play-hp-numbers input")?.value === "5",
-    );
+    await untilHp(player.page, 5);
     check("a DM HP edit reaches the player's sheet", true, true);
 
     // And the player's own edit still wins afterwards.
-    await player.page.click('[aria-label="Regain 1 hit point"]');
+    await ownDelta(player.page, "+1");
     await until(
       dm.page,
       "the DM to see the player back at 6",
       (name) => {
         const rows = [...document.querySelectorAll(".dm-row")];
         const theirs = rows.find((r) => r.textContent.includes(name));
-        const display = theirs?.querySelector(".dm-hp-display");
+        const display = theirs?.querySelector(".hp-total");
         return !!display && display.textContent.startsWith("6/");
       },
       player.name,
@@ -425,14 +458,14 @@ const scenarios = {
     check("the borrowed sheet is not saved locally", storedUuids.length, 1);
 
     // The player's HP edits flow to the DM like any owned sheet.
-    await player.page.click('[aria-label="Lose 1 hit point"]');
+    await ownDelta(player.page, "1");
     await until(
       dm.page,
       "the DM to see the borrowed sheet's HP drop",
       (name) => {
         const rows = [...document.querySelectorAll(".dm-row")];
         const theirs = rows.find((r) => r.textContent.includes(name));
-        const display = theirs?.querySelector(".dm-hp-display");
+        const display = theirs?.querySelector(".hp-total");
         return !!display && Number.parseInt(display.textContent, 10) < 47;
       },
       offeredName,
@@ -594,7 +627,9 @@ const scenarios = {
     await goblinConc.press("Enter");
     // The delta box speaks the table's language: top the goblin up first so
     // the DC comes off this one hit alone, then "it takes 4".
-    const goblinDamage = dm.page.locator('[aria-label="Damage to Goblin"]');
+    const goblinDamage = dm.page
+      .locator(".dm-row", { hasText: "Goblin" })
+      .locator(".vitals-amount");
     await goblinDamage.fill("+7");
     await goblinDamage.press("Enter");
     await goblinDamage.fill("4");
@@ -614,9 +649,7 @@ const scenarios = {
     const ally = await openClient(browser, "multiclass", "ally");
     await joinGame(ally, code, ally.name);
     await untilRoster(dm.page, ["Goblin", ally.name, player.name]);
-    const allyHpBefore = await ally.page
-      .locator('[aria-label="Current Hit Points"]')
-      .inputValue();
+    const allyHpBefore = await readHp(ally.page);
     for (let i = 0; i < 3; i += 1) {
       await ally.page.click('[aria-label="Gain 1 temporary hit point"]');
     }
@@ -656,25 +689,20 @@ const scenarios = {
         (i) => i.value === "0",
       ),
     );
-    await until(
-      ally.page,
-      "the remainder to come off the ally's HP",
-      (expected) =>
-        document.querySelector('[aria-label="Current Hit Points"]')?.value ===
-        String(expected),
-      Number(allyHpBefore) - (reported - 3),
-    );
+    await untilHp(ally.page, allyHpBefore - (reported - 3));
     check("an applied report drains temp HP before HP", true, true);
 
     // Player-side: concentrating, then the DM's damage lands on their sheet.
-    const playerConc = player.page.locator('[aria-label="Concentrating on"]');
+    const playerConc = player.page.locator(
+      `[aria-label="${player.name} concentrating on"]`,
+    );
     await playerConc.fill("Web");
     await playerConc.press("Enter");
     // Dealt as a delta — the DM's primary write — which lands on the sheet.
     await untilVisible(dm.page, `[aria-label="Damage to ${player.name}"]`);
-    const playerDamage = dm.page.locator(
-      `[aria-label="Damage to ${player.name}"]`,
-    );
+    const playerDamage = dm.page
+      .locator(".dm-row", { hasText: player.name })
+      .locator(".vitals-amount");
     await playerDamage.fill("9");
     await playerDamage.press("Enter");
     await untilText(player.page, "while concentrating on");
@@ -749,9 +777,7 @@ const scenarios = {
 
     // Healing, routed through the DM: the healer reports it, the DM approves,
     // and the *recipient* applies it to their own sheet.
-    const hp = player.page.locator('[aria-label="Current Hit Points"]');
-    await hp.fill("20");
-    await hp.press("Enter");
+    await setHp(player.page, 20);
     await healer.page.click('[aria-label="Roll Bless"]');
     await healer.page.selectOption('[aria-label="Who you are healing"]', {
       label: player.name,
@@ -766,20 +792,12 @@ const scenarios = {
     await untilText(player.page, "incoming from");
     check("approved healing reaches the recipient", true, true);
     await player.page.click(`text=Apply +${healed}`);
-    await until(
-      player.page,
-      "the heal to land on the recipient's sheet",
-      (expected) =>
-        document.querySelector('[aria-label="Current Hit Points"]')?.value ===
-        String(expected),
-      Math.min(49, 20 + healed),
-    );
+    await untilHp(player.page, Math.min(49, 20 + healed));
     check("applying writes the recipient's own sheet", true, true);
 
     // Death saves: on the wire once someone is down, DM always sees them,
     // the party by default until the DM hides them.
-    await hp.fill("0");
-    await hp.press("Enter");
+    await setHp(player.page, 0);
     await untilVisible(dm.page, ".dm-death-saves");
     await untilVisible(healer.page, ".initiative-death-saves");
     check("death saves reach the DM and the party", true, true);
