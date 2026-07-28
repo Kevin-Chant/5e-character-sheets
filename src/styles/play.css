@@ -618,32 +618,21 @@
   gap: var(--space-2);
 }
 
-.play-hp-max {
-  color: var(--text-muted);
-  font-size: 1.1rem;
-  white-space: nowrap;
+/* The rail's headline figure is bigger than the roster's, and its entry box
+   sits after it rather than before — the number is what you read here, where on
+   a DM row the box is what you reach for. */
+.play-hp-numbers .hp-total {
+  font-size: 1.6rem;
 }
 
-/* `TrackerValue` is built for the sheet's HP box, where it's a labelled row in a
-   wide column. Here it's the headline of a 260px rail, so the label comes off
-   the main figure (the bar and "/ 56" beside it already say what it is) and the
-   input is sized to the two or three digits it will ever hold. */
-.play-hp .tracker-value {
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
+.play-hp-numbers .hp-total-input {
+  width: 3.4em;
+  font-size: 1.4rem;
 }
 
-.play-hp-numbers .display-label {
-  display: none;
-}
-
-.play-hp .tracker-input {
-  width: 2.6em;
-  min-width: 0;
-  text-align: center;
-}
-
+/* `TrackerValue` still holds temporary hit points, where an absolute value is
+   the right verb: 5e temp HP replaces rather than accumulates, so "set it to 5"
+   is the sentence and a delta would be the wrong question. */
 .play-hp-temp .tracker-value {
   justify-content: space-between;
 }
@@ -743,33 +732,62 @@
   font-size: 0.78rem;
 }
 
+/* The duration, and the control that sets it — one badge doing both jobs, so a
+   chip carries how long it lasts instead of an adder asking up front. */
 .condition-rounds {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   padding: 0 4px;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: var(--health);
   color: var(--accent-contrast);
   font-size: 0.7rem;
+  cursor: pointer;
 }
 
-.condition-add,
-.concentration-add,
-.concentration-row {
+.condition-rounds:hover,
+.condition-rounds:focus-visible {
+  border-color: var(--text);
+}
+
+/* No duration set, which is most of them. Unfilled, so a chip that *is*
+   counting down is the one your eye lands on. */
+.condition-rounds.indefinite {
+  background: none;
+  color: inherit;
+  opacity: 0.55;
+  /* ∞ needs more room than a two-digit number to stay legible at all — at the
+     badge's own size it degrades into a smudge. */
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.condition-rounds-input {
+  width: 2.6em;
+  min-width: 0;
+  padding: 0 2px;
+  text-align: center;
+  font-size: 0.72rem;
+}
+
+.condition-adder,
+.concentration-cell {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   font-size: 0.8rem;
 }
 
-.condition-add select,
-.concentration-add input {
-  flex: 1;
+/* In the rail the adder takes its own row: chips and a dropdown competing for
+   260px clipped the dropdown's own label. On a DM row there's width to share. */
+.condition-chips .condition-adder {
+  flex: 1 0 100%;
   min-width: 0;
 }
 
-.condition-rounds-input {
-  width: 3em;
+.concentration-cell input {
+  flex: 1;
   min-width: 0;
 }
 
@@ -1031,16 +1049,66 @@
   color: var(--text-muted);
 }
 
-/* The delta box is the row's primary HP write — "takes 9", "+10 heals". */
-.dm-damage-input {
-  width: 3.6em;
+/* --- The shared HP widget (DM row + player rail) ------------------------- */
+
+/* The delta entry, which is the primary HP write on both surfaces. The mode
+   lives in the glyph and the colour, not in a character typed into the box:
+   crimson − takes hit points off, green + puts them back. Deliberately not
+   chevrons — `StepperInput` holds initiative one cell over, and a ± pair here
+   read as "step by 1". */
+.vitals-entry {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.vitals-mode {
+  width: 1.5em;
+  padding: 0 0.15rem;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius);
+  background: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.vitals-entry.damage .vitals-mode {
+  color: var(--health);
+  background: var(--health-soft);
+}
+
+.vitals-entry.healing .vitals-mode {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+/* Wide enough for the "heal" placeholder, which is the longer of the two — a
+   clipped label reads as a rendering bug rather than as a hint. */
+.vitals-amount {
+  width: 4.2em;
   min-width: 0;
   text-align: center;
 }
 
+/* Present but inert until the number is one you could apply — an Enter that
+   silently did nothing was indistinguishable from a dropped keypress. */
+.vitals-apply {
+  color: var(--text-muted);
+}
+
+.vitals-entry.damage .vitals-apply:not(:disabled) {
+  color: var(--health);
+}
+
+.vitals-entry.healing .vitals-apply:not(:disabled) {
+  color: var(--success);
+}
+
 /* The running total, and (clicked) the direct-set escape hatch. Styled as the
    quiet half of the pair: a plain figure until you hover it. */
-.dm-hp-display {
+.hp-total {
   display: inline-flex;
   align-items: baseline;
   gap: 0.25rem;
@@ -1050,12 +1118,26 @@
   background: none;
   font-size: 1rem;
   font-weight: 600;
+  color: inherit;
   cursor: pointer;
 }
 
-.dm-hp-display:hover,
-.dm-hp-display:focus-visible {
+.hp-total:hover,
+.hp-total:focus-visible {
   border-color: var(--border);
+}
+
+.hp-total-max {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.hp-total-input {
+  width: 3.4em;
+  min-width: 0;
+  text-align: center;
 }
 
 .dm-row-ac {
@@ -1079,7 +1161,8 @@
   min-width: 0;
 }
 
-.dm-row-conditions select {
+.dm-row-conditions .condition-adder {
+  flex: 0 1 auto;
   max-width: 9rem;
 }
 
@@ -1288,7 +1371,7 @@
 }
 
 /* The concentration reminder on a row that just took damage. */
-.dm-con-check {
+.concentration-check {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -1297,7 +1380,7 @@
   color: var(--arcane);
 }
 
-.dm-con-check button {
+.concentration-check button {
   padding: 0 var(--space-1);
   font-size: 0.75rem;
 }

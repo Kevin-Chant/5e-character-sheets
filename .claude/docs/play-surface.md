@@ -131,6 +131,67 @@ existing mechanics interpreter — so it syncs, undoes and autosaves like any ed
 The roll dialog deliberately does _not_ spend the slot (it only picks a level to
 scale damage by), which is why the board offers an explicit `Cast`.
 
+## Three interaction verbs, and no fourth
+
+Every editable control on this surface is one of three shapes. This is a **closed
+list**: adding a control means picking one, not inventing a commit rule for it.
+
+The rule exists because the surface once had nine. Grown one control at a time,
+each locally defensible, they added up to a panel where nothing transferred —
+two condition adders that looked identical and behaved oppositely, an HP box
+whose damage-or-heal mode was a character you typed and never saw, forms where
+Enter was the only commit and a rejected entry was indistinguishable from a
+dropped keypress.
+
+| Verb        | For                                      | Rule                                                                       | Primitive                                            |
+| ----------- | ---------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------- |
+| **Nudge**   | correcting a number toward a value       | blur or Enter commits, Escape reverts, empty reverts rather than writing 0 | `useDeferredNumber`, `StepperInput`                  |
+| **Do**      | an immediate, reversible act             | one click, never staged, never confirmed                                   | plain buttons, `SlotPips`, the condition `<select>`  |
+| **Compose** | building a new thing from several fields | a `<form>` with a **visible** submit, disabled until valid                 | `AddCombatants`, `RollCallForm`, `ConcentrationCell` |
+
+Plus one shared exception, `RevealNumber`: a value that reads as text until
+clicked, then becomes a Nudge that closes when the edit ends. It's for
+corrections rather than for play — set hit points to exactly 14, change how long
+a condition has left — and it's deliberately hidden behind the number it edits,
+because a permanent input beside every figure would be five controls competing
+with the one you actually reach for. Used by `HpTotal` and the condition chip's
+duration badge; don't add a sixth reveal without asking whether it's really a
+correction.
+
+Two consequences worth stating outright, because both were violated before:
+
+- **Enter is never the only way to commit.** A bare input in a bare form can't
+  distinguish "invalid" from "didn't register". If Enter commits, a visible
+  affordance commits too, and its disabled state is the answer to "why did
+  nothing happen".
+- **Nothing is one-shot.** Every control can be used again, including a to-hit
+  ruling — the surface is advisory throughout, and the only honesty available
+  over an unauthenticated broker is visibility, not enforcement. A ruling that
+  can't be corrected is a lock pretending to be a record.
+
+### One control, two mount points
+
+The DM and the player see the same facts from different seats, and the seat
+should change the _density_, never the gesture. So the controls are shared and
+the panels are only layout:
+
+- `vitals-entry.tsx` — `VitalsEntry` (the delta) + `HpTotal` (the total, and the
+  direct-set hatch), mounted in both the DM roster row and `play-vitals.tsx`.
+  The mode is a coloured glyph in front of the field; a leading `+`/`−`
+  keystroke moves the glyph rather than sitting in the box. Not a stepper —
+  `StepperInput` holds initiative one cell over, and chevrons here read as
+  "step by 1".
+- `conditions-control.tsx` — chips plus the adder. The duration lives **on the
+  chip**, not in the adder, so adding is one act and "for how long" is a
+  separate thought answered on the thing it describes. That's also what makes a
+  running duration correctable at all.
+- `concentration-cell.tsx` — the input, the drop button, and the optional
+  Kept/Broke swap when a check is pending.
+
+Temporary hit points stay a `TrackerValue` Nudge rather than joining
+`VitalsEntry`: 5e temp HP replaces rather than accumulates, so "set it to 5" is
+the sentence and a delta would be answering the wrong question.
+
 ## Styling
 
 `src/styles/play.css`, imported from `index.css` with the other route

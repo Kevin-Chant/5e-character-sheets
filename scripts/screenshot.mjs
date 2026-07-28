@@ -4,6 +4,7 @@
 //   node scripts/screenshot.mjs --fixture full-caster-wizard --open --out shot.png
 //   node scripts/screenshot.mjs --route /settings --out settings.png
 //   node scripts/screenshot.mjs --fixture multiclass --open --viewport 390x844
+//   node scripts/screenshot.mjs --fixture martial-fighter --open --route /play
 //
 // Modal / interaction flows — run a sequence of steps before capturing:
 //   node scripts/screenshot.mjs --fixture martial-fighter --open --no-full --seed 1 \
@@ -11,8 +12,9 @@
 //
 // Flags:
 //   --fixture <name>   seed src/lib/fixtures/<name>.json into localStorage (local datastore)
-//   --open             after seeding, click the character to open its sheet
-//   --route <path>     route to visit (default "/")
+//   --open             after seeding, walk the hub to open the character's sheet
+//   --route <path>     route to visit (default "/"); with --open, reached after
+//                      the sheet is loaded, by clicking its nav link
 //   --out <file>       output PNG path (default scratchpad-friendly ./screenshot.png)
 //   --viewport WxH     viewport size (default 1280x900)
 //   --no-full          capture only the viewport instead of the full page (use for modals)
@@ -72,6 +74,11 @@ const has = (name) => args.includes(`--${name}`);
 
 const fixtureName = flag("fixture");
 const route = flag("route", "/");
+// Whether a route was asked for, as opposed to defaulted. `--open` needs the
+// difference: it lands on the character list itself, so a defaulted "/" is
+// there to override, while an explicit one is a destination to reach after the
+// sheet is open.
+const routeGiven = has("route");
 const out = path.resolve(flag("out", "screenshot.png"));
 const [w, h] = flag("viewport", "1280x900").split("x").map(Number);
 const fullPage = !has("no-full");
@@ -244,11 +251,33 @@ async function ensureServer() {
   }
 
   const page = await ctx.newPage();
-  await page.goto(base + route, { waitUntil: "networkidle" });
+  const opening = character && has("open");
 
-  if (character && has("open")) {
+  // `--open` walks the hub rather than looking for a character name on `/`.
+  // Two things changed under it: `/` is a hub now ("run a game" / "my
+  // characters") and no longer auto-redirects returning visitors into their
+  // sheets, and `/sheet` can't be linked to cold — `SheetContainer` bounces
+  // back here until a *datastore* has been chosen, which is what the "My
+  // characters" door does. So the door is the route.
+  await page.goto(base + (opening ? "/" : route), {
+    waitUntil: "networkidle",
+  });
+
+  if (opening) {
+    await page.getByRole("button", { name: /My characters/ }).click();
+    await page.waitForLoadState("networkidle");
     await page.getByText(character.name, { exact: false }).first().click();
     await page.waitForLoadState("networkidle");
+    // Reach a requested route by *clicking* its in-app link, not by navigating
+    // to it. The open character lives in React state, so `page.goto` reloads it
+    // away and a route that needs one (`/play`) bounces straight back to the
+    // hub. Fall back to a hard nav for routes with no link in the nav.
+    if (routeGiven && route !== "/") {
+      const link = page.locator(`a[href="${route}"]`).first();
+      if (await link.count()) await link.click();
+      else await page.goto(base + route, { waitUntil: "networkidle" });
+      await page.waitForLoadState("networkidle");
+    }
   }
   await page.waitForTimeout(400);
 

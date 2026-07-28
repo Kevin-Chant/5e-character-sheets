@@ -32,8 +32,8 @@ Two conventions matter and are easy to get wrong:
 | Flag                | Purpose                                                                                                                                                                        |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--fixture <name>`  | Seed `src/lib/fixtures/<name>.json` into localStorage (local store)                                                                                                            |
-| `--open`            | After seeding, click the character to open its sheet                                                                                                                           |
-| `--route <path>`    | Route to visit (default `/`)                                                                                                                                                   |
+| `--open`            | After seeding, walk the hub ("My characters" → the name) to open its sheet                                                                                                     |
+| `--route <path>`    | Route to visit (default `/`). With `--open`, reached _after_ the sheet loads, by clicking its nav link                                                                         |
 | `--out <file>`      | Output PNG path — point this at the scratchpad                                                                                                                                 |
 | `--viewport WxH`    | Viewport size (default `1280x900`)                                                                                                                                             |
 | `--no-full`         | Capture only the viewport instead of the full scroll height                                                                                                                    |
@@ -91,6 +91,49 @@ pnpm screenshot --fixture martial-fighter --open --no-full --seed 7 \
 Multi-step flows compose naturally — e.g. enter edit mode, open the SRD picker,
 search, and pick a spell: `[{"click":"[aria-label=\"Browse SRD\"]"},
 {"fill":[".add-spell input","fireball"]},{"click":"text=Fireball"}]`.
+
+## The play surface and the DM board
+
+The player rail needs no session — `--route /play --open` is enough, and the
+`--open` walk handles reaching it with a character loaded:
+
+```bash
+pnpm screenshot --fixture full-caster-wizard --open --route /play --no-full \
+  --out "$SCRATCHPAD/play.png" \
+  --steps '[{"select":["[aria-label=\"Give Maelina Vael a condition\"]","Frightened"]},
+            {"click":"[aria-label=\"Set how long Frightened lasts on Maelina Vael\"]"},
+            {"fill":["[aria-label=\"Rounds of Frightened left on Maelina Vael\"]","3"]},
+            {"press":"Enter"}]'
+```
+
+**The DM board is different: it needs a live session.** `DmBoard` renders only
+for a claimed DM seat (`encounter.dmClientId === clientId`), and the seat is
+claimed by _creating_ a table — so there is no way to reach it without the
+sidecar. Start `pnpm server` first (it's the one flow where the sidecar is not
+optional), then host from `/host`:
+
+```bash
+pnpm screenshot --route /host --fixture full-caster-wizard --no-full --viewport 1400x900 \
+  --out "$SCRATCHPAD/dm.png" \
+  --steps '[{"click":"button:has-text(\"Start the session\")"},{"wait":3500},
+            {"fill":["[aria-label=\"Combatant name\"]","Goblin"]},
+            {"fill":["[aria-label=\"Hit points each (optional)\"]","12"]},
+            {"click":"button:has-text(\"Add\")"},{"wait":900},
+            {"fill":["[aria-label=\"Damage to Goblin\"]","5"]},{"press":"Enter"}]'
+```
+
+Three things that cost time here:
+
+- **Give the session ~3.5s after "Start the session".** It's a WAMP round trip
+  (open the realm, claim the seat, publish); a shorter wait screenshots an empty
+  board that looks like a layout bug.
+- **Don't pass `--open` when hosting.** `/host` picks its own sheets via
+  checkboxes, and bringing none is a valid table — enough for any roster work.
+  Hand-typed combatants are also the only rows whose AC is editable, since a
+  character-backed row's AC is a read-only projection.
+- **The checkboxes have no `aria-label`** — their accessible name comes from a
+  wrapping label, so `[aria-label="<name>"]` finds nothing. Use
+  `input[type=checkbox]` or `--snapshot` to see what's really there.
 
 ## Finding a selector: `--snapshot`, don't guess
 

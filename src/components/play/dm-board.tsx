@@ -11,7 +11,6 @@ import { copyToClipboard } from "src/lib/browser";
 import { useDeferredNumber } from "src/lib/hooks/use-deferred-number";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { useTableTalk } from "src/lib/hooks/use-table-talk";
-import { CONDITION_NAMES } from "src/lib/play/conditions";
 import {
   applyDamage,
   applyHealing,
@@ -35,6 +34,9 @@ import {
 } from "src/lib/play/reports";
 import { CHECK_GROUPS, checkForValue, checkLabel } from "src/lib/play/checks";
 import StepperInput from "src/components/stepper-input";
+import ConditionsControl from "./conditions-control";
+import ConcentrationCell from "./concentration-cell";
+import { HpTotal, VitalsEntry } from "./vitals-entry";
 
 // The DM's side of the play surface.
 //
@@ -314,12 +316,18 @@ export default function DmBoard() {
                   applyVitals(participant, vitals, dealt)
                 }
               />
-              <RowConditions participant={participant} />
-              <RowConcentration
-                participant={participant}
-                conDc={conChecks[participant.id]}
-                onConResolved={() => resolveConCheck(participant.id)}
-              />
+              {/* Both cells are the player rail's controls, mounted in a
+                  narrower box — not a DM-flavoured variant of them. */}
+              <div className="dm-row-conditions">
+                <ConditionsControl participant={participant} />
+              </div>
+              <div className="dm-row-concentration">
+                <ConcentrationCell
+                  participant={participant}
+                  checkDc={conChecks[participant.id]}
+                  onCheckResolved={() => resolveConCheck(participant.id)}
+                />
+              </div>
               <button
                 type="button"
                 className="icon-btn dm-row-remove"
@@ -691,24 +699,33 @@ function ToHitRuling({
       ) : (
         <span className="text-muted">no AC on record</span>
       )}
-      {verdict ? (
-        <span className="dm-ruled">
-          you said <strong>{verdict}</strong>
-        </span>
-      ) : (
-        <>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => onRule("hit")}
-          >
-            Hit
-          </button>
-          <button type="button" onClick={() => onRule("miss")}>
-            Miss
-          </button>
-        </>
-      )}
+      {/* Re-rulable, because a misclick here used to be permanent: the buttons
+          were replaced by static text after the first answer, on a surface whose
+          every other control can be done again. Nothing about a ruling is
+          custody — the ruling that counts is the last one said out loud, and a
+          DM who hits Miss by accident needs to be able to say so. The pressed
+          state carries what was already answered. */}
+      <span className="dm-ruling-buttons">
+        <button
+          type="button"
+          className={classNames({ "btn-primary": verdict !== "miss" })}
+          aria-pressed={verdict === "hit"}
+          title={verdict === "hit" ? "You ruled this a hit" : undefined}
+          onClick={() => onRule("hit")}
+        >
+          Hit
+        </button>
+        <button
+          type="button"
+          className={classNames({ "btn-primary": verdict === "miss" })}
+          aria-pressed={verdict === "miss"}
+          title={verdict === "miss" ? "You ruled this a miss" : undefined}
+          onClick={() => onRule("miss")}
+        >
+          Miss
+        </button>
+        {verdict && <span className="dm-ruled">you said {verdict}</span>}
+      </span>
     </span>
   );
 }
@@ -948,8 +965,13 @@ function RowVitals({
 
   return (
     <div className="dm-row-vitals">
-      <DamageEntry participant={participant} apply={apply} />
-      <HpDisplay participant={participant} apply={apply} />
+      <VitalsEntry vitals={vitals} name={participant.name} apply={apply} />
+      <HpTotal
+        vitals={vitals}
+        name={participant.name}
+        max={vitals.maxHp}
+        apply={apply}
+      />
       {/* Death-save progress rides the projection while someone is making
           them. The DM always sees it — the party toggle below never gates
           this board. */}
@@ -981,118 +1003,6 @@ function RowVitals({
   );
 }
 
-// The primary HP write, in the words a table uses: "the goblin takes 9",
-// "you regain 10" — a delta, never a recomputed absolute. Damage drains temp
-// HP first (same arithmetic as an accepted report) and feeds the concentration
-// reminder; a leading + heals instead. Enter applies, like the concentration
-// box two cells over.
-function DamageEntry({
-  participant,
-  apply,
-}: {
-  participant: Participant;
-  apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
-}) {
-  const [raw, setRaw] = useState("");
-  const vitals = participant.vitals!;
-  return (
-    <form
-      className="dm-damage-entry"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const trimmed = raw.trim();
-        const heals = trimmed.startsWith("+");
-        const amount = Number(heals ? trimmed.slice(1) : trimmed);
-        if (!(amount > 0)) return;
-        if (heals) apply(applyHealing(vitals, amount), 0);
-        else apply(applyDamage(vitals, amount), Math.floor(amount));
-        setRaw("");
-      }}
-    >
-      <input
-        type="text"
-        inputMode="numeric"
-        className="dm-damage-input"
-        aria-label={`Damage to ${participant.name}`}
-        placeholder="dmg"
-        title="Damage dealt — temp HP soaks first. Type +N to heal. Enter applies."
-        value={raw}
-        onChange={(e) => setRaw(e.target.value)}
-      />
-    </form>
-  );
-}
-
-// The current total, doubling as the escape hatch: the number is a button, and
-// clicking it opens a direct "set HP to exactly this" edit for the corrections
-// deltas can't express cleanly (a stat-block fix, an undo by hand).
-function HpDisplay({
-  participant,
-  apply,
-}: {
-  participant: Participant;
-  apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const vitals = participant.vitals!;
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        className="dm-hp-display"
-        title="Set hit points directly"
-        aria-label={`Set ${participant.name} hit points directly`}
-        onClick={() => setEditing(true)}
-      >
-        {vitals.currHp}
-        <span className="dm-hp-max">/ {vitals.maxHp}</span>
-      </button>
-    );
-  }
-  return (
-    <AbsoluteHpInput
-      participant={participant}
-      apply={apply}
-      done={() => setEditing(false)}
-    />
-  );
-}
-
-function AbsoluteHpInput({
-  participant,
-  apply,
-  done,
-}: {
-  participant: Participant;
-  apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
-  done: () => void;
-}) {
-  const vitals = participant.vitals!;
-  const { inputProps } = useDeferredNumber({
-    value: vitals.currHp,
-    min: 0,
-    onCommit: (currHp) => apply({ ...vitals, currHp }),
-  });
-  return (
-    <input
-      type="text"
-      inputMode="numeric"
-      className="dm-hp-input"
-      aria-label={`${participant.name} hit points`}
-      autoFocus
-      {...inputProps}
-      onBlur={() => {
-        inputProps.onBlur();
-        done();
-      }}
-      onKeyDown={(e) => {
-        inputProps.onKeyDown(e);
-        if (e.key === "Enter" || e.key === "Escape") done();
-      }}
-    />
-  );
-}
-
 // AC for a hand-typed combatant, editable in place. Zero shows as an empty
 // box rather than "AC 0" — unset, not naked.
 function AcInput({
@@ -1120,141 +1030,5 @@ function AcInput({
         value={inputProps.value === "0" ? "" : inputProps.value}
       />
     </label>
-  );
-}
-
-function RowConditions({ participant }: { participant: Participant }) {
-  const { giveCondition, takeCondition } = useEncounter();
-  const [rounds, setRounds] = useState("");
-  const held = new Set(participant.conditions.map((c) => c.name));
-
-  return (
-    <div className="dm-row-conditions">
-      {participant.conditions.map((condition) => (
-        <span key={condition.name} className="condition-chip">
-          <span>{condition.name}</span>
-          {condition.rounds !== undefined && (
-            <span className="condition-rounds">{condition.rounds}</span>
-          )}
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={`Remove ${condition.name} from ${participant.name}`}
-            onClick={() => takeCondition(participant.id, condition.name)}
-          >
-            <FaXmark />
-          </button>
-        </span>
-      ))}
-      {/* The select applies immediately on choose — a DM does this a dozen
-          times a night, and select-then-confirm doubles every one of them. The
-          rounds box seeds the *next* pick, matching how the thought runs:
-          "stunned for one round". */}
-      <select
-        aria-label={`Give ${participant.name} a condition`}
-        value=""
-        onChange={(e) => {
-          if (!e.target.value) return;
-          const parsed = Number(rounds);
-          giveCondition(participant.id, {
-            name: e.target.value,
-            rounds: rounds.trim() && parsed > 0 ? parsed : undefined,
-          });
-          setRounds("");
-        }}
-      >
-        <option value="">+ condition</option>
-        {CONDITION_NAMES.filter((name) => !held.has(name)).map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
-        ))}
-      </select>
-      <input
-        type="text"
-        inputMode="numeric"
-        className="condition-rounds-input"
-        aria-label={`Rounds for the next condition on ${participant.name}`}
-        placeholder="rds"
-        value={rounds}
-        onChange={(e) => setRounds(e.target.value)}
-      />
-    </div>
-  );
-}
-
-function RowConcentration({
-  participant,
-  conDc,
-  onConResolved,
-}: {
-  participant: Participant;
-  // A pending concentration check from damage this board applied. Advisory:
-  // the DM rolls the die (or has the player roll it) and reports the outcome
-  // with one of the two buttons.
-  conDc?: number;
-  onConResolved?: () => void;
-}) {
-  const { concentrateOn, encounter } = useEncounter();
-  const [spell, setSpell] = useState("");
-
-  if (participant.concentration) {
-    return (
-      <div className="dm-row-concentration">
-        <span className="concentration-spell">
-          {participant.concentration.spell}
-        </span>
-        {conDc !== undefined ? (
-          <span className="dm-con-check">
-            <span>CON DC {conDc}</span>
-            <button type="button" onClick={onConResolved}>
-              Kept
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                concentrateOn(participant.id, undefined);
-                onConResolved?.();
-              }}
-            >
-              Broke
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={`${participant.name} drops concentration`}
-            title="Drop concentration"
-            onClick={() => concentrateOn(participant.id, undefined)}
-          >
-            <FaXmark />
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <form
-      className="dm-row-concentration"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!spell.trim()) return;
-        concentrateOn(participant.id, {
-          spell: spell.trim(),
-          startedRound: Math.max(1, encounter.round),
-        });
-        setSpell("");
-      }}
-    >
-      <input
-        type="text"
-        aria-label={`${participant.name} concentrating on`}
-        placeholder="concentration"
-        value={spell}
-        onChange={(e) => setSpell(e.target.value)}
-      />
-    </form>
   );
 }

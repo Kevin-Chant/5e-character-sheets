@@ -11,11 +11,13 @@ import {
 } from "src/lib/rules";
 import { ordinal } from "src/lib/utils";
 import { useEncounter } from "src/lib/hooks/use-encounter";
+import { ParticipantVitals } from "src/lib/play/encounter";
 import { hasTriggerFor, planTrigger } from "src/lib/play/triggers";
 import SlotPips from "src/components/display/slot-pips";
 import TrackerValue from "src/components/display/tracker-value";
 import DeathSavesDisplay from "src/components/display/death-saves-display";
 import ConditionsPanel from "./conditions-panel";
+import { HpTotal, VitalsEntry } from "./vitals-entry";
 
 const SLOT_LEVELS: LeveledSpellLevel[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -59,6 +61,25 @@ export default function PlayVitals() {
     character,
   );
 
+  // The same projection the DM's roster row edits, built from the sheet so the
+  // rail's HP control can be the identical widget. `applyHealing` clamps to the
+  // maximum, so an unset maximum has to read as "no ceiling" rather than as
+  // zero — the sheet's own HP box makes the same distinction.
+  const vitals: ParticipantVitals = {
+    currHp,
+    tempHp,
+    ac,
+    maxHp: maxHpFormula && maxHp > 0 ? maxHp : Number.MAX_SAFE_INTEGER,
+  };
+  // Written to the character, not to the participant: the effect that publishes
+  // vitals to the session picks it up from there, so this stays one write.
+  const applyVitals = (next: ParticipantVitals) => {
+    if (next.currHp !== currHp)
+      dispatch(updateAt(charPath(FIELD.currHp), next.currHp));
+    if ((next.tempHp ?? 0) !== tempHp)
+      dispatch(updateAt(charPath(FIELD.tempHp), next.tempHp ?? 0));
+  };
+
   const slotLevels = SLOT_LEVELS.filter(
     (level) => totalSpellSlots(character, level) > 0,
   );
@@ -75,17 +96,24 @@ export default function PlayVitals() {
   return (
     <aside className="play-vitals">
       <div className="play-hp">
+        {/* The DM's HP control, mounted on the player's own row. It used to be a
+            ±1 stepper here and a delta box there, so a hit for 9 was one
+            keystroke for the DM and nine clicks for the player — and the player
+            had to drain their own temporary hit points by hand, arithmetic the
+            shared widget already does. The total beside it is still the direct-set
+            escape hatch. */}
         <div className="play-hp-numbers">
-          <TrackerValue
-            cursor={charPath(FIELD.currHp)}
-            value={currHp}
-            name="Current Hit Points"
-            decrementLabel="Lose 1 hit point"
-            incrementLabel="Regain 1 hit point"
-            max={maxHpFormula ? maxHp : undefined}
-            prominent
+          <HpTotal
+            vitals={vitals}
+            name={character.name || "you"}
+            max={maxHpFormula && maxHp > 0 ? maxHp : undefined}
+            apply={applyVitals}
           />
-          <span className="play-hp-max">/ {maxHp}</span>
+          <VitalsEntry
+            vitals={vitals}
+            name={character.name || "you"}
+            apply={applyVitals}
+          />
         </div>
         <div className="play-hp-bar">
           <div
