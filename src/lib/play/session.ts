@@ -249,6 +249,27 @@ export const TOPIC_FOR: Record<SessionMessage["kind"], string> = {
   sheet: PlaySessionEvent.SHEET,
 };
 
+// Is this actually an encounter?
+//
+// A `state` message carries the whole shared document, and until now it was
+// applied on the word of whoever sent it. The realm is only as trustworthy as
+// its code, which is the trust model we've chosen — but the code is not the
+// threat here. A peer running an older or newer build is, and a merge against
+// something that isn't an encounter throws inside a subscription callback,
+// which in this app means the table's tab goes white mid-fight.
+//
+// Structural, not exhaustive: the two fields every merge path dereferences
+// unconditionally. Everything past them is already read with `?? 0`.
+export function isEncounter(raw: unknown): raw is Encounter {
+  if (!raw || typeof raw !== "object") return false;
+  const candidate = raw as Partial<Encounter>;
+  return (
+    typeof candidate.round === "number" &&
+    typeof candidate.turnIndex === "number" &&
+    Array.isArray(candidate.participants)
+  );
+}
+
 // --- Merging -----------------------------------------------------------------
 
 // Anyone may write to the encounter — the DM seat is a UI gate, not a lock, so

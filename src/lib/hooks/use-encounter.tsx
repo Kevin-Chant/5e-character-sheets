@@ -81,7 +81,11 @@ import { initiativeModifierFor } from "src/lib/play/initiative";
 import { rollD20Check } from "src/lib/roll";
 import { charPath, updateAt } from "src/lib/cursor";
 import { Character, PlaySessionRef } from "src/lib/types";
-import { SessionStatus, usePlaySession } from "src/lib/hooks/use-play-session";
+import {
+  JoinResult,
+  SessionStatus,
+  usePlaySession,
+} from "src/lib/hooks/use-play-session";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
@@ -128,6 +132,14 @@ export const LAST_SESSION_STORAGE_KEY = "last-session";
 // survive being hosted, so any local change made while disconnected clears this
 // and re-adopts the encounter as this browser's own.
 export const ENCOUNTER_SESSION_STORAGE_KEY = "encounter-session";
+
+// The default context's answer to "did I get in": no, and here is why. A
+// constant rather than an inline literal so the two defaults can't drift.
+const NO_SESSION = {
+  ok: false,
+  reason: "unreachable",
+  message: "There is no session provider here.",
+} as const;
 
 function dmToken(): string {
   const existing: string | undefined = readLocalStorage(DM_TOKEN_STORAGE_KEY);
@@ -192,10 +204,15 @@ export interface EncounterContextData {
   // creation rather than raced for afterwards.
   // Opens a new table, or reopens one whose realm has closed — a code that a
   // group has already pinned somewhere is worth more than a fresh one.
-  hostSession: (reopenCode?: string) => Promise<void>;
+  //
+  // Both of these **resolve once the realm is actually joined**, and say
+  // whether it was. The lobby used to have to ask a status field from an effect
+  // instead, because the old transport returned as soon as the attempt had been
+  // started.
+  hostSession: (reopenCode?: string) => Promise<JoinResult>;
   // `displayName` is for the sheetless joiner, who has no character name to
   // announce — the lobby asks what the table should call them.
-  joinSession: (code: string, displayName?: string) => Promise<void>;
+  joinSession: (code: string, displayName?: string) => Promise<JoinResult>;
   leaveSession: () => void;
   // Put characters into the order without opening them. A DM uses this to bring
   // party sheets and companion stat blocks; their vitals are a snapshot until
@@ -281,8 +298,10 @@ export const NO_ENCOUNTER: EncounterContextData = {
   rememberedSessions: [],
   forgetRememberedSession: NOOP,
   sessionStatus: "offline",
-  hostSession: async () => {},
-  joinSession: async () => {},
+  // Outside a provider there is no transport to fail, so the honest answer is
+  // the one every caller already handles.
+  hostSession: async () => NO_SESSION,
+  joinSession: async () => NO_SESSION,
   leaveSession: NOOP,
   bringCharacters: NOOP,
   setSheetOffered: NOOP,
@@ -505,10 +524,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     // raises the prompt, and the sheet moves when the player accepts, through
     // the ordinary claim flow. Ignoring a stale id is the ghost-safe half:
     // if the participant is gone by the time we look, nothing renders.
-    onAssignSheet: (participantId, toClientId) => {
-      if (toClientId !== clientId) return;
-      setPendingAssignmentId(participantId);
-    },
+    onAssignSheet: (participantId) => setPendingAssignmentId(participantId),
     // Someone asked to play an offered sheet. Only its owner answers, and only
     // if the offer stands — the claimable flag is the consent, checked at send
     // time rather than trusted from the asker.
@@ -528,11 +544,11 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       if (!sheet) return;
       sendSheetRef.current(fromClientId, participantId, sheet);
     },
-    // A sheet arrived. Everyone in the realm sees it; only the addressee loads
-    // it, as a borrowed character — played, never persisted, because the DM
-    // still owns the stored copy and a local save would fork it.
-    onSheet: (participantId, incoming, toClientId) => {
-      if (toClientId !== clientId) return;
+    // A sheet arrived for us — everyone in the realm sees it, and the envelope
+    // has already dropped the copies addressed to somebody else. Loaded as a
+    // borrowed character: played, never persisted, because the DM still owns
+    // the stored copy and a local save would fork it.
+    onSheet: (_participantId, incoming) => {
       const result = hydrateCharacter(incoming);
       if (!result.ok) {
         console.error("The offered sheet failed validation", result.errors);
@@ -814,7 +830,11 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         // it has. Read before connecting, since connecting rewrites the key.
         const lastWeeksTable =
           !reopenCode && !!readLocalStorage(ENCOUNTER_SESSION_STORAGE_KEY);
-        await session.host(reopenCode);
+        const result = await session.host(reopenCode);
+        // An attempt that never opened a realm is not a table: claiming the
+        // seat on it would wipe the encounter this browser is still holding on
+        // behalf of a table that does exist.
+        if (!result.ok) return result;
         update((current) =>
           claimDmSeat(
             lastWeeksTable ? EMPTY_ENCOUNTER : current,
@@ -822,11 +842,18 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
             dmTokenRef.current,
           ),
         );
+        return result;
       },
       joinSession: async (joinCode, joinDisplayName) => {
         if (joinDisplayName?.trim()) setCustomName(joinDisplayName.trim());
         adoptNextStateRef.current = true;
-        await session.join(joinCode);
+        const result = await session.join(joinCode);
+        // A join that never landed leaves the flag armed for a room we are not
+        // in; the next table would adopt the first thing it heard.
+        if (!result.ok) {
+          adoptNextStateRef.current = false;
+          return result;
+        }
         // Walking back into a table this browser was running. `receiveState`
         // already reclaims the seat when a peer's state arrives — but the realm
         // a DM returns to is routinely *empty* (they were the only one in it,
@@ -839,6 +866,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         update((current) =>
           reclaimDmSeat(current, clientId, dmTokenRef.current),
         );
+        return result;
       },
       leaveSession: () => {
         adoptNextStateRef.current = false;

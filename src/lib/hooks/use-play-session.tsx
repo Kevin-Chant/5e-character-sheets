@@ -1,34 +1,38 @@
 import { useCallback, useRef, useState } from "react";
-// @ts-expect-error - autobahn-browser ships no type declarations
-import autobahn from "autobahn-browser";
 import { Encounter } from "src/lib/play/encounter";
 import {
   HealingOffer,
-  RollCall,
+  isEncounter,
   isValidSessionCode,
   newSessionCode,
   normalizeSessionCode,
   realmForSession,
+  RollCall,
   SessionMessage,
   TOPIC_FOR,
 } from "src/lib/play/session";
 import { RollReport, RollVerdict } from "src/lib/play/reports";
-import { useSettings } from "src/lib/hooks/use-settings";
+import { RealmResult, useRealm } from "src/lib/realm/use-realm";
 
-// The party session's transport. Everything it *decides* lives in
-// `play/session.ts`; this file only moves bytes, which is the split the
-// codebase already uses for the character-sharing layer (network paths are
-// verified by hand, so the decisions inside them are tested elsewhere).
+// The party session's transport: which messages exist and who they go to.
 //
-// Conventions inherited from `use-sharing-session.tsx`, all of them load-bearing:
-// the connection is a **ref**, not state, so it can be read synchronously right
-// after creation; every message carries a `clientId` because nightlife-rabbit
-// does not honour WAMP `exclude_me` and publishers receive their own events; and
-// teardown hangs off `connection.onclose`.
-
-type Connection = any;
+// Sockets, subscriptions, self-echo, versioning and teardown are `useRealm` —
+// this file is now only the protocol. Everything it *decides* still lives in
+// `play/session.ts`, which is the split the codebase already used: network
+// paths are verified by hand, so the decisions inside them are extracted to
+// somewhere a test can reach.
 
 export type SessionStatus = "offline" | "connecting" | "connected" | "error";
+
+// Joining resolves with the code that was joined. A host doesn't know it in
+// advance — the transport mints it — and the caller needs it in the same breath
+// to record the table in this browser's memory.
+export type JoinResult =
+  | Extract<RealmResult, { ok: false }>
+  | {
+      ok: true;
+      code: string;
+    };
 
 interface PlaySessionOptions {
   clientId: string;
@@ -41,13 +45,9 @@ interface PlaySessionOptions {
   // A peer said who they are. Names only — liveness is best-effort (no
   // heartbeats), which is fine for a dropdown and would be wrong for a lock.
   onPresence: (fromClientId: string, name: string) => void;
-  // The DM pointed a sheet at someone. The provider checks it's addressed to
-  // us and raises the accept prompt — the sheet itself hasn't travelled.
-  onAssignSheet: (
-    participantId: string,
-    toClientId: string,
-    fromClientId: string,
-  ) => void;
+  // The DM pointed a sheet at us. Addressed, so the envelope has already
+  // dropped the copies meant for other clients.
+  onAssignSheet: (participantId: string, fromClientId: string) => void;
   // The DM called for initiative. Each player client raises its own prompt.
   onCallInitiative: (fromClientId: string) => void;
   // A player rolled something at the table — a to-hit, damage, an answered
@@ -62,265 +62,81 @@ interface PlaySessionOptions {
   onHealingOffer: (offer: HealingOffer, fromClientId: string) => void;
   // Someone wants to play an offered sheet: whoever owns it replies.
   onClaimSheet: (participantId: string, fromClientId: string) => void;
-  // A whole sheet arrived. The provider checks it's addressed to us and loads
-  // it — everyone else in the realm sees the message and ignores it.
-  onSheet: (
-    participantId: string,
-    character: unknown,
-    toClientId: string,
-  ) => void;
+  // A whole sheet arrived, addressed to us. The provider validates and loads it.
+  onSheet: (participantId: string, character: unknown) => void;
 }
 
-export function usePlaySession({
-  clientId,
-  onRemoteState,
-  onHello,
-  onLeave,
-  onPresence,
-  onAssignSheet,
-  onCallInitiative,
-  onRollReport,
-  onRollVerdict,
-  onRollCall,
-  onHealingOffer,
-  onClaimSheet,
-  onSheet,
-}: PlaySessionOptions) {
-  const {
-    settings: { liveEditHost },
-  } = useSettings();
-  const connectionRef = useRef<Connection | undefined>();
-  const sessionRef = useRef<any>();
+export function usePlaySession(options: PlaySessionOptions) {
+  const { clientId } = options;
   const [code, setCode] = useState<string | undefined>();
-  const [status, setStatus] = useState<SessionStatus>("offline");
-  const [error, setError] = useState<string | undefined>();
+  // Held in a ref so the once-registered subscription always calls the current
+  // closure rather than the one captured at connect time.
+  const handlers = useRef(options);
+  handlers.current = options;
 
-  // Handlers are read through refs so the (once-registered) subscription always
-  // calls the current closure rather than the one captured at connect time.
-  const handlers = useRef({
-    onRemoteState,
-    onHello,
-    onLeave,
-    onPresence,
-    onAssignSheet,
-    onCallInitiative,
-    onRollReport,
-    onRollVerdict,
-    onRollCall,
-    onHealingOffer,
-    onClaimSheet,
-    onSheet,
+  const realm = useRealm<SessionMessage["kind"]>({
+    clientId,
+    topics: TOPIC_FOR,
+    // One exhaustive switch instead of twelve subscriptions. The envelope has
+    // already dropped our own echo, an unknown kind, a future version and
+    // anything addressed elsewhere, so everything here is ours to act on.
+    onMessage: (raw) => {
+      const message = raw as SessionMessage;
+      const on = handlers.current;
+      switch (message.kind) {
+        case "state":
+          // The one payload big enough to be worth checking: a peer on a
+          // different build handing us something that isn't an encounter would
+          // otherwise throw inside this callback, which whitescreens the table.
+          if (isEncounter(message.encounter)) {
+            on.onRemoteState(message.encounter, message.clientId);
+          }
+          return;
+        case "hello":
+          return on.onHello(message.clientId);
+        case "leave":
+          return on.onLeave(message.clientId);
+        case "presence":
+          return on.onPresence(message.clientId, message.name);
+        case "assignSheet":
+          return on.onAssignSheet(message.participantId, message.clientId);
+        case "callInitiative":
+          return on.onCallInitiative(message.clientId);
+        case "rollReport":
+          return on.onRollReport(message.report, message.clientId);
+        case "rollVerdict":
+          return on.onRollVerdict(message.verdict, message.clientId);
+        case "rollCall":
+          return on.onRollCall(message.call, message.clientId);
+        case "healingOffer":
+          return on.onHealingOffer(message.offer, message.clientId);
+        case "claimSheet":
+          return on.onClaimSheet(message.participantId, message.clientId);
+        case "sheet":
+          return on.onSheet(message.participantId, message.character);
+      }
+    },
+    // Announce ourselves; whoever is already here replies with the state.
+    onReady: () => realm.publish({ kind: "hello", clientId }),
+    onClosed: () => setCode(undefined),
   });
-  handlers.current = {
-    onRemoteState,
-    onHello,
-    onLeave,
-    onPresence,
-    onAssignSheet,
-    onCallInitiative,
-    onRollReport,
-    onRollVerdict,
-    onRollCall,
-    onHealingOffer,
-    onClaimSheet,
-    onSheet,
-  };
 
-  const publish = useCallback((message: SessionMessage) => {
-    const session = sessionRef.current;
-    if (!session) return;
-    try {
-      session.publish(TOPIC_FOR[message.kind], [message]);
-    } catch {
-      // A publish into a realm that has just closed is not worth surfacing —
-      // `onclose` is about to move the UI to "offline" anyway.
-    }
-  }, []);
-
-  const broadcastState = useCallback(
-    (encounter: Encounter) => publish({ kind: "state", clientId, encounter }),
-    [publish, clientId],
-  );
-
-  const announcePresence = useCallback(
-    (name: string) => publish({ kind: "presence", clientId, name }),
-    [publish, clientId],
-  );
-
-  const assignSheet = useCallback(
-    (toClientId: string, participantId: string) =>
-      publish({ kind: "assignSheet", clientId, toClientId, participantId }),
-    [publish, clientId],
-  );
-
-  const sendCallInitiative = useCallback(
-    () => publish({ kind: "callInitiative", clientId }),
-    [publish, clientId],
-  );
-
-  const sendRollReport = useCallback(
-    (report: RollReport) => publish({ kind: "rollReport", clientId, report }),
-    [publish, clientId],
-  );
-
-  const sendRollVerdict = useCallback(
-    (verdict: RollVerdict) =>
-      publish({ kind: "rollVerdict", clientId, verdict }),
-    [publish, clientId],
-  );
-
-  const sendRollCall = useCallback(
-    (call: RollCall) => publish({ kind: "rollCall", clientId, call }),
-    [publish, clientId],
-  );
-
-  const sendHealingOffer = useCallback(
-    (offer: HealingOffer) => publish({ kind: "healingOffer", clientId, offer }),
-    [publish, clientId],
-  );
-
-  const requestSheet = useCallback(
-    (participantId: string) =>
-      publish({ kind: "claimSheet", clientId, participantId }),
-    [publish, clientId],
-  );
-
-  const sendSheet = useCallback(
-    (toClientId: string, participantId: string, character: unknown) =>
-      publish({
-        kind: "sheet",
-        clientId,
-        toClientId,
-        participantId,
-        character,
-      }),
-    [publish, clientId],
-  );
+  const publish = realm.publish as (message: SessionMessage) => void;
 
   const connect = useCallback(
-    async (sessionCode: string, create: boolean) => {
+    async (sessionCode: string, create: boolean): Promise<JoinResult> => {
       const normalized = normalizeSessionCode(sessionCode);
       if (!isValidSessionCode(normalized)) {
-        setStatus("error");
-        setError("That doesn't look like a session code.");
-        return;
+        return realm.refuse("That doesn't look like a session code.");
       }
-      setStatus("connecting");
-      setError(undefined);
-      const realm = realmForSession(normalized);
-
-      if (create) {
-        try {
-          const res = await fetch(`${liveEditHost}/openRealm/${realm}`);
-          if (res.status !== 200) {
-            setStatus("error");
-            setError(`The sharing server refused the session (${res.status}).`);
-            return;
-          }
-        } catch {
-          setStatus("error");
-          setError(
-            "Couldn't reach the sharing server. Check the sharing host in Settings.",
-          );
-          return;
-        }
-      }
-
-      const connection = new autobahn.Connection({ url: liveEditHost, realm });
-      // A connection that closes *before* it ever opened means the realm isn't
-      // there — i.e. nobody is hosting this code yet, which is a typo far more
-      // often than an outage.
-      let opened = false;
-
-      connection.onopen = async (session: any) => {
-        opened = true;
-        sessionRef.current = session;
-        connectionRef.current = connection;
-        // One shape for all twelve: check the kind, drop our own echo (the
-        // broker does not honour `exclude_me`), hand the message to the current
-        // handler. Written out per topic it was ten lines each and the
-        // self-echo filter had to be remembered every time.
-        const on = <K extends SessionMessage["kind"]>(
-          kind: K,
-          handle: (message: Extract<SessionMessage, { kind: K }>) => void,
-        ) =>
-          session.subscribe(TOPIC_FOR[kind], (args: any[]) => {
-            const message = args?.[0] as SessionMessage | undefined;
-            if (message?.kind !== kind || message.clientId === clientId) return;
-            handle(message as Extract<SessionMessage, { kind: K }>);
-          });
-
-        // **Await the subscriptions before announcing.** `subscribe` is a round
-        // trip to the broker, and a `hello` published before it completes gets a
-        // reply this client isn't listening for yet — which looks exactly like
-        // joining a session nobody is in. It's a race, so it fails
-        // intermittently and only with a peer already present.
-        await Promise.all([
-          on("state", (m) =>
-            handlers.current.onRemoteState(m.encounter, m.clientId),
-          ),
-          on("hello", (m) => handlers.current.onHello(m.clientId)),
-          on("leave", (m) => handlers.current.onLeave(m.clientId)),
-          on("presence", (m) =>
-            handlers.current.onPresence(m.clientId, m.name),
-          ),
-          on("assignSheet", (m) =>
-            handlers.current.onAssignSheet(
-              m.participantId,
-              m.toClientId,
-              m.clientId,
-            ),
-          ),
-          on("callInitiative", (m) =>
-            handlers.current.onCallInitiative(m.clientId),
-          ),
-          on("rollReport", (m) =>
-            handlers.current.onRollReport(m.report, m.clientId),
-          ),
-          on("rollVerdict", (m) =>
-            handlers.current.onRollVerdict(m.verdict, m.clientId),
-          ),
-          on("rollCall", (m) =>
-            handlers.current.onRollCall(m.call, m.clientId),
-          ),
-          on("healingOffer", (m) =>
-            handlers.current.onHealingOffer(m.offer, m.clientId),
-          ),
-          on("claimSheet", (m) =>
-            handlers.current.onClaimSheet(m.participantId, m.clientId),
-          ),
-          on("sheet", (m) =>
-            handlers.current.onSheet(
-              m.participantId,
-              m.character,
-              m.toClientId,
-            ),
-          ),
-        ]);
-        setCode(normalized);
-        setStatus("connected");
-        // Announce ourselves; whoever is already here replies with the state.
-        publish({ kind: "hello", clientId });
-      };
-
-      connection.onclose = () => {
-        sessionRef.current = undefined;
-        connectionRef.current = undefined;
-        setStatus(opened ? "offline" : "error");
-        if (!opened) {
-          setError(
-            create
-              ? "The sharing server accepted the session but closed the connection."
-              : "No session with that code is open. Check the code, or ask whoever started it to keep their tab open.",
-          );
-        }
-        setCode(undefined);
-        return true;
-      };
-
-      connection.open();
+      const result = await realm.connect(realmForSession(normalized), {
+        create,
+      });
+      if (!result.ok) return result;
+      setCode(normalized);
+      return { ok: true, code: normalized };
     },
-    [liveEditHost, clientId, publish],
+    [realm.connect, realm.refuse],
   );
 
   // A code may be supplied to reopen a table that has gone quiet. Realms only
@@ -330,47 +146,81 @@ export function usePlaySession({
   // it durable: the uuid is still the authentication, and the DM who has it is
   // the person who ran the table.
   const host = useCallback(
-    async (code?: string) => {
-      await connect(code ?? newSessionCode(), true);
-    },
+    (existing?: string) => connect(existing ?? newSessionCode(), true),
     [connect],
   );
 
   const join = useCallback(
-    async (sessionCode: string) => {
-      await connect(sessionCode, false);
-    },
+    (sessionCode: string) => connect(sessionCode, false),
     [connect],
   );
 
   const leave = useCallback(() => {
     publish({ kind: "leave", clientId });
     // Deliberately not closing the realm: in a party session there is no owner,
-    // and one player going to bed must not end everyone else's fight. Realms are
-    // reclaimed by restarting the sidecar, same as the character-sharing ones.
-    connectionRef.current?.close();
-    sessionRef.current = undefined;
-    connectionRef.current = undefined;
+    // and one player going to bed must not end everyone else's fight. Empty
+    // realms are swept by the sidecar after a long idle.
+    realm.close();
     setCode(undefined);
-    setStatus("offline");
-  }, [publish, clientId]);
+  }, [publish, clientId, realm.close]);
 
   return {
     code,
-    status,
-    error,
+    status: realm.status as SessionStatus,
+    error: realm.error,
     host,
     join,
     leave,
-    broadcastState,
-    announcePresence,
-    assignSheet,
-    sendCallInitiative,
-    sendRollReport,
-    sendRollVerdict,
-    sendRollCall,
-    sendHealingOffer,
-    requestSheet,
-    sendSheet,
+    broadcastState: useCallback(
+      (encounter: Encounter) => publish({ kind: "state", clientId, encounter }),
+      [publish, clientId],
+    ),
+    announcePresence: useCallback(
+      (name: string) => publish({ kind: "presence", clientId, name }),
+      [publish, clientId],
+    ),
+    assignSheet: useCallback(
+      (toClientId: string, participantId: string) =>
+        publish({ kind: "assignSheet", clientId, toClientId, participantId }),
+      [publish, clientId],
+    ),
+    sendCallInitiative: useCallback(
+      () => publish({ kind: "callInitiative", clientId }),
+      [publish, clientId],
+    ),
+    sendRollReport: useCallback(
+      (report: RollReport) => publish({ kind: "rollReport", clientId, report }),
+      [publish, clientId],
+    ),
+    sendRollVerdict: useCallback(
+      (verdict: RollVerdict) =>
+        publish({ kind: "rollVerdict", clientId, verdict }),
+      [publish, clientId],
+    ),
+    sendRollCall: useCallback(
+      (call: RollCall) => publish({ kind: "rollCall", clientId, call }),
+      [publish, clientId],
+    ),
+    sendHealingOffer: useCallback(
+      (offer: HealingOffer) =>
+        publish({ kind: "healingOffer", clientId, offer }),
+      [publish, clientId],
+    ),
+    requestSheet: useCallback(
+      (participantId: string) =>
+        publish({ kind: "claimSheet", clientId, participantId }),
+      [publish, clientId],
+    ),
+    sendSheet: useCallback(
+      (toClientId: string, participantId: string, character: unknown) =>
+        publish({
+          kind: "sheet",
+          clientId,
+          toClientId,
+          participantId,
+          character,
+        }),
+      [publish, clientId],
+    ),
   };
 }
