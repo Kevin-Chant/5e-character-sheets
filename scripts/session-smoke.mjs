@@ -18,7 +18,7 @@
 //   --base <url>      dev server (default http://localhost:3000)
 //   --sidecar <url>   the live-edit sidecar to point every client at
 //                     (default http://localhost:9000 — never the cloud one)
-//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | initiative | damage | table | rejoin
+//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | initiative | damage | table | rejoin | dmreturn
 //   --headed          show the browsers
 //   --slow <ms>       slow motion, for watching a failure happen
 //   --timeout <ms>    per-condition wait budget (default 15000)
@@ -845,6 +845,70 @@ const scenarios = {
       await roster(dm.page),
       [dm.name, player.name].sort(),
     );
+
+    return [dm, player];
+  },
+
+  // The DM coming back to a table nobody else is sitting at — which is the
+  // ordinary shape of "I closed the tab last Thursday", since a realm outlives
+  // its occupants. Two things went wrong here, and they were one bug seen
+  // twice: the encounter is stored per *browser* while a code names a *table*.
+  // The seat came back only off a peer's state, and an empty room sends none,
+  // so the lobby promised the DM controls and then seated them as a player;
+  // and the next brand-new game opened straight onto the previous game's order.
+  async dmreturn(browser) {
+    const dm = await openClient(browser, "martial-fighter", "dm");
+    const player = await openClient(browser, "full-caster-wizard", "player");
+
+    const first = await startGame(dm, [dm.name]);
+    await untilRoster(dm.page, [dm.name]);
+
+    // A closed tab, not a reload: the same browser (the DM token is durable in
+    // localStorage) but a new page, and so a new client id — which is exactly
+    // what the seat was still pointing at.
+    const context = dm.page.context();
+    await dm.page.close();
+    dm.page = await context.newPage();
+    await dm.page.goto(BASE, { waitUntil: "domcontentloaded" });
+
+    await untilVisible(dm.page, "text=The game you're running");
+    await dm.page.click("text=The game you're running");
+    await untilVisible(dm.page, "text=Rejoin the table");
+    await dm.page.click("text=Rejoin the table");
+    await untilPath(dm.page, "/play");
+    await untilVisible(dm.page, "text=Release DM seat");
+    check("a table with nobody in it still hands the seat back", true, true);
+    await untilRoster(dm.page, [dm.name]);
+    check(
+      "with what was brought to it",
+      await roster(dm.page),
+      [dm.name].sort(),
+    );
+
+    // A latecomer arriving at a table the DM has been sitting at alone. The
+    // "adopt the room's state" flag is armed by joining and consumed by the
+    // room's reply — and an empty room sends none, so it used to stay armed for
+    // the rest of the evening, ready to swallow the first thing the next
+    // arrival published (their own participant, the moment it lands) on top of
+    // everything the DM had. Which of the two messages wins that race isn't
+    // deterministic, so this asserts the outcome rather than reproducing the
+    // loss: the DM's table survives being joined.
+    await joinGame(player, first, player.name);
+    await untilRoster(dm.page, [dm.name, player.name]);
+    check(
+      "a latecomer joins the DM's fight rather than replacing it",
+      await roster(dm.page),
+      [dm.name, player.name].sort(),
+    );
+
+    // Now start something else. The old fight is still in this browser's
+    // storage, and it must not be what a new code opens onto.
+    await dm.page.click("text=Leave");
+    await dm.page.goto(BASE, { waitUntil: "domcontentloaded" });
+    const second = await startGame(dm);
+    await untilVisible(dm.page, "text=Release DM seat");
+    check("a new table is a new table", await roster(dm.page), []);
+    check("on a code of its own", second === first, false);
 
     return [dm, player];
   },

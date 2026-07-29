@@ -25,6 +25,7 @@ import {
   offerSheet,
   EconomySlot,
   claimDmSeat,
+  reclaimDmSeat,
   releaseDmSeat,
   addParticipant,
   advanceTurn,
@@ -116,6 +117,17 @@ export const DM_TOKEN_STORAGE_KEY = "dm-token";
 // them locked out of their own game with a seat waiting for them and no way to
 // reach it. Device-level, because that's the level a DM exists at.
 export const LAST_SESSION_STORAGE_KEY = "last-session";
+
+// Which table the persisted encounter came from, if any.
+//
+// The encounter is stored per *browser* and a code names a *table*, so the two
+// need pairing: without it, starting a brand-new game opened straight onto last
+// week's order, round and monsters — which reads, correctly, as the app having
+// reopened the old session instead of starting a new one. Only a session-owned
+// encounter is stale that way; one a DM built offline is prep, and prep must
+// survive being hosted, so any local change made while disconnected clears this
+// and re-adopts the encounter as this browser's own.
+export const ENCOUNTER_SESSION_STORAGE_KEY = "encounter-session";
 
 function dmToken(): string {
   const existing: string | undefined = readLocalStorage(DM_TOKEN_STORAGE_KEY);
@@ -372,6 +384,9 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   // Read lazily so a browser that never runs a game never writes the key.
   const dmTokenRef = useRef<string>("");
   if (!dmTokenRef.current) dmTokenRef.current = dmToken();
+  // Whether this browser is in a session right now. Read synchronously by
+  // `update`, which is how an edit made offline can disown the stored session.
+  const connectedRef = useRef(false);
 
   // Who else is connected, by display name. Transient by design: not part of
   // the encounter (liveness merged by revision would be a category error), so
@@ -406,6 +421,11 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         if (changed === current) return current;
         const next = silent ? changed : bumpRevision(changed, clientId);
         writeLocalStorage(ENCOUNTER_STORAGE_KEY, next);
+        // Edited by hand with no session open: this is prep now, whatever table
+        // it came from, and prep is the one thing hosting must not throw away.
+        if (!silent && !connectedRef.current) {
+          removeLocalStorage(ENCOUNTER_SESSION_STORAGE_KEY);
+        }
         if (!silent) broadcastRef.current?.(next);
         return next;
       });
@@ -452,6 +472,15 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     // bumping the revision — this is a repeat, not a change. Presence rides
     // along: the reply is how the newcomer learns who is already here.
     onHello: () => {
+      // Somebody arrived after us, so we are not the newcomer any more, and
+      // adopting *their* state would be backwards. Clearing here is what bounds
+      // the flag's life: it's consumed by the room's reply to our own hello, but
+      // an empty room never sends one — and a flag left armed all evening is a
+      // fight waiting to be overwritten by the next arrival's stale copy, which
+      // they publish the moment their own participant lands. Two clients joining
+      // at once can cost each other the adoption; that's the ordinary revision
+      // race, which `seatRev` and the contribution merge already survive.
+      adoptNextStateRef.current = false;
       broadcastRef.current?.(encounterRef.current);
       announceRef.current(displayNameRef.current);
     },
@@ -542,6 +571,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   // than per render.
   const connectedCode =
     session.status === "connected" ? session.code : undefined;
+  connectedRef.current = !!connectedCode;
   // Remembered for this browser whether hosted or joined, and only once the
   // connection succeeded.
   const [lastSession, setLastSession] = useState<string | undefined>(() =>
@@ -551,6 +581,9 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     if (!connectedCode) return;
     writeLocalStorage(LAST_SESSION_STORAGE_KEY, connectedCode);
     setLastSession(connectedCode);
+    // The encounter on screen is this table's from here on, which is what lets
+    // the *next* table know not to inherit it.
+    writeLocalStorage(ENCOUNTER_SESSION_STORAGE_KEY, connectedCode);
     // The same fact, recorded per code rather than as a single "last one", so
     // the front door can offer every table this browser plays at. Entries merge,
     // which is what lets the lobby record the seat and the sheets brought
@@ -589,6 +622,12 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     setPendingAssignmentId(undefined);
     setCustomName(undefined);
     setInitiativeCalled(false);
+    // Including "we are waiting to be told what the room holds" — a dropped
+    // connection ends that wait, and the next state to arrive belongs to
+    // whatever we join next, not to the join this flag was armed for. (Arming
+    // it and connecting can't trip this: the status goes offline → connecting →
+    // connected, so `disconnected` never changes value in between.)
+    adoptNextStateRef.current = false;
     talk.reset();
   }, [disconnected]);
 
@@ -770,13 +809,36 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       // path said they were doing. Claiming happens locally and rides out on the
       // first `hello` reply, since a realm we just created has nobody in it yet.
       hostSession: async (reopenCode) => {
+        // A *new* code is a new table, and it starts empty. Reopening one isn't:
+        // that's walking back into the fight this browser left, so it keeps what
+        // it has. Read before connecting, since connecting rewrites the key.
+        const lastWeeksTable =
+          !reopenCode && !!readLocalStorage(ENCOUNTER_SESSION_STORAGE_KEY);
         await session.host(reopenCode);
-        update((current) => claimDmSeat(current, clientId, dmTokenRef.current));
+        update((current) =>
+          claimDmSeat(
+            lastWeeksTable ? EMPTY_ENCOUNTER : current,
+            clientId,
+            dmTokenRef.current,
+          ),
+        );
       },
       joinSession: async (joinCode, joinDisplayName) => {
         if (joinDisplayName?.trim()) setCustomName(joinDisplayName.trim());
         adoptNextStateRef.current = true;
         await session.join(joinCode);
+        // Walking back into a table this browser was running. `receiveState`
+        // already reclaims the seat when a peer's state arrives — but the realm
+        // a DM returns to is routinely *empty* (they were the only one in it,
+        // and the broker keeps a realm alive after the last client drops), so no
+        // state ever arrives and the seat stays pointed at the tab they closed:
+        // the lobby promises "rejoining takes the DM controls back" and then
+        // seats them as a player. The token is the same browser either way, so
+        // reclaim from what we have. Anything the room later says still wins —
+        // a joiner adopts the room's state, and this runs again on top of it.
+        update((current) =>
+          reclaimDmSeat(current, clientId, dmTokenRef.current),
+        );
       },
       leaveSession: () => {
         adoptNextStateRef.current = false;

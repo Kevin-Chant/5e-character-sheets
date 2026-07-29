@@ -229,6 +229,17 @@ working with no network, no sidecar and no other players — the same two-layer
 shape as characters (a local object plus an independent broadcast overlay), which
 is where C attaches.
 
+Because it's stored per _browser_ while a code names a _table_, the two need
+pairing, and `ENCOUNTER_SESSION_STORAGE_KEY` is it: the code the stored
+encounter came from, written on connect. Without it, starting a brand-new game
+opened straight onto last week's order, round and monsters — the app looking
+like it had reopened the old session rather than started a new one. So hosting
+on a **new** code starts from `EMPTY_ENCOUNTER` when the stored one belongs to a
+session; reopening a code keeps what it has, because that _is_ walking back into
+the fight you left. The carve-out is prep: an encounter a DM built with no
+session open is theirs, so any local change made while disconnected clears the
+key, and hosting then keeps the six goblins they just lined up.
+
 The provider sits **above the routes** in `index.tsx`, not inside the play
 surface, because the roll dialog reads conditions on the sheet too and the
 encounter has to survive navigating between them. `renderWithCharacter` supplies
@@ -394,6 +405,16 @@ Five exceptions, all learned the hard way:
   authoritative about, so it defers to the room and contributes only its own
   participants. Only _joining_ sets the flag — a host that kept adopting would
   let the next arrival's empty state wipe its own fight.
+- **The flag has to expire, not just be consumed.** "Cleared on the first reply"
+  assumes a reply comes; joining an _empty_ realm (the DM walking back into their
+  own table, which is the common case, since a realm outlives its occupants) gets
+  none, and a flag left armed all evening is the same wipe one arrival later —
+  the latecomer publishes their own participant the moment it lands, and the DM
+  adopts it over the fight. So it also clears when we answer somebody else's
+  `hello` (they arrived after us, so we are no longer the newcomer) and when the
+  connection drops. Two clients joining at once can cost each other the
+  adoption; that's the ordinary revision race, which the seat lane and the
+  contribution merge already survive.
 
 Everything else from a peer is applied **silently**: echoing a peer's state back
 is an endless exchange, the same loop the character layer avoids with
@@ -421,6 +442,14 @@ rather than a UI rule is what would break that.
   and the token matches. Leaving puts the seat down (`dmClientId` clears via
   `withoutClient`, so nobody is gated on someone who's gone) but keeps the
   token; `releaseDmSeat` — a decision, not a disconnection — drops both.
+- **Reclaiming can't wait for a peer.** Folding `reclaimDmSeat` into
+  `receiveState` covers the reload-with-a-party case and only that one: a realm
+  outlives its occupants, so the table a DM walks back into the next day is
+  routinely _empty_, no state ever arrives, and the seat stays pointed at the
+  tab they closed — the lobby saying "rejoining takes the DM controls back" and
+  then seating them as a player. So `joinSession` also reclaims from the local
+  encounter once connected. Nothing is lost if the room does have something to
+  say: a joiner adopts the room's state, and the reclaim runs again on top of it.
 - **There is no takeover button on the bar any more.** Its two everyday reasons
   (racing for an unclaimed seat at the start, recovering from a reload) are gone
   — creation claims, the token reclaims. The genuinely-dead-browser case lives
