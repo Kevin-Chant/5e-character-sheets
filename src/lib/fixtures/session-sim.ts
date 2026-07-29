@@ -4,6 +4,7 @@ import {
   claimDmSeat,
   Encounter,
   EMPTY_ENCOUNTER,
+  reclaimDmSeat,
   setVitals,
 } from "src/lib/play/encounter";
 import {
@@ -11,6 +12,20 @@ import {
   receiveState,
   withoutClient,
 } from "src/lib/play/session";
+import {
+  adoptsResponse,
+  ConnectionState,
+  connectionReducer,
+  encounterForTable,
+  OFFLINE,
+  SessionIntent,
+} from "src/lib/play/connection";
+import { accept, stamp } from "src/lib/realm/envelope";
+import {
+  PresenceEntry,
+  withoutPresence,
+  withPresence,
+} from "src/lib/realm/presence";
 
 // Several browsers in one process.
 //
@@ -21,29 +36,60 @@ import {
 // was pure logic and should never have needed a browser to find.
 //
 // So: a broker that is a map of topic to subscriber, delivering synchronously,
-// and a client that is the encounter plus the *real* decision functions
-// (`receiveState`, `bumpRevision`, `withoutClient`). What this deliberately does
-// **not** model is WAMP, the sidecar, realms, or React — those are what
-// `pnpm session-smoke` is for. Anything asserted here is a claim about the
-// merge rules alone, which is exactly the layer that keeps being wrong.
+// and a client that runs the *real* pieces — the envelope (`accept`/`stamp`),
+// the connection machine (`connectionReducer`), the entry rules
+// (`encounterForTable`, seat claim/reclaim) and the merge (`receiveState`).
+// This week's three bugs were all in the half the old simulator didn't model:
+// joining, syncing, and which table a stored encounter belongs to. Now a
+// connect is a first-class thing a test can do, and each of those bugs is a
+// unit test. What this deliberately does **not** model is WAMP, the sidecar,
+// realms, or React — those are what `pnpm session-smoke` is for.
 //
-// The one fidelity detail that matters: nightlife-rabbit does not honour WAMP's
-// `exclude_me`, so a publisher receives its own messages and filters them by
-// `clientId`. The broker below delivers to the sender too, for the same reason —
-// a simulator that quietly did the right thing would hide a real bug class.
+// Two fidelity details that matter:
+// - nightlife-rabbit does not honour WAMP's `exclude_me`, so a publisher
+//   receives its own messages and filters them by clientId. The broker below
+//   delivers to the sender too — the envelope's `accept` drops the echo, the
+//   same code that drops it in the app.
+// - The broker is synchronous, so "the sync window closed with no answer" has
+//   a natural reading: if the machine is still `syncing` when `enter` returns,
+//   every answer that will ever come has come, and the room was empty.
 
-type Message =
-  | { kind: "state"; clientId: string; encounter: Encounter }
-  | { kind: "hello"; clientId: string }
-  | { kind: "leave"; clientId: string };
+export type SimMessage =
+  | { kind: "state"; clientId: string; v?: number; encounter: Encounter }
+  | { kind: "syncRequest"; clientId: string; v?: number; requestId: string }
+  | {
+      kind: "syncResponse";
+      clientId: string;
+      v?: number;
+      toClientId: string;
+      requestId: string;
+      encounter: Encounter;
+    }
+  | { kind: "leave"; clientId: string; v?: number }
+  | { kind: "presence"; clientId: string; v?: number; name: string };
+
+const KINDS = [
+  "state",
+  "syncRequest",
+  "syncResponse",
+  "leave",
+  "presence",
+] as const;
 
 export class Broker {
   private clients: SimClient[] = [];
   // Every message that crossed the wire, for asserting on chattiness — an
   // endless echo between two peers is a real failure mode here and it looks
   // like success unless you count.
-  readonly traffic: Message[] = [];
-  private held: Message[] | undefined;
+  readonly traffic: SimMessage[] = [];
+  private held: SimMessage[] | undefined;
+  // The session code this broker is a table for — what the provider's
+  // `ENCOUNTER_SESSION_STORAGE_KEY` pairing is checked against.
+  readonly code: string;
+
+  constructor(code = "aaaaaaaa-0000-0000-0000-000000000001") {
+    this.code = code;
+  }
 
   // Two writes that cross on the wire. Anything published inside `run` is held
   // and delivered afterwards, which is the only way to model "both of them
@@ -70,7 +116,7 @@ export class Broker {
     this.clients = this.clients.filter((c) => c !== client);
   }
 
-  publish(message: Message) {
+  publish(message: SimMessage) {
     if (this.held) {
       this.held.push(message);
       return;
@@ -79,7 +125,7 @@ export class Broker {
     // A copy per recipient: a shared object reference would let one client's
     // merge mutate another's view and make every test optimistic.
     for (const client of this.clients) {
-      client.receive(JSON.parse(JSON.stringify(message)) as Message);
+      client.receive(JSON.parse(JSON.stringify(message)) as SimMessage);
     }
   }
 }
@@ -92,11 +138,21 @@ interface SimClientOptions {
   // Where this client's encounter starts. Defaults to empty, which is the
   // realistic case — every browser has been keeping its own local one.
   encounter?: Encounter;
+  // Which table the stored encounter came from, if any — the persisted
+  // pairing key a reload reads back.
+  belongsTo?: string;
 }
 
 export class SimClient {
   broker?: Broker;
   encounter: Encounter;
+  // Where this client is in the business of being in a session — the real
+  // machine, driven exactly as the provider drives it.
+  connection: ConnectionState = OFFLINE;
+  // Which table `encounter` belongs to (`ENCOUNTER_SESSION_STORAGE_KEY`).
+  belongsTo?: string;
+  // Who this client believes is at the table, by the real presence functions.
+  roster: PresenceEntry<{ name: string }>[] = [];
   readonly clientId: string;
   readonly characterUuid?: UUID;
   readonly name: string;
@@ -106,9 +162,7 @@ export class SimClient {
   // editing someone's HP subtle: the edit has to land *here*, or the sheet's
   // next change publishes the old number right back.
   characterHp = 10;
-  // Set between asking to join and the first reply, exactly as the provider
-  // does. See `mergeEncounter`'s `adopt`.
-  private adoptNext = false;
+  private requestCounter = 0;
 
   constructor(options: SimClientOptions) {
     this.clientId = options.clientId;
@@ -116,14 +170,31 @@ export class SimClient {
     this.name = options.name ?? options.clientId;
     this.dmToken = options.dmToken;
     this.encounter = options.encounter ?? EMPTY_ENCOUNTER;
+    this.belongsTo = options.belongsTo;
   }
 
   get isDm(): boolean {
     return this.encounter.dmClientId === this.clientId;
   }
 
+  get phase(): ConnectionState["phase"] {
+    return this.connection.phase;
+  }
+
   get participantNames(): string[] {
     return this.encounter.participants.map((p) => p.name).sort();
+  }
+
+  get rosterNames(): string[] {
+    return this.roster.map((p) => p.name).sort();
+  }
+
+  private advance(event: Parameters<typeof connectionReducer>[1]) {
+    this.connection = connectionReducer(this.connection, event);
+  }
+
+  private send(message: SimMessage) {
+    this.broker?.publish(stamp(message));
   }
 
   // The local write path: bump, then publish. `silent` mirrors the provider's
@@ -132,11 +203,16 @@ export class SimClient {
     const changed = change(this.encounter);
     if (changed === this.encounter) return;
     this.encounter = silent ? changed : bumpRevision(changed, this.clientId);
-    if (!silent) this.publishState();
+    if (!silent) {
+      // Edited by hand with no session open: this is prep now, whatever table
+      // it came from — the provider clears the pairing key the same way.
+      if (!this.broker) this.belongsTo = undefined;
+      this.publishState();
+    }
   }
 
   private publishState() {
-    this.broker?.publish({
+    this.send({
       kind: "state",
       clientId: this.clientId,
       encounter: this.encounter,
@@ -185,25 +261,57 @@ export class SimClient {
     this.apply(change);
   }
 
-  // Open a realm nobody else is in, and be its DM — the `hostSession` path.
-  host(broker: Broker, token: string) {
+  // Both ways into a session — the provider's `enterSession`, step for step:
+  // connect, decide what the table opens with, take or retake the seat, ask
+  // the room, and conclude "empty" if nobody answers.
+  private enter(broker: Broker, intent: SessionIntent) {
+    this.advance({ type: "connect", intent });
+    const belongsTo = this.belongsTo;
     broker.join(this);
-    this.dmToken = token;
-    this.apply((current) => claimDmSeat(current, this.clientId, token));
+    const requestId = `req-${this.clientId}-${++this.requestCounter}`;
+    this.advance({ type: "opened", code: broker.code, requestId });
+    // **Silently**: entering a room is not an edit. Broadcasting the local
+    // state here would let a joiner's unrelated solo history win the document
+    // race on every peer before adoption ever ran — everything a newcomer
+    // holds reaches the room through the handshake instead (the re-add and
+    // seat rules in `receiveState` publish exactly what the room lacks).
+    this.apply((current) => {
+      const base = encounterForTable(current, belongsTo, intent);
+      return intent.kind === "host"
+        ? claimDmSeat(base, this.clientId, this.dmToken ?? "")
+        : reclaimDmSeat(base, this.clientId, this.dmToken);
+    }, true);
+    this.send({ kind: "syncRequest", clientId: this.clientId, requestId });
+    this.send({ kind: "presence", clientId: this.clientId, name: this.name });
+    this.belongsTo = broker.code;
+    // The broker is synchronous: every answer that will come has come. Still
+    // waiting means the room is empty, and what we hold stands.
+    if (this.connection.phase === "syncing") {
+      this.advance({ type: "sync-window-closed", requestId });
+    }
   }
 
-  // Arrive at a realm someone else opened, announce yourself, and defer to
-  // whatever the room says.
+  // Open a table and be its DM — the `hostSession` path.
+  host(broker: Broker, token: string) {
+    this.dmToken = token;
+    this.enter(broker, { kind: "host", reopening: false });
+  }
+
+  // Reopen a table that went quiet, on the code the group already has.
+  reopen(broker: Broker) {
+    this.enter(broker, { kind: "host", reopening: true });
+  }
+
+  // Arrive at a realm someone else opened and defer to whatever it says.
   join(broker: Broker) {
-    broker.join(this);
-    this.adoptNext = true;
-    broker.publish({ kind: "hello", clientId: this.clientId });
+    this.enter(broker, { kind: "join" });
   }
 
   leave() {
     const broker = this.broker;
     this.broker = undefined;
-    this.adoptNext = false;
+    this.advance({ type: "closed" });
+    this.roster = [];
     if (!broker) return;
     // Part *before* announcing. A real client closes its socket on the way out,
     // so it never sees the peers reacting to its own goodbye — and it must not,
@@ -212,7 +320,7 @@ export class SimClient {
     // re-add and publish. Modelling the departure as instantaneous is what makes
     // that impossible here too.
     broker.part(this);
-    broker.publish({ kind: "leave", clientId: this.clientId });
+    broker.publish(stamp({ kind: "leave", clientId: this.clientId }));
   }
 
   // The tab dies without saying goodbye — closed laptop, crashed browser. No
@@ -222,7 +330,8 @@ export class SimClient {
   crash() {
     this.broker?.part(this);
     this.broker = undefined;
-    this.adoptNext = false;
+    this.advance({ type: "closed" });
+    this.roster = [];
   }
 
   // Close the tab and open a new one: a fresh clientId, the same browser. This
@@ -234,31 +343,70 @@ export class SimClient {
       characterUuid: this.characterUuid,
       name: this.name,
       dmToken: this.dmToken,
-      // A reload reads the encounter back out of localStorage, so the new tab
-      // starts from what the old one last saw.
+      // A reload reads the encounter (and which table it belongs to) back out
+      // of localStorage, so the new tab starts from what the old one last saw.
       encounter: this.encounter,
+      belongsTo: this.belongsTo,
     });
     // The sheet is persisted too.
     reopened.characterHp = this.characterHp;
     return reopened;
   }
 
-  receive(message: Message) {
-    // Publishers get their own messages back; every client drops its own.
-    if (message.clientId === this.clientId) return;
-    if (message.kind === "hello") {
-      // Someone arrived knowing nothing. Repeat what we have — not a change, so
-      // no revision bump.
-      this.publishState();
-      return;
+  receive(raw: SimMessage) {
+    // The real boundary: self-echo, unknown kinds, other-people's addressed
+    // messages and wrong protocol versions are all dropped here, by the same
+    // function that drops them in the app.
+    const result = accept(raw, { clientId: this.clientId, kinds: KINDS });
+    if (!result.ok) return;
+    const message = result.message as SimMessage;
+    switch (message.kind) {
+      case "syncRequest":
+        // Someone arrived knowing nothing. Answer them directly — a repeat,
+        // not a change, so no revision bump — and announce ourselves, which is
+        // how the newcomer learns who is already here.
+        this.send({
+          kind: "syncResponse",
+          clientId: this.clientId,
+          toClientId: message.clientId,
+          requestId: message.requestId,
+          encounter: this.encounter,
+        });
+        this.send({
+          kind: "presence",
+          clientId: this.clientId,
+          name: this.name,
+        });
+        return;
+      case "syncResponse": {
+        // Whether the answer replaces our state is the machine's call, scoped
+        // to the request we sent — a stray answer merges like any other state.
+        const adopt = adoptsResponse(this.connection, message.requestId);
+        this.advance({ type: "sync-response", requestId: message.requestId });
+        this.applyRemote(message.encounter, adopt);
+        return;
+      }
+      case "state":
+        // An ordinary broadcast is never adopted, whatever we're waiting for.
+        this.applyRemote(message.encounter, false);
+        return;
+      case "leave":
+        this.roster = withoutPresence(this.roster, message.clientId);
+        this.apply((current) => withoutClient(current, message.clientId));
+        return;
+      case "presence":
+        this.roster = withPresence(
+          this.roster,
+          message.clientId,
+          { name: message.name },
+          (a, b) => a.name === b.name,
+        );
+        return;
     }
-    if (message.kind === "leave") {
-      this.apply((current) => withoutClient(current, message.clientId));
-      return;
-    }
-    const adopt = this.adoptNext;
-    this.adoptNext = false;
-    const receipt = receiveState(this.encounter, message.encounter, {
+  }
+
+  private applyRemote(incoming: Encounter, adopt: boolean) {
+    const receipt = receiveState(this.encounter, incoming, {
       clientId: this.clientId,
       characterUuid: this.characterUuid,
       dmToken: this.dmToken,

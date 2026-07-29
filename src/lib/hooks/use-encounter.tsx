@@ -665,6 +665,17 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       const requestId = randomUUID();
       advance({ type: "opened", code: result.code, requestId });
 
+      // **Silently** — entering a room is not an edit. This update used to
+      // broadcast, which sent the local state into the room *before* adoption
+      // ever ran: a joiner who runs their own table on other nights (so the
+      // seat-reclaim below genuinely rewrites their stored encounter) would
+      // publish their whole other fight — high revision, seat claim and all —
+      // and win the document race on every peer, wiping the room they were
+      // walking into. Everything a newcomer holds reaches the room through
+      // the handshake instead: the re-add and seat rules in `receiveState`
+      // publish exactly what the room turns out to lack, and no more.
+      // Pinned by "does not let a DM-elsewhere arrival wipe the room" in
+      // `session-lifecycle.test.ts`.
       update((current) => {
         const base = encounterForTable(current, belongsTo, intent);
         // Opening a table *is* being its DM — the seat is taken at creation
@@ -675,7 +686,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         return intent.kind === "host"
           ? claimDmSeat(base, clientId, dmTokenRef.current)
           : reclaimDmSeat(base, clientId, dmTokenRef.current);
-      });
+      }, true);
 
       session.sendSyncRequest(requestId);
       // The wait has an end, and the end is an answer of its own: nobody is

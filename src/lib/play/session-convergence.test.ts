@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { UUID } from "crypto";
 import { Broker, SimClient } from "src/lib/fixtures/session-sim";
+import { stamp } from "src/lib/realm/envelope";
 import {
   addParticipant,
   advanceTurn,
@@ -496,7 +497,9 @@ describe("the roster's resurrection boundary", () => {
     expect(master.participantNames).not.toContain("Goblin");
 
     // The stale copy comes back with a lower revision, and loses.
-    broker.publish({ kind: "state", clientId: "stranger", encounter: stale });
+    broker.publish(
+      stamp({ kind: "state", clientId: "stranger", encounter: stale }),
+    );
     expect(master.participantNames).not.toContain("Goblin");
     expect(alice.participantNames).not.toContain("Goblin");
   });
@@ -536,15 +539,17 @@ describe("the DM seat against a peer who never heard of it", () => {
   it("is not erased by a state that simply predates it", () => {
     const { broker, master, alice } = table();
     expect(master.isDm).toBe(true);
-    broker.publish({
-      kind: "state",
-      clientId: "stranger",
-      // A revision high enough to win the coarse race outright.
-      encounter: seatless(
-        master.encounter,
-        (master.encounter.revision ?? 0) + 5,
-      ),
-    });
+    broker.publish(
+      stamp({
+        kind: "state",
+        clientId: "stranger",
+        // A revision high enough to win the coarse race outright.
+        encounter: seatless(
+          master.encounter,
+          (master.encounter.revision ?? 0) + 5,
+        ),
+      }),
+    );
     expect(master.isDm).toBe(true);
     expect(alice.encounter.dmClientId).toBe(master.clientId);
   });
@@ -553,14 +558,16 @@ describe("the DM seat against a peer who never heard of it", () => {
     // Losing `dmToken` is the part that can't be undone: `reclaimDmSeat`
     // matches on it, so a table that drops it has no way back to a DM at all.
     const { broker, master } = table();
-    broker.publish({
-      kind: "state",
-      clientId: "stranger",
-      encounter: seatless(
-        master.encounter,
-        (master.encounter.revision ?? 0) + 5,
-      ),
-    });
+    broker.publish(
+      stamp({
+        kind: "state",
+        clientId: "stranger",
+        encounter: seatless(
+          master.encounter,
+          (master.encounter.revision ?? 0) + 5,
+        ),
+      }),
+    );
     expect(master.encounter.dmToken).toBe("dm-token");
   });
 

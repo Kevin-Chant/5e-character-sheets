@@ -509,31 +509,50 @@ what the table is doing anyway. What survives the correction is the per-tab
 `clientId` problem above — about refreshes, not absence.
 
 Nobody closes the realm on leave: a party session has no owner, and one player
-going to bed must not end everyone else's fight. Realms are reclaimed by
-restarting the sidecar, same as the character-sharing ones.
+going to bed must not end everyone else's fight. Empty realms are swept by the
+sidecar after a long idle (~12h), so a table that goes quiet at midnight is
+still there at noon, and a DM back next Thursday lands on the reopen flow.
+
+**Entering a session says nothing.** `enterSession`'s update — what the table
+opens with, plus taking or retaking the seat — is applied _silently_, never
+broadcast. It used to broadcast, which sent the local state into the room
+before adoption ever ran: a joiner who runs their own table on other nights
+(so the seat-reclaim genuinely rewrites their stored encounter) published
+their whole other fight — high revision, seat claim and all — and won the
+document race on every peer, wiping the room they were walking into.
+Everything a newcomer holds reaches the room through the handshake instead:
+the re-add and seat rules in `receiveState` publish exactly what the room
+turns out to lack.
 
 ### Verifying it
 
 Unit tests cover the merge rules, and everything that happens when a peer's
 state arrives is one pure function — `receiveState` in `play/session.ts`
 (merge + seat reclaim + the publish-back decision), so the provider is reduced
-to storage, React state and the network. **Multi-client convergence is unit
-tested** via `src/lib/fixtures/session-sim.ts`: a fake broker (topic map,
-synchronous delivery, publisher receives its own messages — nightlife-rabbit
-doesn't honour `exclude_me`, and the sim deliberately reproduces that) driving
-several `SimClient`s that run the real decision functions.
-`session-convergence.test.ts` covers the table converging, the revision race,
-the seat surviving a reload (`reopenAs` models "new tab, same browser"), and
-leave/rejoin. The transport itself is verified by hand, per the codebase
-convention. The hand check is committed: **`pnpm session-smoke`** drives
-several real browser contexts through the flows against a running `pnpm dev` +
-`pnpm server` and asserts what converges. `--only <scenario>`, `--headed`,
-`--slow <ms>` and `--shots <dir>` are there for watching a failure happen.
+to storage, React state and the network. **Multi-client convergence and the
+connection lifecycle are unit tested** via `src/lib/fixtures/session-sim.ts`:
+a fake broker (topic map, synchronous delivery, publisher receives its own
+messages — nightlife-rabbit doesn't honour `exclude_me`) driving several
+`SimClient`s that run the _real_ pieces — the envelope (`accept`/`stamp`, so
+self-echo and stale-version drops are the app's own), the connection machine
+(`connectionReducer`), the entry rules (`encounterForTable`, seat
+claim/reclaim, the silent entry) and the merge. The broker being synchronous
+gives "the sync window closed with no answer" a natural reading: still
+`syncing` when `enter` returns means the room is empty; `crossing()` holds
+messages to model an answer arriving _after_ the window.
+`session-convergence.test.ts` covers the table converging, the lane races and
+the seat; `session-lifecycle.test.ts` covers joining, syncing, reopening and
+the stored encounter's table pairing — this week's three shipped bugs live
+there as unit tests, plus the DM-elsewhere entry-broadcast wipe the simulator
+itself caught. The transport is verified by the committed hand check:
+**`pnpm session-smoke`** drives several real browser contexts through the
+flows against a running `pnpm dev` + `pnpm server` and asserts what converges.
+`--only <scenario>`, `--headed`, `--slow <ms>` and `--shots <dir>` are there
+for watching a failure happen.
 
-Every bug in this layer so far was found that way and none was reachable from a
-unit test: the joiner's participant deleted by the host's reply, the host never
-learning about the joiner, the DM seat frozen after its holder left, the join
-form staying open after a successful connect, and the revision race above.
+The split used to be lopsided — every bug in this layer was found in the
+browser harness because no unit test could express a connect. The lifecycle
+suite exists so the next one is a unit test first.
 
 Two rules for working on that script, both of which it cost time to learn:
 
