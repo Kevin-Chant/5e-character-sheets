@@ -17,7 +17,7 @@ import {
 // uuids), so the answer is to ask the sidecar which realm actually exists: the
 // namespacing that keeps them from colliding is the same thing that makes them
 // distinguishable. This module is the pure half — which realms to try, in what
-// order. The asking lives in `play/probe-realm.ts`.
+// order. The asking lives in `realm/occupancy.ts`.
 
 export type SessionKind = "gameplay" | "editing";
 

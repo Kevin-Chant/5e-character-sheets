@@ -141,6 +141,15 @@ export function useRealm<K extends string>({
   // was running against a socket that wasn't there yet.
   const connect = useCallback(
     async (name: string, opts?: { create?: boolean }): Promise<RealmResult> => {
+      // Supersede whatever was open: one realm per hook, and the old
+      // connection's `onclose` is silenced by the identity check below.
+      try {
+        connectionRef.current?.close();
+      } catch {
+        // Already closing — all we wanted.
+      }
+      sessionRef.current = undefined;
+      connectionRef.current = undefined;
       setStatus("connecting");
       setError(undefined);
 
@@ -190,14 +199,22 @@ export function useRealm<K extends string>({
         };
 
         connection.onclose = () => {
-          sessionRef.current = undefined;
-          connectionRef.current = undefined;
-          setRealm(undefined);
-          if (opened) {
+          // A connection that is no longer ours — closed deliberately by
+          // `close()`, or superseded by a newer `connect()` — must not report
+          // itself: its `onClosed` would fire *after* the replacement opened
+          // and tear down the new session's state. `onClosed` means "the
+          // connection you still had went away", nothing else.
+          const current = connectionRef.current === connection;
+          if (current) {
+            sessionRef.current = undefined;
+            connectionRef.current = undefined;
+            setRealm(undefined);
+          }
+          if (!opened) {
+            resolve(fail(opts?.create ? "closed" : "absent"));
+          } else if (current) {
             setStatus("offline");
             handlers.current.onClosed?.();
-          } else {
-            resolve(fail(opts?.create ? "closed" : "absent"));
           }
           // Suppress autobahn's own reconnect: a realm that has genuinely gone
           // must stay gone, or its retry races whatever the app does next.

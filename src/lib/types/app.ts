@@ -50,15 +50,6 @@ export type Dispatch = (
   suppressBroadcast?: boolean,
 ) => void;
 
-// What a DISPATCH message carries: the action, whether it dirties the sheet,
-// and the id of the client that sent it (so we can ignore our own echoes —
-// the WAMP broker does not honor exclude_me).
-export type DispatchPayload = {
-  action: Action;
-  dirtyAction?: boolean;
-  senderId?: string;
-};
-
 export type SingleOptionsList<T = string> = Array<T>;
 
 export type GroupedOptionsList<T = string> = Array<{

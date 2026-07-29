@@ -6,69 +6,89 @@ normal editing**, independent of where the character is persisted — the same
 `update_*` actions that drive local edits (see
 [character-state-and-edits.md](character-state-and-edits.md)) are simply also
 published to peers. CLAUDE.md covers the connection/role fundamentals; this doc
-covers the two message layers and the presence roster, all in
+covers the protocol and the presence roster, all in
 `src/lib/hooks/use-sharing-session.tsx` (+ `use-presence.tsx`).
 
-## One realm per character, two roles
+**The transport is `src/lib/realm/use-realm.tsx`, shared with the party-session
+layer.** Sockets, subscriptions, the versioned envelope, self-echo filtering
+(the broker does not honour WAMP `exclude_me`), addressed-message filtering and
+teardown all live there and are documented there — this layer is only the
+message kinds (`SharingMessage` + `TOPIC_FOR`), the two roles, and what each
+message means. What deliberately did **not** unify: sync stays a `FULL_SYNC`
+RPC (an owned document has one host who can be _asked_, which gives the Drive
+auto-join retry loop the definite failure it depends on — a peer mesh's
+ask-the-room would not), and the host/remote asymmetry stays.
 
-A session is a WAMP **realm named after the character uuid**. The **host** opens
-the realm and registers the `FULL_SYNC` RPC that serves the current character to
-anyone who joins; a **remote** (joiner) calls `FULL_SYNC` on connect to pull
-initial state, then streams edits. The host owns persistence — a joined
-character is never saved locally by the joiner.
+## One realm per character, two roles, one session at a time
 
-Two design points that are easy to get wrong and must stay true:
+A session is a WAMP **realm named after the character uuid**
+(`realmForCharacter` in `session-codes.ts`). The **host** opens the realm and
+registers the `FULL_SYNC` RPC that serves the current character to anyone who
+joins; a **remote** (joiner) calls `FULL_SYNC` on connect to pull initial
+state, then streams edits. The host owns persistence — a joined character is
+never saved locally by the joiner.
 
-- **Connections live in refs, not React state**, so teardown and full-sync
-  handlers read them synchronously without a stale closure. `FULL_SYNC` in
-  particular reads the character through a ref so it always serves the _current_
-  value, not the one captured when the handler was registered.
-- **The broker does not honor WAMP `exclude_me`, so publishers receive their own
-  messages.** Every message carries this tab's `clientId`; handlers drop
-  messages whose `senderId`/`clientId` is their own. Incoming edits are then
-  dispatched with `suppressBroadcast` so applying them doesn't re-publish and
-  loop. This self-echo filtering is the backbone of both layers below — don't
-  remove the `clientId` stamp.
+**The provider holds at most one sharing session.** The old uuid-keyed
+connection map was an illusion of more: incoming edits were dispatched into
+whatever character was _open_, and `FULL_SYNC` served the open character
+whatever realm asked — so a session only ever worked while its character stayed
+on screen, and a host who switched sheets served the wrong character to the
+next joiner. One-at-a-time is the same capability stated honestly. The public
+API stays uuid-keyed (`getRole(uuid)`, `broadcast(uuid, …)`); a uuid that isn't
+the active session's answers "no session", which is also the guard that stops
+an edit to some other open sheet travelling into the shared one's realm.
+`FULL_SYNC` now serves the character only while it is both open _and_ the
+shared one — no answer is the honest failure otherwise.
 
-## Layer 1: edit sync (`DISPATCH`)
+Because the character (and its `dispatch`) live in `CharacterContext`, which
+mounts _below_ this provider, the role hooks (`useHostSharingSession`,
+`useRemoteSharingSession`) hand `dispatch`/`getCharacter` up through
+`bind(...)` refs each render — the same knot the encounter provider ties with
+its transport handlers.
 
-`SharingSessionsContext.broadcast(uuid, action)` publishes an edit action to the
-realm; it's centralized and keyed by character uuid so host and joiner publish
-over the _same_ connection, giving bidirectional editing. `makeDispatchHandler`
-receives, filters self-echo, and replays the action into the local reducer. That
+## Layer 1: edit sync (`dispatch`)
+
+`SharingSessionsContext.broadcast(uuid, action)` publishes an edit action to
+the realm — host and joiner publish over the same transport, giving
+bidirectional editing. `applyRemoteEdit` replays an arriving action into the
+local reducer **with `suppressBroadcast`**, or applying it would re-publish and
+loop; that invariant is pinned by `use-sharing-session.dispatch.test.ts`.
+(Self-echo filtering moved to the envelope.) The
 replay-a-serialized-action model works precisely because actions are
 self-contained full-value writes.
 
-## Layer 2: presence (`PRESENCE` / `LEAVE`)
+## Layer 2: presence (`presence` / `leave`)
 
-Presence is a **separate, best-effort gossip layer** — losing a presence message
-degrades a highlight, it never corrupts the character. It answers "who else is
-here and which field are they editing," keyed by uuid then `clientId`:
+Presence is a **separate, best-effort gossip layer** — losing a presence
+message degrades a highlight, it never corrupts the character. The roster,
+heartbeat and liveness pruning are the shared `realm/use-presence.tsx`
+(HEARTBEAT_MS 10s, TTL 3 beats — the numbers were born in this layer); the
+payload here is `{name, color, field}`:
 
-- **Join handshake** — a newcomer publishes `hello`; everyone already in the
-  realm replies with an `update` carrying their own name/color/field, so the
-  newcomer assembles the full roster without a central directory.
-- **Selection** — `broadcastSelection` announces which field path this tab has
-  open (mirroring the targeted-field path, `null` when nothing is open), so
-  peers can outline it in the editor's color. `use-presence.tsx` turns that into
-  the actual highlight props on a field.
-- **Heartbeat & liveness** — a single provider-wide timer re-announces presence
-  every `HEARTBEAT_MS` and prunes any peer unheard-from past
-  `PRESENCE_TIMEOUT_MS`. The timeout is 3× the interval on purpose: one dropped
-  beat shouldn't flap an active editor out of the roster. This is the safety net
-  for tabs that vanish without a clean `LEAVE` (a hard-closed browser).
-- **Identity** — each tab's name + palette color persists in `localStorage` and
-  is re-announced to every open session when changed mid-edit.
+- **Selection** — `broadcastSelection` records which field path this tab has
+  open (mirroring the targeted-field path, `null` when nothing is open). It
+  feeds the presence payload, so a change re-announces by itself, and peers
+  outline the field in the editor's color via `use-presence.tsx` (the
+  field-editor hook, distinct from the shared roster hook).
+- **Answer the newcomer** — the old `hello`/`update` handshake survives in one
+  rule: a presence message from a clientId we haven't heard from yet is
+  answered with an immediate announcement of our own, so the newcomer sees
+  chips and highlights now rather than one heartbeat from now. Terminates
+  because the answer isn't new to them twice.
+- **Identity** — each tab's name + palette color persists in `localStorage`
+  (per-session overrides in state); a mid-session change flows into the
+  payload and re-announces.
 
 ## Teardown is asymmetric
 
 `teardownSession` differs by role and this asymmetry is deliberate: a **host**
-publishes `CLOSE_SESSION` (so joiners clear the now-dead character and alert)
-and then asks the server to close the realm; a **remote** just publishes `LEAVE`
-so peers drop its chip. Joiners rely on `connection.onclose` as the authoritative
-teardown signal and use an `intentionalDisconnect` ref to tell a user-initiated
-leave apart from the host ending the session. autobahn's auto-reconnect is
-suppressed (the `onclose` handler returns `true`) so a closed realm stays closed.
+publishes `closeSession` (so joiners clear the now-dead character and alert)
+and then asks the server to close the realm; a **remote** just publishes
+`leave` so peers drop its chip. A joiner losing its connection _without asking
+to_ — the host closed the realm, or the network did — runs `endedRemotely`:
+reset the character, say so once. The transport's rule that a deliberate
+`close()` never fires `onClosed` (see `use-realm.tsx`) is what tells those
+apart without the old `intentionalDisconnect` ref.
 
 ## Auto-bootstrap for shared Google Drive characters
 
@@ -132,14 +152,18 @@ clobbering deserves a warning regardless. **Caveat to verify in-browser:** it
 relies on `appProperties` written by one user being readable by another user of
 the same app on a shared file.
 
-Supporting invariant added for the retry loop: in `useRemoteSharingSession`, a
-`connection.onclose` that fires **before** the realm ever opened is a quiet probe
-failure (owner not online yet), not a host-ended-the-session event — only a close
-_after_ a successful open runs the character-clearing `cleanUpAfterClose`. Without
-this, every failed auto-join retry would wipe the open character and alert.
+Supporting invariant for the retry loop: a connection that closes **before**
+the realm ever opened is a quiet probe failure (owner not online yet), not a
+host-ended-the-session event — `useRealm.connect` resolves it as
+`{ok: false, reason: "absent"}` and `joinCharacterSession` throws, which the
+retry loop catches; only a close _after_ a successful open runs the
+character-clearing `endedRemotely`. Without this, every failed auto-join retry
+would wipe the open character and alert.
 
-Networking code here is gapi/WAMP-bound and **verified manually in-browser or
-against a local `nightlife-rabbit`**, not unit-tested — preserve the invariants
-above rather than assuming a test will catch a regression. (The one exception is
-the never-opened-vs-host-closed guard above, pinned by
-`src/lib/hooks/use-sharing-session.test.ts` with a mocked connection.)
+Verification: the never-opened-vs-host-closed guard is pinned by
+`src/lib/hooks/use-sharing-session.test.ts` (provider rendered over a mocked
+autobahn); the full co-edit path — share, join by code, an edit in each
+direction, presence chips, host teardown alerting the joiner — is the
+`editing` scenario in `pnpm session-smoke`. Preserve the invariants above;
+anything deeper than those two harnesses reach is still verified manually
+in-browser.

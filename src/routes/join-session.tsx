@@ -5,7 +5,7 @@ import SessionEntry from "src/components/sessions/session-entry";
 import Spinner from "src/components/spinner";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { useSettings } from "src/lib/hooks/use-settings";
-import { detectSessionKind } from "src/lib/play/probe-realm";
+import { detectSessionKind } from "src/lib/realm/occupancy";
 import { isValidSessionCode, normalizeSessionCode } from "src/lib/play/session";
 import { sessionMemoryFor } from "src/lib/play/session-memory";
 
@@ -27,6 +27,7 @@ type Resolution =
   | { state: "game"; code: string }
   | { state: "invalid" }
   | { state: "missing"; code: string }
+  | { state: "unreachable" }
   | { state: "reopening"; code: string };
 
 export default function JoinSession() {
@@ -62,6 +63,11 @@ export default function JoinSession() {
         // A shared *sheet* is a different object with a different joiner, and
         // it hands back a whole character rather than a seat at a table.
         navigate("/join", { replace: true, state: { code } });
+      } else if (kind === "unreachable") {
+        // The sidecar didn't answer at all. The old socket probe couldn't
+        // tell this from a closed realm, and told the player to check a code
+        // that was fine.
+        setResolution({ state: "unreachable" });
       } else if (kind) {
         setResolution({ state: "game", code });
       } else {
@@ -107,9 +113,11 @@ export default function JoinSession() {
         <span>
           {resolution.state === "invalid"
             ? "That link doesn't have a session code in it."
-            : wasOurs
-              ? "This table isn't open. You ran it last time — you can open it again on the same code, so everyone's link still works."
-              : "No session with that code is open. Check the link, or ask whoever started the game to keep their tab open."}
+            : resolution.state === "unreachable"
+              ? "Couldn't reach the sharing server — the session may be fine. Check your connection, or the sharing host in Settings."
+              : wasOurs
+                ? "This table isn't open. You ran it last time — you can open it again on the same code, so everyone's link still works."
+                : "No session with that code is open. Check the link, or ask whoever started the game to keep their tab open."}
         </span>
       </p>
       {wasOurs && resolution.state === "missing" && (

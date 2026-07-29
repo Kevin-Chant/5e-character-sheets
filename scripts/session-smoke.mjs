@@ -312,6 +312,56 @@ const scenarios = {
     await untilText(joiner.page, sharer.name);
     check("a character code opens the shared sheet", true, true);
 
+    // Presence converges both ways — the host sees the joiner arrive, and the
+    // joiner is answered directly rather than waiting out a heartbeat.
+    await untilVisible(sharer.page, ".presence-chip");
+    await untilVisible(joiner.page, ".presence-chip");
+    check("both sides see each other's presence chip", true, true);
+
+    // A real edit crosses the wire, in both directions — which is the layer's
+    // whole job. Rename on the host…
+    await sharer.page.locator('.modal-content [aria-label="Close"]').click();
+    await sharer.page
+      .locator(".character-info-header .display-value")
+      .first()
+      .click();
+    const sharerInput = sharer.page.locator(".modal-content input").first();
+    await sharerInput.fill("Wren the Renamed");
+    await sharer.page.click('.modal-content button:has-text("Save")');
+    await untilText(joiner.page, "Wren the Renamed");
+    check("a host edit reaches the joiner", true, true);
+
+    // …and rename back on the joiner, since editing is bidirectional.
+    await joiner.page
+      .locator(".character-info-header .display-value")
+      .first()
+      .click();
+    const joinerInput = joiner.page.locator(".modal-content input").first();
+    await joinerInput.fill("Wren Round Two");
+    await joiner.page.click('.modal-content button:has-text("Save")');
+    await untilText(sharer.page, "Wren Round Two");
+    check("a joiner edit reaches the host", true, true);
+
+    // The host ending the session tells the joiner, whose borrowed copy is
+    // the host's and now unreachable — it must not linger looking editable.
+    let joinerAlert = "";
+    joiner.page.on("dialog", (dialog) => {
+      joinerAlert = dialog.message();
+      dialog.accept();
+    });
+    await sharer.page.click('[title="Share character"]');
+    await sharer.page.click("text=End live session");
+    await until(
+      joiner.page,
+      "the joiner to be told the session ended",
+      () => !document.body.innerText.includes("Wren Round Two"),
+    );
+    check(
+      "ending the session tells the joiner",
+      joinerAlert.includes("ended"),
+      true,
+    );
+
     return [sharer, joiner];
   },
 
