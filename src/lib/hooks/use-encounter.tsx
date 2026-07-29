@@ -60,13 +60,14 @@ import {
 import {
   bumpRevision,
   forgetSession,
+  PresenceName,
   PresentClient,
   receiveState,
   rememberSession,
+  samePresenceName,
   withoutClient,
-  withoutPresence,
-  withPresence,
 } from "src/lib/play/session";
+import { usePresence } from "src/lib/realm/use-presence";
 
 import {
   rememberSessionLocally,
@@ -385,6 +386,15 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     (toClientId: string, participantId: string, character: unknown) => void
   >(() => {});
   const talkRef = useRef<TableTalk | undefined>();
+  // Through a ref for the same reason `talkRef` is: the transport's handlers
+  // are registered at creation, and the roster is built on top of the transport.
+  const presenceRef = useRef<
+    | {
+        saw: (clientId: string, payload: PresenceName) => void;
+        left: (clientId: string) => void;
+      }
+    | undefined
+  >();
   const [encounter, setEncounter] = useState<Encounter>(() =>
     readLocalStorage(ENCOUNTER_STORAGE_KEY, EMPTY_ENCOUNTER),
   );
@@ -407,10 +417,6 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   // `update`, which is how an edit made offline can disown the stored session.
   const connectedRef = useRef(false);
 
-  // Who else is connected, by display name. Transient by design: not part of
-  // the encounter (liveness merged by revision would be a category error), so
-  // it lives here and clears when the connection does.
-  const [present, setPresent] = useState<PresentClient[]>([]);
   // The name we announce. A player with a character announces its name; the
   // sheetless joiner types one into the lobby, which lands here.
   const [customName, setCustomName] = useState<string | undefined>();
@@ -504,11 +510,11 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       announceRef.current(displayNameRef.current);
     },
     onLeave: (fromClientId) => {
-      setPresent((current) => withoutPresence(current, fromClientId));
+      presenceRef.current?.left(fromClientId);
       update((current) => withoutClient(current, fromClientId));
     },
     onPresence: (fromClientId, name) =>
-      setPresent((current) => withPresence(current, fromClientId, name)),
+      presenceRef.current?.saw(fromClientId, { name }),
     // Queue a peer's rolled damage. Deduped by id (a re-send is a repeat, not
     // a second hit) and capped — a queue nobody is reading must not grow all
     // night.
@@ -564,6 +570,22 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   sendSheetRef.current = session.sendSheet;
   broadcastRef.current = session.broadcastState;
   announceRef.current = session.announcePresence;
+
+  // Who is connected right now. The heartbeat and the timeout come with the
+  // shared hook, which is the whole point of moving it there: this layer used
+  // to announce once on connect and never again, so a player whose laptop shut
+  // mid-fight stayed in the DM's "hand a sheet to…" picker all evening.
+  const presence = usePresence<PresenceName>({
+    connected: session.status === "connected",
+    payload: useMemo(() => ({ name: displayName }), [displayName]),
+    announce: useCallback(
+      (payload: PresenceName) => session.announcePresence(payload.name),
+      [session.announcePresence],
+    ),
+    same: samePresenceName,
+  });
+  presenceRef.current = presence;
+  const present: PresentClient[] = presence.roster;
 
   // What the table says to each other, as opposed to what it agrees on: rolls,
   // rulings, asks and offers. Split out by lifetime — all of it is born from an
@@ -621,20 +643,12 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
           }),
     });
   }, [connectedCode]);
-  // Say who we are on connect, and again whenever the name changes (opening a
-  // character mid-session renames us to it). Peers upsert, so re-announcing is
-  // idempotent.
-  useEffect(() => {
-    if (!connectedCode) return;
-    announceRef.current(displayName);
-  }, [connectedCode, displayName]);
-
-  // Presence, pending assignments and queued reports are facts about a
-  // connection, and this browser no longer has one.
+  // Pending assignments and queued reports are facts about a connection, and
+  // this browser no longer has one. (The roster is too, and clears itself —
+  // announcing and forgetting both belong to the presence hook now.)
   const disconnected = session.status !== "connected";
   useEffect(() => {
     if (!disconnected) return;
-    setPresent([]);
     setPendingAssignmentId(undefined);
     setCustomName(undefined);
     setInitiativeCalled(false);

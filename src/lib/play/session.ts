@@ -10,6 +10,7 @@ import {
 import { RollCallCheck } from "src/lib/play/checks";
 import { RollReport, RollVerdict } from "src/lib/play/reports";
 import { PlaySessionRef } from "src/lib/types";
+import { PresenceEntry } from "src/lib/realm/presence";
 
 // The party session: one shared encounter across several browsers.
 //
@@ -47,10 +48,10 @@ export const PlaySessionEvent = {
   // sheets have no path through here at all.
   SHEET: BASE_APPNAME + ".encounter.sheet",
   // "I'm here, and this is what to call me." A clientId and a chosen display
-  // name — nothing else, so the projection rule holds. Announced on join and
-  // re-announced in reply to a hello; no heartbeats, so a crashed tab can
-  // leave a ghost name until the session turns over. The assignment flow is
-  // built so a ghost is harmless (see ASSIGN).
+  // name — nothing else, so the projection rule holds. Announced on join, in
+  // reply to a hello, and on a heartbeat, which is what lets a client that
+  // stopped answering be forgotten rather than haunting the DM's picker. The
+  // assignment flow is built so a ghost is harmless anyway (see ASSIGN).
   PRESENCE: BASE_APPNAME + ".encounter.presence",
   // "Would you play this sheet?" — a *targeted offer*, DM to one client. The
   // sheet does not travel with it: accepting runs the ordinary claim flow
@@ -614,35 +615,20 @@ export function withoutClient(
 
 // --- Presence ----------------------------------------------------------------
 //
-// Who is connected right now, by chosen display name. This is **transient
-// per-connection state, not part of the encounter**: it isn't persisted, isn't
-// merged, and clears when the connection drops — putting it on the shared
-// document would mean merging liveness by revision, which is a category error.
-// It exists so the DM has someone to point at when handing a sheet out; a
-// sheetless player has no participant, so without this they're invisible.
+// What this layer announces about itself: a name to point at. The DM needs one
+// when handing a sheet out, because a sheetless player has no participant and
+// is otherwise invisible.
+//
+// The *mechanics* — upsert, heartbeat, forgetting a peer who stopped answering
+// — are `realm/presence.ts`, shared with the character layer, which had all
+// three first. This layer had the roster and no heartbeat at all, so a crashed
+// tab sat in the DM's picker until the session turned over.
 
-export interface PresentClient {
-  clientId: string;
+export interface PresenceName {
   name: string;
 }
 
-// Upsert, order-stable: re-announcing (every hello triggers one) must not
-// reshuffle a dropdown the DM is looking at.
-export function withPresence(
-  roster: PresentClient[],
-  clientId: string,
-  name: string,
-): PresentClient[] {
-  const existing = roster.find((c) => c.clientId === clientId);
-  if (existing?.name === name) return roster;
-  if (!existing) return [...roster, { clientId, name }];
-  return roster.map((c) => (c.clientId === clientId ? { ...c, name } : c));
-}
+export type PresentClient = PresenceEntry<PresenceName>;
 
-export function withoutPresence(
-  roster: PresentClient[],
-  clientId: string,
-): PresentClient[] {
-  if (!roster.some((c) => c.clientId === clientId)) return roster;
-  return roster.filter((c) => c.clientId !== clientId);
-}
+export const samePresenceName = (a: PresenceName, b: PresenceName) =>
+  a.name === b.name;

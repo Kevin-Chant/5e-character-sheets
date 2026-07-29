@@ -19,9 +19,7 @@ import {
   TOPIC_FOR,
   rememberSession,
   withoutClient,
-  withoutPresence,
   withParticipants,
-  withPresence,
   extractSessionCode,
   inviteLink,
 } from "src/lib/play/session";
@@ -432,32 +430,6 @@ describe("re-adding into a fight in progress", () => {
     ]);
     // Carol's count already passed this round; the Goblin keeps acting.
     expect(merged.participants[merged.turnIndex].name).toBe("Goblin");
-  });
-});
-
-describe("presence", () => {
-  it("upserts without reshuffling", () => {
-    let roster = withPresence([], "a", "Nadia");
-    roster = withPresence(roster, "b", "Theo");
-    // A re-announce (every hello triggers one) keeps the order the DM's
-    // dropdown is already showing.
-    roster = withPresence(roster, "a", "Nadia");
-    expect(roster.map((c) => c.name)).toEqual(["Nadia", "Theo"]);
-    // Renames land in place.
-    roster = withPresence(roster, "a", "Nadia the Bold");
-    expect(roster.map((c) => c.name)).toEqual(["Nadia the Bold", "Theo"]);
-  });
-
-  it("returns the same roster when nothing changed", () => {
-    const roster = withPresence([], "a", "Nadia");
-    expect(withPresence(roster, "a", "Nadia")).toBe(roster);
-    expect(withoutPresence(roster, "ghost")).toBe(roster);
-  });
-
-  it("drops a departing client", () => {
-    let roster = withPresence([], "a", "Nadia");
-    roster = withPresence(roster, "b", "Theo");
-    expect(withoutPresence(roster, "a").map((c) => c.name)).toEqual(["Theo"]);
   });
 });
 
