@@ -68,6 +68,16 @@ import {
   withoutClient,
 } from "src/lib/play/session";
 import { usePresence } from "src/lib/realm/use-presence";
+import {
+  adoptsResponse,
+  ConnectionEvent,
+  ConnectionState,
+  connectionReducer,
+  encounterForTable,
+  OFFLINE,
+  SessionIntent,
+  SYNC_WINDOW_MS,
+} from "src/lib/play/connection";
 
 import {
   rememberSessionLocally,
@@ -405,11 +415,17 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   // Set once the transport exists; calling it is what makes a change leave this
   // browser. Held in a ref because `update` is created before the session hook.
   const broadcastRef = useRef<((encounter: Encounter) => void) | undefined>();
-  // True between asking to join and the room's first reply. See `mergeEncounter`
-  // — a joiner takes the room's state rather than racing it on revision. Only
-  // joining sets this: a host creating a realm is the room, and adopting the
-  // next arrival's empty state would wipe its own fight.
-  const adoptNextStateRef = useRef(false);
+  // Where this browser is in the business of being in a session — see
+  // `play/connection.ts`, which is where the flags this used to be went. Kept
+  // in a ref as well as state because the message handlers are registered once
+  // and have to read it as it is *now*.
+  const [connection, setConnection] = useState<ConnectionState>(OFFLINE);
+  const connectionRef = useRef(connection);
+  // Set once the transport exists; answering a peer needs a sender that is
+  // created after these handlers are.
+  const syncResponseRef = useRef<
+    (toClientId: string, requestId: string, encounter: Encounter) => void
+  >(() => {});
   // Read lazily so a browser that never runs a game never writes the key.
   const dmTokenRef = useRef<string>("");
   if (!dmTokenRef.current) dmTokenRef.current = dmToken();
@@ -423,7 +439,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const displayName = character?.name || customName || "Player";
   const displayNameRef = useRef(displayName);
   displayNameRef.current = displayName;
-  // Set once the transport exists, so the hello reply can announce us.
+  // Set once the transport exists, so answering a sync request can announce us.
   const announceRef = useRef<(name: string) => void>(() => {});
   // An assignment pointed at this client, waiting on the player's answer.
   const [pendingAssignmentId, setPendingAssignmentId] = useState<
@@ -458,18 +474,17 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     [clientId],
   );
 
-  const session = usePlaySession({
-    clientId,
-    // A peer's state wins or loses by revision; our own vitals survive either
-    // way. Applied silently — echoing it back would be an infinite exchange.
-    onRemoteState: (incoming) => {
-      const adopt = adoptNextStateRef.current;
-      adoptNextStateRef.current = false;
+  // Everything that happens when a peer's encounter arrives — as an answer to
+  // our own sync request, or as one of their ordinary broadcasts. The only
+  // difference between those is `adopt`, and only the connection machine gets
+  // to say so.
+  const applyRemoteState = useCallback(
+    (incoming: Encounter, adopt: boolean) => {
       // Every decision here is `receiveState`, which is pure and covered by the
       // multi-client simulator. This hook only knows how to store and send.
       const receipt = receiveState(encounterRef.current, incoming, {
         clientId,
-        characterUuid: character?.uuid,
+        characterUuid: characterRef.current?.uuid,
         dmToken: dmTokenRef.current,
         adopt,
       });
@@ -493,21 +508,31 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         }
       }
     },
-    // Someone just arrived and knows nothing. Reply with what we have, without
+    [clientId, update, dispatch],
+  );
+
+  const session = usePlaySession({
+    clientId,
+    // An ordinary broadcast from a peer wins or loses by revision; our own
+    // vitals survive either way. **Never adopted** — adoption belongs to an
+    // answer we asked for, which is what stops a latecomer's stale copy
+    // replacing a fight in progress.
+    onRemoteState: (incoming) => applyRemoteState(incoming, false),
+    // Someone just arrived and knows nothing. Answer them directly, without
     // bumping the revision — this is a repeat, not a change. Presence rides
-    // along: the reply is how the newcomer learns who is already here.
-    onHello: () => {
-      // Somebody arrived after us, so we are not the newcomer any more, and
-      // adopting *their* state would be backwards. Clearing here is what bounds
-      // the flag's life: it's consumed by the room's reply to our own hello, but
-      // an empty room never sends one — and a flag left armed all evening is a
-      // fight waiting to be overwritten by the next arrival's stale copy, which
-      // they publish the moment their own participant lands. Two clients joining
-      // at once can cost each other the adoption; that's the ordinary revision
-      // race, which `seatRev` and the contribution merge already survive.
-      adoptNextStateRef.current = false;
-      broadcastRef.current?.(encounterRef.current);
+    // along: the reply is also how the newcomer learns who is already here.
+    onSyncRequest: (fromClientId, requestId) => {
+      syncResponseRef.current(fromClientId, requestId, encounterRef.current);
       announceRef.current(displayNameRef.current);
+    },
+    // The room answered ours. Whether that *replaces* what we hold is the
+    // connection machine's call, and it is scoped to the request we sent: a
+    // stray answer — to a previous join, or arriving after we concluded the
+    // room was empty — merges like any other state.
+    onSyncResponse: (incoming, requestId) => {
+      const adopt = adoptsResponse(connectionRef.current, requestId);
+      advance({ type: "sync-response", requestId });
+      applyRemoteState(incoming, adopt);
     },
     onLeave: (fromClientId) => {
       presenceRef.current?.left(fromClientId);
@@ -568,6 +593,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     },
   });
   sendSheetRef.current = session.sendSheet;
+  syncResponseRef.current = session.sendSyncResponse;
   broadcastRef.current = session.broadcastState;
   announceRef.current = session.announcePresence;
 
@@ -602,6 +628,66 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   });
   talkRef.current = talk;
   talk.bind(session);
+
+  // Move the machine on. **The ref leads and the state follows**, rather than
+  // the ref mirroring the state on render: a peer's answer can arrive in the
+  // same tick as the request that asked for it, and a handler reading a state
+  // that React has not re-rendered yet would decide not to adopt it.
+  const advance = useCallback((event: ConnectionEvent) => {
+    connectionRef.current = connectionReducer(connectionRef.current, event);
+    setConnection(connectionRef.current);
+  }, []);
+
+  // Both ways into a session, which differ in less than they used to: what the
+  // table opens with, and whether the room's answer replaces our state or
+  // merges with it. Everything else — asking, waiting, giving up on an empty
+  // room — is the same sequence.
+  const enterSession = useCallback(
+    async (intent: SessionIntent, code?: string): Promise<JoinResult> => {
+      advance({ type: "connect", intent });
+      // Read before connecting, because connecting is what rewrites it.
+      const belongsTo: string | undefined = readLocalStorage(
+        ENCOUNTER_SESSION_STORAGE_KEY,
+      );
+      const result =
+        intent.kind === "host"
+          ? await session.host(code)
+          : await session.join(code!);
+      if (!result.ok) {
+        // Never opened a realm, so there is nothing to be in. Claiming a seat
+        // or clearing an encounter on the strength of it would cost this
+        // browser the table it is still holding for a session that does exist.
+        advance({ type: "closed", error: result.message });
+        return result;
+      }
+
+      const requestId = randomUUID();
+      advance({ type: "opened", code: result.code, requestId });
+
+      update((current) => {
+        const base = encounterForTable(current, belongsTo, intent);
+        // Opening a table *is* being its DM — the seat is taken at creation
+        // rather than raced for afterwards. Walking back into one you ran takes
+        // it back: the token is this browser either way, and the realm a DM
+        // returns to is routinely empty, so waiting for a peer to remind us
+        // would mean waiting forever.
+        return intent.kind === "host"
+          ? claimDmSeat(base, clientId, dmTokenRef.current)
+          : reclaimDmSeat(base, clientId, dmTokenRef.current);
+      });
+
+      session.sendSyncRequest(requestId);
+      // The wait has an end, and the end is an answer of its own: nobody is
+      // here, so what we hold stands. A late reply still merges the ordinary
+      // way — this closes the *waiting*, not the listening.
+      setTimeout(
+        () => advance({ type: "sync-window-closed", requestId }),
+        SYNC_WINDOW_MS,
+      );
+      return result;
+    },
+    [advance, session, update, clientId],
+  );
 
   // Remember a session on the character once the connection actually succeeded —
   // recording a code the moment it's typed would fill the rejoin list with
@@ -649,15 +735,10 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const disconnected = session.status !== "connected";
   useEffect(() => {
     if (!disconnected) return;
+    advance({ type: "closed" });
     setPendingAssignmentId(undefined);
     setCustomName(undefined);
     setInitiativeCalled(false);
-    // Including "we are waiting to be told what the room holds" — a dropped
-    // connection ends that wait, and the next state to arrive belongs to
-    // whatever we join next, not to the join this flag was armed for. (Arming
-    // it and connecting can't trip this: the status goes offline → connecting →
-    // connected, so `disconnected` never changes value in between.)
-    adoptNextStateRef.current = false;
     talk.reset();
   }, [disconnected]);
 
@@ -835,55 +916,15 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       sessionCode: session.code,
       sessionStatus: session.status,
       sessionError: session.error,
-      // Whoever opens the realm is running the table — that's what the entry
-      // path said they were doing. Claiming happens locally and rides out on the
-      // first `hello` reply, since a realm we just created has nobody in it yet.
-      hostSession: async (reopenCode) => {
-        // A *new* code is a new table, and it starts empty. Reopening one isn't:
-        // that's walking back into the fight this browser left, so it keeps what
-        // it has. Read before connecting, since connecting rewrites the key.
-        const lastWeeksTable =
-          !reopenCode && !!readLocalStorage(ENCOUNTER_SESSION_STORAGE_KEY);
-        const result = await session.host(reopenCode);
-        // An attempt that never opened a realm is not a table: claiming the
-        // seat on it would wipe the encounter this browser is still holding on
-        // behalf of a table that does exist.
-        if (!result.ok) return result;
-        update((current) =>
-          claimDmSeat(
-            lastWeeksTable ? EMPTY_ENCOUNTER : current,
-            clientId,
-            dmTokenRef.current,
-          ),
-        );
-        return result;
-      },
-      joinSession: async (joinCode, joinDisplayName) => {
+      // Both ways in go through one sequence — see `enterSession`.
+      hostSession: (reopenCode) =>
+        enterSession({ kind: "host", reopening: !!reopenCode }, reopenCode),
+      joinSession: (joinCode, joinDisplayName) => {
         if (joinDisplayName?.trim()) setCustomName(joinDisplayName.trim());
-        adoptNextStateRef.current = true;
-        const result = await session.join(joinCode);
-        // A join that never landed leaves the flag armed for a room we are not
-        // in; the next table would adopt the first thing it heard.
-        if (!result.ok) {
-          adoptNextStateRef.current = false;
-          return result;
-        }
-        // Walking back into a table this browser was running. `receiveState`
-        // already reclaims the seat when a peer's state arrives — but the realm
-        // a DM returns to is routinely *empty* (they were the only one in it,
-        // and the broker keeps a realm alive after the last client drops), so no
-        // state ever arrives and the seat stays pointed at the tab they closed:
-        // the lobby promises "rejoining takes the DM controls back" and then
-        // seats them as a player. The token is the same browser either way, so
-        // reclaim from what we have. Anything the room later says still wins —
-        // a joiner adopts the room's state, and this runs again on top of it.
-        update((current) =>
-          reclaimDmSeat(current, clientId, dmTokenRef.current),
-        );
-        return result;
+        return enterSession({ kind: "join" }, joinCode);
       },
       leaveSession: () => {
-        adoptNextStateRef.current = false;
+        setConnection(OFFLINE);
         // Leaving on purpose is the one case where we shouldn't offer to go
         // straight back in.
         removeLocalStorage(LAST_SESSION_STORAGE_KEY);

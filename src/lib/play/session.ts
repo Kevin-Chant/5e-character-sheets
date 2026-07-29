@@ -35,8 +35,15 @@ const BASE_APPNAME = "net.dndcharactersheets";
 export const PlaySessionEvent = {
   // The whole encounter, from whoever changed it last.
   STATE: BASE_APPNAME + ".encounter.state",
-  // "I just arrived, someone tell me the state."
-  HELLO: BASE_APPNAME + ".encounter.hello",
+  // "I've just arrived — is anyone here, and what do you have?" Carries a
+  // request id, because the answer has to be tellable from every other state
+  // message that might arrive in the meantime.
+  SYNC_REQUEST: BASE_APPNAME + ".encounter.syncrequest",
+  // "Here's what I have", addressed to whoever asked. Replaces a broadcast
+  // reply: the answer is only interesting to the client that asked for it, and
+  // making it addressed is what lets adoption be scoped to one request rather
+  // than to "the next state message from anyone".
+  SYNC_RESPONSE: BASE_APPNAME + ".encounter.syncresponse",
   // "I'm going" — drops the sender's participants from everyone's roster.
   LEAVE: BASE_APPNAME + ".encounter.leave",
   // "I'd like to play that offered sheet" — answered by whoever owns it.
@@ -49,8 +56,8 @@ export const PlaySessionEvent = {
   SHEET: BASE_APPNAME + ".encounter.sheet",
   // "I'm here, and this is what to call me." A clientId and a chosen display
   // name — nothing else, so the projection rule holds. Announced on join, in
-  // reply to a hello, and on a heartbeat, which is what lets a client that
-  // stopped answering be forgotten rather than haunting the DM's picker. The
+  // reply to a sync request, and on a heartbeat, which is what lets a client
+  // that stopped answering be forgotten rather than haunt the DM's picker. The
   // assignment flow is built so a ghost is harmless anyway (see ASSIGN).
   PRESENCE: BASE_APPNAME + ".encounter.presence",
   // "Would you play this sheet?" — a *targeted offer*, DM to one client. The
@@ -206,7 +213,14 @@ export function forgetSession(
 
 export type SessionMessage =
   | { kind: "state"; clientId: string; encounter: Encounter }
-  | { kind: "hello"; clientId: string }
+  | { kind: "syncRequest"; clientId: string; requestId: string }
+  | {
+      kind: "syncResponse";
+      clientId: string;
+      toClientId: string;
+      requestId: string;
+      encounter: Encounter;
+    }
   | { kind: "leave"; clientId: string }
   | { kind: "presence"; clientId: string; name: string }
   | { kind: "callInitiative"; clientId: string }
@@ -237,7 +251,8 @@ export type SessionMessage =
 // message that quietly publishes to LEAVE.
 export const TOPIC_FOR: Record<SessionMessage["kind"], string> = {
   state: PlaySessionEvent.STATE,
-  hello: PlaySessionEvent.HELLO,
+  syncRequest: PlaySessionEvent.SYNC_REQUEST,
+  syncResponse: PlaySessionEvent.SYNC_RESPONSE,
   leave: PlaySessionEvent.LEAVE,
   presence: PlaySessionEvent.PRESENCE,
   callInitiative: PlaySessionEvent.CALL_INITIATIVE,

@@ -16,7 +16,7 @@ describe("presence roster", () => {
   it("upserts without reshuffling", () => {
     let roster = withPresence<Named>([], "a", { name: "Nadia" }, same);
     roster = withPresence(roster, "b", { name: "Theo" }, same);
-    // A re-announce (every hello and every heartbeat triggers one) keeps the
+    // A re-announce (every sync request and heartbeat triggers one) keeps the
     // order the DM's dropdown is already showing.
     roster = withPresence(roster, "a", { name: "Nadia" }, same);
     expect(names(roster)).toEqual(["Nadia", "Theo"]);

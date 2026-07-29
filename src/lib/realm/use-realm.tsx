@@ -64,11 +64,6 @@ export interface UseRealmOptions<K extends string> {
   // Called for each message that survives `accept`. Held in a ref internally,
   // so it always sees current state rather than what was captured at connect.
   onMessage: (message: Envelope & { kind: K }) => void;
-  // Called once the socket is open and every subscription is live. This is the
-  // only safe moment to announce yourself: a `hello` published before the
-  // subscriptions complete gets a reply nobody is listening for yet, which
-  // looks exactly like joining an empty room.
-  onReady?: () => void;
   // Called when a connection that *had* opened goes away, for whatever reason.
   onClosed?: () => void;
 }
@@ -77,7 +72,6 @@ export function useRealm<K extends string>({
   clientId,
   topics,
   onMessage,
-  onReady,
   onClosed,
 }: UseRealmOptions<K>) {
   const {
@@ -92,8 +86,8 @@ export function useRealm<K extends string>({
   // Through refs: the subscriptions are registered once, at connect, and would
   // otherwise call the closures that existed at that moment for the rest of the
   // session. Same knot both layers already tie, tied once.
-  const handlers = useRef({ onMessage, onReady, onClosed });
-  handlers.current = { onMessage, onReady, onClosed };
+  const handlers = useRef({ onMessage, onClosed });
+  handlers.current = { onMessage, onClosed };
   const kindsRef = useRef<K[]>([]);
   kindsRef.current = Object.keys(topics) as K[];
   const topicsRef = useRef(topics);
@@ -172,8 +166,12 @@ export function useRealm<K extends string>({
           opened = true;
           sessionRef.current = session;
           connectionRef.current = connection;
-          // Await the subscriptions before anyone announces: `subscribe` is a
-          // round trip, and the race it loses is silent and intermittent.
+          // **Await the subscriptions before resolving.** `subscribe` is a
+          // round trip to the broker, and anything the caller publishes the
+          // moment this resolves — a sync request, say — would otherwise get an
+          // answer this client isn't listening for yet, which looks exactly
+          // like joining an empty room. It's a race, so it fails
+          // intermittently and only when a peer is actually there.
           await Promise.all(
             kindsRef.current.map((kind) =>
               session.subscribe(topicsRef.current[kind], (args: any[]) => {
@@ -188,7 +186,6 @@ export function useRealm<K extends string>({
           );
           setRealm(name);
           setStatus("connected");
-          handlers.current.onReady?.();
           resolve({ ok: true });
         };
 

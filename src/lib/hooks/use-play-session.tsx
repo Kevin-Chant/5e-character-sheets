@@ -38,8 +38,10 @@ interface PlaySessionOptions {
   clientId: string;
   // Applied when a peer sends state. The provider decides how to merge.
   onRemoteState: (encounter: Encounter, fromClientId: string) => void;
-  // A peer announced itself: reply with what we have so it can catch up.
-  onHello: (fromClientId: string) => void;
+  // A peer arrived and asked what the room holds: answer them directly.
+  onSyncRequest: (fromClientId: string, requestId: string) => void;
+  // Somebody answered ours.
+  onSyncResponse: (encounter: Encounter, requestId: string) => void;
   // A peer left: drop what it owned.
   onLeave: (fromClientId: string) => void;
   // A peer said who they are. Names only — liveness is best-effort (no
@@ -92,8 +94,16 @@ export function usePlaySession(options: PlaySessionOptions) {
             on.onRemoteState(message.encounter, message.clientId);
           }
           return;
-        case "hello":
-          return on.onHello(message.clientId);
+        case "syncRequest":
+          return on.onSyncRequest(message.clientId, message.requestId);
+        case "syncResponse":
+          // Same check as `state`, for the same reason — this one arrives from
+          // a peer we have never heard from before, which is if anything the
+          // likelier one to be on a different build.
+          if (isEncounter(message.encounter)) {
+            on.onSyncResponse(message.encounter, message.requestId);
+          }
+          return;
         case "leave":
           return on.onLeave(message.clientId);
         case "presence":
@@ -116,8 +126,6 @@ export function usePlaySession(options: PlaySessionOptions) {
           return on.onSheet(message.participantId, message.character);
       }
     },
-    // Announce ourselves; whoever is already here replies with the state.
-    onReady: () => realm.publish({ kind: "hello", clientId }),
     onClosed: () => setCode(undefined),
   });
 
@@ -171,6 +179,26 @@ export function usePlaySession(options: PlaySessionOptions) {
     host,
     join,
     leave,
+    // Asking the room what it holds, and answering somebody who asked. The
+    // request is published by the provider once connecting has resolved, rather
+    // than by the transport on open: what to do about the answer — and about
+    // there being none — is a decision, and decisions live outside this file.
+    sendSyncRequest: useCallback(
+      (requestId: string) =>
+        publish({ kind: "syncRequest", clientId, requestId }),
+      [publish, clientId],
+    ),
+    sendSyncResponse: useCallback(
+      (toClientId: string, requestId: string, encounter: Encounter) =>
+        publish({
+          kind: "syncResponse",
+          clientId,
+          toClientId,
+          requestId,
+          encounter,
+        }),
+      [publish, clientId],
+    ),
     broadcastState: useCallback(
       (encounter: Encounter) => publish({ kind: "state", clientId, encounter }),
       [publish, clientId],

@@ -21,9 +21,14 @@
 //     can assert *why* a message was ignored, and a stray one is debuggable.
 
 // Bump when a message shape changes in a way an older client would misread.
-// Absent is treated as 1: the layers shipped unversioned, and a tab that hasn't
-// reloaded should keep converging rather than fall silent.
-export const PROTOCOL_VERSION = 1;
+// Absent is treated as the current version: the layers shipped unversioned, and
+// a tab from before that should keep converging rather than fall silent.
+//
+// 2: the party session's bootstrap became an addressed request/response pair
+// (`syncRequest`/`syncResponse`) instead of a broadcast `hello` answered with a
+// broadcast `state`. A tab on the old build asks a question nobody is listening
+// for any more; making that explicit is what the version is for.
+export const PROTOCOL_VERSION = 2;
 
 export interface Envelope {
   // The kind is also the topic key — see each layer's `TOPIC_FOR`.

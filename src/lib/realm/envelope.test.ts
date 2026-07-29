@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { accept, PROTOCOL_VERSION, stamp } from "src/lib/realm/envelope";
 
-const KINDS = ["state", "hello"] as const;
+const KINDS = ["state", "syncRequest"] as const;
 const inbound = (over: Record<string, unknown>) => ({
   kind: "state",
   clientId: "them",
@@ -10,8 +10,8 @@ const inbound = (over: Record<string, unknown>) => ({
 
 describe("stamp", () => {
   it("versions an outgoing message without touching the rest of it", () => {
-    expect(stamp({ kind: "hello", clientId: "me", extra: 1 })).toEqual({
-      kind: "hello",
+    expect(stamp({ kind: "syncRequest", clientId: "me", extra: 1 })).toEqual({
+      kind: "syncRequest",
       clientId: "me",
       extra: 1,
       v: PROTOCOL_VERSION,

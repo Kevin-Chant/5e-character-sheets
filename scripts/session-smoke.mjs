@@ -885,14 +885,14 @@ const scenarios = {
       [dm.name].sort(),
     );
 
-    // A latecomer arriving at a table the DM has been sitting at alone. The
-    // "adopt the room's state" flag is armed by joining and consumed by the
-    // room's reply — and an empty room sends none, so it used to stay armed for
-    // the rest of the evening, ready to swallow the first thing the next
-    // arrival published (their own participant, the moment it lands) on top of
-    // everything the DM had. Which of the two messages wins that race isn't
-    // deterministic, so this asserts the outcome rather than reproducing the
-    // loss: the DM's table survives being joined.
+    // A latecomer arriving at a table the DM has been sitting at alone. This
+    // used to be a race: the "adopt the room's state" flag was armed by joining
+    // and consumed by the room's reply, an empty room sends none, so it stayed
+    // armed all evening ready to swallow the first thing the next arrival
+    // published — their own participant, the moment it lands. Adoption is now
+    // scoped to an answer addressed to a request this client sent, so an
+    // ordinary broadcast cannot be adopted at all and the outcome below is the
+    // only one available rather than the likely one.
     await joinGame(player, first, player.name);
     await untilRoster(dm.page, [dm.name, player.name]);
     check(

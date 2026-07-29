@@ -395,26 +395,30 @@ Five exceptions, all learned the hard way:
   the result contains someone the peer hasn't heard of, or nobody ever learns you
   arrived.
 - **A joiner adopts the room rather than racing it** (`mergeEncounter`'s `adopt`
-  argument, set by `joinSession` and cleared on the first reply). Revisions only
-  order writes _within one shared history_. A client that has just joined has its
-  own unrelated history — its local encounter has been counting up on its own —
-  and the two routinely collide on the same number, at which point the clientId
-  tiebreak decides who exists by comparing two random uuids. Roughly half the
-  time the joiner "won" and silently discarded the room: the fight in progress,
-  the DM seat, everyone else's initiative. A newcomer has nothing to be
-  authoritative about, so it defers to the room and contributes only its own
-  participants. Only _joining_ sets the flag — a host that kept adopting would
-  let the next arrival's empty state wipe its own fight.
-- **The flag has to expire, not just be consumed.** "Cleared on the first reply"
-  assumes a reply comes; joining an _empty_ realm (the DM walking back into their
-  own table, which is the common case, since a realm outlives its occupants) gets
-  none, and a flag left armed all evening is the same wipe one arrival later —
-  the latecomer publishes their own participant the moment it lands, and the DM
-  adopts it over the fight. So it also clears when we answer somebody else's
-  `hello` (they arrived after us, so we are no longer the newcomer) and when the
-  connection drops. Two clients joining at once can cost each other the
-  adoption; that's the ordinary revision race, which the seat lane and the
-  contribution merge already survive.
+  argument). Revisions only order writes _within one shared history_. A client
+  that has just joined has its own unrelated history — its local encounter has
+  been counting up on its own — and the two routinely collide on the same
+  number, at which point the clientId tiebreak decides who exists by comparing
+  two random uuids. Roughly half the time the joiner "won" and silently
+  discarded the room: the fight in progress, the DM seat, everyone else's
+  initiative. A newcomer has nothing to be authoritative about, so it defers to
+  the room and contributes only its own participants.
+- **Adoption is scoped to a question this client asked** — see
+  `play/connection.ts`. It used to be a flag armed on join and cleared by the
+  room's reply, which assumes a reply comes: joining an _empty_ realm (the DM
+  walking back into their own table, which is the common case, since a realm
+  outlives its occupants) gets none, so the flag stayed armed all evening and
+  the next arrival's stale copy was adopted over the fight in progress. Now a
+  joiner publishes `syncRequest{requestId}`, peers answer with an addressed
+  `syncResponse`, and only an answer carrying that request id can replace local
+  state. An ordinary `state` broadcast — from a latecomer, from anyone's edit —
+  is never adoptable, which retires the failure rather than bounding it.
+- **The window ends the waiting, not the listening.** If nobody answers inside
+  `SYNC_WINDOW_MS` (750ms) the machine concludes _empty room, our state stands_
+  — the third outcome, which previously could not be observed at all because
+  "nobody is here" and "the answer hasn't arrived yet" look identical from the
+  inside. The first answer wins and ends the wait, so a table of six costs no
+  more than a table of one; a late answer still merges the ordinary way.
 
 Everything else from a peer is applied **silently**: echoing a peer's state back
 is an endless exchange, the same loop the character layer avoids with
@@ -442,14 +446,15 @@ rather than a UI rule is what would break that.
   and the token matches. Leaving puts the seat down (`dmClientId` clears via
   `withoutClient`, so nobody is gated on someone who's gone) but keeps the
   token; `releaseDmSeat` — a decision, not a disconnection — drops both.
-- **Reclaiming can't wait for a peer.** Folding `reclaimDmSeat` into
-  `receiveState` covers the reload-with-a-party case and only that one: a realm
-  outlives its occupants, so the table a DM walks back into the next day is
-  routinely _empty_, no state ever arrives, and the seat stays pointed at the
-  tab they closed — the lobby saying "rejoining takes the DM controls back" and
-  then seating them as a player. So `joinSession` also reclaims from the local
-  encounter once connected. Nothing is lost if the room does have something to
-  say: a joiner adopts the room's state, and the reclaim runs again on top of it.
+- **Reclaiming happens on the way in, not when a peer gets round to it.**
+  Folding `reclaimDmSeat` into `receiveState` covers the reload-with-a-party
+  case and only that one: a realm outlives its occupants, so the table a DM
+  walks back into the next day is routinely _empty_, no state ever arrives, and
+  the seat stays pointed at the tab they closed — the lobby saying "rejoining
+  takes the DM controls back" and then seating them as a player. Both ways into
+  a session now run one sequence (`enterSession`), and taking the seat is part
+  of it: hosting claims, joining reclaims. Anything the room later says still
+  wins, since it arrives after.
 - **There is no takeover button on the bar any more.** Its two everyday reasons
   (racing for an unclaimed seat at the start, recovering from a reload) are gone
   — creation claims, the token reclaims. The genuinely-dead-browser case lives
@@ -527,7 +532,8 @@ stays an exception by construction rather than by discipline:
   end-to-end, and makes a ghost target harmless — no reply, the offer stands.
 - **Presence is what the DM points at** (`PRESENCE` topic; pure roster helpers
   `withPresence`/`withoutPresence` in `session.ts`). Each client announces
-  `{clientId, displayName}` on connect and in reply to every `hello`; `LEAVE`
+  `{clientId, displayName}` on connect, on a heartbeat and in reply to every
+  sync request; `LEAVE`
   removes. **No heartbeats** — a crashed tab leaves a ghost name until the
   session turns over, which costs a stale dropdown entry and nothing else.
   Presence is provider state, never on the `Encounter`: liveness merged by
