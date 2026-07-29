@@ -287,11 +287,108 @@ export function isEncounter(raw: unknown): raw is Encounter {
 }
 
 // --- Merging -----------------------------------------------------------------
-
+//
 // Anyone may write to the encounter — the DM seat is a UI gate, not a lock, so
 // that a sleeping laptop can't freeze someone else's fight. Convergence is
-// therefore last-write-wins on a monotonic `revision`, with the client id
-// breaking ties so two simultaneous writers can't sit swapping states forever.
+// last-write-wins, but not on one counter: the document is a **table of
+// lanes**, each a group of fields that move together under one counter,
+// resolved independently. One counter per thing-someone-writes, because the
+// races here are not exotic — the DM typing your damage while you tick the
+// spell you're holding is the ordinary shape of a fight, and any two lanes'
+// writes crossing on the wire must both survive.
+//
+// The lane tables below are the whole rule. A field not in any lane belongs to
+// the document lane (`revision`), which the coarse race still decides — that
+// is deliberately where *membership* lives, because the roster's merge is
+// bespoke and asymmetric (see `mergeEncounter`) and must not be genericised.
+
+// One lane: the counter that versions it and the fields that move with it.
+// `fields` includes everything the counter orders — take the lane, take it
+// whole, counter included, or a half-taken lane re-loses the same race later.
+interface Lane<T> {
+  rev: keyof T & string;
+  fields: (keyof T & string)[];
+  // A side that structurally cannot hold the lane's value may not win it,
+  // whatever its counter says — e.g. a row copy with no vitals at all.
+  canWin?: (side: T) => boolean;
+}
+
+export const ENCOUNTER_LANES: Lane<Encounter>[] = [
+  // The fight's position, one atomic pair — see `Encounter.turnSeq` for why
+  // round and turnIndex may never be resolved separately.
+  { rev: "turnSeq", fields: ["round", "turnIndex"] },
+  // Table style, DM-set.
+  { rev: "policyRev", fields: ["sharing", "hideDeathSaves"] },
+  // The DM seat. A peer who has simply never heard of the DM carries
+  // `seatRev: 0` and so can never win this lane — which is the guard that
+  // used to be hand-written: erasing the seat takes `dmToken` with it, making
+  // the loss unrecoverable rather than merely unheld.
+  { rev: "seatRev", fields: ["dmClientId", "dmToken"] },
+];
+
+export const PARTICIPANT_LANES: Lane<Participant>[] = [
+  // Who the row is and how it's shown — name, ownership, offer, hidden.
+  {
+    rev: "identityRev",
+    fields: ["name", "characterUuid", "ownerClientId", "claimable", "hidden"],
+  },
+  // A copy with no vitals is an untracked copy, and an untracked copy must
+  // never blank a tracked one, whatever its counter says.
+  { rev: "vitalsRev", fields: ["vitals"], canWin: (p) => !!p.vitals },
+  { rev: "statusRev", fields: ["conditions", "concentration"] },
+  { rev: "initiativeRev", fields: ["initiative"] },
+  { rev: "economyRev", fields: ["spent"] },
+];
+
+// Resolve every lane between the document-race winner (`base`) and the loser
+// (`other`): a lane goes to `other` iff its counter is strictly higher, whole —
+// fields and counter together. Ties go to `base`, which keeps the coarse
+// race's answer wherever the lanes are silent, and identity is preserved when
+// nothing moves so an unchanged merge can't re-broadcast.
+function takeLanes<T extends object>(base: T, other: T, lanes: Lane<T>[]): T {
+  let taken: Record<string, unknown> | undefined;
+  for (const lane of lanes) {
+    if (lane.canWin && !lane.canWin(other)) continue;
+    const ours = (base[lane.rev] as number | undefined) ?? 0;
+    const theirs = (other[lane.rev] as number | undefined) ?? 0;
+    if (theirs <= ours) continue;
+    taken ??= {};
+    for (const field of [...lane.fields, lane.rev]) {
+      taken[field] = other[field];
+    }
+  }
+  return taken ? { ...base, ...taken } : base;
+}
+
+// Does the merged document hold anything the peer's copy hasn't seen? One
+// loop over the lane counters — **counters, not values**, because two writes
+// can coincide on a value and the peer still needs to hear the counter that
+// orders the next one. This replaces the hand-grown list of publish reasons
+// (lost the race, kept the seat, corrected own vitals, contributed a row):
+// each of those is now visible as a counter the peer's copy is behind on, or
+// a row it lacks.
+function carriesNews(merged: Encounter, incoming: Encounter): boolean {
+  if ((merged.revision ?? 0) > (incoming.revision ?? 0)) return true;
+  for (const lane of ENCOUNTER_LANES) {
+    const ours = (merged[lane.rev] as number | undefined) ?? 0;
+    const theirs = (incoming[lane.rev] as number | undefined) ?? 0;
+    if (ours > theirs) return true;
+  }
+  const theirRows = new Map(incoming.participants.map((p) => [p.id, p]));
+  for (const row of merged.participants) {
+    const theirs = theirRows.get(row.id);
+    if (!theirs) return true;
+    for (const lane of PARTICIPANT_LANES) {
+      const ours = (row[lane.rev] as number | undefined) ?? 0;
+      if (ours > ((theirs[lane.rev] as number | undefined) ?? 0)) return true;
+    }
+  }
+  return false;
+}
+
+// Bump the document lane. Every local write does this on top of its own
+// lane's counter: the lanes order writes to their fields, this orders the
+// roster and breaks the base/other tie for everything laneless.
 export function bumpRevision(
   encounter: Encounter,
   clientId: string,
@@ -312,35 +409,14 @@ function wins(incoming: Encounter, local: Encounter): boolean {
   return (incoming.revisedBy ?? "") > (local.revisedBy ?? "");
 }
 
-// Merge one participant that both sides know about.
-//
-// A row is **two independently versioned lanes**, and this is where that pays
-// off. `vitals` is the DM's oversight write; everything else — conditions,
-// concentration, initiative, spent — is usually the row's own player. Both get
-// written at the same instant all evening ("you take 9" landing while the
-// player ticks the spell they're holding), and both writes start from the same
-// revision, so the document race is a coin flip that throws one of them away.
-// Observed both ways round: the concentration vanished, or the damage did, and
-// nobody was told either had happened.
-//
-// So the coarse race decides `base` (and every encounter-level field), and each
-// lane is then resolved on its own counter. Ties go to `base`, which keeps the
-// old behaviour everywhere the lanes agree.
-function mergeParticipant(base: Participant, other: Participant): Participant {
-  const rest = (other.rev ?? 0) > (base.rev ?? 0) ? other : base;
-  // A side with no vitals at all can't win the lane — an untracked copy of a
-  // row must never blank a tracked one.
-  const vital =
-    other.vitals && (other.vitalsRev ?? 0) > (base.vitalsRev ?? 0)
-      ? other
-      : base;
-  if (rest === base && vital === base) return base;
-  return {
-    ...rest,
-    ...(vital.vitals
-      ? { vitals: vital.vitals, vitalsRev: vital.vitalsRev }
-      : {}),
-  };
+// Keep the merged turn index a valid position in the merged roster. The combat
+// lane and the roster resolve independently — deliberately, see
+// `Encounter.turnSeq` — so a turn index that was in range on the lane winner's
+// roster can land past the end of the merged one.
+function clampTurn(encounter: Encounter): Encounter {
+  const last = encounter.participants.length - 1;
+  if (encounter.turnIndex <= Math.max(0, last)) return encounter;
+  return { ...encounter, turnIndex: Math.max(0, last) };
 }
 
 // Apply an encounter that arrived from a peer.
@@ -380,47 +456,36 @@ export function mergeEncounter(
   // A newcomer has nothing to be authoritative about, so it defers to the room
   // and contributes only its own participants (re-added below).
   const incomingWins = adopt || wins(incoming, local);
-  // The losing document is no longer discarded whole. Its *membership* and its
-  // encounter-level fields lose, as before — but the rows it holds are merged
-  // in lane by lane, because "who wrote most recently" is too coarse a question
-  // to ask of a row two people are editing. See `mergeParticipant`.
+  // The losing document is not discarded whole. Its *membership* loses — which
+  // rows exist, in what order, is the coarse race's answer — but every lane in
+  // the tables above is then resolved on its own counter, because "who wrote
+  // most recently" is too coarse a question to ask of a document several
+  // people are editing at once.
   const base = incomingWins ? incoming : local;
   const other = incomingWins ? local : incoming;
   const theirRows = new Map(other.participants.map((p) => [p.id, p]));
-  let merged = false;
+  let rowsChanged = false;
   const rows = base.participants.map((p) => {
     const theirs = theirRows.get(p.id);
     if (!theirs) return p;
-    const combined = mergeParticipant(p, theirs);
-    if (combined !== p) merged = true;
+    const combined = takeLanes(p, theirs, PARTICIPANT_LANES);
+    if (combined !== p) rowsChanged = true;
     return combined;
   });
+  // A joiner (`adopt`) takes the room's seat regardless of counters: it has
+  // nothing to be authoritative about, and the seatRev its own unrelated
+  // history counted up could otherwise out-vote a young room's.
+  const lanes = adopt
+    ? ENCOUNTER_LANES.filter((lane) => lane.rev !== "seatRev")
+    : ENCOUNTER_LANES;
+  const withLanes = takeLanes(base, other, lanes);
   // Nothing of the loser's survived, and the loser was us: this is the old
   // "discard it" path, and it must stay identity so an unchanged encounter
   // isn't persisted and re-broadcast.
-  // The DM seat is a third lane, resolved on `seatRev`. Without it a client
-  // that has never heard of the DM can erase them just by winning the coarse
-  // race — and because `dmToken` goes too, the seat is then unrecoverable by
-  // anyone. The window is small but it is exactly the moment a table starts:
-  // two players joining at once, one adopting the other's not-yet-synced
-  // state. A joiner (`adopt`) takes the room's seat regardless, having nothing
-  // to be authoritative about.
-  const seat =
-    !adopt && (other.seatRev ?? 0) > (base.seatRev ?? 0) ? other : base;
-  const seatMoved =
-    seat.dmClientId !== base.dmClientId || seat.dmToken !== base.dmToken;
-  if (!incomingWins && !merged && !seatMoved) return local;
-  const winner: Encounter = {
-    ...base,
-    ...(merged ? { participants: rows } : {}),
-    ...(seatMoved
-      ? {
-          dmClientId: seat.dmClientId,
-          dmToken: seat.dmToken,
-          seatRev: seat.seatRev,
-        }
-      : {}),
-  };
+  if (!incomingWins && !rowsChanged && withLanes === base) return local;
+  const winner: Encounter = rowsChanged
+    ? { ...withLanes, participants: rows }
+    : withLanes;
 
   const mine = selfCharacterUuid
     ? local.participants.find((p) => p.characterUuid === selfCharacterUuid)
@@ -443,22 +508,29 @@ export function mergeEncounter(
   const incomingIds = new Set(winner.participants.map((p) => p.id));
   const missing = ours.filter((p) => !incomingIds.has(p.id));
 
-  const participants = winner.participants.map((p) =>
-    keepOwnVitals && p.characterUuid === selfCharacterUuid
-      ? {
-          ...p,
-          vitals: mine!.vitals,
-          // At least the incoming rev — ties keep our own — so the copy we
-          // just refused can't win a later round against us.
-          vitalsRev: Math.max(mine!.vitalsRev ?? 0, p.vitalsRev ?? 0),
-        }
-      : p,
-  );
+  const participants = winner.participants.map((p) => {
+    if (!keepOwnVitals || p.characterUuid !== selfCharacterUuid) return p;
+    if (sameVitals(p.vitals, mine!.vitals)) return p;
+    const mineRev = mine!.vitalsRev ?? 0;
+    const rowRev = p.vitalsRev ?? 0;
+    return {
+      ...p,
+      vitals: mine!.vitals,
+      // Past the refused copy's counter, not merely at it: this is what makes
+      // the correction *visible to the publish loop* — `carriesNews` reads
+      // counters, not values, so refusing a stale copy of ourselves at the
+      // same rev has to move the counter or the room keeps last week's HP.
+      vitalsRev: mineRev > rowRev ? mineRev : rowRev + 1,
+    };
+  });
 
   // Re-seated by initiative rather than appended: with a fight in progress the
   // array is the turn order, and a joiner should land where their roll says —
-  // on every peer's copy, not just their own.
-  return missing.reduce(insertParticipant, { ...winner, participants });
+  // on every peer's copy, not just their own. Clamped last, because the combat
+  // lane and the roster resolve independently.
+  return clampTurn(
+    missing.reduce(insertParticipant, { ...winner, participants }),
+  );
 }
 
 // Who this client is, for the decisions below.
@@ -496,7 +568,6 @@ export function receiveState(
   incoming: Encounter,
   self: SessionSelf,
 ): StateReceipt {
-  const incomingWins = !!self.adopt || wins(incoming, local);
   const merged = mergeEncounter(
     local,
     incoming,
@@ -516,7 +587,6 @@ export function receiveState(
       : undefined;
   const mineBefore = findMe(local);
   const mineAfter = findMe(seated);
-  const theirCopyOfMe = findMe(incoming);
 
   // Our own vitals moved without us touching them: the merge accepted a
   // deliberate write from someone else (rev-checked in `mergeEncounter`), and
@@ -528,30 +598,14 @@ export function receiveState(
       ? mineAfter.vitals
       : undefined;
 
-  // Publish when we hold something the peer hasn't heard of: someone in the
-  // order, the seat now pointing at this tab, or our own vitals corrected over
-  // their stale copy of us (the rejoin case — without this the room keeps
-  // showing last week's HP until the sheet next changes).
-  //
-  // **Losing the document race is now also a reason to speak up.** It used to
-  // be a reason to stay quiet: the peer's state was discarded and ours was
-  // presumed known. It isn't — a write of ours they haven't seen is exactly
-  // what makes us win, and saying nothing is how the losing half of a
-  // simultaneous edit disappeared for good. This doesn't ping-pong: our reply
-  // carries a higher revision, so the peer's next receive is a plain win for
-  // them and they fall silent.
-  const theirs = new Set(incoming.participants.map((p) => p.id));
-  const correctedOwnVitals =
-    !!mineAfter?.vitals &&
-    !!theirCopyOfMe &&
-    !sameVitals(mineAfter.vitals, theirCopyOfMe.vitals);
-  const publish =
-    seated !== merged ||
-    !incomingWins ||
-    // We kept a seat the peer's state had already forgotten.
-    merged.dmClientId !== incoming.dmClientId ||
-    correctedOwnVitals ||
-    seated.participants.some((p) => !theirs.has(p.id));
+  // Publish when we hold something the peer hasn't heard of, read off the lane
+  // counters in one loop — a lane theirs is behind on, a row they lack, a
+  // document revision past theirs. Every reason the old hand-grown list
+  // enumerated (lost the race, kept the seat, corrected own vitals,
+  // contributed a row) is one of those three now. This doesn't ping-pong: our
+  // reply carries the counters the peer is behind on, their merge accepts
+  // those lanes, and their next receive finds nothing to answer.
+  const publish = carriesNews(seated, incoming);
   return { encounter: seated, publish, ownVitals };
 }
 

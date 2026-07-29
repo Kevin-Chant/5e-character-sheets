@@ -3,11 +3,17 @@ import { UUID } from "crypto";
 import { Broker, SimClient } from "src/lib/fixtures/session-sim";
 import {
   addParticipant,
+  advanceTurn,
   claimParticipant,
   Encounter,
   offerSheet,
   releaseDmSeat,
+  removeParticipant,
   setConcentration,
+  setHidden,
+  setInitiative,
+  setSharing,
+  setSpent,
   setVitals,
   startCombat,
 } from "src/lib/play/encounter";
@@ -377,7 +383,144 @@ describe("simultaneous writes to one participant", () => {
   });
 });
 
-// The seat is a third lane, for the same reason vitals are one.
+// The combat lane: round and turnIndex, one atomic pair on `turnSeq`.
+describe("the fight's position under concurrent writes", () => {
+  const fighting = () => {
+    const t = table();
+    t.master.edit(startCombat);
+    return t;
+  };
+
+  // Two people pressing "next turn" at the same moment is an ordinary table
+  // event — the DM and the player whose turn ended both reach for it. 5e has
+  // no additive turn advance: the correct outcome is *one* advance, not two.
+  it("collapses two crossed turn advances into one", () => {
+    const { broker, master, alice, bob } = fighting();
+    const before = master.encounter.turnIndex;
+    broker.crossing(() => {
+      master.edit((c) => advanceTurn(c).encounter);
+      alice.edit((c) => advanceTurn(c).encounter);
+    });
+    for (const client of [master, alice, bob]) {
+      expect(client.encounter.turnIndex).toBe(
+        (before + 1) % client.encounter.participants.length,
+      );
+      expect(client.encounter.round).toBe(1);
+    }
+  });
+
+  // The DM fixes an initiative while somebody advances the turn: different
+  // lanes, so both writes must survive the crossing.
+  it("keeps a reseat and an advance when they cross", () => {
+    const { broker, master, alice, bob } = fighting();
+    const bobRow = `self:${BOB}`;
+    broker.crossing(() => {
+      master.edit((c) => setInitiative(c, bobRow, 21));
+      alice.edit((c) => advanceTurn(c).encounter);
+    });
+    for (const client of [master, alice, bob]) {
+      expect(
+        client.encounter.participants.find((p) => p.id === bobRow)?.initiative,
+      ).toBe(21);
+      expect(client.encounter.turnIndex).toBe(1);
+      expect(client.encounter.participants).toEqual(
+        master.encounter.participants,
+      );
+    }
+  });
+});
+
+// Any two of a row's five lanes, written at the same instant, must both
+// survive — the vitals/status pair above found the bug; these pin the rule
+// for the pairs that got lanes in the same change.
+describe("other lane pairs crossing on one row", () => {
+  const aliceRow = `self:${ALICE}`;
+  const row = (c: SimClient) =>
+    c.encounter.participants.find((p) => p.id === aliceRow)!;
+
+  it("keeps a reseat and a ticked action", () => {
+    const { broker, master, alice, bob } = table();
+    broker.crossing(() => {
+      master.edit((c) => setInitiative(c, aliceRow, 18));
+      alice.edit((c) => setSpent(c, aliceRow, "action", true));
+    });
+    for (const client of [master, alice, bob]) {
+      expect(row(client).initiative).toBe(18);
+      expect(row(client).spent.action).toBe(true);
+    }
+  });
+
+  it("keeps a hide and a concentration", () => {
+    const { broker, master, alice, bob } = table();
+    broker.crossing(() => {
+      master.edit((c) => setHidden(c, aliceRow, true));
+      alice.edit((c) =>
+        setConcentration(c, aliceRow, { spell: "Bless", startedRound: 1 }),
+      );
+    });
+    for (const client of [master, alice, bob]) {
+      expect(row(client).hidden).toBe(true);
+      expect(row(client).concentration?.spell).toBe("Bless");
+    }
+  });
+});
+
+// Encounter-level lanes crossing each other.
+describe("policy racing the seat", () => {
+  it("keeps both the sharing change and the released seat", () => {
+    const { broker, master, alice, bob } = table();
+    // The DM releases the seat in the same instant a (currently DM'd) tab
+    // flips table policy — different lanes on the encounter itself.
+    broker.crossing(() => {
+      master.edit(releaseDmSeat);
+      alice.edit((c) => setSharing(c, "exact"));
+    });
+    for (const client of [master, alice, bob]) {
+      expect(client.encounter.dmClientId).toBeUndefined();
+      expect(client.encounter.dmToken).toBeUndefined();
+      expect(client.encounter.sharing).toBe("exact");
+    }
+  });
+});
+
+// Membership's bespoke merge: resurrection is scoped to your *own* rows.
+describe("the roster's resurrection boundary", () => {
+  it("does not let a stale peer bring back a monster the DM removed", () => {
+    const { broker, master, alice } = table();
+    master.edit((c) =>
+      addParticipant(c, { id: "goblin", name: "Goblin", initiative: 3 }),
+    );
+    // A snapshot from before the removal, as a crashed tab would hold.
+    const stale = alice.encounter;
+    master.edit((c) => removeParticipant(c, "goblin"));
+    expect(master.participantNames).not.toContain("Goblin");
+
+    // The stale copy comes back with a lower revision, and loses.
+    broker.publish({ kind: "state", clientId: "stranger", encounter: stale });
+    expect(master.participantNames).not.toContain("Goblin");
+    expect(alice.participantNames).not.toContain("Goblin");
+  });
+});
+
+describe("an economy edit crossing a leave", () => {
+  it("still removes the leaver everywhere, without a storm", () => {
+    const { broker, master, alice, bob } = table();
+    const bobRow = `self:${BOB}`;
+    broker.crossing(() => {
+      master.edit((c) => setSpent(c, bobRow, "action", true));
+      bob.leave();
+    });
+    // The tick was to a row that left with its owner; the table agrees the
+    // row is gone rather than resurrecting it to carry the tick.
+    expect(master.participantNames).toEqual(["Alice"]);
+    expect(alice.participantNames).toEqual(["Alice"]);
+    const settled = broker.traffic.length;
+    expect(settled).toBeLessThan(40);
+    expect(broker.traffic.length).toBe(settled);
+  });
+});
+
+// The seat is its own lane, for the same reason vitals are one.
 describe("the DM seat against a peer who never heard of it", () => {
   // What a second joiner holds in the moment before the room's first reply
   // reaches it: everything else about the fight, and no idea there is a DM.

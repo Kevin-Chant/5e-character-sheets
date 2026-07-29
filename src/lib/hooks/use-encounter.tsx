@@ -45,6 +45,7 @@ import {
   participantFor,
   removeCondition,
   removeParticipant,
+  renameParticipant,
   reseatParticipant,
   setConcentration,
   setHidden,
@@ -822,15 +823,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       // brought a character contributed a static projection; the browser with
       // the sheet actually open has the live one, so ownership follows it.
       const owned = claimParticipant(current, existing.id, clientId);
-      if (name && existing.name !== name) {
-        return {
-          ...owned,
-          participants: owned.participants.map((p) =>
-            p.characterUuid === uuid ? { ...p, name } : p,
-          ),
-        };
-      }
-      return owned;
+      return name ? renameParticipant(owned, existing.id, name) : owned;
     });
   }, [uuid, name, clientId, update]);
 

@@ -102,19 +102,45 @@ export interface Participant {
   // Kept current by the owning client — with one deliberate exception, a DM
   // edit. See `mergeEncounter`.
   vitals?: ParticipantVitals;
+
+  // --- Lane counters --------------------------------------------------------
+  //
+  // The row is **five independently versioned lanes**, not one blob, because
+  // its fields are written by different people at the same instant all evening:
+  // the DM types your damage while you tick the spell you're holding, or
+  // reseats your initiative while you mark a condition. Resolving the row on
+  // one counter means one of those writes silently disappears — observed both
+  // ways round before the split. Which fields belong to which counter is
+  // declared once, in `PARTICIPANT_LANES` (`session.ts`), and every mutator
+  // below bumps the counter for the lane it writes. All optional so a stored
+  // encounter from before the lanes needs no migration: absent reads as 0,
+  // "never written under this scheme".
+  //
   // Bumped on every real vitals change. This is what lets the merge tell "the
   // DM just set your HP" (a newer write, accept it) apart from "a peer echoed a
   // stale copy of you" (an older one, keep your own) — without it those two
   // arrive looking identical, and the fix for one is the bug in the other.
   vitalsRev?: number;
-  // Bumped on every change to the *rest* of the row — initiative, conditions,
-  // concentration, spent, the offer flag. The row is two independently
-  // versioned lanes, not one, because the two are written by different people
-  // at the same instant all evening: the DM types your damage while you tick
-  // the spell you're holding. Resolving the row as one blob means one of those
-  // two disappears. See `mergeEncounter`.
-  rev?: number;
+  // Who this row is and how it's presented: name, ownership, the offer flag,
+  // hidden. Mostly the DM's writes.
+  identityRev?: number;
+  // What's *wrong* with them: conditions and concentration. The lane a player
+  // ticks while the DM writes their damage.
+  statusRev?: number;
+  // Where they act. Its own lane because the DM reseats rows while their
+  // players are doing everything else.
+  initiativeRev?: number;
+  // What this turn has spent. The chattiest lane — players tick it constantly.
+  economyRev?: number;
 }
+
+// The counters a participant mutator may bump — everything except `vitalsRev`,
+// which `setVitals` owns on its own path.
+export type ParticipantLane =
+  | "identityRev"
+  | "statusRev"
+  | "initiativeRev"
+  | "economyRev";
 
 // How much of the table's health the players get to see — the DM's call,
 // because it's table style, not privacy: some tables narrate wounds, some
@@ -177,6 +203,24 @@ export interface Encounter {
   round: number;
   turnIndex: number;
   participants: Participant[];
+  // The combat lane's counter: `round` and `turnIndex` move together, as one
+  // atomic pair, on every deliberate move of the fight — starting, ending,
+  // advancing the turn. One counter for the pair because 5e has no additive
+  // turn advance: two people pressing "next turn" at the same moment is one
+  // table event, and merging round and index separately can produce an index
+  // past the end of a round. Two concurrent advances tie on this counter and
+  // collapse to one, which is the correct answer.
+  //
+  // Roster changes shift `turnIndex` too (an insert before the current actor
+  // pushes it along) but deliberately do *not* bump this: that shift is
+  // bookkeeping derived from membership, not a move of the fight, and letting
+  // it consume the counter would make an insert eat a concurrent "next turn".
+  // The merge clamps the index against the merged roster instead.
+  turnSeq?: number;
+  // The policy lane's counter: `sharing` and `hideDeathSaves`. DM-set table
+  // style, versioned apart from the fight so flipping a toggle can never race
+  // a turn advance out of existence.
+  policyRev?: number;
   // Who holds the DM seat *right now*, by client id. A **UI gate only**: it
   // decides which controls render, never who may write. That isn't about absent
   // DMs — it's that the encounter has to keep working with no session at all
@@ -204,8 +248,13 @@ export interface Encounter {
   // Table policy like `sharing`: death saves show to the party by default
   // (the DM's view never hides them); some tables keep the drama private.
   hideDeathSaves?: boolean;
-  // Last-write-wins bookkeeping for the party session. Absent on a purely local
-  // encounter, which is why every read is `?? 0` rather than a migration.
+  // The document lane: bumped on every local write, whatever it touched. This
+  // is what decides the **roster** — which rows exist, in what order — and
+  // nothing else any more; every field with a lane of its own is resolved on
+  // that lane's counter instead. Membership has no counter of its own because
+  // its merge is bespoke and asymmetric (see `mergeEncounter`), and the
+  // asymmetry is earned. Absent on a purely local encounter, which is why
+  // every read is `?? 0` rather than a migration.
   revision?: number;
   revisedBy?: string;
 }
@@ -234,19 +283,20 @@ export function participantFor(
   return encounter.participants.find((p) => p.characterUuid === characterUuid);
 }
 
-// Edit one participant's row, bumping its `rev`. Everything that changes a
-// participant goes through here — except `setVitals`, which owns the other
-// lane and bumps `vitalsRev` instead. Keeping the two counters apart is what
-// lets a DM's damage and a player's concentration, written at the same
-// moment, both survive; see `mergeEncounter`.
+// Edit one participant's row, bumping the counter of the lane the edit
+// belongs to. Every mutator below names its lane — which is what keeps a DM's
+// damage, a player's concentration and a reseat, all written at the same
+// moment, from racing each other; see `mergeEncounter`. (`setVitals` owns the
+// fifth lane on its own path.)
 function mapParticipant(
   encounter: Encounter,
   id: string,
+  lane: ParticipantLane,
   change: (participant: Participant) => Participant,
 ): Encounter {
   return mapRow(encounter, id, (p) => ({
     ...change(p),
-    rev: (p.rev ?? 0) + 1,
+    [lane]: (p[lane] ?? 0) + 1,
   }));
 }
 
@@ -369,7 +419,10 @@ export function setInitiative(
   id: string,
   initiative: number,
 ): Encounter {
-  return mapParticipant(encounter, id, (p) => ({ ...p, initiative }));
+  return mapParticipant(encounter, id, "initiativeRev", (p) => ({
+    ...p,
+    initiative,
+  }));
 }
 
 // Change an initiative mid-fight and move the row where the number now says —
@@ -389,7 +442,13 @@ export function reseatParticipant(
   if (moving.initiative === initiative) return encounter;
   const currentId = currentParticipant(encounter)?.id;
   const lifted = removeParticipant(encounter, id);
-  const seated = insertParticipant(lifted, { ...moving, initiative });
+  const seated = insertParticipant(lifted, {
+    ...moving,
+    initiative,
+    // Lifted out and re-inserted rather than mapped, so the lane bump is by
+    // hand here — a reseat is an initiative write like any other.
+    initiativeRev: (moving.initiativeRev ?? 0) + 1,
+  });
   const turnIndex = seated.participants.findIndex((p) => p.id === currentId);
   return turnIndex === -1 ? seated : { ...seated, turnIndex };
 }
@@ -417,13 +476,22 @@ export interface TurnAdvance {
   newRound: boolean;
 }
 
-// Sort into initiative order and start round 1 on whoever is first.
+// Sort into initiative order and start round 1 on whoever is first. A combat
+// boundary is a deliberate move of the fight (`turnSeq`) and an economy reset
+// for every row, so both counters move.
 export function startCombat(encounter: Encounter): Encounter {
   const participants = inInitiativeOrder(encounter.participants).map((p) => ({
     ...p,
     spent: NOTHING_SPENT,
+    economyRev: (p.economyRev ?? 0) + 1,
   }));
-  return { ...encounter, round: 1, turnIndex: 0, participants };
+  return {
+    ...encounter,
+    round: 1,
+    turnIndex: 0,
+    turnSeq: (encounter.turnSeq ?? 0) + 1,
+    participants,
+  };
 }
 
 // Drop back out of combat. Conditions and concentration **survive** — a fight
@@ -434,9 +502,11 @@ export function endCombat(encounter: Encounter): Encounter {
     ...encounter,
     round: 0,
     turnIndex: 0,
+    turnSeq: (encounter.turnSeq ?? 0) + 1,
     participants: encounter.participants.map((p) => ({
       ...p,
       spent: NOTHING_SPENT,
+      economyRev: (p.economyRev ?? 0) + 1,
     })),
   };
 }
@@ -468,7 +538,17 @@ export function advanceTurn(encounter: Encounter): TurnAdvance {
       }
       return [{ ...condition, rounds }];
     });
-    return { ...p, spent: NOTHING_SPENT, conditions };
+    // A turn starting is a write to the incoming row's economy (the reset) and
+    // status (the tick), so both lanes move — even when the values happen not
+    // to, because "whose turn began" is itself the fact a peer's concurrent
+    // edit has to be ordered against.
+    return {
+      ...p,
+      spent: NOTHING_SPENT,
+      conditions,
+      economyRev: (p.economyRev ?? 0) + 1,
+      statusRev: (p.statusRev ?? 0) + 1,
+    };
   });
 
   return {
@@ -476,6 +556,7 @@ export function advanceTurn(encounter: Encounter): TurnAdvance {
       ...encounter,
       round: newRound ? encounter.round + 1 : encounter.round,
       turnIndex: nextIndex,
+      turnSeq: (encounter.turnSeq ?? 0) + 1,
       participants,
     },
     active: participants[nextIndex],
@@ -492,14 +573,17 @@ export function setSpent(
   slot: EconomySlot,
   spent: boolean,
 ): Encounter {
-  return mapParticipant(encounter, id, (p) => ({
+  return mapParticipant(encounter, id, "economyRev", (p) => ({
     ...p,
     spent: { ...p.spent, [slot]: spent },
   }));
 }
 
 export function clearSpent(encounter: Encounter, id: string): Encounter {
-  return mapParticipant(encounter, id, (p) => ({ ...p, spent: NOTHING_SPENT }));
+  return mapParticipant(encounter, id, "economyRev", (p) => ({
+    ...p,
+    spent: NOTHING_SPENT,
+  }));
 }
 
 // Adding a condition already held replaces it, so re-applying with a fresh
@@ -509,7 +593,7 @@ export function addCondition(
   id: string,
   condition: ActiveCondition,
 ): Encounter {
-  return mapParticipant(encounter, id, (p) => ({
+  return mapParticipant(encounter, id, "statusRev", (p) => ({
     ...p,
     conditions: [
       ...p.conditions.filter((c) => c.name !== condition.name),
@@ -523,7 +607,7 @@ export function removeCondition(
   id: string,
   name: ConditionName,
 ): Encounter {
-  return mapParticipant(encounter, id, (p) => ({
+  return mapParticipant(encounter, id, "statusRev", (p) => ({
     ...p,
     conditions: p.conditions.filter((c) => c.name !== name),
   }));
@@ -599,7 +683,10 @@ export function offerSheet(
 ): Encounter {
   const existing = encounter.participants.find((p) => p.id === id);
   if (!existing || !!existing.claimable === claimable) return encounter;
-  return mapParticipant(encounter, id, (p) => ({ ...p, claimable }));
+  return mapParticipant(encounter, id, "identityRev", (p) => ({
+    ...p,
+    claimable,
+  }));
 }
 
 // The offered sheets someone without a character could pick up right now. "In
@@ -633,10 +720,22 @@ export function claimParticipant(
 ): Encounter {
   const existing = encounter.participants.find((p) => p.id === id);
   if (!existing || existing.ownerClientId === clientId) return encounter;
-  return mapParticipant(encounter, id, (p) => ({
+  return mapParticipant(encounter, id, "identityRev", (p) => ({
     ...p,
     ownerClientId: clientId,
   }));
+}
+
+// Rename a row when its character is renamed. A helper rather than an inline
+// map in the provider so the identity-lane bump can't be forgotten there.
+export function renameParticipant(
+  encounter: Encounter,
+  id: string,
+  name: string,
+): Encounter {
+  const existing = encounter.participants.find((p) => p.id === id);
+  if (!existing || existing.name === name) return encounter;
+  return mapParticipant(encounter, id, "identityRev", (p) => ({ ...p, name }));
 }
 
 // Take the seat. Both halves move together: the tab that holds it now, and the
@@ -695,7 +794,7 @@ export function setSharing(
   sharing: SharingLevel,
 ): Encounter {
   if ((encounter.sharing ?? DEFAULT_SHARING) === sharing) return encounter;
-  return { ...encounter, sharing };
+  return { ...encounter, sharing, policyRev: (encounter.policyRev ?? 0) + 1 };
 }
 
 export function setHideDeathSaves(
@@ -703,7 +802,11 @@ export function setHideDeathSaves(
   hide: boolean,
 ): Encounter {
   if (!!encounter.hideDeathSaves === hide) return encounter;
-  return { ...encounter, hideDeathSaves: hide };
+  return {
+    ...encounter,
+    hideDeathSaves: hide,
+    policyRev: (encounter.policyRev ?? 0) + 1,
+  };
 }
 
 export function setHidden(
@@ -713,7 +816,10 @@ export function setHidden(
 ): Encounter {
   const existing = encounter.participants.find((p) => p.id === id);
   if (!existing || !!existing.hidden === hidden) return encounter;
-  return mapParticipant(encounter, id, (p) => ({ ...p, hidden }));
+  return mapParticipant(encounter, id, "identityRev", (p) => ({
+    ...p,
+    hidden,
+  }));
 }
 
 // What a player client draws. The turn order itself is untouched — a hidden
@@ -735,5 +841,8 @@ export function setConcentration(
   id: string,
   concentration: Concentration | undefined,
 ): Encounter {
-  return mapParticipant(encounter, id, (p) => ({ ...p, concentration }));
+  return mapParticipant(encounter, id, "statusRev", (p) => ({
+    ...p,
+    concentration,
+  }));
 }

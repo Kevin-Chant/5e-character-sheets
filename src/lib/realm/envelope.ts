@@ -21,14 +21,20 @@
 //     can assert *why* a message was ignored, and a stray one is debuggable.
 
 // Bump when a message shape changes in a way an older client would misread.
-// Absent is treated as the current version: the layers shipped unversioned, and
-// a tab from before that should keep converging rather than fall silent.
 //
 // 2: the party session's bootstrap became an addressed request/response pair
 // (`syncRequest`/`syncResponse`) instead of a broadcast `hello` answered with a
 // broadcast `state`. A tab on the old build asks a question nobody is listening
 // for any more; making that explicit is what the version is for.
-export const PROTOCOL_VERSION = 2;
+//
+// 3: the encounter's convergence model changed — per-lane counters replaced
+// the per-row blob rev. This bump also changed the *policy*: an older or
+// unversioned message is now dropped too (`stale`), not just a newer one. A
+// v2 document carries no lane counters, so merging it would make every one of
+// its edits silently lose every lane tie — a client that converges wrongly.
+// Dropping it entirely means a mismatched pair of tabs each see an empty room
+// and keep their own working state: a fresh join, not a corruption.
+export const PROTOCOL_VERSION = 3;
 
 export interface Envelope {
   // The kind is also the topic key — see each layer's `TOPIC_FOR`.
@@ -50,6 +56,9 @@ export type RejectionReason =
   | "self"
   // A newer client than us. Dropping is the whole point of the version.
   | "future"
+  // An older (or unversioned) client. Its documents predate the lane
+  // counters, so they cannot merge — see the PROTOCOL_VERSION note.
+  | "stale"
   // A kind this subscriber doesn't handle.
   | "unknown-kind"
   // Addressed to somebody else.
@@ -89,9 +98,13 @@ export function accept<K extends string>(
   }
   if (message.clientId === options.clientId)
     return { ok: false, reason: "self" };
-  // Absent means "from before there were versions", which is this one.
-  if ((message.v ?? PROTOCOL_VERSION) > PROTOCOL_VERSION) {
-    return { ok: false, reason: "future" };
+  // Absent means "from before there were versions", which is older than v3.
+  const version = message.v ?? 0;
+  if (version !== PROTOCOL_VERSION) {
+    return {
+      ok: false,
+      reason: version > PROTOCOL_VERSION ? "future" : "stale",
+    };
   }
   if (!options.kinds.includes(message.kind as K)) {
     return { ok: false, reason: "unknown-kind" };

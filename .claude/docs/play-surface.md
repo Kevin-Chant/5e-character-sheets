@@ -349,41 +349,72 @@ generate-schema` is the only schema step. A code is recorded when the connection
 ### Convergence
 
 Anyone may write; the DM seat is a UI gate, not a lock. So convergence is
-**last-write-wins on a monotonic `revision`**, ties broken by client id so two
-simultaneous writers land on the same answer in every browser instead of
-swapping states forever.
+last-write-wins — but not on one counter. The document is a **declared table
+of lanes** (`ENCOUNTER_LANES` / `PARTICIPANT_LANES` in `session.ts`): each
+lane is a group of fields that move together under one counter, resolved
+independently, ties going to the document-race winner. The coarse race — a
+monotonic `revision`, ties broken by client id — still exists, but it decides
+only **membership** (which rows exist, in what order) and breaks laneless
+ties. Every mutator in `encounter.ts` bumps the counter of the lane it writes.
 
-Five exceptions, all learned the hard way:
+Why lanes at all: the ordinary shape of a fight is several people writing at
+the same instant. The DM types "you take 9" while the player, hearing the same
+sentence, ticks the spell they're holding; the DM reseats an initiative while
+its player marks a condition. Under one counter both writes start from the
+same revision and the clientId tiebreak discards one of them whole — observed
+in the two-browser harness as the concentration vanishing twice and the DM's
+damage vanishing the third time, with nobody told either had happened. Two
+writes to the _same_ lane are still genuinely ambiguous and one still loses;
+all that's promised there is that everyone picks the same one.
 
-- **A participant is two independently versioned lanes, not one value.**
-  `vitals` (the DM's oversight write, versioned by `vitalsRev`) and the rest of
-  the row — conditions, concentration, initiative, spent — versioned by `rev`.
-  The document race decides membership and the encounter-level fields; each
-  lane of each row is then resolved on its own counter, ties going to the
-  document winner. Without this, the ordinary shape of a fight loses data: the
-  DM types "you take 9" while the player, hearing the same sentence, ticks the
-  spell they're holding. Both writes start from the same revision, so the
-  clientId tiebreak discards one of them whole — observed in the two-browser
-  harness as the concentration vanishing twice and the DM's damage vanishing
-  the third time, with nobody told either had happened. Two writes to the
-  _same_ lane are still genuinely ambiguous and still resolve by the coarse
-  race; all that's promised there is that everyone picks the same one.
-  Consequently **losing the document race is now a reason to publish**: it used
-  to mean "their state was discarded and ours is presumed known", which is
-  exactly how the losing half of a simultaneous edit disappeared for good. The
-  reply carries a higher revision, so the peer's next receive is a plain win
-  and the exchange stops rather than ping-ponging (`session-convergence.test.ts`
-  counts the traffic to prove it).
-- **The DM seat is a lane too** (`Encounter.seatRev`, bumped by claim, release,
-  reclaim and a departing DM putting it down). Without it a client that has
-  simply never heard of the DM erases them by winning the coarse race — and
-  since `dmToken` goes with it, the seat becomes _unrecoverable_ rather than
-  merely unheld, because `reclaimDmSeat` matches on that token. The window is
-  small but it is exactly the moment a table starts: two players joining at
-  once, one adopting the other's not-yet-synced state and publishing a seatless
-  encounter back. Measured at 3 tables in 6 before the fix. A deliberate release
-  carries a newer `seatRev` and still wins — the guard is against ignorance, not
-  intent.
+The lanes, and what each one earned its counter for:
+
+- **Encounter `combat` (`turnSeq`): `round` + `turnIndex`, one atomic pair.**
+  5e has no additive turn advance — two people pressing "next turn" at the
+  same moment is one table event, so two crossed advances tie on `turnSeq` and
+  collapse to one. Merging round and index separately could produce an index
+  past the end of a round. Roster changes shift `turnIndex` too but
+  deliberately don't bump `turnSeq` (that shift is bookkeeping derived from
+  membership, and letting it consume the counter would make an insert eat a
+  concurrent advance); the merge clamps the index against the merged roster
+  instead.
+- **Encounter `policy` (`policyRev`): `sharing` + `hideDeathSaves`** — table
+  style, versioned apart from the fight so a toggle can't race a turn advance.
+- **Encounter `seat` (`seatRev`): `dmClientId` + `dmToken`.** A client that
+  has simply never heard of the DM carries `seatRev: 0` and can never win the
+  lane — without that, winning the coarse race erased the seat, and since
+  `dmToken` goes with it the seat became _unrecoverable_ rather than merely
+  unheld (`reclaimDmSeat` matches on the token). Measured at 3 tables in 6
+  before the fix. A deliberate release carries a newer `seatRev` and still
+  wins — the guard is against ignorance, not intent.
+- **Participant rows are five lanes**: `identityRev` (name, ownership, offer,
+  hidden), `vitalsRev` (the projection, with the guard that a copy holding no
+  vitals can't win the lane), `statusRev` (conditions + concentration),
+  `initiativeRev`, `economyRev` (spent). Split this finely because each pair
+  has a real author pair behind it — DM damage vs player concentration, DM
+  reseat vs player economy — and `session-convergence.test.ts` races them
+  pairwise.
+
+**Membership stays bespoke and asymmetric, on the coarse race — do not
+genericise it into a lane.** "The winner's roster, plus re-add only rows _this
+client_ contributed" is the rule that both keeps a joiner from being deleted
+by a reply that predates them **and** stops a goblin the DM deliberately
+removed from being resurrected by a stale peer. A symmetric union would lose
+the second property; a symmetric intersection the first.
+
+**Publishing is one loop over the counters** (`carriesNews`): reply iff the
+merged result holds a lane counter the incoming copy is behind on, or a row it
+lacks, or a document revision past it. Counters, **not values** — two writes
+can coincide on a value and the peer still needs the counter that orders the
+next one. The one place a value comparison survives is refusing a peer's copy
+of _your own_ vitals: the refusal bumps `vitalsRev` past the refused copy so
+the correction is visible to this loop (otherwise the room keeps last week's
+HP until your sheet next changes). No ping-pong: a reply carries the counters
+the peer is behind on, their merge accepts those lanes, and their next receive
+finds nothing to answer — the convergence tests count traffic to prove it.
+
+Older exceptions that survive unchanged, still learned the hard way:
+
 - **You are authoritative for your own vitals.** A peer's copy of your HP is only
   as fresh as the last state they received, so accepting it wholesale makes your
   own HP bar jump backwards every time somebody else advances the turn.

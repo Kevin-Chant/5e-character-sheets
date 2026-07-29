@@ -254,11 +254,16 @@ describe("mergeEncounter", () => {
       return { local, room };
     };
 
-    it("would otherwise discard a fight in progress", () => {
+    it("would otherwise discard the room's roster", () => {
       const { local, room } = joining();
       expect(local.revision).toBe(room.revision);
-      // Without `adopt`, the tiebreak keeps the newcomer's empty local state.
-      expect(mergeEncounter(local, room, CAROL_CHAR, "client-c").round).toBe(0);
+      // Without `adopt`, the tiebreak keeps the newcomer's local *membership*
+      // — the whole party vanishes from their copy. (The fight's position now
+      // survives on its own lane, `turnSeq`; membership is what adoption is
+      // still for.)
+      const raced = mergeEncounter(local, room, CAROL_CHAR, "client-c");
+      expect(raced.participants.map((p) => p.name)).toEqual(["Carol"]);
+      expect(raced.round).toBe(1);
     });
 
     it("takes the room's round, order and DM seat", () => {
@@ -286,7 +291,10 @@ describe("mergeEncounter", () => {
     // adopting would let the next arrival's empty state wipe its own fight.
     it("is not how ordinary updates are merged", () => {
       const { local, room } = joining();
-      expect(mergeEncounter(local, room, CAROL_CHAR, "client-c").round).toBe(0);
+      const merged = mergeEncounter(local, room, CAROL_CHAR, "client-c");
+      // An ordinary merge still runs the document race on membership: the
+      // newcomer's tiebreak win keeps their own roster.
+      expect(merged.participants.map((p) => p.name)).toEqual(["Carol"]);
     });
   });
 
