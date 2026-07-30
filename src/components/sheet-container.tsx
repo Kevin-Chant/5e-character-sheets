@@ -10,6 +10,7 @@ import {
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
+import { useCompleteMoveToDrive } from "src/lib/hooks/use-move-character";
 import { Character } from "src/lib/types";
 
 function downloadRawCharacter(character: Character) {
@@ -29,6 +30,10 @@ export default function SheetContainer() {
   const { characters } = useDatastore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // A browser → Drive move arrives here via /auth with its intent in router
+  // state; this finishes it (copy in, delete local, reopen) once Drive is up.
+  useCompleteMoveToDrive();
 
   // A remote joiner has no datastore but does have a character pushed into
   // context, so only bounce home when there's genuinely nothing to show.

@@ -5,9 +5,12 @@ import {
   FaFileExport,
   FaFileImport,
   FaGithub,
+  FaGoogleDrive,
+  FaLaptop,
 } from "react-icons/fa6";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useDriveImport } from "src/lib/hooks/use-drive-import";
+import { useMoveCharacter } from "src/lib/hooks/use-move-character";
 
 interface NavOverflowMenuProps {
   onImportFile: () => void;
@@ -41,6 +44,7 @@ export default function NavOverflowMenu({
     busy: driveImportBusy,
     handleImport: handleDriveImport,
   } = useDriveImport();
+  const { target: moveTarget, busy: moveBusy, handleMove } = useMoveCharacter();
 
   useEffect(() => {
     if (!open) return;
@@ -82,6 +86,20 @@ export default function NavOverflowMenu({
       icon: <FaFileExport />,
       label: "Export to file",
       onClick: onExportFile,
+      group: "primary" as const,
+    },
+    // Move the open character to the other storage backend. The hook answers
+    // "to where" (undefined when it can't move — no character, a borrowed or
+    // remote sheet, a shared Drive doc), so the menu just names the target.
+    moveTarget && {
+      key: "move",
+      icon: moveTarget === "drive" ? <FaGoogleDrive /> : <FaLaptop />,
+      label:
+        moveTarget === "drive"
+          ? "Move to Google Drive"
+          : "Move to this browser",
+      onClick: handleMove,
+      disabled: moveBusy,
       group: "primary" as const,
     },
     {
