@@ -518,18 +518,23 @@ export function ClassStep({ state, patch }: StepProps) {
   const custom = state.classIsCustom;
   const [query, setQuery] = useState("");
 
-  // Selecting "Other class" unfolds the name & hit-die inputs below the grid —
-  // scroll to them so the player knows to fill them in.
-  const customRef = useRef<HTMLDivElement>(null);
-  const prevCustom = useRef(custom);
+  // Picking a class unfolds its own questions below the grid — a fighting
+  // style, the Tasha's swaps, a level-1 subclass, "Other class"'s name and hit
+  // die. The grid is tall enough that all of them sit off-screen, so scroll to
+  // whatever appeared, exactly as the race and background steps do. One ref for
+  // the whole block: which questions a class asks varies, but "the part below
+  // the grid" doesn't.
+  const belowRef = useRef<HTMLDivElement>(null);
+  const selectionKey = custom ? "__custom" : state.classIndex;
+  const prevSelection = useRef(selectionKey);
   useEffect(() => {
-    if (!prevCustom.current && custom)
-      customRef.current?.scrollIntoView({
+    if (prevSelection.current !== selectionKey && selectionKey)
+      belowRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "nearest",
       });
-    prevCustom.current = custom;
-  }, [custom]);
+    prevSelection.current = selectionKey;
+  }, [selectionKey]);
 
   const q = query.trim().toLowerCase();
   const matches = SRD_CLASSES.filter((c) => c.name.toLowerCase().includes(q));
@@ -575,162 +580,164 @@ export function ClassStep({ state, patch }: StepProps) {
       />
       <ChoiceGrid choices={choices} />
 
-      {klass?.skillChoices && (
-        <p className="text-muted builder-hint">
-          You&apos;ll choose this class&apos;s {klass.skillChoices.choose} skill
-          proficiencies in the Background &amp; skills step.
-        </p>
-      )}
+      <div ref={belowRef} className="builder-below-grid">
+        {klass?.skillChoices && (
+          <p className="text-muted builder-hint">
+            You&apos;ll choose this class&apos;s {klass.skillChoices.choose}{" "}
+            skill proficiencies in the Background &amp; skills step.
+          </p>
+        )}
 
-      {klass && fightingStyleDueAt(klass.name, 1) && (
-        <Field label="Fighting style">
-          <select
-            className="builder-input"
-            value={state.fightingStyle ?? ""}
-            onChange={(e) =>
-              patch({ fightingStyle: e.target.value || undefined })
-            }
-          >
-            <option value="">Choose… (optional)</option>
-            {fightingStyleDueAt(klass.name, 1)!.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-          {state.fightingStyle && (
-            <p className="text-muted builder-hint">
-              {getFightingStyle(state.fightingStyle)?.summary}
-            </p>
-          )}
-        </Field>
-      )}
-
-      {/* Tasha's swaps due at level 1 — the ranger's Favored Foe and Deft
-          Explorer. Above the subclass, since they replace the level-1 features
-          the class card just described. */}
-      {klass && (
-        <OptionalFeaturePicker
-          features={optionalFeaturesAt(klass.name, 1)}
-          taken={state.optionalFeatures ?? []}
-          onChange={(optionalFeatures) => patch({ optionalFeatures })}
-        />
-      )}
-
-      {klass?.subclassAtLevel1 && (
-        <Field label="Subclass">
-          <select
-            className="builder-input"
-            value={state.subclass ?? ""}
-            onChange={(e) => patch({ subclass: e.target.value || undefined })}
-          >
-            <option value="">Choose… (optional)</option>
-            {subclassesForClass(klass.index).map((sub) => (
-              <option key={sub.index} value={sub.name}>
-                {sub.name}
-              </option>
-            ))}
-          </select>
-          {(() => {
-            const chosen = subclassesForClass(klass.index).find(
-              (s) => s.name === state.subclass,
-            );
-            return chosen ? (
-              <p className="text-muted builder-hint">{chosen.summary}</p>
-            ) : null;
-          })()}
-        </Field>
-      )}
-
-      {/* A level-1 subclass whose grant includes "choose N skills" (Knowledge
-          cleric's two with expertise). Bard/others pick theirs in level-up. */}
-      {(() => {
-        if (!klass?.subclassAtLevel1 || !state.subclass) return null;
-        const sc = subclassesForClass(klass.index).find(
-          (s) => s.name === state.subclass,
-        )?.grants?.skillChoices;
-        if (!sc) return null;
-        return (
-          <Field
-            label={`Subclass skills (choose ${sc.choose})`}
-            hint={
-              sc.expertise
-                ? "Your subclass grants these with expertise (double proficiency bonus)."
-                : "Skill proficiencies granted by your subclass."
-            }
-          >
-            <ChipMultiSelect<SkillName>
-              options={sc.from}
-              selected={state.subclassSkillChoices}
-              max={sc.choose}
-              onChange={(subclassSkillChoices) =>
-                patch({ subclassSkillChoices })
-              }
-            />
-          </Field>
-        );
-      })()}
-
-      {/* Closed option lists this class grants at level 1 — in practice the
-          ranger's Favored Enemy and Natural Explorer, since every other group
-          starts at class level 3 and belongs to the level-up wizard. Nothing
-          is known yet at creation, so `alreadyKnown` is always empty. */}
-      {klass &&
-        newOptionPicksAt(klass.name, 1, {
-          subclass: state.subclass,
-          fightingStyle: state.fightingStyle,
-          optionalFeatures: state.optionalFeatures,
-        }).map(({ group, count }) => (
-          <ChosenOptionPicker
-            key={group.category}
-            group={group}
-            count={count}
-            classLevel={1}
-            alreadyKnown={[]}
-            picked={state.chosenOptions[group.category] ?? []}
-            onChange={(names) =>
-              patch({
-                chosenOptions: {
-                  ...state.chosenOptions,
-                  [group.category]: names,
-                },
-              })
-            }
-          />
-        ))}
-
-      {custom && (
-        <>
-          <Field label="Class name" innerRef={customRef}>
-            <input
-              className="builder-input"
-              value={state.customClassName}
-              placeholder="e.g. Blood Hunter"
-              onChange={(e) => patch({ customClassName: e.target.value })}
-            />
-          </Field>
-          <Field label="Hit die">
+        {klass && fightingStyleDueAt(klass.name, 1) && (
+          <Field label="Fighting style">
             <select
               className="builder-input"
-              value={state.customHitDie}
+              value={state.fightingStyle ?? ""}
               onChange={(e) =>
-                patch({ customHitDie: e.target.value as StandardDie })
+                patch({ fightingStyle: e.target.value || undefined })
               }
             >
-              {[
-                StandardDie.d6,
-                StandardDie.d8,
-                StandardDie.d10,
-                StandardDie.d12,
-              ].map((d) => (
-                <option key={d} value={d}>
-                  {d}
+              <option value="">Choose… (optional)</option>
+              {fightingStyleDueAt(klass.name, 1)!.map((name) => (
+                <option key={name} value={name}>
+                  {name}
                 </option>
               ))}
             </select>
+            {state.fightingStyle && (
+              <p className="text-muted builder-hint">
+                {getFightingStyle(state.fightingStyle)?.summary}
+              </p>
+            )}
           </Field>
-        </>
-      )}
+        )}
+
+        {/* Tasha's swaps due at level 1 — the ranger's Favored Foe and Deft
+          Explorer. Above the subclass, since they replace the level-1 features
+          the class card just described. */}
+        {klass && (
+          <OptionalFeaturePicker
+            features={optionalFeaturesAt(klass.name, 1)}
+            taken={state.optionalFeatures ?? []}
+            onChange={(optionalFeatures) => patch({ optionalFeatures })}
+          />
+        )}
+
+        {klass?.subclassAtLevel1 && (
+          <Field label="Subclass">
+            <select
+              className="builder-input"
+              value={state.subclass ?? ""}
+              onChange={(e) => patch({ subclass: e.target.value || undefined })}
+            >
+              <option value="">Choose… (optional)</option>
+              {subclassesForClass(klass.index).map((sub) => (
+                <option key={sub.index} value={sub.name}>
+                  {sub.name}
+                </option>
+              ))}
+            </select>
+            {(() => {
+              const chosen = subclassesForClass(klass.index).find(
+                (s) => s.name === state.subclass,
+              );
+              return chosen ? (
+                <p className="text-muted builder-hint">{chosen.summary}</p>
+              ) : null;
+            })()}
+          </Field>
+        )}
+
+        {/* A level-1 subclass whose grant includes "choose N skills" (Knowledge
+          cleric's two with expertise). Bard/others pick theirs in level-up. */}
+        {(() => {
+          if (!klass?.subclassAtLevel1 || !state.subclass) return null;
+          const sc = subclassesForClass(klass.index).find(
+            (s) => s.name === state.subclass,
+          )?.grants?.skillChoices;
+          if (!sc) return null;
+          return (
+            <Field
+              label={`Subclass skills (choose ${sc.choose})`}
+              hint={
+                sc.expertise
+                  ? "Your subclass grants these with expertise (double proficiency bonus)."
+                  : "Skill proficiencies granted by your subclass."
+              }
+            >
+              <ChipMultiSelect<SkillName>
+                options={sc.from}
+                selected={state.subclassSkillChoices}
+                max={sc.choose}
+                onChange={(subclassSkillChoices) =>
+                  patch({ subclassSkillChoices })
+                }
+              />
+            </Field>
+          );
+        })()}
+
+        {/* Closed option lists this class grants at level 1 — in practice the
+          ranger's Favored Enemy and Natural Explorer, since every other group
+          starts at class level 3 and belongs to the level-up wizard. Nothing
+          is known yet at creation, so `alreadyKnown` is always empty. */}
+        {klass &&
+          newOptionPicksAt(klass.name, 1, {
+            subclass: state.subclass,
+            fightingStyle: state.fightingStyle,
+            optionalFeatures: state.optionalFeatures,
+          }).map(({ group, count }) => (
+            <ChosenOptionPicker
+              key={group.category}
+              group={group}
+              count={count}
+              classLevel={1}
+              alreadyKnown={[]}
+              picked={state.chosenOptions[group.category] ?? []}
+              onChange={(names) =>
+                patch({
+                  chosenOptions: {
+                    ...state.chosenOptions,
+                    [group.category]: names,
+                  },
+                })
+              }
+            />
+          ))}
+
+        {custom && (
+          <>
+            <Field label="Class name">
+              <input
+                className="builder-input"
+                value={state.customClassName}
+                placeholder="e.g. Blood Hunter"
+                onChange={(e) => patch({ customClassName: e.target.value })}
+              />
+            </Field>
+            <Field label="Hit die">
+              <select
+                className="builder-input"
+                value={state.customHitDie}
+                onChange={(e) =>
+                  patch({ customHitDie: e.target.value as StandardDie })
+                }
+              >
+                {[
+                  StandardDie.d6,
+                  StandardDie.d8,
+                  StandardDie.d10,
+                  StandardDie.d12,
+                ].map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </>
+        )}
+      </div>
     </div>
   );
 }
