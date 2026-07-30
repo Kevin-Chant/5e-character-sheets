@@ -1496,6 +1496,17 @@
                                         "minLevel"
                                     ],
                                     "type": "object"
+                                },
+                                "uses": {
+                                    "properties": {
+                                        "pool": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "pool"
+                                    ],
+                                    "type": "object"
                                 }
                             },
                             "required": [

@@ -23,10 +23,12 @@ import {
   damageMapFor,
   damageOnSave,
   DamageResolution,
+  ExtraDamageEntry,
   extrasForAttack,
   resolveDamage,
   slotDiceCount,
   spellExtrasForCast,
+  usesPoolState,
 } from "src/lib/attack-roll";
 import { spellHealingAtLevel } from "src/lib/spells/spell-scaling";
 import {
@@ -793,6 +795,24 @@ function EffectControls({
   const smiteActive =
     !!slotExtra && chosen.has(slotExtra.source) && effSmiteLevel !== undefined;
 
+  // Pool-powered extras (a Rune Knight's Fire Rune): the dice ride the damage
+  // roll like any other extra, and the use is spent by its own button afterwards
+  // — the same separation as the smite's slot, so re-rolling costs nothing.
+  // Unlike the smite these aren't assumed unique (a character can know several
+  // runes), so the spent ones are tracked as a set of sources.
+  const [usesSpent, setUsesSpent] = useState<Set<string>>(new Set());
+  const usesRemaining = (pool: string) =>
+    usesPoolState(character, pool)?.remaining ?? 0;
+  const spendUses = (entry: ExtraDamageEntry) => {
+    const pool = entry.rider.uses!.pool;
+    const { updates } = resolveEffects(
+      [{ effect: "spendUses", pool, amount: { fixed: 1 } }],
+      { character },
+    );
+    updates.forEach((u) => dispatch(u));
+    setUsesSpent((prev) => new Set(prev).add(entry.source));
+  };
+
   // Only offer slot levels the character actually has unspent (and at/above the
   // spell's base level). Cantrips use no slots, so this is empty for them.
   const availableLevels = useMemo(
@@ -989,6 +1009,9 @@ function EffectControls({
                   {rider.slot
                     ? `${source} (${dieLabel(rider.slot.die)}s scale with the slot you expend)`
                     : `${source} (+${formatCustomFormula(rider.amount, character, false)}${rider.oncePerTurn ? ", once/turn" : ""})`}
+                  {rider.uses
+                    ? ` — costs a use of ${rider.uses.pool} (${usesRemaining(rider.uses.pool)} left)`
+                    : ""}
                   {rider.note ? ` — ${rider.note}` : ""}
                 </p>
               ))}
@@ -1074,13 +1097,21 @@ function EffectControls({
                     </div>
                   );
                 }
-                const label = `${source} (+${formatCustomFormula(rider.amount, character, false)}${rider.oncePerTurn ? ", once/turn" : ""})`;
+                // Pool-powered extra (a Rune Knight's Fire Rune): the same
+                // checkbox, labelled with what's left in the pool and unticked
+                // once it's empty. The use itself is spent after the roll.
+                const pool = rider.uses?.pool;
+                const left = pool ? usesRemaining(pool) : undefined;
+                const label =
+                  `${source} (+${formatCustomFormula(rider.amount, character, false)}${rider.oncePerTurn ? ", once/turn" : ""})` +
+                  (pool ? ` — ${left} use${left === 1 ? "" : "s"} left` : "");
                 return optIn ? (
                   <div key={source} className="column roll-extra">
                     <label className="row roll-extra-toggle">
                       <input
                         type="checkbox"
                         checked={chosen.has(source)}
+                        disabled={left === 0}
                         onChange={(e) => toggle(e.target.checked)}
                       />
                       <span>{label}</span>
@@ -1197,6 +1228,30 @@ function EffectControls({
                     Expend {ordinalSlot(effSmiteLevel!)}-level slot
                   </button>
                 ))}
+              {/* The pool cost, paid on its own button — so a re-roll is free,
+                  and a feature whose use survives the hit (a ranger's already
+                  marked Favored Foe) simply isn't charged again. With real dice
+                  there's no checkbox to tick, so every candidate is offered. */}
+              {extras
+                .filter(
+                  ({ source, rider }) =>
+                    rider.uses && (manual || chosen.has(source)),
+                )
+                .map((entry) =>
+                  usesSpent.has(entry.source) ? (
+                    <span key={entry.source} className="roll-part muted">
+                      {entry.rider.uses!.pool} use spent
+                    </span>
+                  ) : (
+                    <button
+                      key={entry.source}
+                      disabled={usesRemaining(entry.rider.uses!.pool) < 1}
+                      onClick={() => spendUses(entry)}
+                    >
+                      Spend a use of {entry.rider.uses!.pool}
+                    </button>
+                  ),
+                )}
             </div>
           )}
         </>

@@ -23,6 +23,7 @@ import {
   riderEligibility,
 } from "src/lib/mechanics/conditions";
 import { availableSpellSlots } from "src/lib/rules";
+import { abilityRemainingUses } from "src/lib/mechanics/resolve";
 import { spellDamageAtLevel } from "src/lib/spells/spell-scaling";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +42,7 @@ import { spellDamageAtLevel } from "src/lib/spells/spell-scaling";
 
 export type ExtraDamageRider = Extract<RollRider, { rider: "extraDamage" }>;
 export type SlotScaling = NonNullable<ExtraDamageRider["slot"]>;
+export type UsesCost = NonNullable<ExtraDamageRider["uses"]>;
 
 export interface ExtraDamageEntry {
   source: string;
@@ -79,7 +81,15 @@ export function extrasForAttack(
     r.rider.rider === "extraDamage" &&
     r.rider.declareAt !== "before-attack" &&
     riderEligibility(r, context) !== "no"
-      ? [{ source: r.source, rider: r.rider, optIn: needsOptIn(r, context) }]
+      ? [
+          {
+            source: r.source,
+            rider: r.rider,
+            // A rider that costs something is never applied silently, whatever
+            // the weapon settles: spending a use has to be the player's word.
+            optIn: needsOptIn(r, context) || !!r.rider.uses,
+          },
+        ]
       : [],
   );
 }
@@ -126,6 +136,30 @@ export function spellExtrasForCast(
 // `minLevel`, one more per level above, capped at `maxDice`.
 export const slotDiceCount = (slot: SlotScaling, level: number): number =>
   Math.min(slot.diceAtMin + (level - slot.minLevel), slot.maxDice);
+
+/**
+ * Uses left in the pool that powers a `uses` rider, and its index on the sheet.
+ *
+ * `undefined` when no pool by that title is on the character — the same "report
+ * it, don't silently drain nothing" stance `poolTarget` takes on the write side.
+ */
+export function usesPoolState(
+  character: Character,
+  pool: string,
+): { index: number; remaining: number } | undefined {
+  const wanted = pool.trim().toLowerCase();
+  const index = (character.limitedUseAbilities ?? []).findIndex(
+    (a) => a.info.title.trim().toLowerCase() === wanted,
+  );
+  if (index < 0) return undefined;
+  return {
+    index,
+    remaining: abilityRemainingUses(
+      character.limitedUseAbilities[index],
+      character,
+    ),
+  };
+}
 
 /** Slot levels at or above `minLevel` that the character still has unspent. */
 export function availableSlotLevels(

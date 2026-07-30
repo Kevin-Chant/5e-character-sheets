@@ -1249,6 +1249,32 @@ export function classDamageRiders(character: Character): ActiveRider[] {
     });
   }
 
+  // Psychic Blades (College of Whispers bard 3+): once per turn on a weapon hit,
+  // expend a use of Bardic Inspiration for level-scaled psychic damage. The one
+  // rider whose cost is *another* feature's pool, which is why it carries `uses`
+  // — the dialog ticks it, rolls it with the weapon, and spends the inspiration
+  // on its own button. It can't live in the title-keyed map: the Soulknife rogue
+  // has a feature by the same name that works nothing like it.
+  const bard = levelOf(OfficialClass.Bard);
+  if (
+    bard >= 3 &&
+    character.class.find((k) => k.name === OfficialClass.Bard)?.subclass ===
+      "Whispers"
+  )
+    out.push({
+      source: "Psychic Blades",
+      rider: {
+        rider: "extraDamage",
+        amount: d6(bard >= 15 ? 8 : bard >= 10 ? 5 : bard >= 5 ? 3 : 2),
+        damageType: DamageType.Psychic,
+        declareAt: "on-hit",
+        optional: true,
+        oncePerTurn: true,
+        note: "On a weapon hit.",
+        uses: { pool: "Bardic Inspiration" },
+      },
+    });
+
   return out;
 }
 

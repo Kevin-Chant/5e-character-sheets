@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  DamageType,
+  DieOperation,
   OfficialClass,
   RestType,
   StandardDie,
@@ -10,7 +12,11 @@ import { applyLevelUp, defaultLevelUpState } from "src/lib/builder/level-up";
 import { defaultBuilderState } from "src/lib/builder/types";
 import { resistancesFromOptions } from "src/lib/builder/chosen-options";
 import { mechanicsForAbility } from "src/lib/mechanics/catalog";
-import { critThreshold, ridersFor } from "src/lib/mechanics/riders";
+import {
+  critThreshold,
+  extraDamageRiders,
+  ridersFor,
+} from "src/lib/mechanics/riders";
 import { calculateCustomFormula } from "src/lib/formula";
 import { randomUUID } from "src/lib/browser";
 import { Character, IClass, LimitedUseAbility } from "src/lib/types";
@@ -268,6 +274,99 @@ describe("syncClassPools", () => {
       .filter((r) => r.rider.rider === "advantage")
       .map((r) => (r.rider as { note: string }).note);
     expect(notes.some((n) => n.includes("Sleight of Hand"))).toBe(true);
+  });
+
+  it("a rune invoked on a weapon hit rides the attack instead of a button", () => {
+    const c = blank();
+    c.features.push({
+      title: "Fire Rune",
+      titleFormulas: [],
+      detail: "",
+      detailFormulas: [],
+    });
+    syncClassPools(c, {
+      ...klass(OfficialClass.Fighter, 3),
+      subclass: "Rune Knight",
+    });
+    const fire = pool(c, "Fire Rune");
+    const mechanics = mechanicsForAbility(fire);
+    // No button in the abilities panel — the 2d6 belongs to the attack roll.
+    expect(mechanics?.actions).toBeUndefined();
+    const extra = extraDamageRiders(c).find((r) => r.source === "Fire Rune");
+    const rider = extra?.rider as {
+      amount: unknown;
+      damageType: DamageType;
+      declareAt: string;
+      uses?: { pool: string };
+    };
+    expect(rider.amount).toEqual([2, StandardDie.d6, DieOperation.roll]);
+    expect(rider.damageType).toBe(DamageType.Fire);
+    expect(rider.declareAt).toBe("on-hit");
+    // And ticking it costs the rune's own use.
+    expect(rider.uses?.pool).toBe("Fire Rune");
+    // A rune invoked on its own keeps its button.
+    c.features.push({
+      title: "Frost Rune",
+      titleFormulas: [],
+      detail: "",
+      detailFormulas: [],
+    });
+    syncClassPools(c, {
+      ...klass(OfficialClass.Fighter, 3),
+      subclass: "Rune Knight",
+    });
+    expect(mechanicsForAbility(pool(c, "Frost Rune"))?.actions).toHaveLength(1);
+  });
+
+  it("Favored Foe's damage rides the attack, spending a use to mark", () => {
+    const c = blank();
+    c.features.push({
+      title: "Favored Foe",
+      titleFormulas: [],
+      detail: "",
+      detailFormulas: [],
+    });
+    const dieOf = (level: number) => {
+      syncClassPools(c, klass(OfficialClass.Ranger, level));
+      const rider = extraDamageRiders(c).find((r) => r.source === "Favored Foe")
+        ?.rider as {
+        amount: [number, StandardDie, unknown];
+        uses?: { pool: string };
+      };
+      expect(rider.uses?.pool).toBe("Favored Foe");
+      return rider.amount[1];
+    };
+    expect([dieOf(1), dieOf(6), dieOf(14)]).toEqual([
+      StandardDie.d4,
+      StandardDie.d6,
+      StandardDie.d8,
+    ]);
+    expect(
+      mechanicsForAbility(pool(c, "Favored Foe"))?.actions,
+    ).toBeUndefined();
+  });
+
+  it("a Whispers bard's Psychic Blades is a rider spending Bardic Inspiration", () => {
+    const c = blank();
+    const bard = { ...klass(OfficialClass.Bard, 5), subclass: "Whispers" };
+    c.class = [bard];
+    syncClassPools(c, bard);
+    // Not a charge-less pool row of its own any more.
+    expect(titles(c)).not.toContain("Psychic Blades");
+    const rider = extraDamageRiders(c).find(
+      (r) => r.source === "Psychic Blades",
+    )?.rider as {
+      amount: [number, StandardDie, unknown];
+      uses?: { pool: string };
+    };
+    expect(rider.amount[0]).toBe(3); // 2d6 → 3d6 at 5th
+    expect(rider.uses?.pool).toBe("Bardic Inspiration");
+    // Another college gets nothing (and neither does a Soulknife rogue, whose
+    // same-named feature works nothing like it).
+    c.class = [{ ...bard, subclass: "Lore" }];
+    expect(
+      extraDamageRiders(c).some((r) => r.source === "Psychic Blades"),
+    ).toBe(false);
   });
 
   it("a rogue reaching 20 gets a Stroke of Luck pool with an action", () => {

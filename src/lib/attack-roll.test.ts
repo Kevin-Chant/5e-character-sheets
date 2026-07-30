@@ -17,6 +17,7 @@ import {
   resolveDamage,
   slotDiceCount,
   spellExtrasForCast,
+  usesPoolState,
 } from "./attack-roll";
 import { Spell } from "src/lib/types";
 
@@ -89,6 +90,63 @@ describe("extrasForAttack", () => {
     expect(
       extrasForAttack(c, GREATSWORD, undefined).map((e) => e.source),
     ).toEqual(["Dueling"]);
+  });
+
+  it("always asks before a rider that costs a use, whatever the weapon settles", () => {
+    const c = character();
+    c.limitedUseAbilities = [
+      {
+        info: { title: "Fire Rune", titleFormulas: [] },
+        maxUses: 1,
+        expended: 0,
+        recharge: "shortRest",
+        mechanics: {
+          riders: [
+            {
+              appliesTo: ["damage"],
+              rider: {
+                rider: "extraDamage",
+                amount: [2, StandardDie.d6, DieOperation.roll],
+                declareAt: "on-hit",
+                uses: { pool: "Fire Rune" },
+              },
+            },
+          ],
+        },
+      } as never,
+    ];
+    // No `optional`, no `requires` — nothing left for the sheet to wonder about,
+    // and it still asks: spending a resource is the player's call.
+    const [fire] = extrasForAttack(c, GREATSWORD, undefined);
+    expect(fire.optIn).toBe(true);
+  });
+});
+
+describe("usesPoolState", () => {
+  const withRune = (expended: number): Character => {
+    const c = character();
+    c.limitedUseAbilities = [
+      {
+        info: { title: "Fire Rune", titleFormulas: [] },
+        maxUses: 2,
+        expended,
+        recharge: "shortRest",
+      } as never,
+    ];
+    return c;
+  };
+
+  it("reads the named pool's remaining uses, matched loosely on title", () => {
+    expect(usesPoolState(withRune(1), "fire rune ")).toEqual({
+      index: 0,
+      remaining: 1,
+    });
+  });
+
+  it("is undefined when no such pool is on the sheet, rather than 0", () => {
+    // The distinction the write side makes too: a missing pool is a data
+    // problem to report, not an empty one to silently not drain.
+    expect(usesPoolState(character(), "Fire Rune")).toBeUndefined();
   });
 });
 

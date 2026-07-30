@@ -1,4 +1,5 @@
 import {
+  DamageType,
   DieOperation,
   OfficialClass,
   Operation,
@@ -417,24 +418,31 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       recharge: long,
       maxUses: () => PB,
       requiresFeature: "Favored Foe",
-      // The die grows 1d4 → 1d6 (6th) → 1d8 (14th).
+      // The die grows 1d4 → 1d6 (6th) → 1d8 (14th). Its damage lands on a hit,
+      // so it rides the attack's damage roll; the use is what *marks* the foe, so
+      // the spend button is pressed on the marking hit and left alone on the
+      // turns after it, which the note says out loud.
       mechanics: (k) => ({
-        actions: [
-          spendRollRemind({
-            id: "favored-foe",
-            name: "Mark favored foe",
-            cost: "special",
-            costNote: "when you hit a creature with an attack",
-            roll: {
-              label: "Favored Foe damage",
-              die: atLevel(k.level, [
-                [1, StandardDie.d4],
-                [6, StandardDie.d6],
-                [14, StandardDie.d8],
-              ]),
+        riders: [
+          {
+            appliesTo: ["damage"],
+            rider: {
+              rider: "extraDamage",
+              amount: dieRoll(
+                1,
+                atLevel(k.level, [
+                  [1, StandardDie.d4],
+                  [6, StandardDie.d6],
+                  [14, StandardDie.d8],
+                ]),
+              ),
+              declareAt: "on-hit",
+              optional: true,
+              oncePerTurn: true,
+              note: "The first time you hit your marked foe on each of your turns. Spend a use only to mark a new foe (the mark lasts a minute and needs your concentration).",
+              uses: { pool: "Favored Foe" },
             },
-            note: "The mark lasts a minute and needs your concentration. Add this damage the first time you hit the target on each of your turns — no further uses spent.",
-          }),
+          },
         ],
       }),
     },
@@ -534,19 +542,36 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
 function runeKnightPools(): ClassPoolDef[] {
   // One rune's once-per-rest invocation pool. `checkNote` is the passive
   // advantage reminder (omitted for a rune whose passive isn't a check
-  // advantage — Fire's tool bonus); `roll`/`save` appear on runes that deal
-  // damage or force a save.
-  const rune = (opts: {
-    name: string; // e.g. "Cloud" — the pool/feature title is `${name} Rune`
-    level: number; // 3, or 7 for Hill/Storm
-    detail: string;
-    cost: ActionCost;
-    costNote?: string;
-    note: string;
-    checkNote?: string;
-    roll?: { label: string; count?: number; die: StandardDie };
-    save?: boolean;
-  }): ClassPoolDef => {
+  // advantage — Fire's tool bonus); `save` appears on runes that force one.
+  //
+  // How the invocation is offered is a union, because it's a real fork: most
+  // runes are invoked on their own (an action/reaction, so a button on the pool),
+  // but a rune invoked **on a weapon hit** belongs in the attack's roll dialog as
+  // an `onHit` rider that spends the use — rolling its damage in the abilities
+  // panel would divorce it from the attack that caused it.
+  const rune = (
+    opts: {
+      name: string; // e.g. "Cloud" — the pool/feature title is `${name} Rune`
+      level: number; // 3, or 7 for Hill/Storm
+      detail: string;
+      checkNote?: string;
+      save?: boolean;
+    } & (
+      | {
+          cost: ActionCost;
+          costNote?: string;
+          note: string;
+          roll?: { label: string; count?: number; die: StandardDie };
+        }
+      | {
+          onHit: {
+            amount: CustomFormula;
+            damageType: DamageType;
+            note: string;
+          };
+        }
+    ),
+  ): ClassPoolDef => {
     const title = `${opts.name} Rune`;
     return {
       title,
@@ -565,26 +590,49 @@ function runeKnightPools(): ClassPoolDef[] {
           }
         : {}),
       mechanics: () => ({
-        ...(opts.checkNote
-          ? {
-              riders: [
+        riders: [
+          ...(opts.checkNote
+            ? [
                 {
-                  appliesTo: ["check"],
-                  rider: { rider: "advantage", note: opts.checkNote },
+                  appliesTo: ["check" as const],
+                  rider: {
+                    rider: "advantage" as const,
+                    note: opts.checkNote,
+                  },
                 },
-              ],
-            }
-          : {}),
-        actions: [
-          spendRollRemind({
-            id: slugId(`invoke-${opts.name}-rune`),
-            name: `Invoke ${opts.name} Rune`,
-            cost: opts.cost,
-            ...(opts.costNote ? { costNote: opts.costNote } : {}),
-            ...(opts.roll ? { roll: opts.roll } : {}),
-            note: opts.note,
-          }),
+              ]
+            : []),
+          ...("onHit" in opts
+            ? [
+                {
+                  appliesTo: ["damage" as const],
+                  rider: {
+                    rider: "extraDamage" as const,
+                    amount: opts.onHit.amount,
+                    damageType: opts.onHit.damageType,
+                    declareAt: "on-hit" as const,
+                    optional: true,
+                    note: opts.onHit.note,
+                    uses: { pool: title },
+                  },
+                },
+              ]
+            : []),
         ],
+        ...("onHit" in opts
+          ? {}
+          : {
+              actions: [
+                spendRollRemind({
+                  id: slugId(`invoke-${opts.name}-rune`),
+                  name: `Invoke ${opts.name} Rune`,
+                  cost: opts.cost,
+                  ...(opts.costNote ? { costNote: opts.costNote } : {}),
+                  ...(opts.roll ? { roll: opts.roll } : {}),
+                  note: opts.note,
+                }),
+              ],
+            }),
       }),
     };
   };
@@ -666,13 +714,16 @@ function runeKnightPools(): ClassPoolDef[] {
     rune({
       name: "Fire",
       level: 3,
-      cost: "special",
-      costNote: "when you hit with an attack",
-      roll: { label: "Fire damage", count: 2, die: StandardDie.d6 },
       save: true,
       detail:
         "Passive: add double your proficiency bonus to ability checks with tools you're proficient with. Invoke on a weapon hit to deal 2d6 fire and restrain the target.",
-      note: "The target takes the fire damage and must succeed on a Strength saving throw or be restrained for 1 minute, taking 2d6 fire at the start of each of its turns (it repeats the save at the end of its turns).",
+      // Invoked on a hit, so it rides the attack's damage roll rather than being
+      // a button that would make you roll 2d6 apart from the swing.
+      onHit: {
+        amount: dieRoll(2, StandardDie.d6),
+        damageType: DamageType.Fire,
+        note: "On a weapon hit. The target must also succeed on a Strength saving throw (the rune DC) or be restrained for 1 minute, taking 2d6 fire at the start of each of its turns (it repeats the save at the end of its turns).",
+      },
     }),
     rune({
       name: "Frost",
@@ -1090,33 +1141,11 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
     },
   ],
   Whispers: [
-    {
-      title: "Psychic Blades",
-      detail:
-        "Once per turn on a weapon hit, expend a Bardic Inspiration use to deal extra psychic damage (2d6, rising with bard level).",
-      level: 3,
-      recharge: long,
-      maxUses: () => 0,
-      mechanics: (k) =>
-        spendsSharedPool({
-          id: "psychic-blades",
-          name: "Psychic Blades",
-          cost: "special",
-          costNote: "once per turn, on a weapon hit",
-          pool: "Bardic Inspiration",
-          roll: {
-            label: "Psychic damage",
-            count: atLevel(k.level, [
-              [3, 2],
-              [5, 3],
-              [10, 5],
-              [15, 8],
-            ]),
-            die: StandardDie.d6,
-          },
-          note: "Extra psychic damage on the hit.",
-        }),
-    },
+    // Psychic Blades is *not* a pool here: it owns no charges, spends someone
+    // else's, and lands on a weapon hit — so it's an `extraDamage` rider in
+    // `classDamageRiders` (gated on bard + Whispers, like Divine Strike on a
+    // domain) plus an ordinary prose row, rather than a charge-less host whose
+    // only content was a button rolling damage away from the attack.
     {
       title: "Words of Terror",
       detail:

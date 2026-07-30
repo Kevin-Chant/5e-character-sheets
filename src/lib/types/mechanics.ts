@@ -216,6 +216,19 @@ type RollRiderKind =
         // offered as a toggle. Same die as above.
         bonus?: { dice: number; label: string };
       };
+      // Present when the extra damage costs a use of a limited-use pool (a Rune
+      // Knight's Fire Rune, invoked on a weapon hit). The sibling of `slot`, and
+      // for the same reason: a feature whose trigger *is* the hit belongs in the
+      // attack dialog, not as a button in the abilities panel that would have
+      // you roll its dice apart from the attack that caused them. Unlike `slot`
+      // the dice don't scale, so `amount` is authoritative; the use is spent by
+      // an explicit button, keeping the damage roll re-rollable. Never set
+      // alongside `slot` — one cost per rider.
+      uses?: {
+        // The limited-use ability's title, matched the way `spendUses`' `pool`
+        // is. Usually the rider's own pool, since it's granted by it.
+        pool: string;
+      };
     }
   // Extra damage folded into a *spell's* damage — the mirror image of
   // `extraDamage`, gated to spell damage instead of weapon attacks. Potent

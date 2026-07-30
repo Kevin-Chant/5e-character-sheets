@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import {
   DamageType,
   DieOperation,
+  OfficialClass,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -12,7 +13,14 @@ import { defaultCharacter } from "src/lib/data/default-data";
 import { RollMode, RollModeContextProvider } from "src/lib/hooks/use-roll-mode";
 import { SettingsContextProvider } from "src/lib/hooks/use-settings";
 import { writeLocalStorage } from "src/lib/local-storage";
-import { Character, CustomFormulaWithDamage, SaveEffect } from "src/lib/types";
+import {
+  Character,
+  CustomFormulaWithDamage,
+  LimitedUseAbility,
+  SaveEffect,
+} from "src/lib/types";
+import { syncClassPools } from "src/lib/builder/class-pools";
+import { randomUUID } from "src/lib/browser";
 import { RollSpec } from "src/lib/hooks/use-roller";
 import {
   WEAPON_PRESETS,
@@ -240,6 +248,79 @@ describe("RollModal — weapon conditions", () => {
     const tick = screen.getByRole("checkbox", { name: /Archery/ });
     await userEvent.click(tick);
     expect(screen.getByText("d20 +9")).toBeInTheDocument();
+  });
+});
+
+// A feature invoked *on a hit* (a Rune Knight's Fire Rune) is a rider here, not
+// a button in the abilities panel: its dice ride the weapon's damage roll, and
+// the use it costs is spent afterwards by its own button — so a re-roll is free.
+describe("RollModal — a pool-powered extra", () => {
+  const fireRune = (): LimitedUseAbility => {
+    const c = structuredClone(defaultCharacter) as Character;
+    c.limitedUseAbilities = [];
+    c.features = [
+      { title: "Fire Rune", titleFormulas: [], detail: "", detailFormulas: [] },
+    ];
+    const fighter = {
+      id: randomUUID(),
+      name: OfficialClass.Fighter,
+      level: 3,
+      subclass: "Rune Knight",
+    };
+    syncClassPools(c, fighter);
+    return c.limitedUseAbilities.find((a) => a.info.title === "Fire Rune")!;
+  };
+
+  beforeEach(() => {
+    character.limitedUseAbilities = [fireRune()];
+  });
+  afterEach(() => {
+    character.limitedUseAbilities = [];
+  });
+
+  it("rolls the rune's dice with the weapon's, and spends nothing until asked", async () => {
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD });
+    const tick = screen.getByRole("checkbox", { name: /Fire Rune/ });
+    // Labelled with what the pool has left, so the cost is visible before it's paid.
+    expect(tick).toHaveAccessibleName(/1 use left/);
+    await userEvent.click(tick);
+    await userEvent.click(screen.getByRole("button", { name: "Roll Damage" }));
+    // 2d6 + STR 5 for the greatsword, plus the rune's 2d6 fire — one roll.
+    expect(total()).toBe(17 + 12);
+    expect(screen.getByText(/\+12 Fire — Fire Rune/)).toBeInTheDocument();
+    expect(dispatch).not.toHaveBeenCalled();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Spend a use of Fire Rune" }),
+    );
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0][0]).toMatchObject({
+      type: "update_limitedUseAbilities",
+      subField: "0.expended",
+      payload: { value: 1 },
+    });
+    expect(screen.getByText("Fire Rune use spent")).toBeInTheDocument();
+  });
+
+  it("can't be ticked once the rune is spent out", () => {
+    character.limitedUseAbilities[0].expended = 1;
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD });
+    const tick = screen.getByRole("checkbox", { name: /Fire Rune/ });
+    expect(tick).toBeDisabled();
+    expect(tick).toHaveAccessibleName(/0 uses left/);
+  });
+
+  it("is a reminder with a spend button when the dice are real", async () => {
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "manual");
+    expect(
+      screen.getByText(/costs a use of Fire Rune \(1 left\)/),
+    ).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Total damage"), "29{enter}");
+    // No checkbox to tick with real dice, so the commit is offered outright.
+    await userEvent.click(
+      screen.getByRole("button", { name: "Spend a use of Fire Rune" }),
+    );
+    expect(dispatch).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -273,6 +273,38 @@ re-rollable, one button commits the state via `resolveEffects([{expendSlot}],
 {chosenLevel})` so it syncs/undoes like any edit. `amount` on a `slot` rider is
 just a pre-choice placeholder; the modal always recomputes from the slot.
 
+**Fire Rune — the pool-powered variant.** `slot`'s sibling: a `uses: {pool}`
+block means the extra damage costs a use of a named limited-use ability. It's the
+answer to a whole family of features whose trigger _is_ the hit — a Rune Knight's
+Fire Rune, a ranger's Favored Foe, a Whispers bard's Psychic Blades — which were
+all modelled as `spendRollRemind` actions at first and so made you roll their
+dice in the abilities panel, next to a button, disconnected from the attack that
+caused them. As a rider the dice come out with the weapon's, and the use is spent
+by an **explicit button** for the same reason the smite's slot is: rolling stays
+re-rollable, and a feature whose use survives the hit (Favored Foe's mark lasts a
+minute) simply isn't charged again on later turns. Two consequences worth knowing:
+a `uses` rider is **always** `optIn`, whatever the weapon's tags settle — spending
+a resource is the player's word, never the sheet's — and it's disabled with the
+pool at zero rather than hidden, so the reason it's unavailable stays visible.
+`pool` is matched the way `spendUses`' is, so it can name a **different** ability
+(Psychic Blades drains Bardic Inspiration), and `usesPoolState` returns
+`undefined` for a pool that isn't on the sheet rather than a silent 0.
+
+Which shape a pool-backed feature wants:
+
+| The feature…                        | Home                                                              |
+| ----------------------------------- | ----------------------------------------------------------------- |
+| happens on your turn (Second Wind)  | an `AbilityAction` on its pool                                    |
+| happens on _your_ weapon hit        | an `extraDamage` rider with `uses`                                |
+| is triggered by someone else's roll | an action — there's no dialog of yours to ride (Deflect Missiles) |
+
+A rider that scales with level still needs baking from an integer: a pool's own
+`mechanics(klass)` does it when the pool owns the feature (Fire Rune, Favored
+Foe), and `classDamageRiders` does it when nothing owns it — Psychic Blades lives
+there because it holds no charges of its own and is gated on a _subclass_, the
+same reason Divine Strike does (and because the Soulknife rogue has a feature by
+the same name that works nothing like it, so the title-keyed map is out).
+
 **Divine Strike — subclass-dependent damage type.** The only rider whose data
 depends on the _subclass_: a cleric's domain sets the type (Life radiant,
 Tempest thunder, …), so `DIVINE_STRIKE_TYPES` in `catalog.ts` maps domain →

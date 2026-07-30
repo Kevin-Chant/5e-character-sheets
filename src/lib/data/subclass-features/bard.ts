@@ -160,6 +160,13 @@ export const BARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
   Whispers: {
     3: [
       // Words of Terror is a limited-use pool — see SUBCLASS_POOLS["Whispers"].
+      // Psychic Blades' damage is a rider on the attack roll (see
+      // `classDamageRiders`), so it needs its prose row here.
+      {
+        title: "Psychic Blades",
+        detail:
+          "Once per turn when you hit a creature with a weapon attack, expend a use of Bardic Inspiration to deal extra psychic damage: 2d6, rising to 3d6 at 5th level, 5d6 at 10th, and 8d6 at 15th.",
+      },
     ],
     6: [
       // Mantle of Whispers is a limited-use pool — see SUBCLASS_POOLS["Whispers"].
