@@ -772,3 +772,21 @@ describe("buildCharacter — Simic Hybrid's first Animal Enhancement", () => {
     expect(chosenIn(buildCharacter(simic()), "simicEnhancement1")).toEqual([]);
   });
 });
+
+describe("backgrounds beyond the PHB", () => {
+  it("grants a background's chosen skill alongside its fixed ones", () => {
+    const c = buildCharacter({
+      ...defaultBuilderState(),
+      mode: "guided",
+      classIndex: "wizard",
+      backgroundName: "Cloistered Scholar",
+      backgroundSkillChoices: [SkillName.Religion, SkillName.Athletics],
+    });
+    expect(c.proficiencies.skills.History).toBe(true);
+    expect(c.proficiencies.skills.Religion).toBe(true);
+    // Athletics isn't one of the three this background offers, so a stale pick
+    // left over from another background can't ride along.
+    expect(c.proficiencies.skills.Athletics).toBeFalsy();
+    expect(c.features.map((f) => f.title)).toContain("Library Access");
+  });
+});

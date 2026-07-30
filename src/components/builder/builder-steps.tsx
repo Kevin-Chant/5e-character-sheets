@@ -28,7 +28,7 @@ import {
   getFightingStyle,
 } from "src/lib/builder/class-features";
 import { subclassesForClass } from "src/lib/builder/subclasses";
-import { PHB_BACKGROUNDS, getBackground } from "src/lib/builder/backgrounds";
+import { ALL_BACKGROUNDS, getBackground } from "src/lib/builder/backgrounds";
 import {
   describeStartingWealth,
   parseEquipmentOption,
@@ -1043,6 +1043,7 @@ function AssignEditor({
 // ---------------------------------------------------------------- Background
 
 export function BackgroundStep({ state, patch }: StepProps) {
+  const [query, setQuery] = useState("");
   const bg = getBackground(state.backgroundName);
   const custom = state.backgroundIsCustom;
   const languageCount = bg?.languages ?? 0;
@@ -1065,17 +1066,34 @@ export function BackgroundStep({ state, patch }: StepProps) {
     prevSelection.current = selectionKey;
   }, [selectionKey]);
 
+  // Thirty backgrounds is past the point where a grid alone is browsable, so
+  // this step gets the same search box the race and class steps have. Matching
+  // on the skills too is what makes "persuasion" a useful thing to type.
+  const q = query.trim().toLowerCase();
+  const matches = ALL_BACKGROUNDS.filter((b) =>
+    [b.name, b.source ?? "", ...b.skills, ...(b.skillChoices?.from ?? [])]
+      .join(" ")
+      .toLowerCase()
+      .includes(q),
+  );
   const choices: Choice[] = [
-    ...PHB_BACKGROUNDS.map((b) => ({
+    ...matches.map((b) => ({
       key: b.name,
       title: b.name,
-      subtitle: b.skills.join(", "),
+      subtitle: [
+        b.skills.join(", "),
+        b.skillChoices && `+${b.skillChoices.choose} of your choice`,
+        b.source,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       selected: state.backgroundName === b.name,
       onClick: () =>
         patch({
           backgroundName: b.name,
           backgroundIsCustom: false,
           backgroundLanguageChoices: [],
+          backgroundSkillChoices: [],
         }),
     })),
     {
@@ -1090,7 +1108,12 @@ export function BackgroundStep({ state, patch }: StepProps) {
 
   // Skills already granted by background + race, so class picks don't waste on
   // duplicates (BG3-style).
-  const bgSkills = custom ? state.customBackgroundSkills : (bg?.skills ?? []);
+  const bgSkillChoices = state.backgroundSkillChoices.filter((sk) =>
+    (bg?.skillChoices?.from ?? []).includes(sk),
+  );
+  const bgSkills = custom
+    ? state.customBackgroundSkills
+    : [...(bg?.skills ?? []), ...bgSkillChoices];
   const grantedSkills = [
     ...bgSkills,
     ...state.raceSkillChoices,
@@ -1121,14 +1144,41 @@ export function BackgroundStep({ state, patch }: StepProps) {
 
   return (
     <div className="builder-step">
+      <FilterSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Search backgrounds…"
+      />
       <ChoiceGrid choices={choices} />
 
       <div ref={belowRef} className="builder-below-grid">
+        {bg?.skillChoices && (
+          <Field
+            label={`Background skill proficiencies (choose ${bg.skillChoices.choose})`}
+            hint={`${bg.name} grants ${bg.skills.length ? bg.skills.join(", ") + " plus " : ""}your pick of these.`}
+          >
+            <ChipMultiSelect<SkillName>
+              options={bg.skillChoices.from}
+              selected={bgSkillChoices}
+              max={bg.skillChoices.choose}
+              onChange={(backgroundSkillChoices) =>
+                patch({ backgroundSkillChoices })
+              }
+            />
+          </Field>
+        )}
+
         {bg && (
           <p className="text-muted builder-hint">
-            Skills: {bg.skills.join(", ")}
-            {bg.tools.length ? ` · Tools: ${bg.tools.join(", ")}` : ""} ·
-            Feature: {bg.feature.title}
+            {[
+              // A background whose skills are entirely a choice (Haunted One)
+              // has nothing to state here — the picker above says it instead.
+              bgSkills.length && `Skills: ${bgSkills.join(", ")}`,
+              bg.tools.length && `Tools: ${bg.tools.join(", ")}`,
+              `Feature: ${bg.feature.title}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         )}
 

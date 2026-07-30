@@ -328,6 +328,10 @@ export interface BuilderState extends LevelChoices {
   customBackgroundFeatureTitle: string;
   customBackgroundFeatureDetail: string;
   backgroundLanguageChoices: string[];
+  // Skills picked from a background's own "choose N" (Cloistered Scholar's
+  // second skill, an Urban Bounty Hunter's two). Separate from
+  // `customBackgroundSkills`, which is the whole grant for a homebrew one.
+  backgroundSkillChoices: SkillName[];
 
   // Spells (SRD indices). Only used when the class casts at level 1.
   cantripIndices: string[];
@@ -407,6 +411,7 @@ export function defaultBuilderState(): BuilderState {
     customBackgroundFeatureTitle: "",
     customBackgroundFeatureDetail: "",
     backgroundLanguageChoices: [],
+    backgroundSkillChoices: [],
     cantripIndices: [],
     levelOneSpellIndices: [],
     startingWealth: "equipment",

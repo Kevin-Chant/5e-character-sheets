@@ -12,7 +12,17 @@ import { SkillName } from "src/lib/data/data-definitions";
 
 export interface Background {
   name: string;
-  skills: [SkillName, SkillName];
+  // Which book it comes from, shown on the card. Absent means the PHB, which is
+  // where every background here is from — see `nonphb-backgrounds.ts`.
+  source?: string;
+  // Skill proficiencies granted outright. Usually two, but a background with a
+  // `skillChoices` grant may name fewer (or none, for one that lets you pick
+  // both).
+  skills: SkillName[];
+  // "Choose N of these", for the backgrounds whose second skill is a choice
+  // (Cloistered Scholar's Arcana/Nature/Religion). Same shape as a class's, so
+  // the wizard's picker doesn't have to learn a new one.
+  skillChoices?: { choose: number; from: SkillName[] };
   // Free-form tool proficiency labels (may describe a choice).
   tools: string[];
   // Number of additional languages of the player's choice.

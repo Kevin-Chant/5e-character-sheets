@@ -1,5 +1,6 @@
 import { GroupedOptionsList, SingleOptionsList } from "src/lib/types";
 import { DamageType } from "./data-definitions";
+import { ALL_BACKGROUNDS } from "src/lib/builder/backgrounds";
 
 // Typeahead/suggestion lists for free-text fields. These are suggestions only —
 // every consumer also accepts arbitrary custom values.
@@ -104,21 +105,11 @@ export const DEFAULT_TOOLS: GroupedOptionsList<string> = [
   },
 ];
 
-export const DEFAULT_BACKGROUNDS: SingleOptionsList<string> = [
-  "Acolyte",
-  "Charlatan",
-  "Criminal",
-  "Entertainer",
-  "Folk Hero",
-  "Guild Artisan",
-  "Hermit",
-  "Noble",
-  "Outlander",
-  "Sage",
-  "Sailor",
-  "Soldier",
-  "Urchin",
-];
+// Suggestions for the sheet's free-text background field. Read off the same
+// catalog the builder offers, so a background added there can't go missing
+// here — this list used to be a hand-kept copy of the PHB thirteen.
+export const DEFAULT_BACKGROUNDS: SingleOptionsList<string> =
+  ALL_BACKGROUNDS.map((b) => b.name);
 
 export const DEFAULT_RACES: SingleOptionsList<string> = [
   "Dragonborn",

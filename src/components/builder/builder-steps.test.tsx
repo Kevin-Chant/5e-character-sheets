@@ -149,6 +149,25 @@ describe("BackgroundStep", () => {
     });
   });
 
+  it("offers a background's own skill choice, and only its own options", async () => {
+    const { patch } = renderStep(BackgroundStep, {
+      backgroundName: "Cloistered Scholar",
+    });
+    const field = screen
+      .getByText(/Background skill proficiencies \(choose 1\)/)
+      .closest(".builder-field") as HTMLElement;
+    // History is granted outright, so it isn't one of the options.
+    expect(
+      within(field).queryByRole("button", { name: "History" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(field).getByRole("button", { name: "Religion" }),
+    );
+    expect(patch).toHaveBeenCalledWith({
+      backgroundSkillChoices: [SkillName.Religion],
+    });
+  });
+
   it("offers a bard their instrument choices", () => {
     renderStep(BackgroundStep, { classIndex: "bard" });
     expect(screen.getByText(/Tool proficiencies \(Bard\)/)).toBeInTheDocument();

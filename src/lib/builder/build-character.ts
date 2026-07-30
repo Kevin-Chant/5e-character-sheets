@@ -491,6 +491,11 @@ function guidedCharacter(state: BuilderState): Character {
     ...(race?.proficiencies.skills ?? []),
     ...(subrace?.proficiencies.skills ?? []),
     ...(background?.skills ?? []),
+    // Only picks the background actually offers, so a stale choice left over
+    // from switching background mid-wizard can't leak through.
+    ...state.backgroundSkillChoices.filter((s) =>
+      (background?.skillChoices?.from ?? []).includes(s),
+    ),
     ...(state.backgroundName ? [] : state.customBackgroundSkills),
   ]);
   for (const skill of skills) char.proficiencies.skills[skill] = true;
