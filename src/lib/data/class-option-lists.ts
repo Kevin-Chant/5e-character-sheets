@@ -195,7 +195,7 @@ export const ELEMENTAL_DISCIPLINES: OptionDef[] = [
 // or carried, plus an invoked effect usable once per short or long rest
 // (twice at 15th, via Master of Runes) — the save DC uses the fighter's own
 // Rune Magic DC (8 + proficiency bonus + Constitution modifier).
-export const RUNE_KNIGHT_RUNES: OptionDef[] = [
+const RUNE_SUMMARIES: OptionDef[] = [
   {
     name: "Cloud Rune",
     summary:
@@ -227,6 +227,15 @@ export const RUNE_KNIGHT_RUNES: OptionDef[] = [
       "Requires 7th level. Passive: advantage on Arcana checks and immunity to being surprised while not incapacitated. Invoke as a bonus action, once per rest, to enter a minute-long prophetic state in which you can use your reaction to impose advantage or disadvantage on an attack roll, save, or ability check made by you or a creature within 60 feet.",
   },
 ];
+
+// A chosen rune also lands as a feature on the sheet — its title is what the
+// once-per-rest invocation pool in `class-pools.ts` (`SUBCLASS_POOLS["Rune
+// Knight"]`) gates on via `requiresFeature`, and that pool carries the passive
+// advantage rider and the invoke action. The picker still reads `summary`.
+export const RUNE_KNIGHT_RUNES: OptionDef[] = RUNE_SUMMARIES.map((rune) => ({
+  ...rune,
+  features: [{ title: rune.name, detail: rune.summary ?? "" }],
+}));
 
 // Monk: Way of the Kensei, "Path of the Kensei" — two kensei weapon types
 // chosen at 3rd level (one melee, one ranged), with one more at 6th/11th/17th.

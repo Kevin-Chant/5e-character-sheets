@@ -27,6 +27,7 @@ import {
 } from "src/lib/builder/chosen-options";
 import { expertiseDueAt } from "src/lib/builder/class-features";
 import { getPB, hpAdjustmentOf, statCapFor } from "src/lib/rules";
+import { ridersFor } from "src/lib/mechanics/riders";
 import { FEATS } from "src/lib/builder/feats";
 import { calculateCustomFormula } from "src/lib/formula";
 import { PB } from "src/lib/data/data-definitions";
@@ -1111,5 +1112,41 @@ describe("Simic Hybrid's second Animal Enhancement", () => {
     expect(chosenIn(sixth, "simicEnhancement5").map((o) => o.name)).toEqual([
       "Carapace",
     ]);
+  });
+});
+
+describe("Rune Knight runes", () => {
+  const toRuneKnight = () => {
+    let char = level1("fighter");
+    char = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: OfficialClass.Fighter,
+    }); // level 2
+    return applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: OfficialClass.Fighter,
+      subclass: "Rune Knight",
+      chosenOptions: { rune: ["Cloud Rune", "Frost Rune"] },
+    }); // level 3
+  };
+
+  it("grants Giant's Might plus an invocation pool for each chosen rune", () => {
+    const char = toRuneKnight();
+    const abilities = char.limitedUseAbilities.map((a) => a.info.title);
+    expect(abilities).toContain("Giant's Might");
+    expect(abilities).toContain("Cloud Rune");
+    expect(abilities).toContain("Frost Rune");
+    // A rune you did not choose gets no pool.
+    expect(abilities).not.toContain("Stone Rune");
+    // The chosen rune also lands as the feature the pool gates on.
+    expect(char.features.map((f) => f.title)).toContain("Cloud Rune");
+  });
+
+  it("surfaces each chosen rune's passive advantage as a check reminder", () => {
+    const notes = ridersFor(toRuneKnight(), "check")
+      .filter((r) => r.rider.rider === "advantage")
+      .map((r) => (r.rider as { note: string }).note);
+    expect(notes.some((n) => n.includes("Sleight of Hand"))).toBe(true); // Cloud
+    expect(notes.some((n) => n.includes("Animal Handling"))).toBe(true); // Frost
   });
 });

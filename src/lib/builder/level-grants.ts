@@ -631,6 +631,13 @@ export function applyClassLevel(
     char.features.push(text(f.title, f.detail));
   }
 
+  // 9d. Re-sync pools now that sub-choice features exist: a pool gated on one
+  //     (`requiresFeature`, e.g. a Rune Knight's per-rune invocation) is
+  //     withheld by the step-3 sync above because the feature it needs is only
+  //     pushed at 9c. `syncClassPools` is idempotent, so this grants the newly
+  //     unlocked pools without disturbing the ones already synced.
+  syncClassPools(char, klass);
+
   // 10. Damage resistances a chosen option confers (draconic ancestry). Raw
   //     characters from legacy flows may lack `damageModifiers` entirely.
   const gained = resistancesFromOptions(char.chosenOptions ?? [], char);

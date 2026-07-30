@@ -200,6 +200,76 @@ describe("syncClassPools", () => {
     expect([tempHpOf(3), tempHpOf(10), tempHpOf(15)]).toEqual([5, 10, 15]);
   });
 
+  it("Rune Knight grants Giant's Might (PB uses, long rest) with advantage + scaling extra-damage riders", () => {
+    const c = blank();
+    syncClassPools(c, {
+      ...klass(OfficialClass.Fighter, 3),
+      subclass: "Rune Knight",
+    });
+    const gm = pool(c, "Giant's Might");
+    // Uses equal your proficiency bonus (the PB formula leaf), per long rest.
+    expect(gm.maxUses).toBe("proficiencyBonus");
+    expect(gm.recharge).toBe(RestType.longRest);
+    const riders = mechanicsForAbility(gm)?.riders ?? [];
+    expect(riders.some((r) => r.rider.rider === "advantage")).toBe(true);
+    const extra = riders.find((r) => r.rider.rider === "extraDamage");
+    // The extra-damage die scales d6 → d8 (10th) → d10 (18th).
+    const dieOf = (level: number) => {
+      const cc = blank();
+      syncClassPools(cc, {
+        ...klass(OfficialClass.Fighter, level),
+        subclass: "Rune Knight",
+      });
+      const rider = (
+        mechanicsForAbility(pool(cc, "Giant's Might"))?.riders ?? []
+      ).find((r) => r.rider.rider === "extraDamage");
+      return (rider?.rider as { amount: [number, StandardDie, unknown] })
+        .amount[1];
+    };
+    expect(extra).toBeTruthy();
+    expect([dieOf(3), dieOf(10), dieOf(18)]).toEqual([
+      StandardDie.d6,
+      StandardDie.d8,
+      StandardDie.d10,
+    ]);
+  });
+
+  it("a rune's invocation pool is granted only once its rune is a known feature", () => {
+    const c = blank();
+    // No rune chosen yet: the pool is withheld even at the right level.
+    syncClassPools(c, {
+      ...klass(OfficialClass.Fighter, 3),
+      subclass: "Rune Knight",
+    });
+    expect(titles(c)).not.toContain("Cloud Rune");
+
+    // The chosen rune lands as a feature; now the once-per-short-rest pool arrives.
+    c.features.push({
+      title: "Cloud Rune",
+      titleFormulas: [],
+      detail: "",
+      detailFormulas: [],
+    });
+    syncClassPools(c, {
+      ...klass(OfficialClass.Fighter, 3),
+      subclass: "Rune Knight",
+    });
+    const cloud = pool(c, "Cloud Rune");
+    expect(calculateCustomFormula(cloud.maxUses, c)).toBe(1);
+    expect(cloud.recharge).toBe(RestType.shortRest);
+    // Master of Runes (15th) grants a second invocation.
+    syncClassPools(c, {
+      ...klass(OfficialClass.Fighter, 15),
+      subclass: "Rune Knight",
+    });
+    expect(calculateCustomFormula(pool(c, "Cloud Rune").maxUses, c)).toBe(2);
+    // Its passive advantage note surfaces on ability checks.
+    const notes = ridersFor(c, "check")
+      .filter((r) => r.rider.rider === "advantage")
+      .map((r) => (r.rider as { note: string }).note);
+    expect(notes.some((n) => n.includes("Sleight of Hand"))).toBe(true);
+  });
+
   it("a rogue reaching 20 gets a Stroke of Luck pool with an action", () => {
     const c = blank();
     syncClassPools(c, klass(OfficialClass.Rogue, 19));

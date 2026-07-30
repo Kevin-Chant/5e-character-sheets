@@ -326,19 +326,7 @@ export const FIGHTER_SUBCLASS_FEATURES: SubclassFeatureTable = {
       {
         title: "Rune Carver",
         detail:
-          "Learn two runes (from Cloud, Fire, Frost, and Stone, plus Hill and Storm once you reach 7th level) to inscribe on your gear, gaining more at 7th, 10th, and 15th level; you can swap one known rune for another when you gain a fighter level.",
-      },
-      {
-        title: "Giant's Might",
-        detail:
-          "As a bonus action, grow to Large size for 1 minute a number of times equal to your proficiency bonus per long rest: you gain advantage on Strength checks and saves, and once per turn on a weapon hit deal an extra 1d6 damage (larger at higher levels).",
-      },
-    ],
-    7: [
-      {
-        title: "Runic Shield",
-        detail:
-          "As a reaction when an ally within 60 feet you can see is hit by an attack roll, force the attacker to reroll the d20 and use the new result. Uses equal to your proficiency bonus per long rest.",
+          "Learn two runes (from Cloud, Fire, Frost, and Stone, plus Hill and Storm once you reach 7th level) to inscribe on your gear, gaining more at 7th, 10th, and 15th level; you can swap one known rune for another when you gain a fighter level. Giant's Might (below) is also granted now.",
       },
     ],
     10: [
@@ -352,7 +340,7 @@ export const FIGHTER_SUBCLASS_FEATURES: SubclassFeatureTable = {
       {
         title: "Master of Runes",
         detail:
-          "Invoke each of your runes' magical effects twice (instead of once) between rests, and they recharge on a short rest instead of only a long rest.",
+          "Invoke each of your runes' magical effects twice, rather than once, between rests.",
       },
     ],
     18: [

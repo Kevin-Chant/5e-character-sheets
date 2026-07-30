@@ -73,6 +73,14 @@ const atLevel = <T>(level: number, steps: [number, T][]): T => {
 const short = () => RestType.shortRest;
 const long = () => RestType.longRest;
 
+// A die-roll expression as a formula (`count`d`die`), for riders/mechanics that
+// bake a die size from the character's level (Giant's Might's extra damage).
+const dieRoll = (count: number, die: StandardDie): CustomFormula => [
+  count,
+  die,
+  DieOperation.roll,
+];
+
 // The Bardic Inspiration die by bard level (d6 → d8 → d10 → d12). Exported so
 // the subclass features that *spend* a Bardic Inspiration die (Cutting Words,
 // Combat Inspiration, …) roll the same size the pool grants.
@@ -516,6 +524,198 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
   ],
 };
 
+// Rune Knight (fighter, Tasha's). Giant's Might and Runic Shield are always
+// granted at their level (PB uses per long rest); each rune is a separate
+// once-per-short-rest invocation, gated by the chosen rune landing as a feature
+// (`requiresFeature`) so only runes you know get a pool. Master of Runes (15th)
+// grants a second invocation of each rune. The passive check advantages ride on
+// each rune's pool as an advisory note — advantage is never auto-applied (see
+// Rage) — so they surface as a reminder when you roll the relevant check.
+function runeKnightPools(): ClassPoolDef[] {
+  // One rune's once-per-rest invocation pool. `checkNote` is the passive
+  // advantage reminder (omitted for a rune whose passive isn't a check
+  // advantage — Fire's tool bonus); `roll`/`save` appear on runes that deal
+  // damage or force a save.
+  const rune = (opts: {
+    name: string; // e.g. "Cloud" — the pool/feature title is `${name} Rune`
+    level: number; // 3, or 7 for Hill/Storm
+    detail: string;
+    cost: ActionCost;
+    costNote?: string;
+    note: string;
+    checkNote?: string;
+    roll?: { label: string; count?: number; die: StandardDie };
+    save?: boolean;
+  }): ClassPoolDef => {
+    const title = `${opts.name} Rune`;
+    return {
+      title,
+      detail: opts.detail,
+      level: opts.level,
+      recharge: short,
+      requiresFeature: title,
+      // Once between rests; Master of Runes (15th) allows a second invocation.
+      maxUses: (k) => (k.level >= 15 ? 2 : 1),
+      ...(opts.save
+        ? {
+            save: {
+              dc: saveDcFormula(StatKey.con),
+              note: "Rune save DC (8 + PB + CON). The save the target rolls varies by rune.",
+            },
+          }
+        : {}),
+      mechanics: () => ({
+        ...(opts.checkNote
+          ? {
+              riders: [
+                {
+                  appliesTo: ["check"],
+                  rider: { rider: "advantage", note: opts.checkNote },
+                },
+              ],
+            }
+          : {}),
+        actions: [
+          spendRollRemind({
+            id: slugId(`invoke-${opts.name}-rune`),
+            name: `Invoke ${opts.name} Rune`,
+            cost: opts.cost,
+            ...(opts.costNote ? { costNote: opts.costNote } : {}),
+            ...(opts.roll ? { roll: opts.roll } : {}),
+            note: opts.note,
+          }),
+        ],
+      }),
+    };
+  };
+
+  return [
+    {
+      title: "Giant's Might",
+      detail:
+        "As a bonus action, grow to Large size (Huge at 18th) for 1 minute: advantage on Strength checks and saves, and once per turn on a weapon hit deal extra damage (1d6, rising to 1d8 at 10th and 1d10 at 18th).",
+      level: 3,
+      recharge: long,
+      maxUses: () => PB,
+      mechanics: (k) => ({
+        riders: [
+          {
+            appliesTo: ["check"],
+            rider: {
+              rider: "advantage",
+              note: "While enlarged: advantage on Strength checks and Strength saving throws.",
+            },
+          },
+          {
+            appliesTo: ["damage"],
+            rider: {
+              rider: "extraDamage",
+              amount: dieRoll(
+                1,
+                atLevel(k.level, [
+                  [3, StandardDie.d6],
+                  [10, StandardDie.d8],
+                  [18, StandardDie.d10],
+                ]),
+              ),
+              declareAt: "on-hit",
+              optional: true,
+              oncePerTurn: true,
+              note: "While enlarged by Giant's Might, once per turn on a weapon hit.",
+            },
+          },
+        ],
+        actions: [
+          spendRollRemind({
+            id: "giants-might",
+            name: "Giant's Might",
+            cost: "bonusAction",
+            note: "Grow to Large size (Huge at 18th) for 1 minute.",
+          }),
+        ],
+      }),
+    },
+    {
+      title: "Runic Shield",
+      detail:
+        "As a reaction when a creature you can see within 60 ft. is hit by an attack roll, force the attacker to reroll the d20 and use the new result.",
+      level: 7,
+      recharge: long,
+      maxUses: () => PB,
+      mechanics: () => ({
+        actions: [
+          spendRollRemind({
+            id: "runic-shield",
+            name: "Runic Shield",
+            cost: "reaction",
+            note: "Force the triggering attacker to reroll the d20 and use the new roll.",
+          }),
+        ],
+      }),
+    },
+    rune({
+      name: "Cloud",
+      level: 3,
+      cost: "reaction",
+      checkNote:
+        "Advantage on Dexterity (Sleight of Hand) and Charisma (Deception) checks.",
+      detail:
+        "Passive: advantage on Sleight of Hand and Deception checks. Invoke as a reaction to redirect an attack that hits you or a creature within 30 ft. onto a different creature within 30 ft.",
+      note: "Redirect the triggering attack onto a different creature you can see within 30 ft., using the same roll.",
+    }),
+    rune({
+      name: "Fire",
+      level: 3,
+      cost: "special",
+      costNote: "when you hit with an attack",
+      roll: { label: "Fire damage", count: 2, die: StandardDie.d6 },
+      save: true,
+      detail:
+        "Passive: add double your proficiency bonus to ability checks with tools you're proficient with. Invoke on a weapon hit to deal 2d6 fire and restrain the target.",
+      note: "The target takes the fire damage and must succeed on a Strength saving throw or be restrained for 1 minute, taking 2d6 fire at the start of each of its turns (it repeats the save at the end of its turns).",
+    }),
+    rune({
+      name: "Frost",
+      level: 3,
+      cost: "bonusAction",
+      checkNote:
+        "Advantage on Wisdom (Animal Handling) and Charisma (Intimidation) checks.",
+      detail:
+        "Passive: advantage on Animal Handling and Intimidation checks. Invoke as a bonus action for a boon to Strength and Constitution rolls.",
+      note: "For 10 minutes, gain a +2 bonus to ability checks and saving throws using Strength or Constitution.",
+    }),
+    rune({
+      name: "Stone",
+      level: 3,
+      cost: "reaction",
+      save: true,
+      checkNote: "Advantage on Wisdom (Insight) checks.",
+      detail:
+        "Passive: advantage on Insight checks and darkvision to 120 ft. Invoke as a reaction to charm a creature within 30 ft.",
+      note: "The triggering creature within 30 ft. must succeed on a Wisdom saving throw or be charmed for 1 minute (it repeats the save at the end of each of its turns, and whenever it takes damage).",
+    }),
+    rune({
+      name: "Hill",
+      level: 7,
+      cost: "bonusAction",
+      checkNote:
+        "Advantage on saving throws against being poisoned (and resistance to poison damage).",
+      detail:
+        "Passive: advantage on saves against poison and resistance to poison damage. Invoke as a bonus action for resistance to physical damage.",
+      note: "For 1 minute, gain resistance to bludgeoning, piercing, and slashing damage.",
+    }),
+    rune({
+      name: "Storm",
+      level: 7,
+      cost: "bonusAction",
+      checkNote: "Advantage on Intelligence (Arcana) checks.",
+      detail:
+        "Passive: advantage on Arcana checks and you can't be surprised while conscious. Invoke as a bonus action to enter a prophetic state.",
+      note: "For 1 minute, once on each of your turns you can use your reaction to grant advantage or impose disadvantage on an attack roll, ability check, or saving throw within 60 ft.",
+    }),
+  ];
+}
+
 // Subclass pools, keyed by the subclass name stored on the class entry.
 // Synced exactly like class pools (created at the feature's class level,
 // size/recharge re-derived every level-up), which is what handles scaling
@@ -809,6 +1009,7 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
       }),
     },
   ],
+  "Rune Knight": runeKnightPools(),
   Land: [
     {
       title: "Natural Recovery",
