@@ -10,6 +10,7 @@ import {
 import {
   atWillAction,
   normalizeTitle,
+  spendOneUse,
   spendRollRemind,
   spendsSharedPool,
   SUPERIORITY,
@@ -53,6 +54,11 @@ export interface ClassPoolDef {
   // DC, a Battle Master's maneuver DC). A formula, so it tracks PB and ability
   // changes; re-derived on level-up like `maxUses`.
   save?: SaveEffect;
+  // Only granted to a character carrying this feature title — the Tasha's
+  // optional features, whose pools belong to a class level the player may have
+  // spent on the 2014 feature instead. Everything else in the table is granted
+  // by the level alone.
+  requiresFeature?: string;
 }
 
 // The value from a step table at a given level: the last entry whose threshold
@@ -389,6 +395,91 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       maxUses: () => ({
         operation: Operation.maximum,
         operands: [1, StatKey.cha],
+      }),
+    },
+  ],
+  // Every ranger pool is a Tasha's optional feature: the 2014 ranger has no
+  // limited-use resource at all, which is half of why these swaps exist.
+  [OfficialClass.Ranger]: [
+    {
+      title: "Favored Foe",
+      detail:
+        "Mark a creature you hit as your favored foe for 1 minute, while you keep concentration.",
+      level: 1,
+      recharge: long,
+      maxUses: () => PB,
+      requiresFeature: "Favored Foe",
+      // The die grows 1d4 → 1d6 (6th) → 1d8 (14th).
+      mechanics: (k) => ({
+        actions: [
+          spendRollRemind({
+            id: "favored-foe",
+            name: "Mark favored foe",
+            cost: "special",
+            costNote: "when you hit a creature with an attack",
+            roll: {
+              label: "Favored Foe damage",
+              die: atLevel(k.level, [
+                [1, StandardDie.d4],
+                [6, StandardDie.d6],
+                [14, StandardDie.d8],
+              ]),
+            },
+            note: "The mark lasts a minute and needs your concentration. Add this damage the first time you hit the target on each of your turns — no further uses spent.",
+          }),
+        ],
+      }),
+    },
+    {
+      title: "Tireless",
+      detail:
+        "As an action, grant yourself temporary hit points equal to 1d8 + your Wisdom modifier.",
+      level: 10,
+      recharge: long,
+      maxUses: () => PB,
+      requiresFeature: "Deft Explorer",
+      mechanics: () => ({
+        actions: [
+          {
+            id: "tireless",
+            name: "Tireless",
+            cost: "action",
+            effects: [
+              spendOneUse,
+              {
+                effect: "gainTempHp",
+                amount: {
+                  fixed: {
+                    operation: Operation.addition,
+                    operands: [
+                      [1, StandardDie.d8, DieOperation.roll],
+                      StatKey.wis,
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    },
+    {
+      title: "Nature's Veil",
+      detail:
+        "As a bonus action, become invisible — with whatever you wear and carry — until the end of your next turn.",
+      level: 10,
+      recharge: long,
+      maxUses: () => PB,
+      requiresFeature: "Nature's Veil",
+      mechanics: () => ({
+        actions: [
+          spendRollRemind({
+            id: "natures-veil",
+            name: "Nature's Veil",
+            cost: "bonusAction",
+            note: "You are invisible until the end of your next turn.",
+          }),
+        ],
       }),
     },
   ],
@@ -1020,8 +1111,16 @@ export function syncClassPools(char: Character, klass: IClass): void {
     ...((klass.subclass && SUBCLASS_POOLS[klass.subclass]) || []),
     ...((klass.subclass && SUBCLASS_ACTION_HOSTS[klass.subclass]) || []),
   ];
+  const features = new Set(
+    (char.features ?? []).map((f) => normalizeTitle(f.title)),
+  );
   for (const pool of pools) {
     if (klass.level < pool.level) continue;
+    if (
+      pool.requiresFeature &&
+      !features.has(normalizeTitle(pool.requiresFeature))
+    )
+      continue;
     const maxUses = pool.maxUses(klass);
     const recharge = pool.recharge(klass.level);
     // Level-computed mechanics (scaling die/amount) are re-derived like maxUses.

@@ -80,8 +80,10 @@ import {
   ChosenOptionPicker,
   FeatPicker,
   LanguagePicker,
+  OptionalFeaturePicker,
   SpellChecklist,
 } from "./builder-pickers";
+import { optionalFeaturesAt } from "src/lib/builder/optional-class-features";
 
 const STAT_KEYS = Object.values(StatKey);
 const fmtMod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
@@ -604,6 +606,17 @@ export function ClassStep({ state, patch }: StepProps) {
         </Field>
       )}
 
+      {/* Tasha's swaps due at level 1 — the ranger's Favored Foe and Deft
+          Explorer. Above the subclass, since they replace the level-1 features
+          the class card just described. */}
+      {klass && (
+        <OptionalFeaturePicker
+          features={optionalFeaturesAt(klass.name, 1)}
+          taken={state.optionalFeatures ?? []}
+          onChange={(optionalFeatures) => patch({ optionalFeatures })}
+        />
+      )}
+
       {klass?.subclassAtLevel1 && (
         <Field label="Subclass">
           <select
@@ -663,12 +676,11 @@ export function ClassStep({ state, patch }: StepProps) {
           starts at class level 3 and belongs to the level-up wizard. Nothing
           is known yet at creation, so `alreadyKnown` is always empty. */}
       {klass &&
-        newOptionPicksAt(
-          klass.name,
-          1,
-          state.subclass,
-          state.fightingStyle,
-        ).map(({ group, count }) => (
+        newOptionPicksAt(klass.name, 1, {
+          subclass: state.subclass,
+          fightingStyle: state.fightingStyle,
+          optionalFeatures: state.optionalFeatures,
+        }).map(({ group, count }) => (
           <ChosenOptionPicker
             key={group.category}
             group={group}
@@ -1086,6 +1098,11 @@ export function BackgroundStep({ state, patch }: StepProps) {
       ? [SkillName["Thieves Tools"]]
       : []),
   ]);
+  // A Deft Explorer ranger's Canny is an expertise pick like the rogue's, so it
+  // just raises the count this step offers.
+  const expertiseDue = klass
+    ? expertiseDueAt(klass.name, 1, state.optionalFeatures ?? [])
+    : 0;
 
   return (
     <div className="builder-step">
@@ -1195,12 +1212,13 @@ export function BackgroundStep({ state, patch }: StepProps) {
           </Field>
         )}
 
-        {/* Expertise (Rogue at level 1). Deliberately after the skill pickers —
-            you can only double a proficiency you have, so the options are
-            everything the character ends up proficient in. */}
-        {klass && expertiseDueAt(klass.name, 1) > 0 && (
+        {/* Expertise (Rogue at level 1, or a Deft Explorer ranger's Canny).
+            Deliberately after the skill pickers — you can only double a
+            proficiency you have, so the options are everything the character
+            ends up proficient in. */}
+        {klass && expertiseDue > 0 && (
           <Field
-            label={`Expertise (choose ${expertiseDueAt(klass.name, 1)})`}
+            label={`Expertise (choose ${expertiseDue})`}
             hint={
               expertiseOptions.length
                 ? "Double your proficiency bonus for these. Thieves' Tools counts."
@@ -1212,7 +1230,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
               selected={state.expertiseChoices.filter((s) =>
                 expertiseOptions.includes(s),
               )}
-              max={expertiseDueAt(klass.name, 1)}
+              max={expertiseDue}
               onChange={(expertiseChoices) => patch({ expertiseChoices })}
             />
           </Field>

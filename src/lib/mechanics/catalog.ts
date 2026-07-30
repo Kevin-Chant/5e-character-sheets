@@ -70,7 +70,9 @@ const FONT_OF_MAGIC: FeatureMechanics = {
   ],
 };
 
-const spendOneUse = {
+// Exported for the builder's pool grants, which compose their own actions when
+// the shape isn't `spendRollRemind`'s (a temp-HP grant, say).
+export const spendOneUse = {
   effect: "spendUses",
   amount: { fixed: 1 },
 } as const;

@@ -7,6 +7,10 @@ import {
 import { ActionCost, Character, ChosenOption } from "src/lib/types";
 import { RaceTrait } from "src/lib/builder/types";
 import {
+  replacedOptionCategories,
+  takenOptionalFeatures,
+} from "src/lib/builder/optional-class-features";
+import {
   ELEMENTAL_DISCIPLINES,
   KENSEI_WEAPONS,
   RUNE_KNIGHT_RUNES,
@@ -1457,6 +1461,11 @@ export function availableOptionGroups(
   character: Character,
 ): { group: OptionGroup; known: number }[] {
   const total = totalLevel(character);
+  const off = new Set(
+    replacedOptionCategories(
+      takenOptionalFeatures(character).map((f) => f.name),
+    ),
+  );
   return OPTION_GROUPS.flatMap((group) => {
     let level: number;
     if (group.race) {
@@ -1469,6 +1478,7 @@ export function availableOptionGroups(
           (!group.subclass || k.subclass === group.subclass),
       );
       if (!klass) return [];
+      if (off.has(group.category)) return [];
       if (
         group.viaFightingStyle &&
         !character.features.some(
@@ -1526,18 +1536,35 @@ export function raceOptionFeaturesFor(
 // count at that level minus the count at the one below. Used by both wizards to
 // prompt only for what this level actually adds.
 //
+// Everything about the character that decides *which* lists are on the table.
+// Passed rather than read off the sheet because every one of them can be
+// chosen in the same step the picks are offered in — a fighter takes Battle
+// Master at 3rd and owes maneuvers immediately, a ranger swaps in Favored Foe
+// at 1st and is never asked for a favored enemy.
+export interface PickContext {
+  subclass?: string;
+  fightingStyle?: string;
+  // Names of the Tasha's optional class features taken (`optional-class-
+  // features.ts`), earlier or in this very step.
+  optionalFeatures?: string[];
+}
+
 // `subclass` is passed separately rather than read off the character because
 // the subclass is often chosen in the *same* step — a fighter picking Battle
 // Master at 3rd gets their first three maneuvers immediately.
 export function newOptionPicksAt(
   className: string,
   level: number,
-  subclass?: string,
-  fightingStyle?: string,
+  ctx: PickContext = {},
 ): { group: OptionGroup; count: number }[] {
+  const { subclass, fightingStyle } = ctx;
+  const off = new Set(replacedOptionCategories(ctx.optionalFeatures ?? []));
   return OPTION_GROUPS.flatMap((group) => {
     if (group.className !== className) return [];
     if (group.subclass && group.subclass !== subclass) return [];
+    // A Tasha's swap can take a whole list off the table — a Favored Foe ranger
+    // is never asked for a favored enemy, at this level or at 6th and 14th.
+    if (off.has(group.category)) return [];
     // A style-granted group is owed at whatever level the style is chosen, so
     // it counts the style rather than a level threshold — `fightingStyle` is
     // only ever the pick being made *now*.

@@ -15,6 +15,10 @@ import { poolTitlesFor } from "src/lib/builder/class-pools";
 // Type-only: `builder/types` imports `level-grants`, which imports this file.
 import type { LevelEffects } from "src/lib/builder/types";
 import {
+  isReplacedFeature,
+  optionalGrantsAt,
+} from "src/lib/builder/optional-class-features";
+import {
   Character,
   CustomFormula,
   CustomFormulaWithDamage,
@@ -733,7 +737,12 @@ export const CLASS_FEATURES: Partial<
 export function classFeaturesAt(
   className: string,
   level: number,
+  // Tasha's optional features taken, whose replaced halves are dropped — the
+  // one place a class level can grant *less* than the table says.
+  optionalFeatures: string[] = [],
 ): { title: string; detail: string }[] {
+  const kept = (f: { title: string }) =>
+    !isReplacedFeature(f.title, optionalFeatures);
   const oc = Object.values(OfficialClass).find((c) => c === className);
   if (level === 1) {
     // The SRD level-1 list includes features that the sheet grants as
@@ -743,10 +752,10 @@ export function classFeaturesAt(
       poolTitlesFor(className).map((t) => t.trim().toLowerCase()),
     );
     return (getSrdClass(className.toLowerCase())?.features ?? []).filter(
-      (f) => !pooled.has(f.title.trim().toLowerCase()),
+      (f) => !pooled.has(f.title.trim().toLowerCase()) && kept(f),
     );
   }
-  return (oc && CLASS_FEATURES[oc]?.[level]) ?? [];
+  return ((oc && CLASS_FEATURES[oc]?.[level]) ?? []).filter(kept);
 }
 
 // The "choose N tool proficiencies" a class offers at a given level — bard
@@ -833,10 +842,22 @@ const EXPERTISE_GRANTS: Partial<Record<OfficialClass, Record<number, number>>> =
     [OfficialClass.Bard]: { 3: 2, 10: 2 },
   };
 
-// How many expertise picks reaching `level` in `className` grants (0 for most).
-export function expertiseDueAt(className: string, level: number): number {
+// How many expertise picks reaching `level` in `className` grants (0 for most),
+// plus any a Tasha's swap adds (Deft Explorer's Canny at ranger 1).
+export function expertiseDueAt(
+  className: string,
+  level: number,
+  optionalFeatures: string[] = [],
+): number {
   const oc = Object.values(OfficialClass).find((c) => c === className);
-  return (oc && EXPERTISE_GRANTS[oc]?.[level]) ?? 0;
+  const own = (oc && EXPERTISE_GRANTS[oc]?.[level]) ?? 0;
+  return (
+    own +
+    optionalGrantsAt(optionalFeatures, className, level).reduce(
+      (sum, g) => sum + (g.expertise ?? 0),
+      0,
+    )
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -12,6 +12,7 @@ import { FEATS } from "src/lib/builder/feats";
 import { FeatChoices } from "src/lib/builder/feats";
 import { emptyFeatChoices } from "src/lib/builder/level-up";
 import { OptionGroup, taggedPicksAt } from "src/lib/builder/chosen-options";
+import { OptionalClassFeature } from "src/lib/builder/optional-class-features";
 import {
   getSrdSpell,
   searchSrdSpells,
@@ -242,6 +243,54 @@ export function ChosenOptionPicker({
           })}
         </div>
       )}
+    </Field>
+  );
+}
+
+// The Tasha's swaps a level offers — each an opt-in toggle rather than a pick
+// from a list, because leaving them all off *is* the 2014 class and that has to
+// be the thing you get by not answering. The replaced feature is named on each
+// row, since the choice is only legible as a trade.
+export function OptionalFeaturePicker({
+  features,
+  taken,
+  onChange,
+}: {
+  features: OptionalClassFeature[];
+  taken: string[];
+  onChange: (names: string[]) => void;
+}) {
+  if (!features.length) return <></>;
+  return (
+    <Field
+      label="Optional class features"
+      hint="Tasha's Cauldron of Everything replaces some class features with alternatives. Leave these off to play the 2014 version."
+    >
+      <div className="column invocation-options">
+        {features.map((feature) => (
+          <label key={feature.name} className="row invocation-option">
+            <input
+              type="checkbox"
+              checked={taken.includes(feature.name)}
+              onChange={(e) =>
+                onChange(
+                  e.target.checked
+                    ? [...taken, feature.name]
+                    : taken.filter((n) => n !== feature.name),
+                )
+              }
+            />
+            <span>
+              <b>{feature.name}</b>
+              <i className="text-muted">
+                {" "}
+                (replaces {feature.replaces[0]})
+              </i>{" "}
+              <span className="text-muted">{feature.summary}</span>
+            </span>
+          </label>
+        ))}
+      </div>
     </Field>
   );
 }

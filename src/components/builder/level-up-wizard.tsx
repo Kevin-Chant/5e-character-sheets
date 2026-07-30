@@ -20,6 +20,7 @@ import {
   LevelUpStepProps,
   LevelUpSubclassStep,
 } from "src/components/builder/level-up-steps";
+import { takenOptionalFeatures } from "src/lib/builder/optional-class-features";
 import { FaXmark } from "react-icons/fa6";
 
 interface StepDef {
@@ -39,16 +40,25 @@ export const grantsForLevelUp = (
   ...grantsAt(
     state.className,
     targetClassLevel(character, state),
-    state.subclass ??
-      character.class.find((k) => k.name === state.className)?.subclass,
+    {
+      subclass:
+        state.subclass ??
+        character.class.find((k) => k.name === state.className)?.subclass,
+      // Same reason as `subclass`: Superior Technique's maneuver is owed by the
+      // style being picked in this very run.
+      fightingStyle: state.fightingStyle,
+      // Tasha's swaps taken earlier (read off the sheet) plus any taken now —
+      // a Favored Foe ranger is owed no favored enemy at 6th or 14th.
+      optionalFeatures: [
+        ...takenOptionalFeatures(character).map((f) => f.name),
+        ...(state.optionalFeatures ?? []),
+      ],
+    },
     // Reaching level 1 in a class when the sheet already has one is a
     // multiclass — derived from the same facts `applyClassLevel` uses rather
     // than from `isNewMulticlass`, so picking an absent class without ticking
     // that flag can't offer one allowance and apply another.
     targetClassLevel(character, state) === 1 && character.class.length > 0,
-    // Same reason as `subclass` above: Superior Technique's maneuver is owed by
-    // the style being picked in this very run.
-    state.fightingStyle,
   ),
   // Racial allowances advance on total character level, which a level-up always
   // raises by exactly one — whichever class it was spent on.

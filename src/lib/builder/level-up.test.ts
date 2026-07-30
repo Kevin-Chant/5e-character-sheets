@@ -186,14 +186,18 @@ describe("applyLevelUp — multiclassing", () => {
   it("gives Superior Technique a superiority die and one maneuver, subclass or not", () => {
     // The maneuver group is offered only to the fighter who took the style…
     expect(
-      newOptionPicksAt("Fighter", 1, undefined, "Superior Technique"),
+      newOptionPicksAt("Fighter", 1, {
+        fightingStyle: "Superior Technique",
+      }),
     ).toEqual([
       expect.objectContaining({
         count: 1,
         group: expect.objectContaining({ category: "superiorTechnique" }),
       }),
     ]);
-    expect(newOptionPicksAt("Fighter", 1, undefined, "Defense")).toEqual([]);
+    expect(
+      newOptionPicksAt("Fighter", 1, { fightingStyle: "Defense" }),
+    ).toEqual([]);
 
     const f = level1("fighter", {
       fightingStyle: "Superior Technique",
@@ -208,6 +212,74 @@ describe("applyLevelUp — multiclassing", () => {
     expect(chosenIn(f, "superiorTechnique").map((o) => o.name)).toEqual([
       "Riposte",
     ]);
+  });
+
+  it("swaps a ranger's 2014 features for the Tasha's ones", () => {
+    const r = level1("ranger", {
+      optionalFeatures: ["Favored Foe", "Deft Explorer"],
+      classSkillChoices: [SkillName.Survival, SkillName.Stealth],
+      expertiseChoices: [SkillName.Survival],
+      // A pick the ranger is no longer owed — it must not land anyway.
+      chosenOptions: { favoredEnemy: ["Dragons"], naturalExplorer: ["Forest"] },
+    });
+    const titles = r.features.map((f) => f.title);
+    expect(titles).toContain("Favored Foe");
+    expect(titles).toContain("Deft Explorer");
+    expect(titles.some((t) => t.startsWith("Favored Enemy"))).toBe(false);
+    expect(titles.some((t) => t.startsWith("Natural Explorer"))).toBe(false);
+    expect(chosenIn(r, "favoredEnemy")).toEqual([]);
+    expect(chosenIn(r, "naturalExplorer")).toEqual([]);
+    // Canny is an expertise pick; Favored Foe is a pool with PB uses.
+    expect(r.proficiencies.expertise.Survival).toBe(true);
+    const foe = r.limitedUseAbilities.find(
+      (a) => a.info.title === "Favored Foe",
+    )!;
+    expect(calculateCustomFormula(foe.maxUses, r)).toBe(getPB(r));
+    // …and none of it reaches a ranger who left the swaps off.
+    const raw = level1("ranger", {
+      chosenOptions: { favoredEnemy: ["Dragons"] },
+    });
+    expect(raw.features.map((f) => f.title).join()).toContain("Favored Enemy");
+    expect(raw.limitedUseAbilities).toEqual([]);
+  });
+
+  it("carries a ranger's swaps forward to the levels they pay off at", () => {
+    let r = level1("ranger", {
+      optionalFeatures: ["Favored Foe", "Deft Explorer"],
+    });
+    const walk = r.speeds.walk;
+    for (let lvl = 2; lvl <= 10; lvl++)
+      r = applyLevelUp(r, {
+        ...defaultLevelUpState(r),
+        className: "Ranger",
+        ...(lvl === 3 ? { optionalFeatures: ["Primal Awareness"] } : {}),
+        ...(lvl === 10 ? { optionalFeatures: ["Nature's Veil"] } : {}),
+      });
+    const titles = r.features.map((f) => f.title);
+    // Deft Explorer's later halves arrive on their own levels…
+    expect(titles).toContain("Roving");
+    expect(r.speeds.walk).toBe(walk + 5);
+    expect(r.speeds.climb).toBe(walk + 5);
+    expect(r.speeds.swim).toBe(walk + 5);
+    // …and the two later swaps replaced their 2014 counterparts.
+    expect(titles).toContain("Primal Awareness");
+    expect(titles).not.toContain("Primeval Awareness");
+    expect(titles).toContain("Nature's Veil");
+    expect(titles).not.toContain("Hide in Plain Sight");
+    const pools = r.limitedUseAbilities.map((a) => a.info.title);
+    expect(pools).toContain("Tireless");
+    expect(pools).toContain("Nature's Veil");
+    // Favored Foe's die grew d4 → d6 at 6th.
+    const foe = r.limitedUseAbilities.find(
+      (a) => a.info.title === "Favored Foe",
+    )!;
+    expect(JSON.stringify(foe.mechanics)).toContain("d6");
+    // The ranger is never asked for a favored enemy at 6th or 14th.
+    expect(
+      newOptionPicksAt("Ranger", 6, {
+        optionalFeatures: ["Favored Foe", "Deft Explorer"],
+      }),
+    ).toEqual([]);
   });
 
   it("grants a Divination wizard the Portent pool, not a duplicate prose row", () => {
@@ -487,11 +559,13 @@ describe("applyLevelUp — chosen options", () => {
   };
 
   it("offers a subclass's picks at the level the subclass is chosen", () => {
-    expect(newOptionPicksAt("Fighter", 3, "Battle Master")).toEqual([
-      expect.objectContaining({ count: 3 }),
-    ]);
+    expect(
+      newOptionPicksAt("Fighter", 3, { subclass: "Battle Master" }),
+    ).toEqual([expect.objectContaining({ count: 3 })]);
     // Without the subclass, nothing — a Champion gets no maneuvers.
-    expect(newOptionPicksAt("Fighter", 3, "Champion")).toEqual([]);
+    expect(newOptionPicksAt("Fighter", 3, { subclass: "Champion" })).toEqual(
+      [],
+    );
   });
 
   it("writes the picks onto the character, with their summaries", () => {
@@ -516,9 +590,9 @@ describe("applyLevelUp — chosen options", () => {
         className: "Fighter",
       });
     }
-    expect(newOptionPicksAt("Fighter", 7, "Battle Master")).toEqual([
-      expect.objectContaining({ count: 2 }),
-    ]);
+    expect(
+      newOptionPicksAt("Fighter", 7, { subclass: "Battle Master" }),
+    ).toEqual([expect.objectContaining({ count: 2 })]);
     char = applyLevelUp(char, {
       ...defaultLevelUpState(char),
       className: "Fighter",

@@ -61,6 +61,25 @@ describe("ClassStep", () => {
     });
   });
 
+  it("offers a ranger the Tasha's swaps, and drops the list a swap replaces", async () => {
+    const { patch } = renderStep(ClassStep, { classIndex: "ranger" });
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Favored Foe/ }),
+    );
+    expect(patch).toHaveBeenCalledWith({ optionalFeatures: ["Favored Foe"] });
+  });
+
+  // With the swap taken, the favored-enemy list is gone entirely — the terrain
+  // one, whose own swap wasn't taken, stays.
+  it("drops only the list the taken swap replaces", () => {
+    renderStep(ClassStep, {
+      classIndex: "ranger",
+      optionalFeatures: ["Favored Foe"],
+    });
+    expect(screen.queryByText("Favored Enemy")).not.toBeInTheDocument();
+    expect(screen.getByText("Natural Explorer")).toBeInTheDocument();
+  });
+
   it("offers no closed-list picks to a class whose lists start at 3rd", () => {
     renderStep(ClassStep, { classIndex: "sorcerer" });
     expect(screen.queryByText("Metamagic")).not.toBeInTheDocument();

@@ -30,6 +30,7 @@ import {
 import {
   newOptionPicksAt,
   newRaceOptionPicksAt,
+  PickContext,
   optionFeaturesFor,
   optionGroup,
   optionSpellIndicesAt,
@@ -53,6 +54,12 @@ import {
   levelEffectsAt,
 } from "src/lib/builder/level-effects";
 import { SrdSubclass } from "src/lib/builder/types";
+import {
+  OptionalClassFeature,
+  optionalFeaturesAt,
+  optionalGrantsAt,
+  takenOptionalFeatures,
+} from "src/lib/builder/optional-class-features";
 import { spendsSharedPool } from "src/lib/mechanics/catalog";
 
 // ---------------------------------------------------------------------------
@@ -79,7 +86,11 @@ export interface LevelChoices {
   subclass?: string;
   // Fighting style chosen at this level.
   fightingStyle?: string;
-  // Skills gaining expertise (rogue 1/6, bard 3/10).
+  // Tasha's optional class features taken at this level, by name — see
+  // `optional-class-features.ts`. Each replaces a feature rather than adding
+  // one, so this is the only choice that makes a level grant *less*.
+  optionalFeatures?: string[];
+  // Skills gaining expertise (rogue 1/6, bard 3/10, Deft Explorer's Canny).
   expertiseChoices: SkillName[];
   // Tool proficiencies chosen from the class's list (bard instruments).
   toolChoices: string[];
@@ -356,10 +367,42 @@ export function applyClassLevel(
     }
   }
 
+  // 1b. Tasha's optional class features. The ones taken at earlier levels are
+  //     read back off the sheet (their own feature row is the record), the ones
+  //     taken *now* come from `choices` — and both are needed before the prose
+  //     below, since a swap's whole job is to suppress the feature it replaces.
+  const optionalFeatures = uniq([
+    ...takenOptionalFeatures(char).map((f) => f.name),
+    ...(choices.optionalFeatures ?? []).filter((name) =>
+      optionalFeaturesAt(className, level).some((f) => f.name === name),
+    ),
+  ]);
+  for (const swap of optionalFeaturesAt(className, level))
+    if (
+      optionalFeatures.includes(swap.name) &&
+      !char.features.some((f) => f.title === swap.name)
+    )
+      char.features.push(text(swap.name, swap.summary));
+  // What the taken swaps grant at *this* level — Deft Explorer's Roving at 6th
+  // and Tireless at 10th arrive long after the choice was made.
+  for (const grant of optionalGrantsAt(optionalFeatures, className, level)) {
+    const fresh = (grant.features ?? []).filter(
+      (f) => !char.features.some((x) => x.title === f.title),
+    );
+    for (const f of fresh) char.features.push(text(f.title, f.detail));
+    // Roving's +5 is additive, which is the one grant here that isn't
+    // idempotent — so it rides on its feature row being new. A re-run finds the
+    // row already there and leaves the speed alone.
+    if (grant.speedBonus && fresh.length) char.speeds.walk += grant.speedBonus;
+    if (grant.effects) applyLevelEffects(char, grant.effects);
+    for (const index of grant.spellIndices ?? [])
+      addSrdSpellOnce(char, index, className);
+  }
+
   // 2. Feature prose for this class level (level 1 comes from the SRD class
   //    data, 2+ from the hand-authored per-level table — `classFeaturesAt`
-  //    hides that seam).
-  for (const f of classFeaturesAt(className, level))
+  //    hides that seam), minus anything a swap above replaced.
+  for (const f of classFeaturesAt(className, level, optionalFeatures))
     char.features.push(text(f.title, f.detail));
 
   // 2a. Feature prose the *subclass* confers at this level. Runs after the
@@ -475,8 +518,9 @@ export function applyClassLevel(
   }
 
   // 6. Expertise, limited to skills the character is actually proficient in —
-  //    you can't double a proficiency you don't have.
-  if (expertiseDueAt(className, level) > 0)
+  //    you can't double a proficiency you don't have. Deft Explorer's Canny is
+  //    an expertise pick like any other, so it just adds to the count.
+  if (expertiseDueAt(className, level, optionalFeatures) > 0)
     for (const skill of choices.expertiseChoices)
       if (char.proficiencies.skills[skill])
         char.proficiencies.expertise[skill] = true;
@@ -528,12 +572,11 @@ export function applyClassLevel(
   // 9. Picks from the class's closed option lists, de-duplicated against what
   //    the character already knows so re-running a level can't double an entry.
   const dueGroups = new Set(
-    newOptionPicksAt(
-      className,
-      level,
-      klass.subclass,
-      choices.fightingStyle,
-    ).map(({ group }) => group.category),
+    newOptionPicksAt(className, level, {
+      subclass: klass.subclass,
+      fightingStyle: choices.fightingStyle,
+      optionalFeatures,
+    }).map(({ group }) => group.category),
   );
   for (const [category, names] of Object.entries(choices.chosenOptions)) {
     if (!dueGroups.has(category)) continue;
@@ -643,28 +686,31 @@ export interface LevelGrants {
     from: SkillName[];
     expertise?: boolean;
   };
+  // Tasha's swaps this level offers — each replacing the feature it sits beside
+  // rather than adding to it, so the step presents them as opt-in toggles.
+  optionalFeatures?: OptionalClassFeature[];
 }
 
-// Everything reaching `level` in `className` offers the player. `subclass` is
-// passed separately because it may be chosen in the very same step — a fighter
-// taking Battle Master at 3rd is owed their first maneuvers immediately.
+// Everything reaching `level` in `className` offers the player. The context is
+// passed rather than read off the sheet because every part of it can be chosen
+// in this very step — a fighter taking Battle Master at 3rd is owed their first
+// maneuvers immediately, a ranger swapping in Favored Foe is owed no favored
+// enemy at all.
 export function grantsAt(
   className: string,
   level: number,
-  subclass?: string,
+  ctx: PickContext = {},
   isMulticlassEntry = false,
-  // Like `subclass`, chosen in the very same step — Superior Technique owes its
-  // maneuver the moment the style is picked.
-  fightingStyle?: string,
 ): LevelGrants {
   const mcSkills = isMulticlassEntry
     ? multiclassProficienciesFor(className).chooseSkills
     : 0;
+  const optional = ctx.optionalFeatures ?? [];
   return {
     subclassDue: subclassDueAt(className, level),
     asiDue: isAsiLevel(className, level),
-    fightingStyles: fightingStyleDueAt(className, level, subclass),
-    expertise: expertiseDueAt(className, level),
+    fightingStyles: fightingStyleDueAt(className, level, ctx.subclass),
+    expertise: expertiseDueAt(className, level, optional),
     invocations:
       className === OfficialClass.Warlock ? newInvocationsAt(level) : 0,
     toolChoices: multiclassAwareToolChoices(
@@ -672,7 +718,10 @@ export function grantsAt(
       level,
       isMulticlassEntry,
     ),
-    optionPicks: newOptionPicksAt(className, level, subclass, fightingStyle),
+    optionPicks: newOptionPicksAt(className, level, ctx),
+    ...(optionalFeaturesAt(className, level).length && {
+      optionalFeatures: optionalFeaturesAt(className, level),
+    }),
     ...(mcSkills > 0 && {
       multiclassSkills: {
         choose: mcSkills,
@@ -680,9 +729,9 @@ export function grantsAt(
       },
     }),
     // A subclass being chosen at this level may owe skill picks (Lore/Knowledge).
-    ...(subclassDueAt(className, level) && subclass
+    ...(subclassDueAt(className, level) && ctx.subclass
       ? (() => {
-          const sc = getSubclassByName(className.toLowerCase(), subclass)
+          const sc = getSubclassByName(className.toLowerCase(), ctx.subclass)
             ?.grants?.skillChoices;
           return sc ? { subclassSkillChoices: sc } : {};
         })()
@@ -699,5 +748,6 @@ export const hasFeatureChoices = (g: LevelGrants): boolean =>
   !!g.toolChoices ||
   !!g.multiclassSkills ||
   !!g.subclassSkillChoices ||
+  (g.optionalFeatures?.length ?? 0) > 0 ||
   g.optionPicks.length > 0 ||
   (g.raceOptionPicks?.length ?? 0) > 0;

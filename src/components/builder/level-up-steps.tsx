@@ -52,6 +52,7 @@ import {
 import {
   ChosenOptionPicker,
   FeatPicker,
+  OptionalFeaturePicker,
   SpellChecklist,
 } from "./builder-pickers";
 
@@ -262,6 +263,13 @@ export function LevelUpFeatureChoicesStep({
             </p>
           )}
         </Field>
+      )}
+      {grants.optionalFeatures && (
+        <OptionalFeaturePicker
+          features={grants.optionalFeatures}
+          taken={state.optionalFeatures ?? []}
+          onChange={(optionalFeatures) => patch({ optionalFeatures })}
+        />
       )}
       {newInvocations > 0 && (
         <Field label="Eldritch invocations">
