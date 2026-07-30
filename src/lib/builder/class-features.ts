@@ -12,6 +12,8 @@ import { saveDcFormula } from "src/lib/rules";
 import { getSrdClass } from "src/lib/builder/srd-classes";
 import { ALL_INVOCATIONS, type Invocation } from "src/lib/data/invocations";
 import { poolTitlesFor } from "src/lib/builder/class-pools";
+// Type-only: `builder/types` imports `level-grants`, which imports this file.
+import type { LevelEffects } from "src/lib/builder/types";
 import {
   Character,
   CustomFormula,
@@ -33,6 +35,9 @@ export interface FightingStyle {
   summary: string;
   // Fold +1 into the AC formula when taken (Defense).
   acBonus?: number;
+  // Grants that write to a character field (Blind Fighting's blindsight),
+  // applied through the same `applyLevelEffects` a class level uses.
+  effects?: LevelEffects;
   // A limited-use pool the style confers — Superior Technique's single
   // superiority die. The same shape a feat's `limitedUse` grant uses, and for
   // the same reason it needs no mechanics of its own: "Superiority Die" is a
@@ -79,7 +84,31 @@ export const FIGHTING_STYLES: FightingStyle[] = [
     name: "Two-Weapon Fighting",
     summary: "Add your ability modifier to off-hand attack damage.",
   },
-  // Tasha's. Unlike the other styles this one owes the player a second choice
+  // ------------------------------------------------------------------
+  // Tasha's. Which classes may take each is `FIGHTING_STYLE_ACCESS` below —
+  // the fighter gets all of them, paladin and ranger a couple each.
+  {
+    name: "Blind Fighting",
+    summary:
+      "Blindsight out to 10 ft.: within that range you perceive anything not behind total cover, even blinded or in darkness, and see invisible creatures that haven't hidden from you.",
+    effects: { senses: { blindsight: 10 } },
+  },
+  {
+    name: "Interception",
+    summary:
+      "While wielding a shield or a simple or martial weapon, use your reaction when a creature you can see hits another target within 5 ft. to reduce that damage by 1d10 + your proficiency bonus.",
+  },
+  {
+    name: "Thrown Weapon Fighting",
+    summary:
+      "Draw a thrown weapon as part of the attack you make with it, and add +2 damage when you hit with one.",
+  },
+  {
+    name: "Unarmed Fighting",
+    summary:
+      "Your unarmed strikes deal 1d6 + your Strength modifier bludgeoning damage — 1d8 if you hold no weapon or shield — and you can deal 1d4 to a creature you have grappled at the start of your turn.",
+  },
+  // Unlike the other styles this one owes the player a second choice
   // (a maneuver) — see the `viaFightingStyle` group in `chosen-options.ts`,
   // which is what lets a fighter of any subclass be offered the Battle Master
   // list.
@@ -112,11 +141,25 @@ export const FIGHTING_STYLE_ACCESS: Partial<
   },
   [OfficialClass.Paladin]: {
     level: 2,
-    styles: ["Defense", "Dueling", "Great Weapon Fighting", "Protection"],
+    styles: [
+      "Blind Fighting",
+      "Defense",
+      "Dueling",
+      "Great Weapon Fighting",
+      "Interception",
+      "Protection",
+    ],
   },
   [OfficialClass.Ranger]: {
     level: 2,
-    styles: ["Archery", "Defense", "Dueling", "Two-Weapon Fighting"],
+    styles: [
+      "Archery",
+      "Blind Fighting",
+      "Defense",
+      "Dueling",
+      "Thrown Weapon Fighting",
+      "Two-Weapon Fighting",
+    ],
   },
 };
 

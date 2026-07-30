@@ -174,6 +174,15 @@ describe("applyLevelUp — multiclassing", () => {
     expect(styles).toContain("Dueling");
   });
 
+  it("gives Blind Fighting its blindsight without lowering racial darkvision", () => {
+    const f = level1("fighter", {
+      raceIndex: "dwarf",
+      fightingStyle: "Blind Fighting",
+    });
+    expect(f.senses.blindsight).toBe(10);
+    expect(f.senses.darkvision).toBe(60);
+  });
+
   it("gives Superior Technique a superiority die and one maneuver, subclass or not", () => {
     // The maneuver group is offered only to the fighter who took the style…
     expect(

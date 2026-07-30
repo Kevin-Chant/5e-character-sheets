@@ -4,7 +4,7 @@ import {
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { CustomFormula, Speeds } from "src/lib/types";
+import { CustomFormula, Senses, Speeds } from "src/lib/types";
 import { emptyLevelChoices, LevelChoices } from "src/lib/builder/level-grants";
 
 // ---------------------------------------------------------------------------
@@ -125,6 +125,9 @@ export interface LevelEffects {
   // speed, which is how most flight grants are worded ("a flying speed equal to
   // your current speed"). A speed is only ever raised, never lowered.
   speeds?: Partial<Record<keyof Speeds, number | "walk">>;
+  // Senses, in feet (Blind Fighting's blindsight 10). Like speeds, only ever
+  // raised — a race's 60 ft. darkvision outlives a feature's 30.
+  senses?: Partial<Senses>;
   // An ability modifier added to the initiative formula (a Gloom Stalker's
   // Dread Ambusher, a Swashbuckler's Rakish Audacity). Folded in the same way
   // Alert's flat +5 is, and guarded against double-application.

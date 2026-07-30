@@ -455,6 +455,7 @@ export function applyClassLevel(
           operation: Operation.addition,
           operands: [char.acFormula, style.acBonus],
         };
+      if (style.effects) applyLevelEffects(char, style.effects);
       // Superior Technique's superiority die. Granted once and then left alone
       // — it never re-derives with level (a Battle Master's dice do, but this
       // one is a d6 forever), so a hand-edit sticks.

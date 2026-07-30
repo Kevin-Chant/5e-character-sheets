@@ -16,14 +16,31 @@ describe("fighting styles", () => {
   it("are due at the right class levels", () => {
     expect(fightingStyleDueAt(OfficialClass.Fighter, 1)).toBeDefined();
     expect(fightingStyleDueAt(OfficialClass.Paladin, 2)).toEqual([
+      "Blind Fighting",
       "Defense",
       "Dueling",
       "Great Weapon Fighting",
+      "Interception",
       "Protection",
     ]);
     expect(fightingStyleDueAt(OfficialClass.Ranger, 2)).toContain("Archery");
     expect(fightingStyleDueAt(OfficialClass.Paladin, 3)).toBeUndefined();
     expect(fightingStyleDueAt(OfficialClass.Wizard, 2)).toBeUndefined();
+  });
+
+  it("hands out Tasha's styles by class, not to everyone", () => {
+    // Superior Technique is the fighter's alone; the other three Tasha's
+    // styles are shared out — and neither half-caster gets both.
+    const fighter = fightingStyleDueAt(OfficialClass.Fighter, 1)!;
+    expect(fighter).toContain("Superior Technique");
+    expect(fighter).toContain("Unarmed Fighting");
+    const ranger = fightingStyleDueAt(OfficialClass.Ranger, 2)!;
+    expect(ranger).toContain("Thrown Weapon Fighting");
+    expect(ranger).not.toContain("Interception");
+    expect(ranger).not.toContain("Superior Technique");
+    expect(fightingStyleDueAt(OfficialClass.Paladin, 2)).not.toContain(
+      "Thrown Weapon Fighting",
+    );
   });
 
   it("Great Weapon Fighting's bare name matches its catalog rider", () => {

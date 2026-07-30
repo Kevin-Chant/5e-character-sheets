@@ -4,7 +4,7 @@ import {
   Operation,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { Character, CustomFormula, Speeds } from "src/lib/types";
+import { Character, CustomFormula, Senses, Speeds } from "src/lib/types";
 import { LevelEffects } from "src/lib/builder/types";
 import { getSubclassByName } from "src/lib/builder/subclasses";
 
@@ -87,6 +87,12 @@ export function applyLevelEffects(
     // Only ever raise: a slower grant never overwrites a faster speed the
     // character already has from a race, an item, or an earlier level.
     if (feet > (char.speeds[key] ?? 0)) char.speeds[key] = feet;
+  }
+
+  for (const [sense, feet] of Object.entries(effects.senses ?? {})) {
+    const key = sense as keyof Senses;
+    // Only ever raise, for the same reason speeds do.
+    if (feet > (char.senses?.[key] ?? 0)) (char.senses ??= {})[key] = feet;
   }
 
   if (effects.initiativeAbility) {
