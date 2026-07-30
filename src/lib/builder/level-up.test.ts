@@ -3,6 +3,7 @@ import {
   ArmorType,
   DamageType,
   OfficialClass,
+  RestType,
   SkillName,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -171,6 +172,33 @@ describe("applyLevelUp — multiclassing", () => {
     const styles = f.features.map((x) => x.title);
     expect(styles).toContain("Defense");
     expect(styles).toContain("Dueling");
+  });
+
+  it("gives Superior Technique a superiority die and one maneuver, subclass or not", () => {
+    // The maneuver group is offered only to the fighter who took the style…
+    expect(
+      newOptionPicksAt("Fighter", 1, undefined, "Superior Technique"),
+    ).toEqual([
+      expect.objectContaining({
+        count: 1,
+        group: expect.objectContaining({ category: "superiorTechnique" }),
+      }),
+    ]);
+    expect(newOptionPicksAt("Fighter", 1, undefined, "Defense")).toEqual([]);
+
+    const f = level1("fighter", {
+      fightingStyle: "Superior Technique",
+      chosenOptions: { superiorTechnique: ["Riposte"] },
+    });
+    expect(f.features.map((x) => x.title)).toContain("Superior Technique");
+    const die = f.limitedUseAbilities.find(
+      (a) => a.info.title === "Superiority Die",
+    )!;
+    expect(die.maxUses).toBe(1);
+    expect(die.recharge).toBe(RestType.shortRest);
+    expect(chosenIn(f, "superiorTechnique").map((o) => o.name)).toEqual([
+      "Riposte",
+    ]);
   });
 
   it("grants a Divination wizard the Portent pool, not a duplicate prose row", () => {

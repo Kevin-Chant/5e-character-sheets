@@ -85,6 +85,12 @@ export interface OptionGroup {
   // `className` / `race` is set.
   className?: OfficialClass;
   subclass?: string;
+  // A *fighting style* grants the picks instead of a subclass — Superior
+  // Technique's one maneuver, which any fighter can have. Gated on the style
+  // being taken (a feature titled with the style's name) rather than on a
+  // level, because the level it lands at is wherever the style was chosen:
+  // 1st for most fighters, 10th for a Champion's second pick.
+  viaFightingStyle?: string;
   // A *race* grants the picks instead (Simic Hybrid's Animal Enhancement).
   // Matched against the character's base race name; the `known` thresholds are
   // then read as total character levels rather than class levels, because
@@ -1426,6 +1432,20 @@ export const OPTION_GROUPS: OptionGroup[] = [
   },
 ];
 
+// Superior Technique (Tasha's fighting style) teaches one maneuver from the
+// Battle Master list to a fighter of any subclass. Its own category rather than
+// a second "maneuvers" group: two groups sharing a category would render twice
+// on a Battle Master's sheet, both reading the same picks. The options are the
+// Battle Master's array itself, so a maneuver added there is offered here too.
+OPTION_GROUPS.push({
+  category: "superiorTechnique",
+  label: "Maneuver (Superior Technique)",
+  className: OfficialClass.Fighter,
+  viaFightingStyle: "Superior Technique",
+  known: [[1, 1]],
+  options: OPTION_GROUPS.find((g) => g.category === "maneuvers")!.options,
+});
+
 export const optionGroup = (category: string): OptionGroup | undefined =>
   OPTION_GROUPS.find((g) => g.category === category);
 
@@ -1449,6 +1469,13 @@ export function availableOptionGroups(
           (!group.subclass || k.subclass === group.subclass),
       );
       if (!klass) return [];
+      if (
+        group.viaFightingStyle &&
+        !character.features.some(
+          (f) => f.title.trim() === group.viaFightingStyle,
+        )
+      )
+        return [];
       level = klass.level;
     }
     const known = knownAt(level, group.known);
@@ -1506,10 +1533,18 @@ export function newOptionPicksAt(
   className: string,
   level: number,
   subclass?: string,
+  fightingStyle?: string,
 ): { group: OptionGroup; count: number }[] {
   return OPTION_GROUPS.flatMap((group) => {
     if (group.className !== className) return [];
     if (group.subclass && group.subclass !== subclass) return [];
+    // A style-granted group is owed at whatever level the style is chosen, so
+    // it counts the style rather than a level threshold — `fightingStyle` is
+    // only ever the pick being made *now*.
+    if (group.viaFightingStyle)
+      return group.viaFightingStyle === fightingStyle
+        ? [{ group, count: knownAt(level, group.known) }]
+        : [];
     const count = knownAt(level, group.known) - knownAt(level - 1, group.known);
     return count > 0 ? [{ group, count }] : [];
   });

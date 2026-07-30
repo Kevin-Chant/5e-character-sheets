@@ -3,10 +3,12 @@ import {
   DieOperation,
   OfficialClass,
   Operation,
+  RestType,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
+import { saveDcFormula } from "src/lib/rules";
 import { getSrdClass } from "src/lib/builder/srd-classes";
 import { ALL_INVOCATIONS, type Invocation } from "src/lib/data/invocations";
 import { poolTitlesFor } from "src/lib/builder/class-pools";
@@ -16,6 +18,7 @@ import {
   CustomFormulaWithDamage,
   DieExpression,
   IClass,
+  SaveEffect,
 } from "src/lib/types";
 
 // Class-feature choice catalogs and per-level feature prose for the builder /
@@ -30,6 +33,18 @@ export interface FightingStyle {
   summary: string;
   // Fold +1 into the AC formula when taken (Defense).
   acBonus?: number;
+  // A limited-use pool the style confers — Superior Technique's single
+  // superiority die. The same shape a feat's `limitedUse` grant uses, and for
+  // the same reason it needs no mechanics of its own: "Superiority Die" is a
+  // catalog title, so the spend-and-roll d6 comes from `mechanicsForTitle`
+  // exactly as Martial Adept's does.
+  pool?: {
+    name: string;
+    detail: string;
+    maxUses: number;
+    recharge: RestType;
+    save?: SaveEffect;
+  };
 }
 
 // Names are bare (no "Fighting Style:" prefix) so features land with titles
@@ -63,6 +78,25 @@ export const FIGHTING_STYLES: FightingStyle[] = [
   {
     name: "Two-Weapon Fighting",
     summary: "Add your ability modifier to off-hand attack damage.",
+  },
+  // Tasha's. Unlike the other styles this one owes the player a second choice
+  // (a maneuver) — see the `viaFightingStyle` group in `chosen-options.ts`,
+  // which is what lets a fighter of any subclass be offered the Battle Master
+  // list.
+  {
+    name: "Superior Technique",
+    summary:
+      "Learn one Battle Master maneuver and gain one superiority die (a d6), regained on a short or long rest.",
+    pool: {
+      name: "Superiority Die",
+      detail: "A d6 fueling the maneuver Superior Technique taught you.",
+      maxUses: 1,
+      recharge: RestType.shortRest,
+      save: {
+        dc: saveDcFormula([StatKey.str, StatKey.dex]),
+        note: "Maneuver save DC. The ability saved against varies by maneuver.",
+      },
+    },
   },
 ];
 

@@ -663,26 +663,29 @@ export function ClassStep({ state, patch }: StepProps) {
           starts at class level 3 and belongs to the level-up wizard. Nothing
           is known yet at creation, so `alreadyKnown` is always empty. */}
       {klass &&
-        newOptionPicksAt(klass.name, 1, state.subclass).map(
-          ({ group, count }) => (
-            <ChosenOptionPicker
-              key={group.category}
-              group={group}
-              count={count}
-              classLevel={1}
-              alreadyKnown={[]}
-              picked={state.chosenOptions[group.category] ?? []}
-              onChange={(names) =>
-                patch({
-                  chosenOptions: {
-                    ...state.chosenOptions,
-                    [group.category]: names,
-                  },
-                })
-              }
-            />
-          ),
-        )}
+        newOptionPicksAt(
+          klass.name,
+          1,
+          state.subclass,
+          state.fightingStyle,
+        ).map(({ group, count }) => (
+          <ChosenOptionPicker
+            key={group.category}
+            group={group}
+            count={count}
+            classLevel={1}
+            alreadyKnown={[]}
+            picked={state.chosenOptions[group.category] ?? []}
+            onChange={(names) =>
+              patch({
+                chosenOptions: {
+                  ...state.chosenOptions,
+                  [group.category]: names,
+                },
+              })
+            }
+          />
+        ))}
 
       {custom && (
         <>

@@ -455,6 +455,21 @@ export function applyClassLevel(
           operation: Operation.addition,
           operands: [char.acFormula, style.acBonus],
         };
+      // Superior Technique's superiority die. Granted once and then left alone
+      // — it never re-derives with level (a Battle Master's dice do, but this
+      // one is a d6 forever), so a hand-edit sticks.
+      const pool = style.pool;
+      if (pool) {
+        char.limitedUseAbilities ??= [];
+        if (!char.limitedUseAbilities.some((a) => a.info.title === pool.name))
+          char.limitedUseAbilities.push({
+            info: text(pool.name, pool.detail),
+            maxUses: pool.maxUses,
+            recharge: pool.recharge,
+            expended: 0,
+            ...(pool.save ? { save: pool.save } : {}),
+          });
+      }
     }
   }
 
@@ -512,9 +527,12 @@ export function applyClassLevel(
   // 9. Picks from the class's closed option lists, de-duplicated against what
   //    the character already knows so re-running a level can't double an entry.
   const dueGroups = new Set(
-    newOptionPicksAt(className, level, klass.subclass).map(
-      ({ group }) => group.category,
-    ),
+    newOptionPicksAt(
+      className,
+      level,
+      klass.subclass,
+      choices.fightingStyle,
+    ).map(({ group }) => group.category),
   );
   for (const [category, names] of Object.entries(choices.chosenOptions)) {
     if (!dueGroups.has(category)) continue;
@@ -634,6 +652,9 @@ export function grantsAt(
   level: number,
   subclass?: string,
   isMulticlassEntry = false,
+  // Like `subclass`, chosen in the very same step — Superior Technique owes its
+  // maneuver the moment the style is picked.
+  fightingStyle?: string,
 ): LevelGrants {
   const mcSkills = isMulticlassEntry
     ? multiclassProficienciesFor(className).chooseSkills
@@ -650,7 +671,7 @@ export function grantsAt(
       level,
       isMulticlassEntry,
     ),
-    optionPicks: newOptionPicksAt(className, level, subclass),
+    optionPicks: newOptionPicksAt(className, level, subclass, fightingStyle),
     ...(mcSkills > 0 && {
       multiclassSkills: {
         choose: mcSkills,

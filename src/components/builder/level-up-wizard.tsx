@@ -46,6 +46,9 @@ export const grantsForLevelUp = (
     // than from `isNewMulticlass`, so picking an absent class without ticking
     // that flag can't offer one allowance and apply another.
     targetClassLevel(character, state) === 1 && character.class.length > 0,
+    // Same reason as `subclass` above: Superior Technique's maneuver is owed by
+    // the style being picked in this very run.
+    state.fightingStyle,
   ),
   // Racial allowances advance on total character level, which a level-up always
   // raises by exactly one — whichever class it was spent on.
