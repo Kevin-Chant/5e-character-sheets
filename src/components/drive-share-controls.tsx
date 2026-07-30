@@ -1,5 +1,6 @@
 import { useReducer, useState } from "react";
 import { FaShareNodes } from "react-icons/fa6";
+import Spinner from "src/components/spinner";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 
@@ -58,7 +59,17 @@ export default function DriveShareControls() {
       </p>
       {!shared ? (
         <button onClick={handlePromote} disabled={busy}>
-          <FaShareNodes /> Make shareable
+          {/* Promotion is several Drive round-trips; show progress rather
+              than a button that just goes dead. */}
+          {busy ? (
+            <>
+              Making shareable <Spinner />
+            </>
+          ) : (
+            <>
+              <FaShareNodes /> Make shareable
+            </>
+          )}
         </button>
       ) : (
         <form className="row" onSubmit={handleShare}>
@@ -69,7 +80,13 @@ export default function DriveShareControls() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <button type="submit" disabled={busy || !email}>
-            Share with this email
+            {busy ? (
+              <>
+                Sharing <Spinner />
+              </>
+            ) : (
+              "Share with this email"
+            )}
           </button>
         </form>
       )}

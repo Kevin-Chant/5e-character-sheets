@@ -294,17 +294,22 @@ const GoogleDriveDatastore: Datastore = {
     if (importedIndex[uuid]) {
       // An imported (shared-with-me) document isn't ours to delete — removing
       // it from the sidebar should just forget it, not delete the owner's file.
+      const entry = importedIndex[uuid];
       delete importedIndex[uuid];
-      await writeImportedIndex();
-    } else {
       try {
-        await deleteFile(known.fileId);
+        await writeImportedIndex();
       } catch (err) {
-        console.error("Failed to delete Drive file", known.fileId, err);
+        // Restore the forgotten entry so the caches match what a reload would
+        // rediscover, then let the caller surface the failure.
+        importedIndex[uuid] = entry;
+        throw err;
       }
+    } else {
+      // Propagate a failed Drive delete instead of swallowing it: clearing the
+      // caches anyway made the delete *look* done, and the character then
+      // resurrected on the next reload. The caller restores its list entry.
+      await deleteFile(known.fileId);
     }
-    // Clear local state regardless of the Drive outcome so the sidebar and
-    // caches don't keep a phantom entry.
     delete localCache[uuid];
     delete knownFiles[uuid];
   },

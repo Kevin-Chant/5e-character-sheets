@@ -74,9 +74,13 @@ export function useMoveCharacter() {
     setBusy(true);
     try {
       await LocalDatastore.saveToDatastore(character);
-      // Best-effort: the Drive datastore logs deletion failures itself, and a
-      // leftover Drive copy is recoverable — the local one is now canonical.
-      GoogleDriveDatastore.deleteFromDatastore(character.uuid);
+      // Best-effort: a leftover Drive copy is recoverable — the local one is
+      // now canonical — so a failed delete just logs.
+      Promise.resolve(
+        GoogleDriveDatastore.deleteFromDatastore(character.uuid),
+      ).catch((err) =>
+        console.error("Failed to delete the moved character's Drive file", err),
+      );
       writeLastDatastore("local");
       setDatastore(LocalDatastore);
       // The swap closed the sheet; the picker's openCharacter shortcut
@@ -104,8 +108,8 @@ export function useCompleteMoveToDrive() {
   const location = useLocation();
   const navigate = useNavigate();
   const { datastore } = useDatastoreSelector();
-  const { save, characterLoading } = useDatastore();
-  const { dispatch } = useCharacter();
+  const { characterLoading } = useDatastore();
+  const { dispatch, persistCharacter } = useCharacter();
   const sawDriveInit = useRef(false);
   const started = useRef(false);
 
@@ -128,18 +132,31 @@ export function useCompleteMoveToDrive() {
     started.current = true;
     (async () => {
       const character = await LocalDatastore.loadFromDatastore(uuid);
-      if (character) {
-        // The context save keeps the reactive character list in sync, so the
-        // moved sheet appears in the sidebar without a re-init.
-        await save(character);
-        LocalDatastore.deleteFromDatastore(uuid);
-        dispatch(loadPersistedCharacter(character));
-      }
       // One-shot: strip the intent so back/refresh can't re-run the move.
       navigate(location.pathname, { replace: true, state: null });
+      if (!character) return;
+      // Open the sheet immediately — the character is fully in memory, so the
+      // user shouldn't sit on a Drive picker that doesn't list it yet while
+      // the copy round-trips. `persistCharacter` stages the entry into the
+      // reactive character list right away (marked unsynced) and writes to
+      // Drive in the background.
+      dispatch(loadPersistedCharacter(character));
+      const persisted = await persistCharacter(character);
+      if (persisted) {
+        // Only once Drive actually holds the character does the browser copy
+        // stop being the canonical one.
+        LocalDatastore.deleteFromDatastore(uuid);
+      } else {
+        // The local copy was not deleted, so nothing is lost — surface that.
+        // The sheet stays open with the unsaved indicator up; a manual save
+        // (or the next autosaved edit) retries the Drive write.
+        alert(
+          "Couldn't copy the character to Google Drive. It's still saved in " +
+            "this browser — check your connection and save again to retry.",
+        );
+      }
     })().catch((err) => {
       console.error("Failed to move the character to Drive", err);
-      // The local copy was not deleted, so nothing is lost — surface that.
       alert(
         "Couldn't move the character to Google Drive. It's still saved in this browser.",
       );

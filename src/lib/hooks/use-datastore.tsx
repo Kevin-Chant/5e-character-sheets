@@ -12,6 +12,14 @@ interface DatastoreContextData {
   createCharacter: () => Promise<Character | undefined>;
   importCharacter: () => Promise<Character | undefined>;
   deleteCharacter: (uuid: UUID) => void;
+  // Put a character into the reactive list *now*, before any write confirms.
+  // The entry is marked unsynced until a `save` for its uuid succeeds, so the
+  // picker and sidebar can show it immediately (a wizard finish, a move
+  // between backends) while being honest that storage hasn't caught up yet.
+  stageCharacter: (character: Character) => void;
+  // Uuids whose staged list entry has not yet been confirmed written to the
+  // active backend.
+  unsynced: Set<UUID>;
   debounceWait: number;
   characterLoading: boolean;
   setCharacterLoading: (newValue: boolean) => void;
@@ -31,6 +39,8 @@ export const DatastoreContext = React.createContext<DatastoreContextData>({
     Promise.resolve(undefined),
   ),
   deleteCharacter: missingProvider("deleteCharacter"),
+  stageCharacter: missingProvider("stageCharacter"),
+  unsynced: new Set(),
   debounceWait: 1000,
   characterLoading: false,
   setCharacterLoading: missingProvider("setCharacterLoading"),
@@ -43,6 +53,22 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   const [localCharacters, setLocalCharacters] = useState<
     Record<UUID, Character>
   >({});
+  const [unsynced, setUnsynced] = useState<Set<UUID>>(new Set());
+
+  const markUnsynced = (uuid: UUID) =>
+    setUnsynced((prev) => {
+      if (prev.has(uuid)) return prev;
+      const next = new Set(prev);
+      next.add(uuid);
+      return next;
+    });
+  const clearUnsynced = (uuid: UUID) =>
+    setUnsynced((prev) => {
+      if (!prev.has(uuid)) return prev;
+      const next = new Set(prev);
+      next.delete(uuid);
+      return next;
+    });
 
   const save = async (character: Character) => {
     if (!datastore) return;
@@ -52,9 +78,16 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
       // Functional update: overlapping saves must not clobber each other's
       // list entries via a stale closure snapshot.
       setLocalCharacters((prev) => ({ ...prev, [character.uuid]: character }));
+      // The backend now holds this entry, so any staged badge comes down.
+      clearUnsynced(character.uuid);
     } finally {
       setSaving(false);
     }
+  };
+
+  const stageCharacter = (character: Character) => {
+    setLocalCharacters((prev) => ({ ...prev, [character.uuid]: character }));
+    markUnsynced(character.uuid);
   };
 
   const load = async (uuid: UUID) => {
@@ -94,14 +127,29 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   };
 
   const deleteCharacter = (uuid: UUID) => {
-    if (datastore) {
-      datastore.deleteFromDatastore(uuid);
-      setLocalCharacters((prev) => {
-        const next = { ...prev };
-        delete next[uuid];
-        return next;
-      });
-    }
+    if (!datastore) return;
+    // Optimistic: the row disappears immediately (deleting is near-instant for
+    // localStorage and usually succeeds for Drive). If the backend delete does
+    // fail, the entry is restored and the failure surfaced — before this, a
+    // failed Drive delete pretended to succeed and the character quietly
+    // resurrected on the next reload.
+    const removed = localCharacters[uuid];
+    setLocalCharacters((prev) => {
+      const next = { ...prev };
+      delete next[uuid];
+      return next;
+    });
+    clearUnsynced(uuid);
+    Promise.resolve(datastore.deleteFromDatastore(uuid)).catch((error) => {
+      console.error("Failed to delete character", uuid, error);
+      if (removed) {
+        setLocalCharacters((prev) => ({ ...prev, [uuid]: removed }));
+      }
+      alert(
+        `Couldn't delete ${removed?.name || "the character"} from storage. ` +
+          `Check your connection and try again.`,
+      );
+    });
   };
 
   useEffect(() => {
@@ -111,6 +159,8 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     // localStorage character out of a list captioned "saved in Google Drive"
     // and have autosave write it into Drive. Clear first, populate after.
     setLocalCharacters({});
+    // Staged-but-unconfirmed markers belonged to the outgoing store's list.
+    setUnsynced(new Set());
     if (!datastore) {
       // Cleared selection (e.g. joining a remote session): nothing to fetch,
       // and any in-flight spinner must come down with the list it belonged to.
@@ -164,9 +214,11 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
       createCharacter,
       importCharacter,
       deleteCharacter,
+      stageCharacter,
+      unsynced,
       debounceWait: datastore?.debounceWait || 1000,
     }),
-    [saving, characterLoading, localCharacters, datastore],
+    [saving, characterLoading, localCharacters, unsynced, datastore],
   );
 
   return (

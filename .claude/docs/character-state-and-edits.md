@@ -52,6 +52,21 @@ re-record; a **remote edit** is applied with `suppressBroadcast` so it isn't
 re-published back to the sender. Undo/redo history is intentionally per-tab and
 local — it undoes _your_ edits, not a peer's.
 
+## Whole-character writes don't block their UI
+
+Flows that dispatch an entire character at once — the creation wizard, the
+level-up wizard, a move between storage backends — close their modal (or open
+the sheet) immediately and persist via `persistCharacter(character)` on the
+context, not by awaiting `save()` inline. `persistCharacter` stages the entry
+into the datastore context's reactive list right away (`stageCharacter`, which
+marks the uuid in `unsynced` until a save for it confirms — the picker and
+sidebar render that as a small pulsing cloud badge), raises `unsavedChanges`,
+and reports success/failure through the same nav save indicator autosave uses.
+An "edit sequence" counter guards the dirty flag: a save that resolves after a
+newer edit landed must not clear it. Don't reintroduce an awaited save in front
+of a modal close — on Drive that's a multi-second round-trip the user just
+stares at.
+
 ## Consequences for editor components
 
 - Get the reactive character from `useCharacter()`, never a snapshot.

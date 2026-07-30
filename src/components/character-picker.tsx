@@ -1,5 +1,5 @@
 import { sum } from "lodash";
-import { FaPlus, FaTowerBroadcast } from "react-icons/fa6";
+import { FaCloudArrowUp, FaPlus, FaTowerBroadcast } from "react-icons/fa6";
 import Spinner from "src/components/spinner";
 import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
@@ -11,7 +11,7 @@ import { formatClass } from "src/lib/utils";
 // Landing gallery shown when a datastore is selected but no character is open.
 // Previews each saved character as a card and offers a "create" affordance.
 export default function CharacterPicker() {
-  const { characters, characterLoading } = useDatastore();
+  const { characters, characterLoading, unsynced } = useDatastore();
   const { dispatch } = useCharacter();
   const { getRole } = useSharingSessions();
   const { openBuilder } = useCharacterBuilder();
@@ -44,6 +44,12 @@ export default function CharacterPicker() {
                   <FaTowerBroadcast
                     className="character-card-badge"
                     title="Live sharing session in progress"
+                  />
+                )}
+                {unsynced.has(char.uuid) && (
+                  <FaCloudArrowUp
+                    className="character-card-badge unsynced-badge"
+                    title="Still saving to storage — the sheet is safe to open"
                   />
                 )}
                 {char.name}

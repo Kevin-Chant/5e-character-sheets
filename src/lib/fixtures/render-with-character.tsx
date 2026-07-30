@@ -124,6 +124,7 @@ export function renderWithCharacter(
             setUnsavedChanges: vi.fn(),
             saveError: false,
             saveNow: vi.fn(),
+            persistCharacter: vi.fn(async () => true),
             openSharingSession: vi.fn(),
             closeSharingSession: vi.fn(),
           }}

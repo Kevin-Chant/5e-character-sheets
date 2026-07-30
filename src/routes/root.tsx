@@ -5,6 +5,7 @@ import {
   FaBars,
   FaCheck,
   FaCircle,
+  FaCloudArrowUp,
   FaDice,
   FaDiceD20,
   FaHand,
@@ -46,7 +47,8 @@ import { navControls, navTitle } from "src/lib/nav-controls";
 
 function Sidebar({ close }: { close: () => void }) {
   const { datastore } = useDatastoreSelector();
-  const { characters, deleteCharacter, characterLoading } = useDatastore();
+  const { characters, deleteCharacter, characterLoading, unsynced } =
+    useDatastore();
   const { character, dispatch } = useCharacter();
   const { getRole, teardownSession } = useSharingSessions();
   const { openBuilder } = useCharacterBuilder();
@@ -56,7 +58,9 @@ function Sidebar({ close }: { close: () => void }) {
     // leave a dangling realm open on the server.
     teardownSession(uuid);
     deleteCharacter(uuid);
-    dispatch(resetCharacter());
+    // Only deleting the *open* sheet closes it — deleting some other entry
+    // from the drawer shouldn't dump you back on the picker.
+    if (uuid === character?.uuid) dispatch(resetCharacter());
   };
 
   const charactersNavText = !datastore
@@ -99,6 +103,12 @@ function Sidebar({ close }: { close: () => void }) {
                         <FaTowerBroadcast
                           className="margin-small"
                           title="Live sharing session in progress"
+                        />
+                      )}
+                      {unsynced.has(characterEntry.uuid) && (
+                        <FaCloudArrowUp
+                          className="margin-small unsynced-badge"
+                          title="Still saving to storage — the sheet is safe to open"
                         />
                       )}
                       {characterEntry.name}

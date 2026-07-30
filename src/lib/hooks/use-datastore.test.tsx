@@ -56,18 +56,29 @@ function SwapSlot({
   return null;
 }
 
+// The live context, captured for tests that drive save/stage/delete directly.
+let context: ReturnType<typeof useDatastore>;
 function Names() {
-  const { characters, characterLoading } = useDatastore();
+  const data = useDatastore();
+  context = data;
+  const { characters, characterLoading, unsynced } = data;
   return (
     <div>
       <span data-testid="names">{characters.map((c) => c.name).join(",")}</span>
       <span data-testid="loading">{characterLoading ? "yes" : "no"}</span>
+      <span data-testid="unsynced">
+        {characters
+          .filter((c) => unsynced.has(c.uuid))
+          .map((c) => c.name)
+          .join(",")}
+      </span>
     </div>
   );
 }
 
 const names = () => screen.getByTestId("names").textContent;
 const loading = () => screen.getByTestId("loading").textContent;
+const unsyncedNames = () => screen.getByTestId("unsynced").textContent;
 
 describe("DatastoreContextProvider", () => {
   it("drops the previous store's characters before the new list arrives", async () => {
@@ -141,5 +152,64 @@ describe("DatastoreContextProvider", () => {
     // nothing.
     expect(loading()).toBe("no");
     console_.mockRestore();
+  });
+
+  it("lists a staged character immediately and clears its unsynced badge once saved", async () => {
+    const local = makeDatastore("local", []);
+    render(<Harness initial={local.datastore} />);
+    await act(async () => local.release());
+
+    const fresh = makeCharacter("3-3-3-3-3", "Fresh");
+    // Staging is synchronous: the wizard closes on it, so the entry must be in
+    // the list before any write round-trip.
+    act(() => context.stageCharacter(fresh));
+    expect(names()).toBe("Fresh");
+    expect(unsyncedNames()).toBe("Fresh");
+
+    // The backend confirming the write is what takes the badge down.
+    await act(async () => context.save(fresh));
+    expect(names()).toBe("Fresh");
+    expect(unsyncedNames()).toBe("");
+  });
+
+  it("keeps the unsynced badge up when the save fails", async () => {
+    const local = makeDatastore("local", []);
+    local.datastore.saveToDatastore = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    render(<Harness initial={local.datastore} />);
+    await act(async () => local.release());
+
+    const fresh = makeCharacter("3-3-3-3-3", "Fresh");
+    act(() => context.stageCharacter(fresh));
+    await act(async () => {
+      await context.save(fresh).catch(() => {});
+    });
+    expect(names()).toBe("Fresh");
+    expect(unsyncedNames()).toBe("Fresh");
+  });
+
+  it("restores the entry and surfaces the failure when a delete rejects", async () => {
+    const console_ = vi.spyOn(console, "error").mockImplementation(() => {});
+    const alert_ = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const doomed = makeCharacter("4-4-4-4-4", "Doomed");
+    const local = makeDatastore("local", [doomed]);
+    local.datastore.deleteFromDatastore = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    render(<Harness initial={local.datastore} />);
+    await act(async () => local.release());
+    expect(names()).toBe("Doomed");
+
+    // Optimistic removal first…
+    await act(async () => {
+      context.deleteCharacter(doomed.uuid);
+    });
+    // …but a failed backend delete brings the row back rather than letting the
+    // character silently resurrect on the next reload.
+    expect(names()).toBe("Doomed");
+    expect(alert_).toHaveBeenCalled();
+    console_.mockRestore();
+    alert_.mockRestore();
   });
 });

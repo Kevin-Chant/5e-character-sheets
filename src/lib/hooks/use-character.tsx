@@ -46,6 +46,13 @@ interface CharacterContextData {
   setUnsavedChanges: (isUnsaved: boolean) => void;
   saveError: boolean;
   saveNow: () => void;
+  // Persist an explicit character in the background — for flows that just
+  // dispatched a whole character (wizard finishes, moves between backends) and
+  // shouldn't block their UI on the write. Stages the entry into the reactive
+  // character list immediately, then resolves true once the backend confirms
+  // (or the character isn't ours to persist), false on a failed write — with
+  // the same dirty/error indicators as autosave either way.
+  persistCharacter: (character: Character) => Promise<boolean>;
   // Start hosting a live session for the open character. `silent` suppresses the
   // failure alert (used by the auto-bootstrap, which should stay solo quietly if
   // the sidecar is unreachable).
@@ -65,6 +72,7 @@ export const CharacterContext = React.createContext<CharacterContextData>({
   setUnsavedChanges: missingProvider("setUnsavedChanges"),
   saveError: false,
   saveNow: missingProvider("saveNow"),
+  persistCharacter: missingProvider("persistCharacter", Promise.resolve(false)),
   openSharingSession: missingProvider("openSharingSession"),
   closeSharingSession: missingProvider("closeSharingSession"),
 });
@@ -79,7 +87,11 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [future, setFuture] = useState<HistoryEntry[]>([]);
   const characterRef = useRef(character);
   characterRef.current = character;
-  const { save } = useDatastore();
+  // Bumped on every dispatch. Lets an async save know whether a newer edit
+  // landed while its write was in flight — the reducer clones the character,
+  // so object identity can't answer that.
+  const editSeq = useRef(0);
+  const { save, stageCharacter } = useDatastore();
   const { datastore } = useDatastoreSelector();
   const { settings } = useSettings();
   const getCharacter = useCallback<() => Character | undefined>(() => {
@@ -103,9 +115,13 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       isBorrowed(character.uuid)
     )
       return;
+    const seq = editSeq.current;
     save(character)
       .then(() => {
-        setUnsavedChanges(false);
+        // Only clear the dirty flag if no newer edit landed while the write
+        // was in flight — clearing unconditionally would erase that edit's
+        // unsaved marker.
+        if (editSeq.current === seq) setUnsavedChanges(false);
         setSaveError(false);
       })
       .catch((error) => {
@@ -115,6 +131,35 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
         setSaveError(true);
       });
   }, [character, getRole, isBorrowed, save]);
+
+  // Persist an explicit character without blocking on the write. The wizards
+  // and the between-backend moves dispatch a whole character and used to hold
+  // their modal (or the picker) hostage until the datastore round-trip came
+  // back — seconds, on Drive. Instead: the entry is staged into the reactive
+  // list immediately, the dirty flag goes up, and the same indicators autosave
+  // uses report the write's fate.
+  const persistCharacter = useCallback(
+    async (next: Character): Promise<boolean> => {
+      // Same ownership rule as `persist`: a remote or borrowed sheet is
+      // persisted by its host, so there's nothing for us to write — report
+      // "done" rather than failure.
+      if (getRole(next.uuid) === "remote" || isBorrowed(next.uuid)) return true;
+      stageCharacter(next);
+      setUnsavedChanges(true);
+      const seq = editSeq.current;
+      try {
+        await save(next);
+        if (editSeq.current === seq) setUnsavedChanges(false);
+        setSaveError(false);
+        return true;
+      } catch (error) {
+        console.error("Failed to save character", error);
+        setSaveError(true);
+        return false;
+      }
+    },
+    [getRole, isBorrowed, save, stageCharacter],
+  );
 
   // Debounced autosave (when enabled). Only persist genuine edits — loading an
   // already-persisted character leaves unsavedChanges false, so opening a sheet
@@ -207,6 +252,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
         setPast([]);
         setFuture([]);
       }
+      editSeq.current++;
       dispatch(action);
       setUnsavedChanges(isDirty);
       if (characterRef.current && !suppressBroadcast) {
@@ -341,6 +387,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       setUnsavedChanges,
       saveError,
       saveNow: persist,
+      persistCharacter,
       openSharingSession,
       closeSharingSession,
     }),
@@ -355,6 +402,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       unsavedChanges,
       saveError,
       persist,
+      persistCharacter,
       openSharingSession,
       closeSharingSession,
     ],

@@ -4,7 +4,6 @@ import CharacterBuilder from "src/components/builder/character-builder";
 import { Character } from "src/lib/types";
 import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import { useDatastore } from "src/lib/hooks/use-datastore";
 
 interface CharacterBuilderContextData {
   openBuilder: () => void;
@@ -16,20 +15,21 @@ const CharacterBuilderContext = createContext<CharacterBuilderContextData>({
 
 // Mounts the guided builder once and exposes `openBuilder()` so every entry
 // point (the picker card, the sidebar button) runs the same flow. On finish it
-// persists the assembled character and opens its sheet.
+// opens the sheet immediately and persists in the background — the assembled
+// character already exists in memory, so there's nothing worth holding the
+// modal on; the nav save indicator carries the write's fate.
 export function CharacterBuilderProvider({
   children,
 }: React.PropsWithChildren) {
   const [open, setOpen] = useState(false);
-  const { save } = useDatastore();
-  const { dispatch } = useCharacter();
+  const { dispatch, persistCharacter } = useCharacter();
   const navigate = useNavigate();
 
-  const onFinish = async (character: Character) => {
-    await save(character);
+  const onFinish = (character: Character) => {
     dispatch(loadPersistedCharacter(character));
     setOpen(false);
     navigate("/sheet");
+    void persistCharacter(character);
   };
 
   return (

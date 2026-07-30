@@ -3,7 +3,6 @@ import LevelUpWizard from "src/components/builder/level-up-wizard";
 import { Character } from "src/lib/types";
 import { replaceCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
-import { useDatastore } from "src/lib/hooks/use-datastore";
 
 interface LevelUpContextData {
   openLevelUp: () => void;
@@ -21,15 +20,17 @@ const LevelUpContext = createContext<LevelUpContextData>({
 // level-up edits an existing sheet and must stay on the undo stack.
 export function LevelUpProvider({ children }: React.PropsWithChildren) {
   const [open, setOpen] = useState(false);
-  const { character, dispatch } = useCharacter();
-  const { save } = useDatastore();
+  const { character, dispatch, persistCharacter } = useCharacter();
 
-  const onFinish = async (updated: Character) => {
-    // Dispatch before saving so the recorded inverse captures the pre-level-up
-    // character (read from the live character ref at dispatch time).
+  const onFinish = (updated: Character) => {
+    // Dispatch before persisting so the recorded inverse captures the
+    // pre-level-up character (read from the live character ref at dispatch
+    // time). The write itself happens in the background — the level-up is
+    // already applied in memory, and holding the modal on a Drive round-trip
+    // made the wizard feel sluggish for nothing.
     dispatch(replaceCharacter(updated));
-    await save(updated);
     setOpen(false);
+    void persistCharacter(updated);
   };
 
   return (

@@ -98,6 +98,8 @@ export default function ModalContainer({
     setUnsavedChanges: () => {},
     saveError: false,
     saveNow: () => {},
+    // The draft buffer never persists directly; the commit path does.
+    persistCharacter: async () => true,
     openSharingSession: async () => {},
     closeSharingSession: () => {},
   };

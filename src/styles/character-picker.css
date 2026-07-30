@@ -43,6 +43,25 @@
   color: var(--accent);
 }
 
+/* An entry that exists in memory but hasn't been confirmed written to the
+   backend yet (wizard finish, move between backends, retrying save). Muted and
+   gently pulsing: informative, not alarming. Used in the picker cards and the
+   sidebar list. */
+.unsynced-badge {
+  color: var(--text-muted);
+  animation: unsynced-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes unsynced-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 /* Create card: dashed, centered, muted until hover. */
 .create-card {
   flex-direction: row;
