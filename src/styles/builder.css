@@ -326,6 +326,53 @@
   padding: 0.25rem;
   font-size: 0.85rem;
 }
+/* Hover stat block for a checklist row. Fixed so it escapes the list's scroll
+   clipping (positioned in JS from the row's viewport rect), and mouse-
+   transparent so it never steals the hover that opened it. */
+.builder-spell-popover {
+  position: fixed;
+  z-index: var(--z-popover);
+  width: min(320px, 88vw);
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.builder-spell-popover h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.builder-spell-popover-school {
+  margin: 0 0 0.4rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+.builder-spell-popover-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+/* The description is a preview, not the whole spell — clamp it so a long spell
+   (Animate Objects) doesn't grow the card past the viewport. */
+.builder-spell-popover-desc,
+.builder-spell-popover-higher {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--text-muted);
+}
+.builder-spell-popover-desc {
+  margin: 0.4rem 0 0;
+  -webkit-line-clamp: 6;
+}
+.builder-spell-popover-higher {
+  margin: 0.3rem 0 0;
+  -webkit-line-clamp: 3;
+}
 
 /* ASI: two columns of +1 radio picks */
 .builder-asi-columns {

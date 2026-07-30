@@ -584,7 +584,11 @@ export function LevelUpSpellsStep({
               preparedAllowance === null
                 ? ""
                 : `, and can have ${preparedAllowance} prepared at this level`
-            } — add anything you want on the sheet.`
+            } — add anything you want on the sheet.${
+              cantripAllowance
+                ? ` This level also grants ${cantripAllowance} new cantrip${cantripAllowance === 1 ? "" : "s"}.`
+                : ""
+            }`
           : `This level grants ${spellAllowance} new spell${spellAllowance === 1 ? "" : "s"}${
               cantripAllowance
                 ? ` and ${cantripAllowance} cantrip${cantripAllowance === 1 ? "" : "s"}`
@@ -657,8 +661,17 @@ export function LevelUpSpellsStep({
           </select>
         </Field>
       )}
-      {classHasCantrips(state.className) && (
-        <Field label="Cantrips">
+      {/* An allowance of 0 means this level grants no cantrips — offering the
+          picker anyway showed a list of un-tickable checkboxes. `null` (a
+          homebrew caster the tables don't cover) still shows it, uncapped. */}
+      {classHasCantrips(state.className) && cantripAllowance !== 0 && (
+        <Field
+          label={
+            cantripAllowance
+              ? `Cantrips (choose ${cantripAllowance})`
+              : "Cantrips"
+          }
+        >
           <SpellChecklist
             className={filterClass}
             level={0}

@@ -284,6 +284,61 @@ describe("LevelUpSpellsStep — known-spell counts", () => {
       screen.getByText(/prepares spells from its whole list/),
     ).toBeInTheDocument();
   });
+
+  it("hides the cantrip picker on a level that grants none", () => {
+    // Bard 1 → 2: cantrips known stays at 2.
+    const char = level1("bard");
+    render(
+      <LevelUpSpellsStep
+        character={char}
+        state={{ ...defaultLevelUpState(char), className: OfficialClass.Bard }}
+        patch={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/Cantrips/)).not.toBeInTheDocument();
+  });
+
+  it("offers cantrips, with the count, on a level that grants one", () => {
+    // Cleric 3 → 4: cantrips known goes 3 → 4, even though leveled spells are
+    // uncapped (prepared caster).
+    const char = advanceTo(level1("cleric"), "Cleric", 3);
+    render(
+      <LevelUpSpellsStep
+        character={char}
+        state={{
+          ...defaultLevelUpState(char),
+          className: OfficialClass.Cleric,
+        }}
+        patch={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Cantrips (choose 1)")).toBeInTheDocument();
+    expect(screen.getByText(/also grants 1 new cantrip/)).toBeInTheDocument();
+  });
+});
+
+describe("SpellChecklist — hover details", () => {
+  it("shows a spell's stat block while its row is hovered", async () => {
+    const char = level1("bard");
+    render(
+      <LevelUpSpellsStep
+        character={char}
+        state={{ ...defaultLevelUpState(char), className: OfficialClass.Bard }}
+        patch={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+
+    const row = screen.getByText("Cure Wounds");
+    await userEvent.hover(row);
+    const card = screen.getByRole("tooltip");
+    expect(within(card).getByText("Casting time")).toBeInTheDocument();
+    expect(within(card).getByText(/1 action/)).toBeInTheDocument();
+    expect(within(card).getByText(/1st-level Evocation/)).toBeInTheDocument();
+
+    await userEvent.unhover(row);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
 });
 
 describe("LevelUpFeatureChoicesStep — Kensei's melee/ranged split", () => {

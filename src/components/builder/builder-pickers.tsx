@@ -1,4 +1,12 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { uniq } from "lodash";
 import {
   REAL_SKILLS,
@@ -364,6 +372,109 @@ export function ToolPicker(props: {
   );
 }
 
+// The stat block shown while a checklist row is hovered or focused. The list
+// scrolls (`.builder-spell-list` clips overflow), so the card is fixed-position
+// and placed from the row's viewport rect: beside the list where there's room,
+// flipped to the other side where there isn't, clamped vertically either way.
+// Portalled to <body> because the wizard modal's centering transform would
+// otherwise both re-root the fixed coordinates and clip the card at the modal
+// edge (a transformed ancestor is a containing block even for `fixed`).
+// Mouse-transparent so it never steals the hover that opened it.
+function SpellHoverCard({
+  spell,
+  anchor,
+}: {
+  spell: SrdSpell;
+  anchor: DOMRect;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number }>();
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    const gap = 10;
+    let left = anchor.right + gap;
+    if (left + width > window.innerWidth - gap)
+      left = Math.max(gap, anchor.left - width - gap);
+    const top = Math.max(
+      gap,
+      Math.min(anchor.top, window.innerHeight - height - gap),
+    );
+    setPos({ left, top });
+  }, [spell, anchor]);
+
+  const components = [
+    spell.verbal && "V",
+    spell.somatic && "S",
+    spell.material !== undefined && `M (${spell.material})`,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  // The PHB prints these as one phrase: "Concentration, up to 1 minute".
+  const duration = spell.concentration
+    ? `Concentration, ${spell.duration.charAt(0).toLowerCase()}${spell.duration.slice(1)}`
+    : spell.duration;
+
+  return createPortal(
+    <div
+      ref={ref}
+      className="builder-spell-popover"
+      role="tooltip"
+      style={pos ?? { visibility: "hidden" }}
+    >
+      <h4>{spell.name}</h4>
+      <p className="builder-spell-popover-school">
+        {spell.level === 0
+          ? `${spell.school} cantrip`
+          : `${spellLevelLabel(spell.level)}-level ${spell.school}`}
+        {spell.ritual ? " (ritual)" : ""}
+      </p>
+      <div className="builder-spell-popover-stats">
+        <span>
+          <b>Casting time</b> {spell.castingTime}
+        </span>
+        <span>
+          <b>Range</b> {spell.range}
+        </span>
+        <span>
+          <b>Components</b> {components || "None"}
+        </span>
+        <span>
+          <b>Duration</b> {duration}
+        </span>
+        {spell.baseDamage && (
+          <span>
+            <b>Damage</b> {spell.baseDamage}
+            {spell.damageType ? ` ${spell.damageType.toLowerCase()}` : ""}
+          </span>
+        )}
+        {spell.save && (
+          <span>
+            <b>Save</b> {spell.save}
+          </span>
+        )}
+        {spell.areaOfEffect && (
+          <span>
+            <b>Area</b> {spell.areaOfEffect}
+          </span>
+        )}
+      </div>
+      {/* Paragraph breaks collapse to a sentence gap: the card is a clamped
+          preview, and `pre-line` breaks the clamp's ellipsis mid-word. */}
+      <p className="builder-spell-popover-desc">
+        {spell.desc.replace(/\n+/g, " ")}
+      </p>
+      {spell.higherLevel && (
+        <p className="builder-spell-popover-higher">
+          <b>At higher levels.</b> {spell.higherLevel}
+        </p>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
 export function SpellChecklist({
   className,
   level,
@@ -384,6 +495,13 @@ export function SpellChecklist({
   onChange: (next: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
+  // The row under the mouse (or holding focus) and its viewport rect, for the
+  // hover card. Cleared on scroll rather than repositioned — the rect is stale
+  // the moment the list moves, and the next mouseenter re-anchors it anyway.
+  const [hovered, setHovered] = useState<{
+    spell: SrdSpell;
+    anchor: DOMRect;
+  } | null>(null);
   const levels = Array.isArray(level) ? level : [level];
   // Keyed on the levels' *contents*: a caller passing a fresh array literal
   // every render would otherwise re-filter the whole catalog on each one.
@@ -416,7 +534,7 @@ export function SpellChecklist({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <div className="builder-spell-list">
+      <div className="builder-spell-list" onScroll={() => setHovered(null)}>
         {spells.length === 0 ? (
           <p className="builder-spell-empty text-muted">
             {query.trim()
@@ -440,6 +558,20 @@ export function SpellChecklist({
                   className={
                     on ? "builder-spell-row selected" : "builder-spell-row"
                   }
+                  onMouseEnter={(e) =>
+                    setHovered({
+                      spell: s,
+                      anchor: e.currentTarget.getBoundingClientRect(),
+                    })
+                  }
+                  onMouseLeave={() => setHovered(null)}
+                  onFocus={(e) =>
+                    setHovered({
+                      spell: s,
+                      anchor: e.currentTarget.getBoundingClientRect(),
+                    })
+                  }
+                  onBlur={() => setHovered(null)}
                 >
                   <input
                     type="checkbox"
@@ -454,6 +586,9 @@ export function SpellChecklist({
           })
         )}
       </div>
+      {hovered && (
+        <SpellHoverCard spell={hovered.spell} anchor={hovered.anchor} />
+      )}
     </div>
   );
 }
