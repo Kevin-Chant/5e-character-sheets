@@ -129,6 +129,26 @@ describe("BackgroundStep", () => {
     });
   });
 
+  it("suggests real tools and languages for a custom background", async () => {
+    const { patch } = renderStep(BackgroundStep, {
+      backgroundIsCustom: true,
+      backgroundName: undefined,
+    });
+    // Both used to be one free-text box with no suggestions — and a language
+    // typed into it was filed as a tool.
+    await userEvent.click(screen.getAllByPlaceholderText(/type a tool/)[0]);
+    await userEvent.click(screen.getByText("Herbalism kit"));
+    expect(patch).toHaveBeenCalledWith({
+      customBackgroundTools: "Herbalism kit",
+    });
+
+    await userEvent.click(screen.getAllByPlaceholderText(/type a language/)[0]);
+    await userEvent.click(screen.getByText("Draconic"));
+    expect(patch).toHaveBeenCalledWith({
+      backgroundLanguageChoices: ["Draconic"],
+    });
+  });
+
   it("offers a bard their instrument choices", () => {
     renderStep(BackgroundStep, { classIndex: "bard" });
     expect(screen.getByText(/Tool proficiencies \(Bard\)/)).toBeInTheDocument();

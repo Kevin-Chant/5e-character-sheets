@@ -38,6 +38,72 @@ export const DEFAULT_LANGUAGES: GroupedOptionsList<string> = [
   },
 ];
 
+// The standard tool proficiencies, for the fields that ask for one in prose
+// ("one type of artisan's tools") rather than from a class's closed list. The
+// sheet doesn't model a tool taxonomy — these are labels, and a custom entry
+// is as valid as any of them.
+export const DEFAULT_TOOLS: GroupedOptionsList<string> = [
+  {
+    label: "Artisan's Tools",
+    options: [
+      "Alchemist's supplies",
+      "Brewer's supplies",
+      "Calligrapher's supplies",
+      "Carpenter's tools",
+      "Cartographer's tools",
+      "Cobbler's tools",
+      "Cook's utensils",
+      "Glassblower's tools",
+      "Jeweler's tools",
+      "Leatherworker's tools",
+      "Mason's tools",
+      "Painter's supplies",
+      "Potter's tools",
+      "Smith's tools",
+      "Tinker's tools",
+      "Weaver's tools",
+      "Woodcarver's tools",
+    ],
+  },
+  {
+    label: "Gaming Sets",
+    options: [
+      "Dice set",
+      "Dragonchess set",
+      "Playing card set",
+      "Three-Dragon Ante set",
+    ],
+  },
+  {
+    label: "Musical Instruments",
+    options: [
+      "Bagpipes",
+      "Drum",
+      "Dulcimer",
+      "Flute",
+      "Horn",
+      "Lute",
+      "Lyre",
+      "Pan flute",
+      "Shawm",
+      "Viol",
+    ],
+  },
+  {
+    label: "Kits & Vehicles",
+    options: [
+      "Disguise kit",
+      "Forgery kit",
+      "Herbalism kit",
+      "Navigator's tools",
+      "Poisoner's kit",
+      "Thieves' tools",
+      "Vehicles (land)",
+      "Vehicles (water)",
+    ],
+  },
+];
+
 export const DEFAULT_BACKGROUNDS: SingleOptionsList<string> = [
   "Acolyte",
   "Charlatan",

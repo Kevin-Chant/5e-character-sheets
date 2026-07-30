@@ -6,7 +6,7 @@ import {
   spellLevelLabel,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { DEFAULT_LANGUAGES } from "src/lib/data/option-lists";
+import { DEFAULT_LANGUAGES, DEFAULT_TOOLS } from "src/lib/data/option-lists";
 import { WEAPON_PRESETS } from "src/lib/data/weapon-presets";
 import { FEATS } from "src/lib/builder/feats";
 import { FeatChoices } from "src/lib/builder/feats";
@@ -31,6 +31,7 @@ import {
 // ChipMultiSelect); mixing the two had turned that file into a grab-bag.
 
 const LANGUAGE_OPTIONS = DEFAULT_LANGUAGES.flatMap((g) => g.options);
+const TOOL_OPTIONS = DEFAULT_TOOLS.flatMap((g) => g.options);
 const WEAPON_OPTIONS = WEAPON_PRESETS.flatMap((g) =>
   g.options.map((w) => w.name),
 );
@@ -295,14 +296,19 @@ export function OptionalFeaturePicker({
   );
 }
 
-// One combobox per language slot: suggests standard/exotic languages but still
-// accepts custom entries (same "default or custom" feel as the other fields).
-export function LanguagePicker({
+// N combobox slots over a suggestion list, each still accepting custom entries
+// (the "default or custom" feel the rest of the wizard has). The shape behind
+// both the language picker and the custom background's tools.
+export function SlotPicker({
   count,
+  options,
+  placeholder,
   value,
   onChange,
 }: {
   count: number;
+  options: readonly string[];
+  placeholder: string;
   value: string[];
   onChange: (next: string[]) => void;
 }) {
@@ -317,12 +323,44 @@ export function LanguagePicker({
         <Combobox
           key={i}
           value={value[i] ?? ""}
-          options={LANGUAGE_OPTIONS}
-          placeholder="Choose or type a language"
+          options={options}
+          placeholder={placeholder}
           onChange={(v) => set(i, v)}
         />
       ))}
     </div>
+  );
+}
+
+// One slot per language granted: suggests standard/exotic languages.
+export function LanguagePicker(props: {
+  count: number;
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <SlotPicker
+      {...props}
+      options={LANGUAGE_OPTIONS}
+      placeholder="Choose or type a language"
+    />
+  );
+}
+
+// One slot per tool proficiency granted, suggesting the standard kits, sets and
+// instruments. The list is flat here — the groups exist to keep the data
+// readable, not because the combobox filters by them.
+export function ToolPicker(props: {
+  count: number;
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <SlotPicker
+      {...props}
+      options={TOOL_OPTIONS}
+      placeholder="Choose or type a tool"
+    />
   );
 }
 

@@ -82,10 +82,18 @@ import {
   LanguagePicker,
   OptionalFeaturePicker,
   SpellChecklist,
+  ToolPicker,
 } from "./builder-pickers";
 import { optionalFeaturesAt } from "src/lib/builder/optional-class-features";
 
 const STAT_KEYS = Object.values(StatKey);
+// The comma/newline split `buildCharacter` applies to the free-text proficiency
+// fields, so the picker round-trips exactly what the build will read back.
+const splitList = (value: string): string[] =>
+  value
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 const fmtMod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
 // --------------------------------------------------------------------- Start
@@ -1136,15 +1144,32 @@ export function BackgroundStep({ state, patch }: StepProps) {
                 }
               />
             </Field>
+            {/* A custom background grants two tool proficiencies or languages
+                in any combination, so both are offered with the standard lists
+                and neither is capped — the pair is the player's to split. They
+                are separate fields because they land in different places on the
+                sheet: a language typed into one comma-separated box used to be
+                filed as a tool. */}
             <Field
-              label="Tool proficiencies / languages"
-              hint="Comma separated"
+              label="Tool proficiencies"
+              hint="Your background grants two tool proficiencies or languages, in any combination."
             >
-              <input
-                className="builder-input"
-                value={state.customBackgroundTools}
-                onChange={(e) =>
-                  patch({ customBackgroundTools: e.target.value })
+              <ToolPicker
+                count={2}
+                value={splitList(state.customBackgroundTools)}
+                onChange={(tools) =>
+                  patch({
+                    customBackgroundTools: tools.filter(Boolean).join(", "),
+                  })
+                }
+              />
+            </Field>
+            <Field label="Languages">
+              <LanguagePicker
+                count={2}
+                value={state.backgroundLanguageChoices}
+                onChange={(backgroundLanguageChoices) =>
+                  patch({ backgroundLanguageChoices })
                 }
               />
             </Field>
