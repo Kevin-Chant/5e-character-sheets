@@ -53,6 +53,12 @@ export interface FeatPickerProps {
   proficientSkills: SkillName[];
   expertSkills: SkillName[];
   knownWeapons: string[];
+  // Spell names already on the sheet (or picked elsewhere in the wizard), so a
+  // Magic Initiate can't "learn" a cantrip the character already has.
+  knownSpells?: string[];
+  // Names of feats already taken. 5e allows each feat once (no repeatable feat
+  // is in the catalog), so these leave the dropdown entirely.
+  takenFeats?: string[];
 }
 
 // A text input with a suggestion dropdown that still accepts free-text entries.
@@ -312,12 +318,20 @@ export function SlotPicker({
   options,
   placeholder,
   value,
+  exclude = [],
   onChange,
 }: {
   count: number;
   options: readonly string[];
   placeholder: string;
   value: string[];
+  // Entries dropped from the *suggestions* — things the character already has
+  // (an Elf's Elvish shouldn't be suggested as the background's extra
+  // language). Free text still accepts anything; this only stops the dropdown
+  // offering a pick that would silently be a duplicate. Each slot also hides
+  // the other slots' current picks, so "choose two" can't suggest the same
+  // thing twice.
+  exclude?: string[];
   onChange: (next: string[]) => void;
 }) {
   const set = (i: number, v: string) => {
@@ -325,13 +339,21 @@ export function SlotPicker({
     next[i] = v;
     onChange(next);
   };
+  const taken = new Set(
+    [...exclude, ...value].map((v) => v.trim().toLowerCase()),
+  );
+  const optionsFor = (i: number) =>
+    options.filter((o) => {
+      const key = o.trim().toLowerCase();
+      return key === (value[i] ?? "").trim().toLowerCase() || !taken.has(key);
+    });
   return (
     <div className="builder-language-picker">
       {Array.from({ length: count }).map((_, i) => (
         <Combobox
           key={i}
           value={value[i] ?? ""}
-          options={options}
+          options={optionsFor(i)}
           placeholder={placeholder}
           onChange={(v) => set(i, v)}
         />
@@ -344,6 +366,7 @@ export function SlotPicker({
 export function LanguagePicker(props: {
   count: number;
   value: string[];
+  exclude?: string[];
   onChange: (next: string[]) => void;
 }) {
   return (
@@ -361,6 +384,7 @@ export function LanguagePicker(props: {
 export function ToolPicker(props: {
   count: number;
   value: string[];
+  exclude?: string[];
   onChange: (next: string[]) => void;
 }) {
   return (
@@ -480,6 +504,7 @@ export function SpellChecklist({
   level,
   selected,
   max,
+  alreadyKnown,
   onChange,
 }: {
   // Undefined shows every SRD spell (used for classes the catalog doesn't tag,
@@ -492,6 +517,13 @@ export function SpellChecklist({
   level: number | number[];
   selected: string[];
   max: number | null;
+  // Spell *names* to drop from the list — the ones the character already has
+  // (the sheet stores titles, not SRD indices, so names are the join key).
+  // Offering a known spell again would let a pick silently waste itself, the
+  // same reasoning as ChosenOptionPicker's `alreadyKnown`. A row that's
+  // currently ticked in *this* list always stays visible, so a pick can't
+  // become un-untickable when a cross-listed choice lands elsewhere.
+  alreadyKnown?: string[];
   onChange: (next: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -506,13 +538,20 @@ export function SpellChecklist({
   // Keyed on the levels' *contents*: a caller passing a fresh array literal
   // every render would otherwise re-filter the whole catalog on each one.
   const levelKey = levels.join(",");
-  const spells = useMemo(
-    () =>
-      searchSrdSpells(query, className).filter((s) =>
-        levelKey.split(",").includes(String(s.level)),
-      ),
-    [query, className, levelKey],
-  );
+  // Same contents-keying as the levels, for callers building the list inline.
+  const knownKey = (alreadyKnown ?? [])
+    .map((n) => n.trim().toLowerCase())
+    .join("\n");
+  const spells = useMemo(() => {
+    const known = new Set(knownKey ? knownKey.split("\n") : []);
+    return searchSrdSpells(query, className).filter(
+      (s) =>
+        levelKey.split(",").includes(String(s.level)) &&
+        (selected.includes(s.index) || !known.has(s.name.toLowerCase())),
+    );
+    // `selected` is deliberately keyed by contents too — a re-created array of
+    // the same picks shouldn't re-filter the catalog.
+  }, [query, className, levelKey, knownKey, selected.join(",")]);
   // A list spanning several levels is grouped under level headings rather than
   // tagging each of ~300 rows: the level is the one axis a player scans by, and
   // repeating "Cantrip" forty times says it worst.
@@ -599,8 +638,16 @@ export function FeatPicker({
   proficientSkills,
   expertSkills,
   knownWeapons,
+  knownSpells,
+  takenFeats = [],
 }: FeatPickerProps) {
   const feat = FEATS.find((f) => f.index === state.featIndex);
+  // Taken feats leave the list — except the current pick, which must stay
+  // renderable while it's the selection.
+  const taken = new Set(takenFeats);
+  const offeredFeats = FEATS.filter(
+    (f) => f.index === state.featIndex || !taken.has(f.name),
+  );
   const grants = feat?.grants;
   // The names of any always-granted spells, for an informational line.
   const fixedSpellNames = [
@@ -654,7 +701,7 @@ export function FeatPicker({
           }
         >
           <option value="">Choose a feat…</option>
-          {FEATS.map((f) => (
+          {offeredFeats.map((f) => (
             <option key={f.index} value={f.index}>
               {f.name}
             </option>
@@ -771,6 +818,7 @@ export function FeatPicker({
                 level={level}
                 selected={state.featSpellChoices[level] ?? []}
                 max={count}
+                alreadyKnown={knownSpells}
                 onChange={(indices) =>
                   patch({
                     featSpellChoices: {

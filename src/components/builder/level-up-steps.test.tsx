@@ -315,6 +315,57 @@ describe("LevelUpSpellsStep — known-spell counts", () => {
     expect(screen.getByText("Cantrips (choose 1)")).toBeInTheDocument();
     expect(screen.getByText(/also grants 1 new cantrip/)).toBeInTheDocument();
   });
+
+  it("doesn't offer spells the class already knows", () => {
+    // A wizard whose spellbook already holds Magic Missile shouldn't be
+    // offered it again on levelling up.
+    const char = level1("wizard", {
+      levelOneSpellIndices: ["magic-missile"],
+    });
+    render(
+      <LevelUpSpellsStep
+        character={char}
+        state={{
+          ...defaultLevelUpState(char),
+          className: OfficialClass.Wizard,
+        }}
+        patch={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Magic Missile")).not.toBeInTheDocument();
+    expect(screen.getByText("Shield")).toBeInTheDocument();
+  });
+});
+
+describe("LevelUpAdvancementStep — feat dedup", () => {
+  it("doesn't offer a feat the character already took", () => {
+    // Fighter 3 → 4 takes Alert; the next feat pick shouldn't list it.
+    const fighter3 = advanceTo(level1("fighter"), "Fighter", 3);
+    const withAlert = applyLevelUp(fighter3, {
+      ...defaultLevelUpState(fighter3),
+      className: OfficialClass.Fighter,
+      advancement: "feat",
+      featIndex: "alert",
+    });
+    render(
+      <LevelUpAdvancementStep
+        character={withAlert}
+        state={{
+          ...defaultLevelUpState(withAlert),
+          className: OfficialClass.Fighter,
+          advancement: "feat",
+        }}
+        patch={vi.fn()}
+      />,
+    );
+    const dropdown = screen.getByRole("combobox");
+    expect(
+      within(dropdown).queryByRole("option", { name: "Alert" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dropdown).getByRole("option", { name: "Lucky" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("SpellChecklist — hover details", () => {

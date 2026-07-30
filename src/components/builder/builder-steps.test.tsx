@@ -108,6 +108,26 @@ describe("RaceStep", () => {
       screen.getByText("Skill proficiencies (from your race)"),
     ).toBeInTheDocument();
   });
+
+  it("asks a Human their bonus language, without suggesting one they have", async () => {
+    renderStep(RaceStep, { raceIndex: "human" });
+    expect(screen.getByText("Extra languages")).toBeInTheDocument();
+
+    // Opening the combobox suggests real options minus Common (a Human's
+    // fixed language).
+    await userEvent.click(
+      screen.getByPlaceholderText("Choose or type a language"),
+    );
+    expect(screen.getByRole("button", { name: "Elvish" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Common" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("asks no bonus language of a race that grants none", () => {
+    renderStep(RaceStep, { raceIndex: "dwarf" });
+    expect(screen.queryByText("Extra languages")).not.toBeInTheDocument();
+  });
 });
 
 describe("BackgroundStep", () => {

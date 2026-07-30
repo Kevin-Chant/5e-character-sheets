@@ -16,7 +16,7 @@ import {
   raceGrantsFeat,
   subracesForRace,
 } from "src/lib/builder/srd-races";
-import { ALL_SPELLS } from "src/lib/spells/srd-spells";
+import { ALL_SPELLS, getSrdSpell } from "src/lib/spells/srd-spells";
 import {
   SRD_CLASSES,
   castsAtLevelOne,
@@ -415,8 +415,18 @@ export function RaceStep({ state, patch }: StepProps) {
           ...(subrace?.traits ?? []),
         ].some((t) => t.title.trim().toLowerCase() === "high elf cantrip");
         if (!hasHighElfCantrip) return null;
+        // Minus any cantrip already picked as a class or feat spell in this
+        // wizard (the class checklist hides this pick in return).
+        const pickedElsewhere = [
+          ...state.cantripIndices,
+          ...Object.values(state.featSpellChoices).flat(),
+        ];
         const wizardCantrips = ALL_SPELLS.filter(
-          (s) => s.level === 0 && s.classes.includes("Wizard"),
+          (s) =>
+            s.level === 0 &&
+            s.classes.includes("Wizard") &&
+            (s.index === state.highElfCantrip ||
+              !pickedElsewhere.includes(s.index)),
         );
         return (
           <Field
@@ -437,6 +447,31 @@ export function RaceStep({ state, patch }: StepProps) {
                 </option>
               ))}
             </select>
+          </Field>
+        );
+      })()}
+
+      {/* "One language of your choice" (Human, Half-Elf, …). This picker was
+          missing entirely — `raceLanguageChoices` was consumed by
+          buildCharacter but nothing ever asked, so the grant silently
+          evaporated. The race's fixed languages are excluded from the
+          suggestions. */}
+      {(() => {
+        const subrace = getSubrace(race, state.subraceIndex);
+        const count =
+          (race?.languageChoices ?? 0) + (subrace?.languageChoices ?? 0);
+        if (!count) return null;
+        return (
+          <Field
+            label="Extra languages"
+            hint={`Your race grants ${count} language(s) of your choice.`}
+          >
+            <LanguagePicker
+              count={count}
+              value={state.raceLanguageChoices}
+              exclude={race?.languages ?? []}
+              onChange={(raceLanguageChoices) => patch({ raceLanguageChoices })}
+            />
           </Field>
         );
       })()}
@@ -474,11 +509,29 @@ export function RaceStep({ state, patch }: StepProps) {
           <FeatPicker
             state={state}
             patch={patch}
-            // Nothing is chosen yet at this point in the wizard, so the feat's
-            // own pickers offer the full lists.
-            proficientSkills={[]}
+            // Class and background aren't chosen yet at this point in the
+            // wizard, but the race's own grants (and picks already made if the
+            // player stepped back here) are known — so those lists at least
+            // exclude them.
+            proficientSkills={[
+              ...(race?.proficiencies.skills ?? []),
+              ...(getSubrace(race, state.subraceIndex)?.proficiencies.skills ??
+                []),
+              ...state.raceSkillChoices,
+            ]}
             expertSkills={[]}
-            knownWeapons={[]}
+            knownWeapons={[
+              ...(race?.proficiencies.weapons ?? []),
+              ...(getSubrace(race, state.subraceIndex)?.proficiencies.weapons ??
+                []),
+            ]}
+            knownSpells={[
+              state.highElfCantrip,
+              ...state.cantripIndices,
+              ...state.levelOneSpellIndices,
+            ]
+              .map((i) => (i ? getSrdSpell(i)?.name : undefined))
+              .filter((n): n is string => Boolean(n))}
           />
         </Field>
       )}
@@ -1123,6 +1176,21 @@ export function BackgroundStep({ state, patch }: StepProps) {
     },
   ];
 
+  // Languages and tools the character already has when this step's pickers
+  // ask — race grants (fixed + chosen) and, for tools, the class's fixed and
+  // chosen kits. Fed to the pickers' `exclude` so suggesting a duplicate
+  // proficiency needs deliberate free text, not a default pick.
+  const knownLanguages = [
+    ...(race?.languages ?? []),
+    ...state.raceLanguageChoices,
+  ];
+  const knownTools = [
+    ...(klass?.proficiencies.tools ?? []),
+    ...state.toolChoices,
+    ...(race?.proficiencies.tools ?? []),
+    ...(subrace?.proficiencies.tools ?? []),
+  ];
+
   // Skills already granted by background + race, so class picks don't waste on
   // duplicates (BG3-style).
   const bgSkillChoices = state.backgroundSkillChoices.filter((sk) =>
@@ -1224,6 +1292,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
               <ToolPicker
                 count={2}
                 value={splitList(state.customBackgroundTools)}
+                exclude={knownTools}
                 onChange={(tools) =>
                   patch({
                     customBackgroundTools: tools.filter(Boolean).join(", "),
@@ -1235,6 +1304,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
               <LanguagePicker
                 count={2}
                 value={state.backgroundLanguageChoices}
+                exclude={knownLanguages}
                 onChange={(backgroundLanguageChoices) =>
                   patch({ backgroundLanguageChoices })
                 }
@@ -1270,6 +1340,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
             <LanguagePicker
               count={languageCount}
               value={state.backgroundLanguageChoices}
+              exclude={knownLanguages}
               onChange={(backgroundLanguageChoices) =>
                 patch({ backgroundLanguageChoices })
               }
@@ -1301,7 +1372,14 @@ export function BackgroundStep({ state, patch }: StepProps) {
             hint={`Choose ${klass.toolChoices.choose}`}
           >
             <ChipMultiSelect
-              options={klass.toolChoices.from}
+              // Minus tools the background or race already grants — same
+              // no-wasted-pick rule the class skills above follow.
+              options={klass.toolChoices.from.filter(
+                (t) =>
+                  !(bg?.tools ?? []).includes(t) &&
+                  !(race?.proficiencies.tools ?? []).includes(t) &&
+                  !(subrace?.proficiencies.tools ?? []).includes(t),
+              )}
               selected={state.toolChoices.filter((t) =>
                 klass.toolChoices!.from.includes(t),
               )}
@@ -1353,6 +1431,15 @@ export function SpellsStep({ state, patch }: StepProps) {
     );
   }
   const sc = klass.spellcasting;
+  // Spells already picked elsewhere in this wizard — the racial cantrip and
+  // any feat-granted picks (a Variant Human's Magic Initiate) — leave the
+  // class lists, so creation can't take the same spell twice.
+  const pickedElsewhere = [
+    state.highElfCantrip,
+    ...Object.values(state.featSpellChoices).flat(),
+  ]
+    .map((i) => (i ? getSrdSpell(i)?.name : undefined))
+    .filter((n): n is string => Boolean(n));
   return (
     <div className="builder-step">
       <p className="text-muted builder-hint">
@@ -1368,6 +1455,7 @@ export function SpellsStep({ state, patch }: StepProps) {
           level={0}
           selected={state.cantripIndices}
           max={sc.cantripsKnown}
+          alreadyKnown={pickedElsewhere}
           onChange={(cantripIndices) => patch({ cantripIndices })}
         />
       </Field>
@@ -1388,6 +1476,7 @@ export function SpellsStep({ state, patch }: StepProps) {
           level={1}
           selected={state.levelOneSpellIndices}
           max={sc.spellsKnown}
+          alreadyKnown={pickedElsewhere}
           onChange={(levelOneSpellIndices) => patch({ levelOneSpellIndices })}
         />
       </Field>

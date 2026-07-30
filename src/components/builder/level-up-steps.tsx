@@ -251,11 +251,16 @@ export function LevelUpFeatureChoicesStep({
             }
           >
             <option value="">Choose…</option>
-            {styleNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
+            {/* A style already on the sheet isn't offered again — the only way
+                to be picking twice is Champion's Additional Fighting Style,
+                where the 1st-level pick must leave the list. */}
+            {styleNames
+              .filter((name) => !known.has(name))
+              .map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
           </select>
           {state.fightingStyle && (
             <p className="text-muted builder-hint">
@@ -326,7 +331,15 @@ export function LevelUpFeatureChoicesStep({
       {toolChoices && (
         <Field label={`Tool proficiency (choose ${toolChoices.choose})`}>
           <ChipMultiSelect<string>
-            options={toolChoices.from}
+            // Same rule as the multiclass skills above: a tool already on the
+            // sheet would waste the grant, so it isn't offered.
+            options={toolChoices.from.filter(
+              (t) =>
+                !character.otherProficiencies.toolsAndOther.some(
+                  (row) =>
+                    row.title.trim().toLowerCase() === t.trim().toLowerCase(),
+                ),
+            )}
             selected={state.toolChoices}
             max={toolChoices.choose}
             onChange={(toolChoices) => patch({ toolChoices })}
@@ -343,7 +356,14 @@ export function LevelUpFeatureChoicesStep({
           }
         >
           <ChipMultiSelect<SkillName>
-            options={grants.subclassSkillChoices.from}
+            // A plain proficiency grant hides skills already proficient; an
+            // expertise-flavored grant (Scout's Survivalist) targets skills you
+            // may well have, so it only hides ones already doubled.
+            options={grants.subclassSkillChoices.from.filter((s) =>
+              grants.subclassSkillChoices!.expertise
+                ? !character.proficiencies.expertise[s]
+                : !character.proficiencies.skills[s],
+            )}
             selected={state.subclassSkillChoices}
             max={grants.subclassSkillChoices.choose}
             onChange={(subclassSkillChoices) => patch({ subclassSkillChoices })}
@@ -492,6 +512,13 @@ export function LevelUpAdvancementStep(props: LevelUpStepProps) {
             (s) => props.character.proficiencies.expertise[s],
           )}
           knownWeapons={props.character.otherProficiencies.weapons}
+          // Any class's spells count — a feat's grant is character-wide.
+          knownSpells={Object.values(props.character.spells).flatMap((list) =>
+            (list ?? []).map((sp) => sp.info.title),
+          )}
+          // A taken feat is its feature row (`applyFeat` pushes one titled with
+          // the feat's name), which is also how creation-taken feats surface.
+          takenFeats={props.character.features.map((f) => f.title)}
         />
       )}
     </div>
@@ -560,6 +587,24 @@ export function LevelUpSpellsStep({
     newLevel,
     state.subclass ?? targetKlass?.subclass,
   );
+
+  // Spells already on the sheet for the leveled class, by name — the
+  // checklists drop them, since "learning" one again would waste the pick (the
+  // swap dropdown is the way to trade a known spell). Names, not indices: the
+  // sheet stores titles, and SRD-added spells keep the catalog name.
+  const knownNames = Object.values(character.spells).flatMap((list) =>
+    (list ?? [])
+      .filter((sp) => sp.spellcastingClass === targetKlass?.id)
+      .map((sp) => sp.info.title),
+  );
+  // Picks pending in this same run cross-exclude between the two allowances
+  // (class list vs Magical Secrets), so one spell can't be taken in both.
+  const pendingNames = (indices: string[]) =>
+    indices
+      .map((i) => getSrdSpell(i)?.name)
+      .filter((n): n is string => Boolean(n));
+  const secretNames = pendingNames(state.secretSpells);
+  const newSpellNames = pendingNames(Object.values(state.newSpells).flat());
 
   const canSwap = !isPreparedCaster(state.className);
   const knownSpells = canSwap
@@ -638,6 +683,7 @@ export function LevelUpSpellsStep({
             level={[0, ...leveledSpellLevels]}
             selected={state.secretSpells}
             max={secretsCount}
+            alreadyKnown={[...knownNames, ...newSpellNames]}
             onChange={(secretSpells) => patch({ secretSpells })}
           />
         </Field>
@@ -677,6 +723,7 @@ export function LevelUpSpellsStep({
             level={0}
             selected={state.newSpells[0] ?? []}
             max={cantripAllowance}
+            alreadyKnown={[...knownNames, ...secretNames]}
             onChange={(indices) => setLevel(0, indices)}
           />
         </Field>
@@ -688,6 +735,7 @@ export function LevelUpSpellsStep({
             level={numeric}
             selected={state.newSpells[numeric] ?? []}
             max={remainingFor(numeric)}
+            alreadyKnown={[...knownNames, ...secretNames]}
             onChange={(indices) => setLevel(numeric, indices)}
           />
         </Field>
