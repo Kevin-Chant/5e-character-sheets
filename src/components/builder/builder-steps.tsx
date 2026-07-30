@@ -533,16 +533,29 @@ export function ClassStep({ state, patch }: StepProps) {
   // the whole block: which questions a class asks varies, but "the part below
   // the grid" doesn't.
   const belowRef = useRef<HTMLDivElement>(null);
+  // …and one of those questions has an answer that asks another: Superior
+  // Technique owes a maneuver. Scrolling to the block again would land above
+  // the dropdown the player just used, so the picks get their own target — the
+  // same two-step unfolding the race step does for race → subrace → bonuses.
+  const picksRef = useRef<HTMLDivElement>(null);
   const selectionKey = custom ? "__custom" : state.classIndex;
-  const prevSelection = useRef(selectionKey);
+  const prev = useRef({ selectionKey, style: state.fightingStyle });
   useEffect(() => {
-    if (prevSelection.current !== selectionKey && selectionKey)
-      belowRef.current?.scrollIntoView({
+    const changedClass = prev.current.selectionKey !== selectionKey;
+    const changedStyle = prev.current.style !== state.fightingStyle;
+    prev.current = { selectionKey, style: state.fightingStyle };
+    if (changedClass) {
+      if (selectionKey)
+        belowRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+    } else if (changedStyle)
+      picksRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "nearest",
       });
-    prevSelection.current = selectionKey;
-  }, [selectionKey]);
+  }, [selectionKey, state.fightingStyle]);
 
   const q = query.trim().toLowerCase();
   const matches = SRD_CLASSES.filter((c) => c.name.toLowerCase().includes(q));
@@ -689,29 +702,33 @@ export function ClassStep({ state, patch }: StepProps) {
           ranger's Favored Enemy and Natural Explorer, since every other group
           starts at class level 3 and belongs to the level-up wizard. Nothing
           is known yet at creation, so `alreadyKnown` is always empty. */}
-        {klass &&
-          newOptionPicksAt(klass.name, 1, {
-            subclass: state.subclass,
-            fightingStyle: state.fightingStyle,
-            optionalFeatures: state.optionalFeatures,
-          }).map(({ group, count }) => (
-            <ChosenOptionPicker
-              key={group.category}
-              group={group}
-              count={count}
-              classLevel={1}
-              alreadyKnown={[]}
-              picked={state.chosenOptions[group.category] ?? []}
-              onChange={(names) =>
-                patch({
-                  chosenOptions: {
-                    ...state.chosenOptions,
-                    [group.category]: names,
-                  },
-                })
-              }
-            />
-          ))}
+        {/* Shares `.builder-below-grid`'s column rhythm so wrapping the pickers
+            in a scroll target changes nothing visually. */}
+        <div ref={picksRef} className="builder-below-grid">
+          {klass &&
+            newOptionPicksAt(klass.name, 1, {
+              subclass: state.subclass,
+              fightingStyle: state.fightingStyle,
+              optionalFeatures: state.optionalFeatures,
+            }).map(({ group, count }) => (
+              <ChosenOptionPicker
+                key={group.category}
+                group={group}
+                count={count}
+                classLevel={1}
+                alreadyKnown={[]}
+                picked={state.chosenOptions[group.category] ?? []}
+                onChange={(names) =>
+                  patch({
+                    chosenOptions: {
+                      ...state.chosenOptions,
+                      [group.category]: names,
+                    },
+                  })
+                }
+              />
+            ))}
+        </div>
 
         {custom && (
           <>
