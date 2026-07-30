@@ -385,6 +385,59 @@
   flex-direction: column;
   gap: 0.35rem;
 }
+
+/* Current → resulting ability scores shown under the ASI picker and again on
+   the review step. */
+.builder-asi-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.builder-asi-preview-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.builder-asi-preview-stat.changed {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.builder-asi-preview-name {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.builder-asi-preview-values {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.builder-asi-preview-score {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.builder-asi-preview-score.resulting {
+  color: var(--accent);
+}
+.builder-asi-preview-mod {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.builder-asi-preview-score.resulting .builder-asi-preview-mod {
+  color: inherit;
+}
+.builder-asi-preview-arrow {
+  align-self: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
 .builder-radio {
   display: flex;
   align-items: center;

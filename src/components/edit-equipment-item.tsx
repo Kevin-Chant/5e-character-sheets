@@ -15,7 +15,13 @@ import { useSave } from "./modals/modal-container";
 import { fromStack, updateAt } from "src/lib/cursor";
 import { weightInUnit, weightToLb } from "src/lib/rules";
 import { ARMOR_PRESETS } from "src/lib/builder/equipment";
+import {
+  CATALOG_OPTIONS,
+  EQUIPMENT_CATALOG,
+  EquipmentCatalogEntry,
+} from "src/lib/builder/equipment-catalog";
 import { ControlledEditTextLine } from "./edit-text-line";
+import OptionOrCustomValue from "./display/option-or-custom-value";
 import StepperInput from "./stepper-input";
 
 // Default DEX contribution for a freshly-picked category — decoupled from the
@@ -63,7 +69,7 @@ export default function EditEquipmentItem() {
         fromStack<EquipmentItem[]>(FIELD.equipment, undefined),
         equipment.concat({
           id: randomUUID(),
-          text: { title: "New item", titleFormulas: [] },
+          text: { title: "", titleFormulas: [] },
           quantity: 1,
           equipped: false,
         }),
@@ -176,11 +182,45 @@ export default function EditEquipmentItem() {
       setText({ title: preset.label });
   };
 
+  // Prefill name + mechanics from a built-in catalog item picked in the search.
+  const applyCatalogEntry = (entry: EquipmentCatalogEntry) => {
+    setText({ title: entry.name });
+    if (entry.armor) {
+      clearShield();
+      dispatch(updateAt(itemCursor.k("armor"), entry.armor));
+    } else if (entry.shield) {
+      clearArmor();
+      dispatch(updateAt(itemCursor.k("shield"), entry.shield));
+    }
+    if (entry.weight !== undefined)
+      dispatch(updateAt(itemCursor.k("weight"), entry.weight));
+  };
+
   return (
     <form
       className="edit-equipment column"
       onSubmit={(e) => e.preventDefault()}
     >
+      {isNew && (
+        <label className="field equipment-catalog-search">
+          <span className="field-label">Search built-in items (optional)</span>
+          {/* Prefills name + mechanics from the catalog; typing a name that
+              isn't in the catalog is a no-op here — use the Name field below for
+              a fully custom item. */}
+          <OptionOrCustomValue
+            value=""
+            setValue={(name: string) => {
+              const entry = EQUIPMENT_CATALOG.find((e) => e.name === name);
+              if (entry) applyCatalogEntry(entry);
+            }}
+            options={CATALOG_OPTIONS}
+            customDefaultValue=""
+            customValueHelpText="e.g. Chain Mail, Shield…"
+            customInputType="text"
+          />
+        </label>
+      )}
+
       <ControlledEditTextLine
         {...{
           textComponent,

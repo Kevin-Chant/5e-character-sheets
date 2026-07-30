@@ -22,6 +22,7 @@ import {
 } from "src/components/builder/level-up-steps";
 import { takenOptionalFeatures } from "src/lib/builder/optional-class-features";
 import { FaXmark } from "react-icons/fa6";
+import Spinner from "src/components/spinner";
 
 interface StepDef {
   key: string;
@@ -113,7 +114,7 @@ const STEPS: StepDef[] = [
 interface Props {
   character: Character;
   onCancel: () => void;
-  onFinish: (updated: Character) => void;
+  onFinish: (updated: Character) => void | Promise<void>;
 }
 
 // The guided level-up wizard. Owns a working `LevelUpState`, routes between the
@@ -128,6 +129,7 @@ export default function LevelUpWizard({
     defaultLevelUpState(character),
   );
   const [index, setIndex] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   const patch = (partial: Partial<LevelUpState>) =>
     setState((prev) => ({ ...prev, ...partial }));
@@ -151,7 +153,15 @@ export default function LevelUpWizard({
   // choices made so far — so only the X button can dismiss it then.
   const guardExit = clampedIndex > 0;
 
-  const finish = () => onFinish(applyLevelUp(character, state));
+  const finish = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onFinish(applyLevelUp(character, state));
+    } finally {
+      setSubmitting(false);
+    }
+  };
   const next = () => (isLast ? finish() : setIndex(clampedIndex + 1));
   const back = () => setIndex(Math.max(0, clampedIndex - 1));
 
@@ -203,8 +213,21 @@ export default function LevelUpWizard({
           <span className="text-muted builder-step-count">
             Step {clampedIndex + 1} of {steps.length}
           </span>
-          <button className="btn-primary" onClick={next} type="button">
-            {isLast ? "Confirm level up" : "Next"}
+          <button
+            className="btn-primary"
+            onClick={next}
+            type="button"
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                Applying <Spinner />
+              </>
+            ) : isLast ? (
+              "Confirm level up"
+            ) : (
+              "Next"
+            )}
           </button>
         </div>
       </div>

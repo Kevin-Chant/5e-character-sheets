@@ -17,6 +17,7 @@ import {
   StartStep,
 } from "src/components/builder/builder-steps";
 import { FaXmark } from "react-icons/fa6";
+import Spinner from "src/components/spinner";
 
 interface StepDef {
   key: string;
@@ -55,7 +56,7 @@ const STEPS: StepDef[] = [
 
 interface Props {
   onCancel: () => void;
-  onFinish: (character: Character) => void;
+  onFinish: (character: Character) => void | Promise<void>;
 }
 
 // The guided character-creation wizard. Owns the working `BuilderState`, routes
@@ -64,6 +65,7 @@ interface Props {
 export default function CharacterBuilder({ onCancel, onFinish }: Props) {
   const [state, setState] = useState<BuilderState>(defaultBuilderState);
   const [index, setIndex] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   const patch = (partial: Partial<BuilderState>) =>
     setState((prev) => ({ ...prev, ...partial }));
@@ -91,7 +93,17 @@ export default function CharacterBuilder({ onCancel, onFinish }: Props) {
   const finishesNow =
     (isFirst && state.mode !== "guided") || (isLast && state.mode === "guided");
 
-  const finish = () => onFinish(buildCharacter(state));
+  const finish = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onFinish(buildCharacter(state));
+    } finally {
+      // If onFinish navigated away this component unmounts; the guard is for
+      // the case where creation fails and the wizard stays open.
+      setSubmitting(false);
+    }
+  };
   const next = () => (finishesNow ? finish() : setIndex(clampedIndex + 1));
   const back = () => setIndex(Math.max(0, clampedIndex - 1));
 
@@ -143,8 +155,21 @@ export default function CharacterBuilder({ onCancel, onFinish }: Props) {
           <span className="text-muted builder-step-count">
             Step {clampedIndex + 1} of {steps.length}
           </span>
-          <button className="btn-primary" onClick={next} type="button">
-            {finishesNow ? "Create character" : "Next"}
+          <button
+            className="btn-primary"
+            onClick={next}
+            type="button"
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                Creating <Spinner />
+              </>
+            ) : finishesNow ? (
+              "Create character"
+            ) : (
+              "Next"
+            )}
           </button>
         </div>
       </div>

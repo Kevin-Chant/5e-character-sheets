@@ -1,3 +1,5 @@
+import classNames from "classnames";
+import { FaArrowRightLong } from "react-icons/fa6";
 import { Character } from "src/lib/types";
 import {
   HIT_DICE,
@@ -471,6 +473,60 @@ function AsiPicker({ character, state, patch }: LevelUpStepProps) {
   );
 }
 
+const signedMod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
+
+// Shows all six abilities with their current score/modifier and — where the
+// pending ASI (or feat) raises one — the resulting score/modifier, so the
+// player sees the whole picture, not just the two stats they touched. Rendered
+// both on the ASI picker step and again on the review step.
+function AsiStatChanges({
+  character,
+  deltas,
+}: {
+  character: Character;
+  deltas: Partial<Record<StatKey, number>>;
+}) {
+  return (
+    <div className="builder-asi-preview">
+      {Object.values(StatKey).map((s) => {
+        const current = character.stats[s];
+        const resulting = Math.min(
+          current + (deltas[s] ?? 0),
+          statCapFor(character, s),
+        );
+        const changed = resulting !== current;
+        return (
+          <div
+            key={s}
+            className={classNames("builder-asi-preview-stat", { changed })}
+          >
+            <span className="builder-asi-preview-name">{STAT_LABEL[s]}</span>
+            <span className="builder-asi-preview-values">
+              <span className="builder-asi-preview-score">
+                {current}{" "}
+                <span className="builder-asi-preview-mod">
+                  ({signedMod(modifier(current))})
+                </span>
+              </span>
+              {changed && (
+                <>
+                  <FaArrowRightLong className="builder-asi-preview-arrow" />
+                  <span className="builder-asi-preview-score resulting">
+                    {resulting}{" "}
+                    <span className="builder-asi-preview-mod">
+                      ({signedMod(modifier(resulting))})
+                    </span>
+                  </span>
+                </>
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function LevelUpAdvancementStep(props: LevelUpStepProps) {
   const { state, patch } = props;
   return (
@@ -500,6 +556,10 @@ export function LevelUpAdvancementStep(props: LevelUpStepProps) {
             Pick the same stat in both columns to raise it by +2.
           </p>
           <AsiPicker {...props} />
+          <AsiStatChanges
+            character={props.character}
+            deltas={props.state.asi}
+          />
         </>
       ) : (
         <FeatPicker
@@ -834,6 +894,11 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
           ))}
         </tbody>
       </table>
+      {state.advancement === "asi" && Object.keys(state.asi).length > 0 && (
+        <Field label="Ability scores">
+          <AsiStatChanges character={character} deltas={state.asi} />
+        </Field>
+      )}
       <Field label="You gain">
         <ul className="builder-gain-list">
           {summary.hp > 0 && (

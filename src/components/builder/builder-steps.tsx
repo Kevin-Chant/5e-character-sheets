@@ -967,19 +967,7 @@ export function AbilityScoresStep({ state, patch }: StepProps) {
         <div className="builder-stat-inputs">
           {STAT_ORDER.map((stat) => (
             <Field key={stat} label={STAT_LABEL[stat]}>
-              <input
-                type="number"
-                className="builder-input"
-                value={state.baseStats[stat]}
-                onChange={(e) =>
-                  patch({
-                    baseStats: {
-                      ...state.baseStats,
-                      [stat]: Number(e.target.value) || 0,
-                    },
-                  })
-                }
-              />
+              <ManualStatInput state={state} patch={patch} stat={stat} />
             </Field>
           ))}
         </div>
@@ -989,6 +977,43 @@ export function AbilityScoresStep({ state, patch }: StepProps) {
         <StatPreview state={state} />
       </Field>
     </div>
+  );
+}
+
+function ManualStatInput({
+  state,
+  patch,
+  stat,
+}: StepProps & { stat: StatKey }) {
+  const value = state.baseStats[stat];
+  // Keep a local string draft so clearing the field shows empty rather than
+  // snapping to 0 (which made typing "7" read as "07").
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    if ((draft === "" ? 0 : Number(draft)) !== value) setDraft(String(value));
+    // Only resync when the committed numeric value changes externally.
+  }, [value]);
+
+  return (
+    <input
+      type="number"
+      className="builder-input"
+      value={draft}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setDraft(raw);
+        patch({
+          baseStats: {
+            ...state.baseStats,
+            [stat]: raw === "" ? 0 : Number(raw),
+          },
+        });
+      }}
+      onBlur={() => {
+        if (draft === "") setDraft("0");
+      }}
+    />
   );
 }
 
