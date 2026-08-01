@@ -89,8 +89,18 @@ function Sidebar({ close }: { close: () => void }) {
                 <li key={characterEntry.uuid} className="row space-between">
                   <Link
                     className="no-underline font-black"
-                    to="/sheet"
-                    onClick={() => {
+                    // The uuid makes the href a real destination, so opening
+                    // it in a new tab lands on this character (the sheet's
+                    // cold-start bootstrap re-selects the backend and, for
+                    // Drive, resumes the session silently).
+                    to={`/sheet/${characterEntry.uuid}`}
+                    onClick={(e) => {
+                      // A modified click (ctrl/cmd/shift) is "open in a new
+                      // tab" — the Link already leaves navigation to the
+                      // browser, and this tab must not switch sheets or close
+                      // the drawer underneath it.
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+                        return;
                       if (!isSameCharacter) {
                         dispatch(loadPersistedCharacter(characterEntry));
                       }
