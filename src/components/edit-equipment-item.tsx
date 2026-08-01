@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { ArmorCategory, FIELD } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
-import { UUID } from "crypto";
 import {
   ArmorMechanics,
-  Attack,
   CustomFormula,
   EquipmentItem,
   TextComponentWithDetails,
@@ -13,7 +11,6 @@ import {
 } from "src/lib/types";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
-import { replaceCharacter } from "src/lib/hooks/reducers/actions";
 import { useSave } from "./modals/modal-container";
 import { fromStack, updateAt } from "src/lib/cursor";
 import { weightInUnit, weightToLb } from "src/lib/rules";
@@ -129,10 +126,11 @@ function CatalogNameInput({
 // *attuned* is a play-mode toggle on the sheet row, not part of item setup.
 //
 // For a new item the name input is a catalog type-ahead: picking a built-in
-// armor/shield prefills its AC mechanics and weight, and picking a weapon also
-// seeds a ready-to-roll Attack into the draft — which is why saving goes through
-// `replace_character` when a weapon was picked (the default save path only
-// copies the equipment field out of the draft).
+// armor/shield prefills its AC mechanics and weight, and picking a weapon
+// stores a ready-to-roll Attack *on the item* (`item.weapon`). The item is the
+// source of truth for what fights: equipping it on the sheet is what copies the
+// attack into the Attacks section (see `EquipmentDisplay.setEquipped`), the
+// same way armor only counts toward AC while equipped.
 export default function EditEquipmentItem() {
   const { character, dispatch } = useLoadedCharacter();
   const { targetedField, subField, pushCursor } = useTargetedField();
@@ -153,12 +151,10 @@ export default function EditEquipmentItem() {
   const index = isNew ? newIndex : Number(subField);
   const item: EquipmentItem | undefined = equipment[index];
 
-  // The catalog entry the type-ahead picked (new items only), the +N magic
-  // bonus applied to it, and the id of the Attack that pick seeded into the
-  // draft — tracked so re-picking replaces rather than accumulates.
+  // The catalog entry the type-ahead picked (new items only) and the +N magic
+  // bonus applied to it — kept so a bonus change re-applies the same pick.
   const [picked, setPicked] = useState<EquipmentCatalogEntry>();
   const [bonus, setBonus] = useState(0);
-  const [seededAttackId, setSeededAttackId] = useState<UUID>();
 
   // Seed a blank item into the *modal draft* when there's nothing at the target
   // index yet (the "new" add path). Living only in the draft, it's discarded if
@@ -185,7 +181,6 @@ export default function EditEquipmentItem() {
   if (!isTextComponent(textComponent)) return <></>;
 
   const itemCursor = fromStack<EquipmentItem>(FIELD.equipment, String(index));
-  const attacksCursor = fromStack<Attack[]>(FIELD.attacks, undefined);
   // `detailFormulas` lives only on the with-details TextComponent variant; this
   // narrower cursor unlocks that slot from the branch where details exist.
   const textDetail = fromStack<TextComponentWithDetails>(
@@ -233,9 +228,10 @@ export default function EditEquipmentItem() {
     dispatch(updateAt(itemCursor.k("equippable"), value || undefined));
 
   // --- armor / shield mechanics (mutually exclusive) ---
-  // Armor/shield items are inherently equippable (they only affect AC while
-  // equipped), so the "can be equipped" flag is forced on and locked for them.
-  const isGear = !!item.armor || !!item.shield;
+  // Armor, shield and weapon items are inherently equippable (their mechanics
+  // only apply while equipped), so the "can be equipped" flag is forced on and
+  // locked for them.
+  const isGear = !!item.armor || !!item.shield || !!item.weapon;
   const gearType = item.shield
     ? "shield"
     : item.armor
@@ -277,43 +273,35 @@ export default function EditEquipmentItem() {
     );
 
   // Prefill the item from a catalog pick at a given magic bonus. Re-runs when
-  // either changes, so it always writes the full picture: name, weight,
-  // mechanics, and (for a weapon) the seeded Attack — replacing whatever a
-  // previous pick seeded.
+  // either changes, so it always writes the full picture — name, weight, and
+  // exactly one of the armor/shield/weapon mechanics — replacing whatever a
+  // previous pick wrote.
   const applyCatalogEntry = (entry: EquipmentCatalogEntry, plus: number) => {
     setText({ title: catalogItemName(entry, plus), titleFormulas: [] });
     dispatch(updateAt(itemCursor.k("weight"), entry.weight));
 
-    if (entry.armor) {
-      clearShield();
-      dispatch(
-        updateAt(itemCursor.k("armor"), armorWithBonus(entry.armor, plus)),
-      );
-    } else if (entry.shield) {
-      clearArmor();
-      dispatch(
-        updateAt(itemCursor.k("shield"), shieldWithBonus(entry.shield, plus)),
-      );
-    } else {
-      clearArmor();
-      clearShield();
-    }
-
-    // A weapon is wielded (equippable) and fights through an Attack row.
     dispatch(
-      updateAt(itemCursor.k("equippable"), entry.weapon ? true : undefined),
+      updateAt(
+        itemCursor.k("armor"),
+        entry.armor ? armorWithBonus(entry.armor, plus) : undefined,
+      ),
     );
-    const attacks = (character.attacks ?? []).filter(
-      (a) => a.id !== seededAttackId,
+    dispatch(
+      updateAt(
+        itemCursor.k("shield"),
+        entry.shield ? shieldWithBonus(entry.shield, plus) : undefined,
+      ),
     );
-    if (entry.weapon) {
-      const attack = buildCatalogAttack(entry.weapon, plus);
-      dispatch(updateAt(attacksCursor, attacks.concat(attack)));
-      setSeededAttackId(attack.id);
-    } else {
-      if (seededAttackId) dispatch(updateAt(attacksCursor, attacks));
-      setSeededAttackId(undefined);
-    }
+    // The weapon's attack lives on the item; equipping it on the sheet is what
+    // surfaces it in the Attacks section.
+    dispatch(
+      updateAt(
+        itemCursor.k("weapon"),
+        entry.weapon
+          ? { attack: buildCatalogAttack(entry.weapon, plus) }
+          : undefined,
+      ),
+    );
   };
 
   const pickEntry = (entry: EquipmentCatalogEntry) => {
@@ -326,19 +314,9 @@ export default function EditEquipmentItem() {
   };
 
   // Typing in the type-ahead just renames the item; a picked entry's mechanics
-  // stay (rename your +1 longsword freely) but the seeded-attack bookkeeping
-  // keeps pointing at the same pick.
+  // stay (rename your +1 longsword freely).
   const typeName = (name: string) =>
     setText({ title: name, titleFormulas: [] });
-
-  // The default save copies only the equipment field out of the draft; when a
-  // weapon pick seeded an Attack the draft differs on two fields, so persist
-  // the whole draft as one edit instead.
-  const save = (e?: React.SyntheticEvent) => {
-    e?.preventDefault();
-    if (seededAttackId) saveData(undefined, replaceCharacter(character));
-    else saveData();
-  };
 
   const titleSlot = isNew ? (
     <div className="row equipment-fields equipment-name-row">
@@ -373,15 +351,6 @@ export default function EditEquipmentItem() {
     <form
       className="edit-equipment column"
       onSubmit={(e) => e.preventDefault()}
-      // The modal container's global Enter-saves shortcut would run the default
-      // save and drop a seeded Attack; intercept it here and route through our
-      // save. Same exclusions as the container: only plain text inputs submit.
-      onKeyDown={(e) => {
-        if (e.key !== "Enter") return;
-        if ((e.target as HTMLElement).tagName !== "INPUT") return;
-        e.stopPropagation();
-        save(e);
-      }}
     >
       {isNew && (
         <p className="field-help">
@@ -511,13 +480,13 @@ export default function EditEquipmentItem() {
 
       {/* Capabilities of the item (not its live state). Whether it's *currently*
           equipped or attuned is a direct toggle on the sheet row; here we set
-          only whether those toggles apply. Armor and shields are always
-          equippable, so the flag is forced on and locked for them. */}
+          only whether those toggles apply. Armor, shields and weapons are
+          always equippable, so the flag is forced on and locked for them. */}
       <label
         className="settings-checkbox"
         title={
           isGear
-            ? "Armor and shields are always equippable."
+            ? "Armor, shields and weapons are always equippable."
             : "Show an equip toggle for this item on the sheet."
         }
       >
@@ -538,7 +507,13 @@ export default function EditEquipmentItem() {
         Requires attunement
       </label>
 
-      <button className="btn-primary edit-save" onClick={save}>
+      <button
+        className="btn-primary edit-save"
+        onClick={(e) => {
+          e.preventDefault();
+          saveData();
+        }}
+      >
         Save
       </button>
     </form>

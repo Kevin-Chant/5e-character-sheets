@@ -116,6 +116,15 @@ export interface ShieldMechanics {
   bonus: number;
 }
 
+// Weapon mechanics attached to an equipment item. The item owns its attack the
+// way armor owns its AC: `attack` is copied into `Character.attacks` while the
+// item is `equipped` and parked here — carrying any edits made to the live row —
+// while it isn't. The id stays the same across toggles, so ammunition links
+// (`Ammunition.weaponIds`) survive an unequip/re-equip round trip.
+export interface WeaponItemMechanics {
+  attack: Attack;
+}
+
 // One entry in the equipment list. Wraps the free-text `TextComponent` (name +
 // optional description, both with embedded formulas) rather than replacing it,
 // so legacy free-text equipment migrates losslessly and the existing rich-text
@@ -154,6 +163,10 @@ export interface EquipmentItem {
   // Shield mechanics; presence marks the item as a shield. Adds to AC while
   // `equipped`. Mutually exclusive with `armor`.
   shield?: ShieldMechanics;
+  // Weapon mechanics; presence marks the item as a weapon. Its attack appears
+  // in the Attacks section only while `equipped` (see `WeaponItemMechanics`).
+  // Mutually exclusive with `armor`/`shield` — one item, one role.
+  weapon?: WeaponItemMechanics;
 }
 
 export type CoinAmounts = { [key in CoinType]?: number };

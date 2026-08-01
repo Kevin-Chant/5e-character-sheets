@@ -49,10 +49,47 @@ export default function EquipmentDisplay() {
         : undefined
     : undefined;
 
-  const setEquipped = (index: number, equipped: boolean) =>
+  // Equipping is what puts an item's mechanics in play: armor starts counting
+  // toward AC via the `equippedArmor` leaf, and a weapon's attack row appears in
+  // the Attacks section. The item owns the attack — equipping copies it into
+  // `attacks`, unequipping parks the live row (with any edits made to it) back
+  // on the item and removes it, same id both ways so ammunition links survive.
+  const setEquipped = (index: number, equipped: boolean) => {
+    const item = equipment[index];
+    const weaponAttack = item.weapon?.attack;
+    if (weaponAttack) {
+      const attacks = character.attacks;
+      if (equipped) {
+        if (!attacks.some((a) => a.id === weaponAttack.id))
+          dispatch(
+            updateAt(charPath(FIELD.attacks), attacks.concat(weaponAttack)),
+          );
+      } else {
+        const live = attacks.find((a) => a.id === weaponAttack.id);
+        if (live) {
+          dispatch(updateAt(path.at(index).k("weapon"), { attack: live }));
+          dispatch(
+            updateAt(
+              charPath(FIELD.attacks),
+              attacks.filter((a) => a.id !== live.id),
+            ),
+          );
+        }
+      }
+    }
     dispatch(updateAt(path.at(index).k("equipped"), equipped));
+  };
 
   const removeItem = (index: number) => {
+    // A removed weapon takes its attack row with it — the item owns the attack.
+    const weaponAttack = equipment[index].weapon?.attack;
+    if (weaponAttack)
+      dispatch(
+        updateAt(
+          charPath(FIELD.attacks),
+          character.attacks.filter((a) => a.id !== weaponAttack.id),
+        ),
+      );
     const next = structuredClone(equipment);
     next.splice(index, 1);
     dispatch(updateAt(path, next));

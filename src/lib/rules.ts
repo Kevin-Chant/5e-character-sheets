@@ -246,11 +246,11 @@ export function countAttunedItems(equipment: EquipmentItem[]): number {
   return equipment.filter((item) => item.attunement?.attuned).length;
 }
 
-// Whether an item can be worn/wielded, and so should show an equip toggle. Armor
-// and shields are inherently equippable (they only affect AC while equipped);
-// anything else opts in via the `equippable` flag.
+// Whether an item can be worn/wielded, and so should show an equip toggle. Armor,
+// shields and weapons are inherently equippable (their mechanics only apply
+// while equipped); anything else opts in via the `equippable` flag.
 export function isEquippable(item: EquipmentItem): boolean {
-  return !!item.equippable || !!item.armor || !!item.shield;
+  return !!item.equippable || !!item.armor || !!item.shield || !!item.weapon;
 }
 
 // Total carried weight in POUNDS: Σ per-unit weight × quantity. Items without a

@@ -776,6 +776,9 @@
                 "text": {
                     "$ref": "#/definitions/TextComponent"
                 },
+                "weapon": {
+                    "$ref": "#/definitions/WeaponItemMechanics"
+                },
                 "weight": {
                     "type": "number"
                 }
@@ -2198,6 +2201,17 @@
             "required": [
                 "title",
                 "titleFormulas"
+            ],
+            "type": "object"
+        },
+        "WeaponItemMechanics": {
+            "properties": {
+                "attack": {
+                    "$ref": "#/definitions/Attack"
+                }
+            },
+            "required": [
+                "attack"
             ],
             "type": "object"
         },

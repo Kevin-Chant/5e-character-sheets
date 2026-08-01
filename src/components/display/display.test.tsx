@@ -14,6 +14,7 @@ import {
   renderWithCharacter,
 } from "src/lib/fixtures/render-with-character";
 import { Character } from "src/lib/types";
+import { randomUUID } from "src/lib/browser";
 import { charPath } from "src/lib/cursor";
 import { MAX_EXHAUSTION } from "src/lib/rules";
 import { maxHpValue } from "src/lib/mechanics/resolve";
@@ -363,6 +364,57 @@ describe("EquipmentDisplay", () => {
     const [firstRemove] = screen.getAllByRole("button", { name: /remove/i });
     await userEvent.click(firstRemove);
     expect(harness.character.equipment).toHaveLength(count - 1);
+  });
+
+  // A weapon item owns its attack: the row in `attacks` exists only while the
+  // item is equipped, mirroring how armor only counts toward AC while worn.
+  const withWeaponItem = (): Character => {
+    const character = aCharacter();
+    character.equipment.push({
+      id: randomUUID(),
+      text: { title: "Longsword", titleFormulas: [] },
+      quantity: 1,
+      equipped: false,
+      weapon: { attack: { id: randomUUID(), name: "Longsword", formula: {} } },
+    });
+    return character;
+  };
+  const weaponItem = (c: Character) => c.equipment.find((i) => i.weapon)!;
+
+  it("equipping a weapon adds its attack row; unequipping removes it", async () => {
+    const character = withWeaponItem();
+    const attackId = weaponItem(character).weapon!.attack.id;
+    const harness = renderWithCharacter(<EquipmentDisplay />, { character });
+    const baseAttacks = character.attacks.length;
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Longsword — not equipped" }),
+    );
+    expect(harness.character.attacks).toHaveLength(baseAttacks + 1);
+    expect(harness.character.attacks.at(-1)!.id).toBe(attackId);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Longsword — equipped" }),
+    );
+    expect(harness.character.attacks).toHaveLength(baseAttacks);
+    // The attack is parked on the item (same id), ready for the next equip.
+    expect(weaponItem(harness.character).weapon!.attack.id).toBe(attackId);
+  });
+
+  it("removing an equipped weapon takes its attack row with it", async () => {
+    const character = withWeaponItem();
+    weaponItem(character).equipped = true;
+    character.attacks.push(weaponItem(character).weapon!.attack);
+    const attackId = weaponItem(character).weapon!.attack.id;
+    const harness = renderWithCharacter(<EquipmentDisplay />, { character });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Longsword" }),
+    );
+    expect(harness.character.equipment.some((i) => i.weapon)).toBe(false);
+    expect(harness.character.attacks.some((a) => a.id === attackId)).toBe(
+      false,
+    );
   });
 });
 

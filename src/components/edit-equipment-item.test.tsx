@@ -10,12 +10,11 @@ import {
 import EditEquipmentItem from "./edit-equipment-item";
 
 // The Add Item modal. Its new-item name field is a type-ahead over the built-in
-// catalog: picking an entry prefills mechanics (and for a weapon, seeds an
-// Attack into the draft), while free text just names a custom item. What these
-// tests pin: what each kind of pick writes to the character, the +N bonus
-// application, and that saving a weapon pick goes through `replace_character`
-// (the default save path would copy only the equipment field and drop the
-// seeded attack).
+// catalog: picking an entry prefills mechanics, while free text just names a
+// custom item. What these tests pin: what each kind of pick writes to the
+// character and the +N bonus application. A weapon pick stores its Attack *on
+// the item* (`item.weapon`) — the Attacks row appears only when the item is
+// equipped on the sheet, which is EquipmentDisplay's job (see display.test).
 
 const renderNewItem = () => {
   const character = aCharacter();
@@ -50,54 +49,44 @@ describe("EditEquipmentItem (new item)", () => {
     expect(item.weight).toBe(55);
   });
 
-  it("seeds an equippable item plus an Attack when a weapon is picked", async () => {
+  it("stores the weapon's Attack on the item — not in attacks — when picked", async () => {
     const { harness, baseAttacks } = renderNewItem();
     await userEvent.type(nameInput(), "longsw");
     await userEvent.click(screen.getByRole("button", { name: "Longsword" }));
     const item = harness.character.equipment.at(-1)!;
     expect(item.text).toMatchObject({ title: "Longsword" });
-    expect(item.equippable).toBe(true);
+    expect(item.weapon?.attack.name).toBe("Longsword");
     expect(item.weight).toBe(3);
-    expect(harness.character.attacks).toHaveLength(baseAttacks + 1);
-    expect(harness.character.attacks.at(-1)!.name).toBe("Longsword");
+    // The Attacks row is created by equipping the item, not by picking it.
+    expect(harness.character.attacks).toHaveLength(baseAttacks);
   });
 
   it("applies the magic bonus to the pick, and re-applies when it changes", async () => {
-    const { harness, baseAttacks } = renderNewItem();
+    const { harness } = renderNewItem();
     await userEvent.type(nameInput(), "longsw");
     await userEvent.click(screen.getByRole("button", { name: "Longsword" }));
     await userEvent.selectOptions(screen.getByLabelText(/Bonus/), "1");
     const item = harness.character.equipment.at(-1)!;
     expect(item.text).toMatchObject({ title: "Longsword +1" });
-    // Re-applied, not accumulated: still exactly one seeded attack.
-    expect(harness.character.attacks).toHaveLength(baseAttacks + 1);
-    expect(harness.character.attacks.at(-1)!.name).toBe("Longsword +1");
+    expect(item.weapon?.attack.name).toBe("Longsword +1");
   });
 
-  it("replaces the seeded attack when the pick changes to armor", async () => {
-    const { harness, baseAttacks } = renderNewItem();
+  it("drops the weapon mechanics when the pick changes to armor", async () => {
+    const { harness } = renderNewItem();
     await userEvent.type(nameInput(), "longsw");
     await userEvent.click(screen.getByRole("button", { name: "Longsword" }));
     await userEvent.clear(nameInput());
     await userEvent.type(nameInput(), "chain ma");
     await userEvent.click(screen.getByRole("button", { name: "Chain Mail" }));
-    expect(harness.character.attacks).toHaveLength(baseAttacks);
     const item = harness.character.equipment.at(-1)!;
+    expect(item.weapon).toBeUndefined();
     expect(item.armor).toMatchObject({ base: 16 });
   });
 
-  it("saves a weapon pick as one replace_character edit", async () => {
+  it("saves through the default equipment-field path", async () => {
     const { harness } = renderNewItem();
     await userEvent.type(nameInput(), "longsw");
     await userEvent.click(screen.getByRole("button", { name: "Longsword" }));
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    const action = harness.saveData.mock.calls.at(-1)?.[1];
-    expect(action).toMatchObject({ type: "replace_character" });
-  });
-
-  it("saves a plain item through the default equipment-field path", async () => {
-    const { harness } = renderNewItem();
-    await userEvent.type(nameInput(), "Rope");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(harness.saveData).toHaveBeenCalled();
     expect(harness.saveData.mock.calls.at(-1)?.[1]).toBeUndefined();
