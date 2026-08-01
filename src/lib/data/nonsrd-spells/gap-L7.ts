@@ -1,4 +1,4 @@
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 
 // Completeness-audit gap fill: official (non-UA) level-7 spells the initial
 // authoring pass missed (the mega-page enumeration was lossy). Mechanical facts
@@ -8,7 +8,7 @@ import type { SrdSpell } from "src/lib/spells/srd-spells";
 // plus the de-branded "Arcane Sword" and the Xanathar's/Tasha's/Fizban's/
 // Frostmaiden additions were all already present) — "Tether Essence" (from
 // Explorer's Guide to Wildemount) was the one genuine gap found.
-export const GAP_SPELLS_L7: SrdSpell[] = [
+export const GAP_SPELLS_L7: CatalogSpell[] = [
   {
     index: "tether-essence",
     name: "Tether Essence",

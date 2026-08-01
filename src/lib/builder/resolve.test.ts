@@ -8,11 +8,11 @@ import {
   scorePool,
 } from "src/lib/builder/resolve";
 import { STANDARD_ARRAY } from "src/lib/builder/ability-scores";
-import { getSrdRace, getSubrace } from "src/lib/builder/srd-races";
+import { getCatalogRace, getSubrace } from "src/lib/builder/race-catalog";
 
 describe("defaultRaceBonuses", () => {
   it("combines race + subrace fixed bonuses", () => {
-    const elf = getSrdRace("elf");
+    const elf = getCatalogRace("elf");
     const highElf = getSubrace(elf, "high-elf");
     expect(defaultRaceBonuses(elf, highElf)).toEqual([
       { bonus: 2, stat: "dex" },
@@ -21,7 +21,7 @@ describe("defaultRaceBonuses", () => {
   });
 
   it("adds unassigned +1 placeholders for floating choices (Half-Elf)", () => {
-    const halfElf = getSrdRace("half-elf");
+    const halfElf = getCatalogRace("half-elf");
     const bonuses = defaultRaceBonuses(halfElf, undefined);
     expect(bonuses).toContainEqual({ bonus: 2, stat: "cha" });
     // Two floating +1s the player assigns.

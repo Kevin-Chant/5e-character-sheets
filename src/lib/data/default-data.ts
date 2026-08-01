@@ -13,9 +13,9 @@ import {
 } from "./data-definitions";
 import { randomUUID } from "src/lib/browser";
 import { CURRENT_SCHEMA_VERSION } from "src/lib/migrations/version";
-import { getSrdSpell } from "src/lib/spells/srd-spells";
-import { buildSpellFromSrd } from "src/lib/spells/srd-spell-adapter";
-import { getSrdRace } from "src/lib/builder/srd-races";
+import { getCatalogSpell } from "src/lib/spells/spell-catalog";
+import { buildSpellFromCatalog } from "src/lib/spells/spell-adapter";
+import { getCatalogRace } from "src/lib/builder/race-catalog";
 import {
   getSubclassByName,
   subclassFeaturesAt,
@@ -67,7 +67,7 @@ const warlockId = randomUUID();
 const cha = StatKey.cha;
 
 // --- Built-in catalog data (the same sources the builder/picker read) --------
-const tiefling = getSrdRace("tiefling");
+const tiefling = getCatalogRace("tiefling");
 const hexblade = getSubclassByName("warlock", "Hexblade");
 const soldier = getBackground("Soldier");
 
@@ -122,12 +122,12 @@ const invocation = (name: string): TextComponent => {
 };
 
 // A ready-to-edit spell built from the bundled catalog entry, attributed to a
-// class — exactly what the level-up spell picker and "Browse SRD" produce (full
+// class — exactly what the level-up spell picker and "Browse Spells" produce (full
 // description, stat line, live base-damage roll, and scaling). `prepared` marks
 // a Paladin spell the character currently has prepared; Warlock spells are
 // "known", so they leave it unset.
-const srdSpell = (index: string, classId: UUID, prepared?: boolean) => {
-  const spell = buildSpellFromSrd(getSrdSpell(index)!, classId);
+const catalogSpell = (index: string, classId: UUID, prepared?: boolean) => {
+  const spell = buildSpellFromCatalog(getCatalogSpell(index)!, classId);
   if (prepared) spell.prepared = true;
   return spell;
 };
@@ -506,35 +506,35 @@ function buildDefaultCharacter(): Character {
     spells: {
       // key 0 = cantrips; 1–9 = leveled spells.
       0: [
-        srdSpell("eldritch-blast", warlockId),
-        srdSpell("booming-blade", warlockId),
+        catalogSpell("eldritch-blast", warlockId),
+        catalogSpell("booming-blade", warlockId),
       ],
       1: [
-        srdSpell("bless", paladinId, true),
-        srdSpell("divine-favor", paladinId, true),
-        srdSpell("cure-wounds", paladinId, true),
-        srdSpell("shield-of-faith", paladinId),
-        srdSpell("bane", paladinId),
-        srdSpell("hunters-mark", paladinId),
-        srdSpell("shield", warlockId),
-        srdSpell("wrathful-smite", warlockId),
-        srdSpell("hellish-rebuke", warlockId),
-        srdSpell("armor-of-agathys", warlockId),
-        srdSpell("hex", warlockId),
+        catalogSpell("bless", paladinId, true),
+        catalogSpell("divine-favor", paladinId, true),
+        catalogSpell("cure-wounds", paladinId, true),
+        catalogSpell("shield-of-faith", paladinId),
+        catalogSpell("bane", paladinId),
+        catalogSpell("hunters-mark", paladinId),
+        catalogSpell("shield", warlockId),
+        catalogSpell("wrathful-smite", warlockId),
+        catalogSpell("hellish-rebuke", warlockId),
+        catalogSpell("armor-of-agathys", warlockId),
+        catalogSpell("hex", warlockId),
       ],
       2: [
-        srdSpell("hold-person", paladinId),
-        srdSpell("misty-step", paladinId),
-        srdSpell("branding-smite", paladinId, true),
-        srdSpell("magic-weapon", paladinId),
-        srdSpell("blur", warlockId),
-        srdSpell("darkness", warlockId),
+        catalogSpell("hold-person", paladinId),
+        catalogSpell("misty-step", paladinId),
+        catalogSpell("branding-smite", paladinId, true),
+        catalogSpell("magic-weapon", paladinId),
+        catalogSpell("blur", warlockId),
+        catalogSpell("darkness", warlockId),
       ],
       3: [
-        srdSpell("haste", paladinId),
-        srdSpell("protection-from-energy", paladinId),
-        srdSpell("revivify", paladinId, true),
-        srdSpell("dispel-magic", paladinId, true),
+        catalogSpell("haste", paladinId),
+        catalogSpell("protection-from-energy", paladinId),
+        catalogSpell("revivify", paladinId, true),
+        catalogSpell("dispel-magic", paladinId, true),
       ],
       4: [],
       5: [],

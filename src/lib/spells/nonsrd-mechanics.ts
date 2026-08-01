@@ -39,7 +39,7 @@ export function roll(expr: string): DieExpression {
 }
 
 // The caster's spellcasting modifier, substituted for the real class id when the
-// spell is added to a sheet (see `srd-spell-adapter.ts`).
+// spell is added to a sheet (see `spell-adapter.ts`).
 const CASTER_MOD = { spellMod: "@caster" } as unknown as CustomFormula;
 
 // Resolution helpers, mirroring the three `SpellResolution` kinds.

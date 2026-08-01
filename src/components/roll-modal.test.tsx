@@ -206,7 +206,7 @@ describe("RollModal — save-based attacks", () => {
 
 describe("RollModal — weapon conditions", () => {
   // The rider conditions read the attack's tags; these come off the real preset
-  // catalog rather than being hand-written, so a change to the SRD data can't
+  // catalog rather than being hand-written, so a change to the catalog data can't
   // quietly make this test assert something the app doesn't do.
   const preset = (name: string) =>
     WEAPON_PRESETS.flatMap((g) => g.options).find((w) => w.name === name)!;

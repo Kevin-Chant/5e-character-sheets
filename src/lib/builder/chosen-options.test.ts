@@ -14,7 +14,7 @@ import {
   raceOptionFeaturesFor,
   taggedPicksAt,
 } from "./chosen-options";
-import { getSrdSpell } from "src/lib/spells/srd-spells";
+import { getCatalogSpell } from "src/lib/spells/spell-catalog";
 import { CLASS_POOLS, SUBCLASS_POOLS } from "src/lib/builder/class-pools";
 import { WEAPON_PRESETS } from "src/lib/data/weapon-presets";
 
@@ -205,7 +205,7 @@ describe("option spell grants", () => {
         ];
         for (const index of indices)
           expect(
-            getSrdSpell(index),
+            getCatalogSpell(index),
             `${group.category}/${option.name}: "${index}" is not in the catalog`,
           ).toBeDefined();
       }

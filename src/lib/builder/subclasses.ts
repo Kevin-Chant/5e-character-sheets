@@ -1,11 +1,11 @@
 import { SUBCLASSES } from "src/lib/data/subclasses";
-import { RaceTrait, SrdSubclass } from "src/lib/builder/types";
+import { RaceTrait, CatalogSubclass } from "src/lib/builder/types";
 import { SUBCLASS_SPELLS } from "src/lib/data/subclass-spells";
 
 export { SUBCLASSES };
 
 // The subclasses offered for a given class (by class index), in catalog order.
-export const subclassesForClass = (classIndex?: string): SrdSubclass[] =>
+export const subclassesForClass = (classIndex?: string): CatalogSubclass[] =>
   classIndex ? SUBCLASSES.filter((s) => s.classIndex === classIndex) : [];
 
 // Look up a subclass by the (class index, subclass name) pair. The character
@@ -14,7 +14,7 @@ export const subclassesForClass = (classIndex?: string): SrdSubclass[] =>
 export const getSubclassByName = (
   classIndex?: string,
   name?: string,
-): SrdSubclass | undefined =>
+): CatalogSubclass | undefined =>
   classIndex && name
     ? SUBCLASSES.find((s) => s.classIndex === classIndex && s.name === name)
     : undefined;

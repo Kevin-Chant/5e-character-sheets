@@ -12,10 +12,10 @@ import { getSubclassByName } from "src/lib/builder/subclasses";
 // than adding prose. See the type for why every one of them is idempotent.
 //
 // Base-class levels and subclass levels feed the same applier: the *source*
-// differs (a table here vs. `SrdSubclass.levelEffects`), the effect doesn't.
+// differs (a table here vs. `CatalogSubclass.levelEffects`), the effect doesn't.
 
 // Effects a *base class* level confers, keyed by class then level. The
-// subclass-independent counterpart to `SrdSubclass.levelEffects` — small by
+// subclass-independent counterpart to `CatalogSubclass.levelEffects` — small by
 // design, since almost everything at this level of the class is prose.
 export const CLASS_LEVEL_EFFECTS: Partial<
   Record<OfficialClass, Record<number, LevelEffects>>

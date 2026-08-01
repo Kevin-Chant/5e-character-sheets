@@ -1,4 +1,4 @@
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import {
   attack,
@@ -9,7 +9,7 @@ import {
 
 // Non-SRD spells, part 2. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
-export const NONSRD_SPELLS_PART2: SrdSpell[] = [
+export const NONSRD_SPELLS_PART2: CatalogSpell[] = [
   {
     index: "thorn-whip",
     name: "Thorn Whip",

@@ -22,10 +22,10 @@ import { emptyFeatChoices } from "src/lib/builder/level-up";
 import { OptionGroup, taggedPicksAt } from "src/lib/builder/chosen-options";
 import { OptionalClassFeature } from "src/lib/builder/optional-class-features";
 import {
-  getSrdSpell,
-  searchSrdSpells,
-  SrdSpell,
-} from "src/lib/spells/srd-spells";
+  getCatalogSpell,
+  searchCatalogSpells,
+  CatalogSpell,
+} from "src/lib/spells/spell-catalog";
 import {
   ChipMultiSelect,
   Field,
@@ -408,7 +408,7 @@ function SpellHoverCard({
   spell,
   anchor,
 }: {
-  spell: SrdSpell;
+  spell: CatalogSpell;
   anchor: DOMRect;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -507,7 +507,7 @@ export function SpellChecklist({
   alreadyKnown,
   onChange,
 }: {
-  // Undefined shows every SRD spell (used for classes the catalog doesn't tag,
+  // Undefined shows every catalog spell (used for classes the catalog doesn't tag,
   // e.g. Artificer); a class name filters to that class's spell list.
   className?: string;
   // One spell level, or several in one list — the latter for an allowance that
@@ -518,7 +518,7 @@ export function SpellChecklist({
   selected: string[];
   max: number | null;
   // Spell *names* to drop from the list — the ones the character already has
-  // (the sheet stores titles, not SRD indices, so names are the join key).
+  // (the sheet stores titles, not catalog indices, so names are the join key).
   // Offering a known spell again would let a pick silently waste itself, the
   // same reasoning as ChosenOptionPicker's `alreadyKnown`. A row that's
   // currently ticked in *this* list always stays visible, so a pick can't
@@ -531,7 +531,7 @@ export function SpellChecklist({
   // hover card. Cleared on scroll rather than repositioned — the rect is stale
   // the moment the list moves, and the next mouseenter re-anchors it anyway.
   const [hovered, setHovered] = useState<{
-    spell: SrdSpell;
+    spell: CatalogSpell;
     anchor: DOMRect;
   } | null>(null);
   const levels = Array.isArray(level) ? level : [level];
@@ -544,7 +544,7 @@ export function SpellChecklist({
     .join("\n");
   const spells = useMemo(() => {
     const known = new Set(knownKey ? knownKey.split("\n") : []);
-    return searchSrdSpells(query, className).filter(
+    return searchCatalogSpells(query, className).filter(
       (s) =>
         levelKey.split(",").includes(String(s.level)) &&
         (selected.includes(s.index) || !known.has(s.name.toLowerCase())),
@@ -577,11 +577,11 @@ export function SpellChecklist({
         {spells.length === 0 ? (
           <p className="builder-spell-empty text-muted">
             {query.trim()
-              ? `No SRD spells match "${query.trim()}". Only SRD spells are searchable here — add spells from other books or homebrew manually from the sheet.`
-              : "No SRD spells at this level. Add spells from other books or homebrew manually from the sheet."}
+              ? `No spells match "${query.trim()}". Only official spells are searchable here — add homebrew manually from the sheet.`
+              : "No spells at this level. Add homebrew manually from the sheet."}
           </p>
         ) : (
-          sorted.map((s: SrdSpell, i) => {
+          sorted.map((s: CatalogSpell, i) => {
             const on = selected.includes(s.index);
             const startsLevel = showLevel && sorted[i - 1]?.level !== s.level;
             return (
@@ -654,7 +654,7 @@ export function FeatPicker({
     ...(grants?.fixedCantrips ?? []),
     ...(grants?.fixedSpells ?? []),
   ]
-    .map((i) => getSrdSpell(i)?.name)
+    .map((i) => getCatalogSpell(i)?.name)
     .filter(Boolean);
 
   // A new skill proficiency must be one you don't already have. Expertise can

@@ -3,7 +3,10 @@ import classNames from "classnames";
 import { Character } from "src/lib/types";
 import { buildCharacter } from "src/lib/builder/build-character";
 import { BuilderState, defaultBuilderState } from "src/lib/builder/types";
-import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
+import {
+  castsAtLevelOne,
+  getCatalogClass,
+} from "src/lib/builder/class-catalog";
 import { StepProps } from "src/components/builder/builder-common";
 import {
   AbilityScoresStep,
@@ -27,7 +30,7 @@ interface StepDef {
 }
 
 const isCaster = (state: BuilderState): boolean =>
-  castsAtLevelOne(getSrdClass(state.classIndex));
+  castsAtLevelOne(getCatalogClass(state.classIndex));
 
 // Steps are intentionally non-blocking: the wizard is a scaffold, not a gate.
 // Every field is editable on the sheet afterward, so a player can breeze past

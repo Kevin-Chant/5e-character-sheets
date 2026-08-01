@@ -1,11 +1,11 @@
 import { DamageType, StatKey } from "src/lib/data/data-definitions";
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 import { saveHalf, spellMech } from "src/lib/spells/nonsrd-mechanics";
 
 // Completeness-audit gap fill: official (non-UA) level-8 spells the initial
 // authoring pass missed (the mega-page enumeration was lossy). Mechanical facts
 // with ORIGINAL paraphrased descriptions only — never published prose.
-export const GAP_SPELLS_L8: SrdSpell[] = [
+export const GAP_SPELLS_L8: CatalogSpell[] = [
   {
     index: "dark-star",
     name: "Dark Star",

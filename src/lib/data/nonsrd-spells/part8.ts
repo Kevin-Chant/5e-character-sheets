@@ -1,4 +1,4 @@
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import {
   spellMech,
@@ -9,7 +9,7 @@ import {
 
 // Non-SRD spells, part 8. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
-export const NONSRD_SPELLS_PART8: SrdSpell[] = [
+export const NONSRD_SPELLS_PART8: CatalogSpell[] = [
   {
     index: "bigbys-hand",
     name: "Bigby's Hand",

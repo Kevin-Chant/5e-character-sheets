@@ -27,7 +27,7 @@ interface Props {
 
 // Structured-mechanics editor embedded in the spell modal. Lets a hand-authored
 // spell declare how it resolves and what it rolls, so it gets a play-mode roll
-// button (and level scaling) just like an imported SRD spell. See
+// button (and level scaling) just like a spell added from the catalog. See
 // `.claude/docs/spell-scaling.md`.
 export default function EditSpellMechanics({
   mechanics,

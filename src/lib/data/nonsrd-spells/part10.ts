@@ -1,10 +1,10 @@
 import { DamageType, StatKey } from "src/lib/data/data-definitions";
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 import { attack, auto, save, spellMech } from "src/lib/spells/nonsrd-mechanics";
 
 // Non-SRD spells, part 10. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
-export const NONSRD_SPELLS_PART10: SrdSpell[] = [
+export const NONSRD_SPELLS_PART10: CatalogSpell[] = [
   {
     index: "investiture-of-wind",
     name: "Investiture of Wind",

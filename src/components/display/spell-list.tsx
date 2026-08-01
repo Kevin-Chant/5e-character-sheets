@@ -63,10 +63,10 @@ export default function SpellList({
   // into the modal draft, so nothing is persisted until the user saves.
   const addSpell = () => pushCursor(bucket.at(spells.length));
 
-  // Open the SRD browser for this level; the ".new" sentinel routes to the
+  // Open the catalog browser for this level; the ".new" sentinel routes to the
   // picker, which appends the chosen spell itself (see charsheet.tsx /
-  // add-spell-from-srd.tsx).
-  const browseSrd = () => pushCursor(bucket.append());
+  // add-spell-from-catalog.tsx).
+  const browseCatalog = () => pushCursor(bucket.append());
 
   const togglePrepared = (index: number, prepared: boolean) =>
     dispatch(updateAt(bucket.at(index).k("prepared"), prepared));
@@ -192,10 +192,10 @@ export default function SpellList({
             type="button"
             onClick={(e) => {
               e.preventDefault();
-              browseSrd();
+              browseCatalog();
             }}
           >
-            Browse SRD
+            Browse Spells
           </button>
           <button
             type="button"

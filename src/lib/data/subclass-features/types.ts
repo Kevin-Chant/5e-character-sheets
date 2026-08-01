@@ -4,7 +4,7 @@ import { RaceTrait } from "src/lib/builder/types";
 //
 // Split into one file per class because the tables are large and were authored
 // class-by-class; `index.ts` merges them into the shape `subclasses.ts` attaches
-// to each `SrdSubclass.levelFeatures`.
+// to each `CatalogSubclass.levelFeatures`.
 //
 // Keys are the subclass's catalog `name` exactly (that's what the character
 // stores), so a typo here silently grants nothing — `subclass-features.test.ts`

@@ -2,11 +2,12 @@ import { SpellMechanics } from "src/lib/types";
 import srdSpellData from "src/lib/data/srd-spells.json";
 import { NONSRD_SPELLS } from "src/lib/data/nonsrd-spells";
 
-// The compact snapshot shape written by `scripts/generate-spells.mjs`. This is a
-// flattened, display-oriented projection of the D&D 5e API's SRD spell — only
-// the fields the sheet needs, so the bundled JSON stays small. See the adapter
-// (`srd-spell-adapter.ts`) for how one becomes an editable `Spell`.
-export interface SrdSpell {
+// The compact catalog-entry shape: written by `scripts/generate-spells.mjs` for
+// the SRD snapshot (a flattened, display-oriented projection of the D&D 5e
+// API's spell — only the fields the sheet needs, so the bundled JSON stays
+// small), and hand-authored in the same shape for the non-SRD spells. See the
+// adapter (`spell-adapter.ts`) for how one becomes an editable `Spell`.
+export interface CatalogSpell {
   index: string;
   name: string;
   // 0 = cantrip, 1–9 = spell level.
@@ -42,24 +43,27 @@ export interface SrdSpell {
   mechanics?: SpellMechanics;
 }
 
-export const SRD_SPELLS = srdSpellData as SrdSpell[];
+export const SRD_SPELLS = srdSpellData as CatalogSpell[];
 
 // The full catalog: the SRD snapshot plus the hand-authored non-SRD spells
 // (`src/lib/data/nonsrd-spells/`). Those files only `import type` from here, so
 // the value graph stays acyclic. Lookups and search run over this combined
 // list, so a Genie warlock's Wish or a paladin's Compelled Duel resolve by
 // index and show up in the picker.
-export const ALL_SPELLS: SrdSpell[] = [...SRD_SPELLS, ...NONSRD_SPELLS];
+export const ALL_SPELLS: CatalogSpell[] = [...SRD_SPELLS, ...NONSRD_SPELLS];
 
 const BY_INDEX = new Map(ALL_SPELLS.map((s) => [s.index, s]));
 
-export const getSrdSpell = (index: string): SrdSpell | undefined =>
+export const getCatalogSpell = (index: string): CatalogSpell | undefined =>
   BY_INDEX.get(index);
 
 // Case-insensitive substring match on name, ranked so prefix matches sort first,
 // then by level then name. Optionally filter to a spellcasting class. Returns the
 // full list (still sorted) for an empty query so the picker can show everything.
-export function searchSrdSpells(query: string, className?: string): SrdSpell[] {
+export function searchCatalogSpells(
+  query: string,
+  className?: string,
+): CatalogSpell[] {
   const q = query.trim().toLowerCase();
   const pool = className
     ? ALL_SPELLS.filter((s) => s.classes.includes(className))

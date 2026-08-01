@@ -1,10 +1,10 @@
 import { REAL_SKILLS, SkillName, StatKey } from "src/lib/data/data-definitions";
-import { SrdRace } from "src/lib/builder/types";
+import { CatalogRace } from "src/lib/builder/types";
 
 // Official 5e races that live outside the open-license SRD (Volo's Guide,
 // Mordenkainen's Tome / Monsters of the Multiverse, Eberron, Ravnica, Theros,
-// the Feywild books, …). They are merged into `SRD_RACES` at load time by
-// `srd-races.ts`, so they surface in the guided builder alongside the SRD races.
+// the Feywild books, …). They are merged into `ALL_RACES` at load time by
+// `race-catalog.ts`, so they surface in the guided builder alongside the SRD races.
 //
 // As with `phb-subraces.ts`, only mechanical facts are stored (ability bonuses,
 // speed, proficiencies, the *names* of racial traits) and the trait details are
@@ -24,7 +24,7 @@ const noProf = () => ({
   skills: [] as SkillName[],
 });
 
-export const NONSRD_RACES: SrdRace[] = [
+export const NONSRD_RACES: CatalogRace[] = [
   // ---------------------------------------------------------------- Volo's
   {
     index: "aasimar",

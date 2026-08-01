@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { NONSRD_SPELLS } from "src/lib/data/nonsrd-spells";
-import { ALL_SPELLS, SRD_SPELLS, getSrdSpell } from "src/lib/spells/srd-spells";
+import {
+  ALL_SPELLS,
+  SRD_SPELLS,
+  getCatalogSpell,
+} from "src/lib/spells/spell-catalog";
 
 // Integrity guards for the hand-authored non-SRD catalog. These catch the
 // mechanical mistakes an authoring pass is prone to — a duplicate/colliding
@@ -78,7 +82,7 @@ describe("the non-SRD spell catalog", () => {
 
   it("is reachable through the merged catalog by index", () => {
     for (const s of NONSRD_SPELLS)
-      expect(getSrdSpell(s.index), s.name)?.toBeDefined();
+      expect(getCatalogSpell(s.index), s.name)?.toBeDefined();
     expect(ALL_SPELLS.length).toBe(SRD_SPELLS.length + NONSRD_SPELLS.length);
   });
 });

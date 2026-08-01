@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SUBCLASS_SPELLS } from "src/lib/data/subclass-spells";
 import { getSubclassByName, subclassSpellIndicesAt } from "./subclasses";
-import { getSrdSpell } from "src/lib/spells/srd-spells";
+import { getCatalogSpell } from "src/lib/spells/spell-catalog";
 
 // The by-level subclass spell registry is keyed by subclass name and grants by
 // spell index — a typo in either silently hands out nothing, so both joins are
@@ -32,7 +32,7 @@ describe("subclass spell grants", () => {
         for (const [level, indices] of Object.entries(levels))
           for (const index of indices)
             expect(
-              getSrdSpell(index),
+              getCatalogSpell(index),
               `${classIndex}/${name}/${level}: "${index}" is not in the catalog`,
             ).toBeDefined();
   });

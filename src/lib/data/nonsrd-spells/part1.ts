@@ -1,4 +1,4 @@
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import { spellMech, save, attack } from "src/lib/spells/nonsrd-mechanics";
 
@@ -8,7 +8,7 @@ import { spellMech, save, attack } from "src/lib/spells/nonsrd-mechanics";
 // "Encode Thoughts" (Guildmaster's Guide to Ravnica) was skipped: its page
 // lists no class spell list at all (it's granted only through the Guild Mage
 // feat), so it has no `classes` entry to populate.
-export const NONSRD_SPELLS_PART1: SrdSpell[] = [
+export const NONSRD_SPELLS_PART1: CatalogSpell[] = [
   {
     index: "blade-ward",
     name: "Blade Ward",

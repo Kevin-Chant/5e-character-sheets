@@ -162,7 +162,7 @@ export function resistancesFromOptions(
 // every `always` index of a picked option, plus each `byLevel` tier the class
 // level has reached. Only options whose group belongs to `className` count, so a
 // druid's terrain pick isn't consulted while leveling a warlock dip. The builder
-// grants these idempotently (`addSrdSpellOnce`), so calling at each level-up is
+// grants these idempotently (`addCatalogSpellOnce`), so calling at each level-up is
 // safe — the list is cumulative and the same spell never lands twice.
 export function optionSpellIndicesAt(
   picks: ChosenOption[],

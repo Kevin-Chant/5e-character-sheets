@@ -5,11 +5,11 @@ import {
   saveHalf,
   spellMech,
 } from "src/lib/spells/nonsrd-mechanics";
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 
 // Non-SRD spells, part 7. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
-export const NONSRD_SPELLS_PART7: SrdSpell[] = [
+export const NONSRD_SPELLS_PART7: CatalogSpell[] = [
   {
     index: "lightning-arrow",
     name: "Lightning Arrow",

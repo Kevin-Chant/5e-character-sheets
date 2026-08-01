@@ -101,7 +101,7 @@ export const STANDARD_ACTIONS: Record<string, string[]> = {
   reaction: ["Opportunity Attack"],
 };
 
-// `Spell.castingTime` is `CastingTime | string`: the SRD importer writes the
+// `Spell.castingTime` is `CastingTime | string`: the catalog importer writes the
 // three action-economy values exactly, and everything else is free text
 // ("1 minute", "1 reaction, which you take when a creature falls"). Matching the
 // enum first and prefix-matching the reaction case covers the whole bundled

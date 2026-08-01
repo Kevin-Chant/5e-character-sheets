@@ -78,7 +78,7 @@ const remapTextList = (list: any, idFor: (n: string) => string) =>
   Array.isArray(list) ? list.map((tc) => remapText(tc, idFor)) : list;
 
 // Walk a spell's structured mechanics, remapping every embedded formula (the
-// `spellMod` leaves the SRD importer stamps live here).
+// `spellMod` leaves the catalog importer stamps live here).
 function remapMechanics(m: any, idFor: (n: string) => string): any {
   if (!m || typeof m !== "object") return m;
   const out = { ...m };

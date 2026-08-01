@@ -10,7 +10,7 @@ import {
 import { Character, TextComponent } from "src/lib/types";
 import { grantArmor } from "src/lib/builder/level-grants";
 import { statCapFor } from "src/lib/rules";
-import { addSrdSpell } from "src/lib/builder/grant-spells";
+import { addCatalogSpell } from "src/lib/builder/grant-spells";
 
 const text = (title: string, detail?: string): TextComponent =>
   detail
@@ -92,9 +92,9 @@ export function applyFeat(
       operands: [char.initiativeFormula ?? StatKey.dex, g.initiativeBonus],
     };
   for (const index of g.fixedCantrips ?? [])
-    addSrdSpell(char, index, state.className ?? "");
+    addCatalogSpell(char, index, state.className ?? "");
   for (const index of g.fixedSpells ?? [])
-    addSrdSpell(char, index, state.className ?? "");
+    addCatalogSpell(char, index, state.className ?? "");
   if (g.limitedUse)
     char.limitedUseAbilities.push({
       info: text(g.limitedUse.name, g.limitedUse.detail),
@@ -118,5 +118,5 @@ export function applyFeat(
     ]);
   for (const indices of Object.values(state.featSpellChoices))
     for (const index of indices)
-      addSrdSpell(char, index, state.className ?? "");
+      addCatalogSpell(char, index, state.className ?? "");
 }

@@ -5,7 +5,7 @@ import {
 } from "src/lib/data/data-definitions";
 import { DieExpression, Spell, SpellComponents } from "src/lib/types";
 import { UUID } from "crypto";
-import { SrdSpell } from "./srd-spells";
+import { CatalogSpell } from "./spell-catalog";
 
 // Map a die's face count to the `StandardDie` enum. Every SRD damage die is
 // standard (d4–d12); anything else yields undefined and we skip the live formula
@@ -56,67 +56,68 @@ const asDamageType = (name?: string): DamageType | undefined =>
     ? (name as DamageType)
     : undefined;
 
-function buildComponents(srd: SrdSpell): SpellComponents | undefined {
+function buildComponents(entry: CatalogSpell): SpellComponents | undefined {
   const components: SpellComponents = {};
-  if (srd.verbal) components.verbal = true;
-  if (srd.somatic) components.somatic = true;
-  if (srd.material) components.material = [{ name: srd.material }];
+  if (entry.verbal) components.verbal = true;
+  if (entry.somatic) components.somatic = true;
+  if (entry.material) components.material = [{ name: entry.material }];
   return Object.keys(components).length ? components : undefined;
 }
 
-// Compose the spell's detail: the SRD description, a compact stat line, an
+// Compose the spell’s detail: the catalog description, a compact stat line, an
 // optional live base-damage slot, and the "at higher levels" scaling prose. The
 // `{{}}` in the damage line is filled positionally from `detailFormulas` (see
 // `TextWithFormulasDisplay`) — the same mechanism the weapon presets use so a
 // looked-up spell shows a computed roll that recomputes with the character.
-function buildDetail(srd: SrdSpell): {
+function buildDetail(entry: CatalogSpell): {
   detail: string;
   detailFormulas: DieExpression[];
 } {
   const detailFormulas: DieExpression[] = [];
-  const parts: string[] = [srd.desc];
+  const parts: string[] = [entry.desc];
 
   // The school is a structured field now (`Spell.school`), so it's no longer
   // repeated in the description prose.
   const stats: string[] = [];
-  if (srd.areaOfEffect) stats.push(`Area: ${srd.areaOfEffect}`);
-  if (srd.save) stats.push(`Save: ${srd.save}`);
+  if (entry.areaOfEffect) stats.push(`Area: ${entry.areaOfEffect}`);
+  if (entry.save) stats.push(`Save: ${entry.save}`);
   if (stats.length) parts.push(stats.join(" · "));
 
-  const damageType = asDamageType(srd.damageType);
-  const roll = srd.baseDamage ? parseDamageRoll(srd.baseDamage) : undefined;
+  const damageType = asDamageType(entry.damageType);
+  const roll = entry.baseDamage ? parseDamageRoll(entry.baseDamage) : undefined;
   if (roll && damageType) {
     detailFormulas.push(roll);
     parts.push(`**Base damage:** {{}} ${damageType.toLowerCase()}`);
   }
 
-  if (srd.higherLevel) parts.push(`**At Higher Levels.** ${srd.higherLevel}`);
+  if (entry.higherLevel)
+    parts.push(`**At Higher Levels.** ${entry.higherLevel}`);
 
   return { detail: parts.join("\n\n"), detailFormulas };
 }
 
-// Build a ready-to-edit `Spell` from an SRD entry, attributed to the given
+// Build a ready-to-edit `Spell` from a catalog entry, attributed to the given
 // spellcasting class. Mirrors `buildAttackFromPreset` in `rules.ts`: official
 // content pre-populates the fields (including a computed base-damage roll), and
 // everything stays editable so a player can tweak or homebrew from there.
-export function buildSpellFromSrd(
-  srd: SrdSpell,
+export function buildSpellFromCatalog(
+  entry: CatalogSpell,
   spellcastingClass: UUID,
 ): Spell {
-  const { detail, detailFormulas } = buildDetail(srd);
+  const { detail, detailFormulas } = buildDetail(entry);
   const spell: Spell = {
     spellcastingClass,
-    info: { title: srd.name, titleFormulas: [], detail, detailFormulas },
-    castingTime: srd.castingTime,
-    ...(srd.school ? { school: srd.school } : {}),
-    range: srd.range,
-    duration: srd.duration,
+    info: { title: entry.name, titleFormulas: [], detail, detailFormulas },
+    castingTime: entry.castingTime,
+    ...(entry.school ? { school: entry.school } : {}),
+    range: entry.range,
+    duration: entry.duration,
   };
-  if (srd.ritual) spell.ritual = true;
-  if (srd.concentration) spell.concentration = true;
-  const components = buildComponents(srd);
+  if (entry.ritual) spell.ritual = true;
+  if (entry.concentration) spell.concentration = true;
+  const components = buildComponents(entry);
   if (components) spell.components = components;
-  if (srd.mechanics)
-    spell.mechanics = stampCaster(srd.mechanics, spellcastingClass);
+  if (entry.mechanics)
+    spell.mechanics = stampCaster(entry.mechanics, spellcastingClass);
   return spell;
 }

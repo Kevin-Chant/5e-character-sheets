@@ -88,8 +88,8 @@ pnpm screenshot --fixture martial-fighter --open --no-full --seed 7 \
   --steps '[{"click":"[aria-label=\"Roll Greatsword\"]"},{"click":".roll-go"},{"wait":300}]'
 ```
 
-Multi-step flows compose naturally — e.g. enter edit mode, open the SRD picker,
-search, and pick a spell: `[{"click":"[aria-label=\"Browse SRD\"]"},
+Multi-step flows compose naturally — e.g. enter edit mode, open the spell
+catalog picker, search, and pick a spell: `[{"click":"text=Browse Spells"},
 {"fill":[".add-spell input","fireball"]},{"click":"text=Fireball"}]`.
 
 ## The play surface and the DM board

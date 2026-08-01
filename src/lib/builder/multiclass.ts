@@ -3,7 +3,7 @@ import {
   REAL_SKILLS,
   SkillName,
 } from "src/lib/data/data-definitions";
-import { getSrdClass } from "src/lib/builder/srd-classes";
+import { getCatalogClass } from "src/lib/builder/class-catalog";
 
 // ---------------------------------------------------------------------------
 // Multiclassing proficiencies (PHB p.163; Artificer from TCE).
@@ -113,12 +113,12 @@ export function multiclassSkillOptions(className: string): SkillName[] {
   const g = multiclassProficienciesFor(className);
   if (g.chooseSkills === 0) return [];
   if (g.anySkill) return REAL_SKILLS;
-  return getSrdClass(className.toLowerCase())?.skillChoices?.from ?? [];
+  return getCatalogClass(className.toLowerCase())?.skillChoices?.from ?? [];
 }
 
 // The tool list a multiclass tool pick draws from (the bard's instruments).
 export function multiclassToolOptions(className: string): string[] {
   const g = multiclassProficienciesFor(className);
   if (g.chooseTools === 0) return [];
-  return getSrdClass(className.toLowerCase())?.toolChoices?.from ?? [];
+  return getCatalogClass(className.toLowerCase())?.toolChoices?.from ?? [];
 }

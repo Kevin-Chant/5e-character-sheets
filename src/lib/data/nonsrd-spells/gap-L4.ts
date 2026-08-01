@@ -1,4 +1,4 @@
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import { spellMech, save, auto } from "src/lib/spells/nonsrd-mechanics";
 
@@ -13,7 +13,7 @@ import { spellMech, save, auto } from "src/lib/spells/nonsrd-mechanics";
 // damage trigger with its own resolution/scaling on top of the one modelled
 // here — described in `desc`, not forced into a shape the helper doesn't
 // support.
-export const GAP_SPELLS_L4: SrdSpell[] = [
+export const GAP_SPELLS_L4: CatalogSpell[] = [
   {
     index: "aura-of-purity",
     name: "Aura of Purity",

@@ -6,11 +6,11 @@ import {
   saveHalf,
   spellMech,
 } from "src/lib/spells/nonsrd-mechanics";
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 
 // Non-SRD spells, part 5. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
-export const NONSRD_SPELLS_PART5: SrdSpell[] = [
+export const NONSRD_SPELLS_PART5: CatalogSpell[] = [
   {
     index: "mind-spike",
     name: "Mind Spike",

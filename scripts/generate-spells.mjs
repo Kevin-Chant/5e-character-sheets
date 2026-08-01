@@ -1,7 +1,7 @@
 // Build-time snapshot of the SRD spell catalog.
 //
 // Walks every spell in the (open-license, SRD-only) D&D 5e API and flattens each
-// into the compact `SrdSpell` shape consumed by `src/lib/spells/srd-spells.ts`.
+// into the compact `CatalogSpell` shape consumed by `src/lib/spells/spell-catalog.ts`.
 // The result is committed as `src/lib/data/srd-spells.json` so the app ships the
 // whole catalog and makes *zero* network requests at runtime — it works offline
 // and never depends on the third-party API being up. Re-run (`pnpm
@@ -217,7 +217,7 @@ function buildMechanics(s) {
   return mechanics.damage || mechanics.healing ? mechanics : undefined;
 }
 
-function toSrdSpell(s) {
+function toCatalogSpell(s) {
   const components = s.components ?? [];
   const out = {
     index: s.index,
@@ -273,7 +273,7 @@ async function main() {
   );
 
   const spells = details
-    .map(toSrdSpell)
+    .map(toCatalogSpell)
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 
   const outPath = resolve(

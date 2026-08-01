@@ -1,19 +1,19 @@
 import { StatKey } from "src/lib/data/data-definitions";
-import { getSrdRace, getSubrace } from "src/lib/builder/srd-races";
+import { getCatalogRace, getSubrace } from "src/lib/builder/race-catalog";
 import { STANDARD_ARRAY, STAT_ORDER } from "src/lib/builder/ability-scores";
 import {
   BuilderState,
   RaceBonus,
-  SrdRace,
-  SrdSubrace,
+  CatalogRace,
+  CatalogSubrace,
 } from "src/lib/builder/types";
 
 // The racial bonuses a race+subrace grant by default: the fixed increases, plus
 // one unassigned +1 placeholder per "choose N" option (Half-Elf). Used to seed
 // the editable list; the player can then reassign any of them.
 export function defaultRaceBonuses(
-  race?: SrdRace,
-  subrace?: SrdSubrace,
+  race?: CatalogRace,
+  subrace?: CatalogSubrace,
 ): RaceBonus[] {
   const fixed = [
     ...(race?.abilityBonuses ?? []),
@@ -32,8 +32,8 @@ export function defaultRaceBonuses(
 export function resolvedRaceBonuses(state: BuilderState): RaceBonus[] {
   if (state.raceBonuses.length) return state.raceBonuses;
   return defaultRaceBonuses(
-    getSrdRace(state.raceIndex),
-    getSubrace(getSrdRace(state.raceIndex), state.subraceIndex),
+    getCatalogRace(state.raceIndex),
+    getSubrace(getCatalogRace(state.raceIndex), state.subraceIndex),
   );
 }
 

@@ -1,10 +1,10 @@
 import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import { spellMech, saveHalf, attack } from "src/lib/spells/nonsrd-mechanics";
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 
 // Non-SRD spells, part 11. Mechanical facts with ORIGINAL paraphrased
 // descriptions only — never copied published prose (see index.ts header).
-export const NONSRD_SPELLS_PART11: SrdSpell[] = [
+export const NONSRD_SPELLS_PART11: CatalogSpell[] = [
   {
     index: "power-word-pain",
     name: "Power Word: Pain",

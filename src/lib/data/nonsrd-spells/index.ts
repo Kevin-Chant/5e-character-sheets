@@ -1,4 +1,4 @@
-import type { SrdSpell } from "src/lib/spells/srd-spells";
+import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 import { NONSRD_SPELLS_PART1 } from "./part1";
 import { NONSRD_SPELLS_PART2 } from "./part2";
 import { NONSRD_SPELLS_PART3 } from "./part3";
@@ -32,10 +32,10 @@ import { GAP_SPELLS_L9 } from "./gap-L9";
 // what the spell does, written from scratch; never the published prose. Kept in
 // separate hand-authored files (not the SRD JSON) so the line stays bright.
 //
-// Merged into the searchable/grantable catalog by `src/lib/spells/srd-spells.ts`
-// exactly like SRD spells, so the picker shows them and `getSrdSpell(index)`
+// Merged into the searchable/grantable catalog by `src/lib/spells/spell-catalog.ts`
+// exactly like SRD spells, so the picker shows them and `getCatalogSpell(index)`
 // (used by the subclass spell grants) resolves them by index.
-export const NONSRD_SPELLS: SrdSpell[] = [
+export const NONSRD_SPELLS: CatalogSpell[] = [
   ...NONSRD_SPELLS_PART1,
   ...NONSRD_SPELLS_PART2,
   ...NONSRD_SPELLS_PART3,

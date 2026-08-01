@@ -7,18 +7,21 @@ import { getFieldValue } from "src/lib/fields";
 import { classNameForId, officialSpellcastingClasses } from "src/lib/rules";
 import { randomUUID } from "src/lib/browser";
 import { Spell } from "src/lib/types";
-import { buildSpellFromSrd } from "src/lib/spells/srd-spell-adapter";
-import { searchSrdSpells, SrdSpell } from "src/lib/spells/srd-spells";
+import { buildSpellFromCatalog } from "src/lib/spells/spell-adapter";
+import {
+  searchCatalogSpells,
+  CatalogSpell,
+} from "src/lib/spells/spell-catalog";
 
 // The `subField` targeting this picker is `<level>.new`, e.g. "0.new" (cantrips)
 // or "3.new" — the numeric-level list the chosen spell should land in.
 const numericLevelFor = (levelKey: string): number => Number(levelKey);
 
-// SRD analog of AddAttack: browse the bundled catalog, filtered to the spell
+// Spell analog of AddAttack: browse the bundled catalog, filtered to the spell
 // level of the list you opened it from (and, when multiclassing, filterable by
 // class). Picking one appends a pre-populated—but fully editable—Spell and swaps
 // straight into its editor, so backing out without saving discards it.
-export default function AddSpellFromSrd() {
+export default function AddSpellFromCatalog() {
   const { character, dispatch } = useLoadedCharacter();
   const { subField, replaceCursor } = useTargetedField();
   const [query, setQuery] = useState("");
@@ -28,7 +31,7 @@ export default function AddSpellFromSrd() {
   const level = numericLevelFor(levelKey);
 
   // The character's spellcasting classes as {id, name} pairs: the *name* drives
-  // the SRD class filter (SRD spells list classes by name); the *id* is what a
+  // the class filter (catalog spells list classes by name); the *id* is what a
   // newly-added spell is tagged with.
   const scPairs = character
     ? character.spellcastingClasses.map((sc) => ({
@@ -53,7 +56,7 @@ export default function AddSpellFromSrd() {
 
   const matches = useMemo(
     () =>
-      searchSrdSpells(query, classFilter || undefined).filter(
+      searchCatalogSpells(query, classFilter || undefined).filter(
         (s) =>
           s.level === level &&
           (classFilter ||
@@ -63,12 +66,12 @@ export default function AddSpellFromSrd() {
     [query, classFilter, level, castableClasses],
   );
 
-  const add = (srd: SrdSpell) => {
+  const add = (entry: CatalogSpell) => {
     // `levelKey` is a runtime string (the bucket the picker was opened from), so
     // re-enter the typed world with the documented downcast.
     const bucket = fromStack<Spell[]>(FIELD.spells, levelKey);
     const list: Spell[] = getFieldValue(bucket.toString(), character) ?? [];
-    const newList = list.concat(buildSpellFromSrd(srd, tagClassId));
+    const newList = list.concat(buildSpellFromCatalog(entry, tagClassId));
     dispatch(updateAt(bucket, newList));
     replaceCursor(bucket.at(newList.length - 1));
   };
@@ -96,22 +99,20 @@ export default function AddSpellFromSrd() {
         </select>
       )}
       <div className="column spell-search-results">
-        {matches.length === 0 && (
-          <p className="muted">No matching SRD spells.</p>
-        )}
-        {matches.map((srd) => (
+        {matches.length === 0 && <p className="muted">No matching spells.</p>}
+        {matches.map((entry) => (
           <button
-            key={srd.index}
+            key={entry.index}
             className="row space-between"
             onClick={(e) => {
               e.preventDefault();
-              add(srd);
+              add(entry);
             }}
           >
-            <span>{srd.name}</span>
+            <span>{entry.name}</span>
             <span className="spell-badge">
-              {srd.school}
-              {srd.damageType ? ` · ${srd.damageType}` : ""}
+              {entry.school}
+              {entry.damageType ? ` · ${entry.damageType}` : ""}
             </span>
           </button>
         ))}

@@ -63,7 +63,7 @@ character driver: steps = count of [5, 11, 17] that are <= characterLevel   // 0
   mechanics (33 rule-based, the rest table/base-only). The rest have no
   structured damage and stay prose.
 - **Tests** — `spell-scaling.test.ts` (expansion + `spellMod`) and an end-to-end
-  case in `srd-spell-adapter.test.ts` (bundled Fireball → 10d6 at slot 5).
+  case in `spell-adapter.test.ts` (bundled Fireball → 10d6 at slot 5).
 
 ## Types (`src/lib/types.ts`)
 
@@ -167,7 +167,7 @@ result.
 
 The `MOD` becomes a `spellMod` leaf, but the caster's class isn't known at import
 time — so the generator writes a `{ spellMod: "@caster" }` placeholder and
-`buildSpellFromSrd` **stamps** it with the real spellcasting class when the spell
+`buildSpellFromCatalog` **stamps** it with the real spellcasting class when the spell
 is added (`stampCaster`).
 
 > One correctness note: `combine` scales a dice increment by its **count**

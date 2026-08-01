@@ -10,18 +10,18 @@ import {
 } from "src/lib/data/data-definitions";
 import { modifier } from "src/lib/rules";
 import {
-  SRD_RACES,
-  getSrdRace,
+  ALL_RACES,
+  getCatalogRace,
   getSubrace,
   raceGrantsFeat,
   subracesForRace,
-} from "src/lib/builder/srd-races";
-import { ALL_SPELLS, getSrdSpell } from "src/lib/spells/srd-spells";
+} from "src/lib/builder/race-catalog";
+import { ALL_SPELLS, getCatalogSpell } from "src/lib/spells/spell-catalog";
 import {
-  SRD_CLASSES,
+  ALL_CLASSES,
   castsAtLevelOne,
-  getSrdClass,
-} from "src/lib/builder/srd-classes";
+  getCatalogClass,
+} from "src/lib/builder/class-catalog";
 import {
   expertiseDueAt,
   fightingStyleDueAt,
@@ -61,8 +61,8 @@ import {
   CUSTOM_SUBRACE,
   NO_SUBRACE,
   RaceBonus,
-  SrdRace,
-  SrdSubrace,
+  CatalogRace,
+  CatalogSubrace,
 } from "src/lib/builder/types";
 import {
   ChipMultiSelect,
@@ -138,8 +138,10 @@ export function StartStep({ state, patch }: StepProps) {
 
 // --------------------------------------------------------------------- Race
 
-const seedBonuses = (race?: SrdRace, subrace?: SrdSubrace): RaceBonus[] =>
-  defaultRaceBonuses(race, subrace);
+const seedBonuses = (
+  race?: CatalogRace,
+  subrace?: CatalogSubrace,
+): RaceBonus[] => defaultRaceBonuses(race, subrace);
 
 function RaceBonusEditor({
   state,
@@ -147,7 +149,7 @@ function RaceBonusEditor({
   innerRef,
 }: StepProps & { innerRef?: Ref<HTMLDivElement> }) {
   if (!state.raceBonuses.length) return null;
-  const race = getSrdRace(state.raceIndex);
+  const race = getCatalogRace(state.raceIndex);
   const subrace = getSubrace(race, state.subraceIndex);
   const setStat = (i: number, stat: StatKey | "") =>
     patch({
@@ -192,7 +194,7 @@ function RaceBonusEditor({
 }
 
 export function RaceStep({ state, patch }: StepProps) {
-  const race = getSrdRace(state.raceIndex);
+  const race = getCatalogRace(state.raceIndex);
   const custom = state.raceIsCustom;
   const subraces = subracesForRace(race);
   const [query, setQuery] = useState("");
@@ -229,7 +231,7 @@ export function RaceStep({ state, patch }: StepProps) {
     }
   }, [state.raceIndex, state.subraceIndex]);
 
-  const pickRace = (r: SrdRace) => {
+  const pickRace = (r: CatalogRace) => {
     const subs = subracesForRace(r);
     const firstSub = subs.length ? subs[0].index : NO_SUBRACE;
     const subrace = getSubrace(r, firstSub);
@@ -252,7 +254,7 @@ export function RaceStep({ state, patch }: StepProps) {
   };
 
   const q = query.trim().toLowerCase();
-  const matches = SRD_RACES.filter((r) => r.name.toLowerCase().includes(q));
+  const matches = ALL_RACES.filter((r) => r.name.toLowerCase().includes(q));
   const raceChoices: Choice[] = [
     ...matches.map((r) => ({
       key: r.index,
@@ -530,7 +532,7 @@ export function RaceStep({ state, patch }: StepProps) {
               ...state.cantripIndices,
               ...state.levelOneSpellIndices,
             ]
-              .map((i) => (i ? getSrdSpell(i)?.name : undefined))
+              .map((i) => (i ? getCatalogSpell(i)?.name : undefined))
               .filter((n): n is string => Boolean(n))}
           />
         </Field>
@@ -575,7 +577,7 @@ export function RaceStep({ state, patch }: StepProps) {
 // -------------------------------------------------------------------- Class
 
 export function ClassStep({ state, patch }: StepProps) {
-  const klass = getSrdClass(state.classIndex);
+  const klass = getCatalogClass(state.classIndex);
   const custom = state.classIsCustom;
   const [query, setQuery] = useState("");
 
@@ -611,7 +613,7 @@ export function ClassStep({ state, patch }: StepProps) {
   }, [selectionKey, state.fightingStyle]);
 
   const q = query.trim().toLowerCase();
-  const matches = SRD_CLASSES.filter((c) => c.name.toLowerCase().includes(q));
+  const matches = ALL_CLASSES.filter((c) => c.name.toLowerCase().includes(q));
   const choices: Choice[] = [
     ...matches.map((c) => ({
       key: c.index,
@@ -1142,8 +1144,8 @@ export function BackgroundStep({ state, patch }: StepProps) {
   const bg = getBackground(state.backgroundName);
   const custom = state.backgroundIsCustom;
   const languageCount = bg?.languages ?? 0;
-  const klass = getSrdClass(state.classIndex);
-  const race = getSrdRace(state.raceIndex);
+  const klass = getCatalogClass(state.classIndex);
+  const race = getCatalogRace(state.raceIndex);
   const subrace = getSubrace(race, state.subraceIndex);
 
   // Every background choice unfolds something below the grid — a custom
@@ -1445,7 +1447,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
 // ------------------------------------------------------------------- Spells
 
 export function SpellsStep({ state, patch }: StepProps) {
-  const klass = getSrdClass(state.classIndex);
+  const klass = getCatalogClass(state.classIndex);
   if (!klass || !castsAtLevelOne(klass) || !klass.spellcasting) {
     return (
       <div className="builder-step">
@@ -1463,14 +1465,14 @@ export function SpellsStep({ state, patch }: StepProps) {
     state.highElfCantrip,
     ...Object.values(state.featSpellChoices).flat(),
   ]
-    .map((i) => (i ? getSrdSpell(i)?.name : undefined))
+    .map((i) => (i ? getCatalogSpell(i)?.name : undefined))
     .filter((n): n is string => Boolean(n));
   return (
     <div className="builder-step">
       <p className="text-muted builder-hint">
-        Only SRD spells are listed here. Pick what you like now — you can always
-        add more (including spells from other books or homebrew) from the sheet
-        afterward, and you&apos;re free to skip this step.
+        Only official spells are listed here. Pick what you like now — you can
+        always add more (including homebrew) from the sheet afterward, and
+        you&apos;re free to skip this step.
       </p>
       <Field
         label={`Cantrips (${state.cantripIndices.length} of ${sc.cantripsKnown})`}
@@ -1512,7 +1514,7 @@ export function SpellsStep({ state, patch }: StepProps) {
 // ---------------------------------------------------------------- Equipment
 
 export function EquipmentStep({ state, patch }: StepProps) {
-  const klass = getSrdClass(state.classIndex);
+  const klass = getCatalogClass(state.classIndex);
   const bg = getBackground(state.backgroundName);
   const parsedOptions = klass
     ? klass.startingEquipmentOptions.map(parseEquipmentOption)
@@ -1736,9 +1738,9 @@ export function DetailsStep({ state, patch }: StepProps) {
 // ------------------------------------------------------------------- Review
 
 export function ReviewStep({ state }: StepProps) {
-  const race = getSrdRace(state.raceIndex);
+  const race = getCatalogRace(state.raceIndex);
   const subrace = getSubrace(race, state.subraceIndex);
-  const klass = getSrdClass(state.classIndex);
+  const klass = getCatalogClass(state.classIndex);
   const subraceName =
     state.subraceIndex === CUSTOM_SUBRACE
       ? state.customSubraceName

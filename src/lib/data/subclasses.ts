@@ -4,7 +4,7 @@ import {
   SkillName,
   StatKey,
 } from "src/lib/data/data-definitions";
-import { SrdSubclass } from "src/lib/builder/types";
+import { CatalogSubclass } from "src/lib/builder/types";
 import { SUBCLASS_FEATURES } from "src/lib/data/subclass-features";
 
 // The full catalog of official subclasses across every class. Names are the
@@ -43,13 +43,13 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-type Entry = Omit<SrdSubclass, "index" | "classIndex">;
+type Entry = Omit<CatalogSubclass, "index" | "classIndex">;
 
 // Per-level features are attached here rather than written inline: the tables
 // are far larger than the entries themselves, and keeping them in one file per
 // class (`data/subclass-features/`) is what keeps this catalog readable. An
 // entry may still declare `levelFeatures` inline, which wins.
-const forClass = (classIndex: string, entries: Entry[]): SrdSubclass[] =>
+const forClass = (classIndex: string, entries: Entry[]): CatalogSubclass[] =>
   entries.map((e) => ({
     index: `${classIndex}-${slug(e.name)}`,
     classIndex,
@@ -57,7 +57,7 @@ const forClass = (classIndex: string, entries: Entry[]): SrdSubclass[] =>
     ...e,
   }));
 
-export const SUBCLASSES: SrdSubclass[] = [
+export const SUBCLASSES: CatalogSubclass[] = [
   // -------------------------------------------------------------- Barbarian
   ...forClass("barbarian", [
     {

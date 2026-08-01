@@ -800,7 +800,7 @@ export function preparedSpellsFor(character: Character, classId: UUID): number {
 }
 
 // The character's spellcasting classes that are official 5e classes (so their
-// SRD spell lists are known). Custom classes are omitted — callers treat an
+// catalog spell lists are known). Custom classes are omitted — callers treat an
 // empty result as "don't restrict".
 export function officialSpellcastingClasses(
   character: Character,

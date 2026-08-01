@@ -30,11 +30,11 @@ export interface ProficiencyGrants {
   weapons: string[];
   tools: string[];
   // Fixed skill proficiencies granted outright (e.g. Elf Keen Senses →
-  // Perception). Distinct from `SrdRace.skillChoices`, which is a "choose N".
+  // Perception). Distinct from `CatalogRace.skillChoices`, which is a "choose N".
   skills: SkillName[];
 }
 
-export interface SrdSubrace {
+export interface CatalogSubrace {
   index: string;
   name: string;
   abilityBonuses: AbilityBonus[];
@@ -50,7 +50,7 @@ export interface SrdSubrace {
   traits: RaceTrait[];
 }
 
-export interface SrdRace {
+export interface CatalogRace {
   index: string;
   name: string;
   size: string;
@@ -67,7 +67,7 @@ export interface SrdRace {
   // means the wizard must ask which, and neither is granted by default.
   darkvisionOrSkill?: number;
   // The race grants a feat at level 1 (Custom Lineage). See the same flag on
-  // `SrdSubrace` for the Variant Human path.
+  // `CatalogSubrace` for the Variant Human path.
   grantsFeat?: boolean;
   // The race picks a draconic ancestry (Dragonborn): a dragon type that sets its
   // damage resistance and breath weapon's shape/save/type. The chosen label is
@@ -75,10 +75,10 @@ export interface SrdRace {
   draconicAncestry?: boolean;
   proficiencies: ProficiencyGrants;
   traits: RaceTrait[];
-  subraces: SrdSubrace[];
+  subraces: CatalogSubrace[];
 }
 
-export interface SrdClassSpellcasting {
+export interface CatalogClassSpellcasting {
   ability: StatKey;
   cantripsKnown: number;
   // null for prepared casters (Wizard/Cleric/Druid), who don't track a count.
@@ -86,7 +86,7 @@ export interface SrdClassSpellcasting {
   slotsLevel1: number;
 }
 
-export interface SrdClass {
+export interface CatalogClass {
   index: string;
   name: string;
   hitDie: number;
@@ -99,7 +99,7 @@ export interface SrdClass {
   proficiencies: ProficiencyGrants;
   startingEquipment: string[];
   startingEquipmentOptions: string[];
-  spellcasting?: SrdClassSpellcasting;
+  spellcasting?: CatalogClassSpellcasting;
   subclassAtLevel1: boolean;
   features: RaceTrait[];
 }
@@ -141,9 +141,9 @@ export interface LevelEffects {
 // (cleric/sorcerer/warlock) — the only point the level-1 builder can apply
 // them. As elsewhere, only mechanical facts are stored; the summaries and
 // feature details are original short paraphrases, not published prose.
-export interface SrdSubclass {
+export interface CatalogSubclass {
   index: string;
-  // Owning class index ("cleric", "sorcerer", …), matching `SrdClass.index`.
+  // Owning class index ("cleric", "sorcerer", …), matching `CatalogClass.index`.
   classIndex: string;
   name: string;
   // One-line original summary shown in the builder.

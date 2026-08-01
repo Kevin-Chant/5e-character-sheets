@@ -101,7 +101,7 @@ This is what makes a **nested subclass sub-choice** drive spells: a Land druid's
 `optionSpellIndicesAt` returns what a character's picks are due at a class level
 (only picks whose group belongs to that class, so a druid's terrain isn't read
 while leveling a warlock dip); step 9b of `applyClassLevel` grants them through
-the idempotent `addSrdSpellOnce`, so re-running a level can't stack duplicates.
+the idempotent `addCatalogSpellOnce`, so re-running a level can't stack duplicates.
 Spells absent from the bundled SRD are skipped, exactly as `grants.spellIndices`
 does — the prose feature still names them.
 
@@ -402,7 +402,7 @@ A subclass confers content two ways, and the difference is purely _when_:
   is chosen — the builder at level 1 for cleric/sorcerer/warlock, the level-up
   wizard at 2 for druid/wizard and 3 for everyone else. It is the only shape
   that can grant proficiencies and always-prepared `spellIndices`.
-- **`levelFeatures`** (`SrdSubclass.levelFeatures`, class level → features)
+- **`levelFeatures`** (`CatalogSubclass.levelFeatures`, class level → features)
   fires at **each** level the subclass gives something. Prose only.
 
 `levelFeatures` exists because `grants` firing once was a real hole, not a

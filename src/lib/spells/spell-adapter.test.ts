@@ -9,11 +9,11 @@ import { randomUUID } from "src/lib/browser";
 const WIZARD_ID = randomUUID();
 const CLERIC_ID = randomUUID();
 import { isTextComponentWithDetail } from "src/lib/types";
-import { buildSpellFromSrd, parseDamageRoll } from "./srd-spell-adapter";
-import { getSrdSpell, SrdSpell } from "./srd-spells";
+import { buildSpellFromCatalog, parseDamageRoll } from "./spell-adapter";
+import { getCatalogSpell, CatalogSpell } from "./spell-catalog";
 import { spellDamageAtLevel } from "./spell-scaling";
 
-const fireball: SrdSpell = {
+const fireball: CatalogSpell = {
   index: "fireball",
   name: "Fireball",
   level: 3,
@@ -35,7 +35,7 @@ const fireball: SrdSpell = {
   areaOfEffect: "20-foot sphere",
 };
 
-const cantrip: SrdSpell = {
+const cantrip: CatalogSpell = {
   index: "guidance",
   name: "Guidance",
   level: 0,
@@ -73,9 +73,9 @@ describe("parseDamageRoll", () => {
   });
 });
 
-describe("buildSpellFromSrd", () => {
+describe("buildSpellFromCatalog", () => {
   it("maps core fields and attributes the class", () => {
-    const spell = buildSpellFromSrd(fireball, WIZARD_ID);
+    const spell = buildSpellFromCatalog(fireball, WIZARD_ID);
     expect(spell.spellcastingClass).toBe(WIZARD_ID);
     expect(spell.info.title).toBe("Fireball");
     expect(spell.castingTime).toBe("1 action");
@@ -90,7 +90,7 @@ describe("buildSpellFromSrd", () => {
   });
 
   it("turns base damage into a live formula slot", () => {
-    const spell = buildSpellFromSrd(fireball, WIZARD_ID);
+    const spell = buildSpellFromCatalog(fireball, WIZARD_ID);
     expect(isTextComponentWithDetail(spell.info)).toBe(true);
     if (!isTextComponentWithDetail(spell.info)) return;
     expect(spell.info.detailFormulas).toEqual([
@@ -103,7 +103,7 @@ describe("buildSpellFromSrd", () => {
   });
 
   it("omits the damage slot for non-damaging spells and keeps slots balanced", () => {
-    const spell = buildSpellFromSrd(cantrip, CLERIC_ID);
+    const spell = buildSpellFromCatalog(cantrip, CLERIC_ID);
     expect(isTextComponentWithDetail(spell.info)).toBe(true);
     if (!isTextComponentWithDetail(spell.info)) return;
     expect(spell.info.detailFormulas).toEqual([]);
@@ -115,9 +115,9 @@ describe("buildSpellFromSrd", () => {
   it("stamps the caster placeholder in healing with the spell's class", () => {
     // Cure Wounds heals 1d8 + spellcasting modifier; the importer marks the mod
     // with a placeholder class that the adapter must replace.
-    const srd = getSrdSpell("cure-wounds");
-    expect(srd?.mechanics?.healing).toBeDefined();
-    const spell = buildSpellFromSrd(srd!, CLERIC_ID);
+    const entry = getCatalogSpell("cure-wounds");
+    expect(entry?.mechanics?.healing).toBeDefined();
+    const spell = buildSpellFromCatalog(entry!, CLERIC_ID);
     const healing = spell.mechanics?.healing as {
       operands: Array<{ spellMod?: string }>;
     };
@@ -129,9 +129,9 @@ describe("buildSpellFromSrd", () => {
 
   it("carries structured mechanics through from the bundled catalog", () => {
     // End-to-end: the real bundled Fireball → mechanics → expanded damage.
-    const srd = getSrdSpell("fireball");
-    expect(srd).toBeDefined();
-    const spell = buildSpellFromSrd(srd!, WIZARD_ID);
+    const entry = getCatalogSpell("fireball");
+    expect(entry).toBeDefined();
+    const spell = buildSpellFromCatalog(entry!, WIZARD_ID);
     expect(spell.mechanics?.scaling?.driver).toBe("slot");
     // Cast at slot 5 collapses to 10d6.
     expect(spellDamageAtLevel(spell.mechanics!, 5)).toEqual({

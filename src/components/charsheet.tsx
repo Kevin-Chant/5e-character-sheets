@@ -17,7 +17,7 @@ import EditArmorProficiencies from "./edit-armor-proficiencies";
 import EditHitDice from "./edit-hit-dice";
 import EditAttack from "./edit-attack";
 import AddAttack from "./add-attack";
-import AddSpellFromSrd from "./add-spell-from-srd";
+import AddSpellFromCatalog from "./add-spell-from-catalog";
 import RollModal from "./roll-modal";
 import { RollerProvider } from "src/lib/hooks/use-roller";
 import BuildCustomFormulaWithDamage from "./build-custom-formula-with-damage";
@@ -110,8 +110,8 @@ export default function CharSheet() {
       modalTitle = "Edit Spell";
       break;
     case "selectSpell":
-      modalContents = <AddSpellFromSrd />;
-      modalTitle = "Add Spell from SRD";
+      modalContents = <AddSpellFromCatalog />;
+      modalTitle = "Add Spell";
       break;
     case "limitedUseAbility":
       modalContents = <EditLimitedUseAbility />;

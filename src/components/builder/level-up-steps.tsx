@@ -40,7 +40,7 @@ import {
 } from "src/lib/builder/level-up";
 import { subclassesForClass } from "src/lib/builder/subclasses";
 import { chosenIn } from "src/lib/builder/chosen-options";
-import { ALL_SPELLS, getSrdSpell } from "src/lib/spells/srd-spells";
+import { ALL_SPELLS, getCatalogSpell } from "src/lib/spells/spell-catalog";
 import { grantsForLevelUp } from "./level-up-wizard";
 import { FEATS } from "src/lib/builder/feats";
 import {
@@ -602,7 +602,7 @@ export function LevelUpSpellsStep({
     { length: maxSpellLevel },
     (_, i) => i + 1,
   );
-  // Artificer / homebrew aren't tagged in the SRD spell catalog, so show every
+  // Artificer / homebrew aren't tagged in the spell catalog, so show every
   // spell rather than an empty class-filtered list.
   const filterClass = spellListFilterFor(
     state.className,
@@ -651,7 +651,7 @@ export function LevelUpSpellsStep({
   // Spells already on the sheet for the leveled class, by name — the
   // checklists drop them, since "learning" one again would waste the pick (the
   // swap dropdown is the way to trade a known spell). Names, not indices: the
-  // sheet stores titles, and SRD-added spells keep the catalog name.
+  // sheet stores titles, and catalog-added spells keep the catalog name.
   const knownNames = Object.values(character.spells).flatMap((list) =>
     (list ?? [])
       .filter((sp) => sp.spellcastingClass === targetKlass?.id)
@@ -661,7 +661,7 @@ export function LevelUpSpellsStep({
   // (class list vs Magical Secrets), so one spell can't be taken in both.
   const pendingNames = (indices: string[]) =>
     indices
-      .map((i) => getSrdSpell(i)?.name)
+      .map((i) => getCatalogSpell(i)?.name)
       .filter((n): n is string => Boolean(n));
   const secretNames = pendingNames(state.secretSpells);
   const newSpellNames = pendingNames(Object.values(state.newSpells).flat());
@@ -699,8 +699,8 @@ export function LevelUpSpellsStep({
                 ? ` and ${cantripAllowance} cantrip${cantripAllowance === 1 ? "" : "s"}`
                 : ""
             }.`}{" "}
-        Only SRD spells are searchable here; add spells from other books or
-        homebrew manually from the sheet afterward.
+        Only official spells are searchable here; add homebrew manually from the
+        sheet afterward.
       </p>
       {(() => {
         const arcanumLevel = mysticArcanumLevelAt(state.className, newLevel);
@@ -862,7 +862,7 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
   if (state.secretSpells.length > 0)
     rows.push([
       "Additional Magical Secrets",
-      state.secretSpells.map((i) => getSrdSpell(i)?.name ?? i).join(", "),
+      state.secretSpells.map((i) => getCatalogSpell(i)?.name ?? i).join(", "),
     ]);
 
   // What the level *gives* you, as opposed to what you chose above. Diffed off

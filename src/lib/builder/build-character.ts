@@ -39,19 +39,22 @@ import {
   applyRaceOptions,
 } from "src/lib/builder/level-grants";
 import {
-  getSrdRace,
+  getCatalogRace,
   getSubrace,
   raceGrantsFeat,
-} from "src/lib/builder/srd-races";
+} from "src/lib/builder/race-catalog";
 import { applyFeat, getFeat } from "src/lib/builder/feats";
 
 import { resolveFinalStats } from "src/lib/builder/resolve";
-import { castsAtLevelOne, getSrdClass } from "src/lib/builder/srd-classes";
+import {
+  castsAtLevelOne,
+  getCatalogClass,
+} from "src/lib/builder/class-catalog";
 import { getBackground } from "src/lib/builder/backgrounds";
 import { resolveClassLoadout } from "src/lib/builder/equipment";
 import { splitItemCount, weightForItem } from "src/lib/data/equipment-weights";
-import { getSrdSpell } from "src/lib/spells/srd-spells";
-import { buildSpellFromSrd } from "src/lib/spells/srd-spell-adapter";
+import { getCatalogSpell } from "src/lib/spells/spell-catalog";
+import { buildSpellFromCatalog } from "src/lib/spells/spell-adapter";
 
 const DIE_BY_FACES: Record<number, StandardDie> = {
   4: StandardDie.d4,
@@ -387,11 +390,11 @@ function buildSpells(
 ): Spells {
   const spells = emptySpells();
   const add = (index: string) => {
-    const srd = getSrdSpell(index);
-    if (!srd) return;
-    const spell: Spell = buildSpellFromSrd(srd, classId);
-    if (srd.level === 0) spells[0]!.push(spell);
-    else if (srd.level === 1) spells[1]!.push(spell);
+    const entry = getCatalogSpell(index);
+    if (!entry) return;
+    const spell: Spell = buildSpellFromCatalog(entry, classId);
+    if (entry.level === 0) spells[0]!.push(spell);
+    else if (entry.level === 1) spells[1]!.push(spell);
   };
   state.cantripIndices.forEach(add);
   state.levelOneSpellIndices.forEach(add);
@@ -402,9 +405,9 @@ function buildSpells(
 // The guided path: assemble a full level-1 character from the wizard selections.
 function guidedCharacter(state: BuilderState): Character {
   const char = emptyScaffold();
-  const race = getSrdRace(state.raceIndex);
+  const race = getCatalogRace(state.raceIndex);
   const subrace = getSubrace(race, state.subraceIndex);
-  const klass = getSrdClass(state.classIndex);
+  const klass = getCatalogClass(state.classIndex);
   const background = getBackground(state.backgroundName);
 
   // Identity
@@ -563,14 +566,14 @@ function guidedCharacter(state: BuilderState): Character {
     (t) => t.title.trim().toLowerCase() === "high elf cantrip",
   );
   if (hasHighElfCantrip && state.highElfCantrip) {
-    const srd = getSrdSpell(state.highElfCantrip);
-    if (srd) {
+    const entry = getCatalogSpell(state.highElfCantrip);
+    if (entry) {
       char.limitedUseAbilities ??= [];
       char.limitedUseAbilities.push({
         info: {
-          title: srd.name,
+          title: entry.name,
           titleFormulas: [],
-          detail: `At-will wizard cantrip you know as a High Elf (Intelligence). ${srd.desc.split("\n")[0]}`,
+          detail: `At-will wizard cantrip you know as a High Elf (Intelligence). ${entry.desc.split("\n")[0]}`,
           detailFormulas: [],
         },
         maxUses: 0,

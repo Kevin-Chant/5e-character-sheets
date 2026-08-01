@@ -1,33 +1,36 @@
 import raceData from "src/lib/data/srd-races.json";
 import { PHB_SUBRACES } from "src/lib/data/phb-subraces";
 import { NONSRD_RACES } from "src/lib/data/nonsrd-races";
-import { SrdRace, SrdSubrace } from "src/lib/builder/types";
+import { CatalogRace, CatalogSubrace } from "src/lib/builder/types";
 
 // The bundled SRD races plus the hand-authored official races from other books
 // (Volo's, Mordenkainen's, Eberron, Ravnica, Theros, the Feywild books, …).
-export const SRD_RACES = [
-  ...(raceData as unknown as SrdRace[]),
+export const ALL_RACES = [
+  ...(raceData as unknown as CatalogRace[]),
   ...NONSRD_RACES,
 ];
 
-const BY_INDEX = new Map(SRD_RACES.map((r) => [r.index, r]));
+const BY_INDEX = new Map(ALL_RACES.map((r) => [r.index, r]));
 
-export const getSrdRace = (index?: string): SrdRace | undefined =>
+export const getCatalogRace = (index?: string): CatalogRace | undefined =>
   index ? BY_INDEX.get(index) : undefined;
 
 // The full subrace list for a race: the SRD subrace(s) plus the hand-authored
 // PHB extras (Wood Elf, Drow, Mountain Dwarf, …).
-export const subracesForRace = (race?: SrdRace): SrdSubrace[] =>
+export const subracesForRace = (race?: CatalogRace): CatalogSubrace[] =>
   race ? [...race.subraces, ...(PHB_SUBRACES[race.index] ?? [])] : [];
 
 export const getSubrace = (
-  race: SrdRace | undefined,
+  race: CatalogRace | undefined,
   index?: string,
-): SrdSubrace | undefined =>
+): CatalogSubrace | undefined =>
   index ? subracesForRace(race).find((s) => s.index === index) : undefined;
 
 // Whether the chosen race/subrace grants a level-1 feat (Variant Human, Custom
 // Lineage) — the only way a brand-new character starts with one.
-export function raceGrantsFeat(race?: SrdRace, subrace?: SrdSubrace): boolean {
+export function raceGrantsFeat(
+  race?: CatalogRace,
+  subrace?: CatalogSubrace,
+): boolean {
   return !!(race?.grantsFeat || subrace?.grantsFeat);
 }

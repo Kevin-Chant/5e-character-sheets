@@ -10,7 +10,7 @@ import {
 //
 // A field's `STANDARD_EDITABLE_FIELD_TYPES` entry is the default, but many
 // fields have sub-paths that need a *different* editor — a formula leaf inside
-// an attack, the SRD browser instead of a blank spell, the consolidated skills
+// an attack, the spell catalog instead of a blank spell, the consolidated skills
 // editor behind the "Skills" heading.
 //
 // This used to be a ten-branch if/else chain inside `charsheet.tsx`'s effect,
@@ -123,7 +123,7 @@ const ROUTES: Route[] = [
     type: "formula",
   },
   {
-    name: "spells/<level>.new opens the SRD browser, mirroring attacks/new",
+    name: "spells/<level>.new opens the spell catalog browser, mirroring attacks/new",
     when: (c) => c.fieldType === "spell" && c.subField.endsWith(".new"),
     type: "selectSpell",
   },

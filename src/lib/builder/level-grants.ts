@@ -48,12 +48,15 @@ import {
   subclassFeaturesAt,
   subclassSpellIndicesAt,
 } from "src/lib/builder/subclasses";
-import { addSrdSpell, addSrdSpellOnce } from "src/lib/builder/grant-spells";
+import {
+  addCatalogSpell,
+  addCatalogSpellOnce,
+} from "src/lib/builder/grant-spells";
 import {
   applyLevelEffects,
   levelEffectsAt,
 } from "src/lib/builder/level-effects";
-import { SrdSubclass } from "src/lib/builder/types";
+import { CatalogSubclass } from "src/lib/builder/types";
 import {
   OptionalClassFeature,
   optionalFeaturesAt,
@@ -199,7 +202,7 @@ export function grantArmor(
 // cleric/sorcerer/warlock, later for everyone else.
 function applySubclassGrant(
   char: Character,
-  grant: NonNullable<SrdSubclass["grants"]>,
+  grant: NonNullable<CatalogSubclass["grants"]>,
   className: string,
 ): void {
   if (grant.proficiencies?.armor)
@@ -219,7 +222,7 @@ function applySubclassGrant(
   for (const f of grant.features ?? [])
     char.features.push(text(f.title, f.detail));
   for (const index of grant.spellIndices ?? [])
-    addSrdSpell(char, index, className);
+    addCatalogSpell(char, index, className);
 }
 
 // The tool picks a class level offers, narrowed to the multiclass allowance
@@ -396,7 +399,7 @@ export function applyClassLevel(
     if (grant.speedBonus && fresh.length) char.speeds.walk += grant.speedBonus;
     if (grant.effects) applyLevelEffects(char, grant.effects);
     for (const index of grant.spellIndices ?? [])
-      addSrdSpellOnce(char, index, className);
+      addCatalogSpellOnce(char, index, className);
   }
 
   // 2. Feature prose for this class level (level 1 comes from the SRD class
@@ -440,7 +443,7 @@ export function applyClassLevel(
     klass.subclass,
     level,
   ))
-    addSrdSpellOnce(char, index, className);
+    addCatalogSpellOnce(char, index, className);
 
   // 2d. Effects this level writes straight to a character field — save
   //     proficiencies, resistances, speeds, an initiative modifier (see
@@ -612,7 +615,7 @@ export function applyClassLevel(
     className,
     level,
   ))
-    addSrdSpellOnce(char, index, className);
+    addCatalogSpellOnce(char, index, className);
 
   // 9c. Feature prose a sub-choice confers (a Totem Warrior's totem, a Storm
   //     Herald's environment). De-duplicated by title so re-running a level is

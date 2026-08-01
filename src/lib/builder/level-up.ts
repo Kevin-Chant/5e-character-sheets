@@ -26,8 +26,8 @@ import {
   emptyLevelChoices,
   LevelChoices,
 } from "src/lib/builder/level-grants";
-import { addSrdSpell } from "src/lib/builder/grant-spells";
-import { getSrdSpell } from "src/lib/spells/srd-spells";
+import { addCatalogSpell } from "src/lib/builder/grant-spells";
+import { getCatalogSpell } from "src/lib/spells/spell-catalog";
 import { applyFeat, getFeat } from "src/lib/builder/feats";
 
 // ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ export const isCasterClass = (className: string): boolean => {
   return !!oc && CASTER_CLASSES.has(oc);
 };
 
-// Classes the bundled SRD spell catalog actually tags on its spells. Artificer
+// Classes the bundled spell catalog actually tags on its spells. Artificer
 // (and any homebrew class) isn't among them, so its spell picker must show the
 // full list rather than filter to a class that matches nothing.
 const SPELL_LIST_CLASSES = new Set<OfficialClass>([
@@ -97,8 +97,8 @@ const SPELL_LIST_CLASSES = new Set<OfficialClass>([
 // *any* class's spell list.
 const BARD_MAGICAL_SECRETS_LEVELS = new Set([10, 14, 18]);
 
-// The class name to filter the SRD spell list by — or undefined to show every
-// spell (Artificer / homebrew, which the SRD catalog doesn't tag; and a bard's
+// The class name to filter the catalog spell list by — or undefined to show every
+// spell (Artificer / homebrew, which the catalog doesn't tag; and a bard's
 // Magical Secrets levels, which draw from every class list).
 export const spellListFilterFor = (
   className: string,
@@ -346,10 +346,10 @@ export function applyLevelUp(
   //    bard spells once learned, so they land the same way; only the picking
   //    was different.
   for (const indices of Object.values(state.newSpells))
-    for (const index of indices) addSrdSpell(char, index, state.className);
+    for (const index of indices) addCatalogSpell(char, index, state.className);
   if (additionalMagicalSecretsAt(state.className, klass.level, klass.subclass))
     for (const index of state.secretSpells)
-      addSrdSpell(char, index, state.className);
+      addCatalogSpell(char, index, state.className);
 
   // 8. Any manually added features.
   for (const f of state.addedFeatures)
@@ -365,7 +365,7 @@ export function applyLevelUp(
     const pool = (char.limitedUseAbilities ?? []).find(
       (a) => a.info.title === `Mystic Arcanum (${ord} Level)`,
     );
-    const spell = getSrdSpell(state.mysticArcanum);
+    const spell = getCatalogSpell(state.mysticArcanum);
     if (pool && spell)
       pool.info = {
         title: pool.info.title,

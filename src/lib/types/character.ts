@@ -262,7 +262,7 @@ export type SpellResolution =
 
 // The optional, structured mechanical model of a spell. Absent for the
 // free-text spells that dominate real use (so migration is a no-op); populated
-// by the SRD importer and editable in the UI.
+// by the catalog importer and editable in the UI.
 export interface SpellMechanics {
   // Base spell level; 0 = cantrip.
   level: number;
@@ -289,7 +289,7 @@ export interface Spell {
   concentration?: boolean;
   components?: SpellComponents;
   // The school of magic. `MagicSchool | string` rather than the bare enum so
-  // homebrew traditions still fit (mirrors `ClassName`). The SRD importer has
+  // homebrew traditions still fit (mirrors `ClassName`). The catalog importer has
   // always known this — it just used to be buried in the description prose.
   school?: MagicSchool | string;
   // How long the spell takes to cast. Typed against `CastingTime` for the three

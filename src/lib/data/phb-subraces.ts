@@ -1,12 +1,12 @@
 import { StatKey } from "src/lib/data/data-definitions";
-import { SrdSubrace } from "src/lib/builder/types";
+import { CatalogSubrace } from "src/lib/builder/types";
 
 // Player's Handbook subraces that the open-license SRD omits (the SRD ships
 // exactly one subrace per race). Keyed by race index and merged with the SRD
 // subraces at load time. As with the backgrounds, only mechanical facts are
 // stored and the trait descriptions are original short summaries, not the
 // published prose.
-export const PHB_SUBRACES: Record<string, SrdSubrace[]> = {
+export const PHB_SUBRACES: Record<string, CatalogSubrace[]> = {
   dwarf: [
     {
       index: "mountain-dwarf",

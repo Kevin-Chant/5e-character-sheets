@@ -9,7 +9,7 @@ import {
 } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
 import { saveDcFormula } from "src/lib/rules";
-import { getSrdClass } from "src/lib/builder/srd-classes";
+import { getCatalogClass } from "src/lib/builder/class-catalog";
 import { ALL_INVOCATIONS, type Invocation } from "src/lib/data/invocations";
 import { poolTitlesFor } from "src/lib/builder/class-pools";
 // Type-only: `builder/types` imports `level-grants`, which imports this file.
@@ -751,7 +751,7 @@ export function classFeaturesAt(
     const pooled = new Set(
       poolTitlesFor(className).map((t) => t.trim().toLowerCase()),
     );
-    return (getSrdClass(className.toLowerCase())?.features ?? []).filter(
+    return (getCatalogClass(className.toLowerCase())?.features ?? []).filter(
       (f) => !pooled.has(f.title.trim().toLowerCase()) && kept(f),
     );
   }
@@ -766,7 +766,7 @@ export function toolChoicesFor(
   level: number,
 ): { choose: number; from: string[] } | undefined {
   if (level !== 1) return undefined;
-  return getSrdClass(className.toLowerCase())?.toolChoices;
+  return getCatalogClass(className.toLowerCase())?.toolChoices;
 }
 
 // ---------------------------------------------------------------------------
@@ -909,7 +909,7 @@ export const isAsiLevel = (className: string, level: number): boolean => {
 // Spells known / cantrips known (PHB class tables; Artificer from TCE).
 //
 // The wizards used to disagree about these: creation enforced the level-1
-// counts from `SrdClass.spellcasting`, level-up printed "counts aren't
+// counts from `CatalogClass.spellcasting`, level-up printed "counts aren't
 // enforced" and let you take as many as you liked. That block of data only
 // exists at level 1, which is why the level-up half never had anything to
 // enforce against — these tables are the missing half.
