@@ -3,7 +3,7 @@ import { charPath, updateAt } from "src/lib/cursor";
 import { UpdateAction } from "src/lib/hooks/reducers/actions";
 import { calculateCustomFormula } from "src/lib/formula";
 import { rollPoolRestore } from "src/lib/mechanics/resolve";
-import { Character, RechargeCriteria } from "src/lib/types";
+import { Character, LimitedUseAbility, RechargeCriteria } from "src/lib/types";
 
 // Event recharge — the half of `RechargeCriteria` that rests can't consume.
 //
@@ -64,7 +64,75 @@ export function matchesTrigger(
   if (trigger.includes("short rest") || trigger.includes("long rest")) {
     return false;
   }
+  // "Every 7 days" is dawn-shaped but rides its own countdown (see `tickDawn`),
+  // so it must not full-restore through the plain phrase match.
+  if (event === "dawn" && rechargeIntervalDays(recharge) !== undefined) {
+    return false;
+  }
   return TRIGGER_PHRASES[event].some((phrase) => trigger.includes(phrase));
+}
+
+// The X of an "Every X days" recharge, or undefined when the trigger isn't an
+// interval at all. Textual for the same reason the trigger phrases are:
+// `RechargeCriteria` is open, and "Every 7 days" is how the item text reads.
+export function rechargeIntervalDays(
+  recharge: RechargeCriteria,
+): number | undefined {
+  const match = /every\s+(\d+)\s*days?/i.exec(recharge ?? "");
+  if (!match) return undefined;
+  const days = Number(match[1]);
+  return days >= 1 ? days : undefined;
+}
+
+// What `days` dawns passing do to one ability: a plain "at dawn" recharge
+// restores; an "Every X days" interval ticks its countdown and restores when it
+// comes due. Returns undefined when the ability doesn't listen for dawn, or has
+// nothing to do. Shared by `planTrigger` (one dawn at a time, from the play
+// surface's Dawn button) and `planRest` (a rest that spans dawn — possibly
+// several, under gritty realism's 7-day long rest).
+export interface DawnTick {
+  updates: UpdateAction[];
+  // Uses handed back; 0 when only the countdown moved.
+  restored: number;
+  newExpended: number;
+  rolled: boolean;
+  // For an interval ability that hasn't come due: days still to wait.
+  daysLeft?: number;
+}
+
+export function tickDawn(
+  character: Character,
+  ability: LimitedUseAbility,
+  index: number,
+  days: number,
+): DawnTick | undefined {
+  const path = charPath(FIELD.limitedUseAbilities).at(index);
+  const interval = rechargeIntervalDays(ability.recharge);
+  if (interval !== undefined) {
+    // The countdown runs only while something is spent — "can't be used again
+    // until X days have passed" starts from the use, and the first dawn after
+    // it is the first tick.
+    if (ability.expended <= 0) return undefined;
+    const remaining = (ability.daysUntilRecharge ?? interval) - days;
+    if (remaining > 0) {
+      return {
+        updates: [updateAt(path.k("daysUntilRecharge"), remaining)],
+        restored: 0,
+        newExpended: ability.expended,
+        rolled: false,
+        daysLeft: remaining,
+      };
+    }
+    const back = rollPoolRestore(ability, character);
+    const updates = [updateAt(path.k("expended"), back.newExpended)];
+    if (ability.daysUntilRecharge !== undefined)
+      updates.push(updateAt(path.k("daysUntilRecharge"), undefined));
+    return { updates, ...back };
+  }
+  if (!matchesTrigger(ability.recharge, "dawn")) return undefined;
+  const back = rollPoolRestore(ability, character);
+  if (back.restored === 0) return undefined;
+  return { updates: [updateAt(path.k("expended"), back.newExpended)], ...back };
 }
 
 export interface TriggerChange {
@@ -92,8 +160,28 @@ export function planTrigger(
   const changes: TriggerChange[] = [];
 
   character.limitedUseAbilities.forEach((ability, index) => {
-    if (!matchesTrigger(ability.recharge, event)) return;
     const total = calculateCustomFormula(ability.maxUses, character);
+    const entry = { key: `ability:${index}`, label: ability.info.title };
+
+    // Dawn covers two shapes — plain "at dawn" and "Every X days" countdowns —
+    // so it goes through the shared ticker instead of the generic restore.
+    if (event === "dawn") {
+      const tick = tickDawn(character, ability, index, 1);
+      if (!tick) return;
+      updates.push(...tick.updates);
+      changes.push({
+        ...entry,
+        detail:
+          tick.daysLeft !== undefined
+            ? `${tick.daysLeft} ${tick.daysLeft === 1 ? "day" : "days"} until recharge`
+            : tick.rolled
+              ? `Restored ${tick.restored} (rolled) — now ${total - tick.newExpended} of ${total}`
+              : `Restored ${tick.restored} of ${total}`,
+      });
+      return;
+    }
+
+    if (!matchesTrigger(ability.recharge, event)) return;
     const { restored, newExpended, rolled } = rollPoolRestore(
       ability,
       character,
@@ -106,8 +194,7 @@ export function planTrigger(
       ),
     );
     changes.push({
-      key: `ability:${index}`,
-      label: ability.info.title,
+      ...entry,
       detail: rolled
         ? `Restored ${restored} (rolled) — now ${total - newExpended} of ${total}`
         : `Restored ${restored} of ${total}`,
@@ -124,7 +211,11 @@ export function hasTriggerFor(
   character: Character,
   event: TriggerEvent,
 ): boolean {
-  return character.limitedUseAbilities.some((ability) =>
-    matchesTrigger(ability.recharge, event),
+  return character.limitedUseAbilities.some(
+    (ability) =>
+      matchesTrigger(ability.recharge, event) ||
+      // "Every X days" abilities listen for dawn too — it's their tick.
+      (event === "dawn" &&
+        rechargeIntervalDays(ability.recharge) !== undefined),
   );
 }

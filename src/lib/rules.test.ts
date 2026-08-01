@@ -28,6 +28,7 @@ import {
   getSpellcastingAbility,
   preparedSpellCount,
   preparedSpellsFor,
+  itemAbilityActive,
 } from "./rules";
 import { Character, EquipmentItem } from "./types";
 import { UUID } from "crypto";
@@ -276,6 +277,51 @@ const item = (partial: Partial<EquipmentItem>): EquipmentItem => ({
   quantity: 1,
   equipped: false,
   ...partial,
+});
+
+describe("itemAbilityActive", () => {
+  const ability = () => ({
+    id: randomUUID(),
+    info: { title: "Blast", titleFormulas: [] },
+    maxUses: 3,
+    recharge: "Dawn",
+    expended: 0,
+  });
+
+  it("is never active without an ability to grant", () => {
+    expect(itemAbilityActive(item({ equipped: true }))).toBe(false);
+  });
+
+  it("gates on equipped for equippable items", () => {
+    expect(
+      itemAbilityActive(
+        item({ ability: ability(), equippable: true, equipped: false }),
+      ),
+    ).toBe(false);
+    expect(
+      itemAbilityActive(
+        item({ ability: ability(), equippable: true, equipped: true }),
+      ),
+    ).toBe(true);
+  });
+
+  it("gates on attunement when the item requires it", () => {
+    const worn = {
+      ability: ability(),
+      equippable: true,
+      equipped: true,
+    };
+    expect(
+      itemAbilityActive(item({ ...worn, attunement: { attuned: false } })),
+    ).toBe(false);
+    expect(
+      itemAbilityActive(item({ ...worn, attunement: { attuned: true } })),
+    ).toBe(true);
+  });
+
+  it("treats a plain carried item's ability as always active", () => {
+    expect(itemAbilityActive(item({ ability: ability() }))).toBe(true);
+  });
 });
 
 describe("countAttunedItems", () => {

@@ -6,15 +6,24 @@ import {
   ArmorMechanics,
   CustomFormula,
   EquipmentItem,
+  LimitedUseAbility,
   TextComponentWithDetails,
   isTextComponent,
 } from "src/lib/types";
+import { UUID } from "crypto";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { replaceCharacter } from "src/lib/hooks/reducers/actions";
 import { useSave } from "./modals/modal-container";
 import { fromStack, updateAt } from "src/lib/cursor";
-import { weightInUnit, weightToLb } from "src/lib/rules";
+import {
+  isEquippable,
+  itemAbilityActive,
+  weightInUnit,
+  weightToLb,
+} from "src/lib/rules";
+import { newLimitedUseAbility } from "src/lib/data/default-data";
+import { PoolMetaFields } from "./edit-limited-use-ability";
 import {
   EQUIPMENT_CATALOG,
   EquipmentCatalogEntry,
@@ -158,6 +167,10 @@ export default function EditEquipmentItem() {
   const [picked, setPicked] = useState<EquipmentCatalogEntry>();
   const [bonus, setBonus] = useState(0);
 
+  // Ability ids removed in this modal session (the "grants an ability" box was
+  // unchecked); their live Limited-Use rows are dropped on save.
+  const [droppedAbilityIds, setDroppedAbilityIds] = useState<UUID[]>([]);
+
   // Seed a blank item into the *modal draft* when there's nothing at the target
   // index yet (the "new" add path). Living only in the draft, it's discarded if
   // the user backs out and persisted on save. The concat-replace keeps the effect
@@ -228,6 +241,40 @@ export default function EditEquipmentItem() {
     );
   const setEquippable = (value: boolean) =>
     dispatch(updateAt(itemCursor.k("equippable"), value || undefined));
+
+  // --- granted limited-use ability (magic items) ---
+  // Unchecking parks nothing — it deletes: remember the id so `save` can drop
+  // any live row the ability had in the Limited-Use list.
+  const setGrantsAbility = (granted: boolean) => {
+    if (granted) {
+      dispatch(
+        updateAt(itemCursor.k("ability"), {
+          ...newLimitedUseAbility(),
+          id: randomUUID() as UUID,
+          info: {
+            title: item.text.title || "New ability",
+            titleFormulas: [],
+          },
+          // The magic-item default; class-feature pools live in the
+          // Limited-Use section proper, not on an item.
+          recharge: "Dawn",
+        } satisfies LimitedUseAbility),
+      );
+    } else {
+      if (item.ability?.id)
+        setDroppedAbilityIds((ids) => ids.concat(item.ability!.id!));
+      dispatch(updateAt(itemCursor.k("ability"), undefined));
+    }
+  };
+  const setAbilityTitle = (title: string) => {
+    if (item.ability)
+      dispatch(
+        updateAt(itemCursor.k("ability").k("info"), {
+          ...item.ability.info,
+          title,
+        }),
+      );
+  };
 
   // --- armor / shield mechanics (mutually exclusive) ---
   // Armor, shield and weapon items are inherently equippable (their mechanics
@@ -323,23 +370,61 @@ export default function EditEquipmentItem() {
   const typeName = (name: string) =>
     setText({ title: name, titleFormulas: [] });
 
-  // Saving an *equipped* weapon must also put its attack row in `attacks` —
-  // that pairing is the invariant the sheet's equip toggle maintains, and the
-  // default save copies only the equipment field. Build the final state here
-  // and persist it as one edit.
+  // Saving an *equipped* weapon must also put its attack row in `attacks`, and
+  // saving an *active* item ability must put (or refresh) its row in the
+  // Limited-Use list — those pairings are the invariants the sheet's toggles
+  // maintain, and the default save copies only the equipment field. Build the
+  // final state here and persist it as one edit.
   const save = (e?: React.SyntheticEvent) => {
     e?.preventDefault();
+    let attacks = character.attacks;
     const weaponAttack = item.weapon?.attack;
     if (
       weaponAttack &&
       item.equipped &&
-      !character.attacks.some((a) => a.id === weaponAttack.id)
+      !attacks.some((a) => a.id === weaponAttack.id)
+    ) {
+      attacks = attacks.concat(weaponAttack);
+    }
+
+    let abilities = character.limitedUseAbilities;
+    const ability = item.ability;
+    if (ability?.id && itemAbilityActive(item)) {
+      const live = abilities.find((a) => a.id === ability.id);
+      // Refresh a live row with the modal's edits, but keep its play state —
+      // the item's parked copy can hold a stale `expended` from before the
+      // last equip, and a rename shouldn't refill the pool.
+      abilities = live
+        ? abilities.map((a) =>
+            a.id === ability.id
+              ? {
+                  ...ability,
+                  expended: live.expended,
+                  daysUntilRecharge: live.daysUntilRecharge,
+                }
+              : a,
+          )
+        : abilities.concat(ability);
+    } else if (ability?.id) {
+      // The ability exists but isn't active (e.g. attunement was just made
+      // required): its live row leaves the list, edits already on the item.
+      abilities = abilities.filter((a) => a.id !== ability.id);
+    }
+    if (droppedAbilityIds.length > 0)
+      abilities = abilities.filter(
+        (a) => !a.id || !droppedAbilityIds.includes(a.id),
+      );
+
+    if (
+      attacks !== character.attacks ||
+      abilities !== character.limitedUseAbilities
     ) {
       saveData(
         undefined,
         replaceCharacter({
           ...character,
-          attacks: character.attacks.concat(weaponAttack),
+          attacks,
+          limitedUseAbilities: abilities,
         }),
       );
     } else {
@@ -514,6 +599,52 @@ export default function EditEquipmentItem() {
               onChange={setShieldBonus}
             />
           </label>
+        )}
+      </fieldset>
+
+      {/* A magic item's charges: a limited-use ability the item owns. It shows
+          in the Limited-Use Abilities section while the item is active —
+          equipped and/or attuned, whichever gates apply — and leaves with it.
+          Fine-grained editing (formulas, save DC, structured mechanics) happens
+          on the live row's own editor once it's on the sheet. */}
+      <fieldset className="equipment-ability">
+        <legend className="field-label">
+          Limited-use ability (magic items)
+        </legend>
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={!!item.ability}
+            onChange={(e) => setGrantsAbility(e.target.checked)}
+          />
+          This item grants a limited-use ability
+        </label>
+        {item.ability && (
+          <>
+            <label className="field">
+              <span className="field-label">Ability name</span>
+              <input
+                type="text"
+                value={item.ability.info.title}
+                onChange={(e) => setAbilityTitle(e.target.value)}
+              />
+            </label>
+            <PoolMetaFields
+              ability={item.ability}
+              cursor={itemCursor.k("ability")}
+            />
+            <p className="field-help">
+              Shown under Limited-Use Abilities while this item is{" "}
+              {item.attunement !== undefined && isEquippable(item)
+                ? "equipped and attuned"
+                : item.attunement !== undefined
+                  ? "attuned"
+                  : isEquippable(item)
+                    ? "equipped"
+                    : "carried"}
+              .
+            </p>
+          </>
         )}
       </fieldset>
 

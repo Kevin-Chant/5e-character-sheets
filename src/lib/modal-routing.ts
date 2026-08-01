@@ -114,11 +114,22 @@ const ROUTES: Route[] = [
     type: "formula",
   },
   {
-    name: "a limited-use ability's formula leaves: title/detail, maxUses, save DC",
+    name: "an item-owned ability's formula leaves open the formula builder",
+    when: (c) =>
+      c.fieldType === "equipment" &&
+      c.parts.includes("ability") &&
+      (c.subField.endsWith("maxUses") ||
+        c.subField.endsWith("restore") ||
+        c.subField.endsWith("save.dc")),
+    type: "formula",
+  },
+  {
+    name: "a limited-use ability's formula leaves: title/detail, maxUses, restore, save DC",
     when: (c) =>
       c.fieldType === "limitedUseAbility" &&
       (isFormulaSlot(c) ||
         c.subField.endsWith("maxUses") ||
+        c.subField.endsWith("restore") ||
         c.subField.endsWith("save.dc")),
     type: "formula",
   },

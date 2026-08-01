@@ -119,6 +119,11 @@ describe("formatRecharge", () => {
     expect(formatRecharge("short or long rest")).toBe("short or long rest");
     expect(formatRecharge("")).toBe("");
   });
+
+  it("shrinks an interval so the caption reads 'per 7 days'", () => {
+    expect(formatRecharge("Every 7 days")).toBe("7 days");
+    expect(formatRecharge("Every 1 day")).toBe("day");
+  });
 });
 
 describe("restDuration", () => {
@@ -287,6 +292,65 @@ describe("planRest — a rest that spans dawn", () => {
     });
     const plan = planRest(c, "long", rules());
     expect(wrote(plan, "update_limitedUseAbilities", "0.expended")).toBe(1);
+  });
+
+  const withIntervalPool = (daysUntilRecharge?: number) =>
+    classed(OfficialClass.Fighter, 5, {
+      currHp: 50,
+      limitedUseAbilities: [
+        { ...pool("Luck Blade", "Every 7 days", 1, 1), daysUntilRecharge },
+      ],
+    });
+
+  it("ticks an every-X-days countdown instead of restoring", () => {
+    const plan = planRest(withIntervalPool(), "long", rules(), {
+      spansDawn: true,
+    });
+    // The pool stays spent; the countdown seeds from the interval and ticks
+    // one dawn, and the receipt says how long is left.
+    expect(
+      wrote(plan, "update_limitedUseAbilities", "0.expended"),
+    ).toBeUndefined();
+    expect(
+      wrote(plan, "update_limitedUseAbilities", "0.daysUntilRecharge"),
+    ).toBe(6);
+    expect(plan.unchanged.map((c) => c.detail)).toContain(
+      "1 use spent — 6 days until recharge",
+    );
+    // Ticking is the rest's job now — no manual follow-up.
+    expect(plan.followUps).toEqual([]);
+  });
+
+  it("restores an interval pool whose countdown comes due", () => {
+    const plan = planRest(withIntervalPool(1), "long", rules(), {
+      spansDawn: true,
+    });
+    expect(wrote(plan, "update_limitedUseAbilities", "0.expended")).toBe(0);
+    expect(
+      wrote(plan, "update_limitedUseAbilities", "0.daysUntilRecharge"),
+    ).toBeUndefined();
+    expect(changeKeys(plan.changes)).toContain("pool:0");
+  });
+
+  // Gritty realism's long rest is 7 days, so it spans the whole interval.
+  it("spans every dawn of a gritty-realism long rest", () => {
+    const plan = planRest(
+      withIntervalPool(),
+      "long",
+      rules({ restVariant: "gritty" }),
+      { spansDawn: true },
+    );
+    expect(wrote(plan, "update_limitedUseAbilities", "0.expended")).toBe(0);
+  });
+
+  it("defers an interval pool to the manual list when dawn is not spanned", () => {
+    const plan = planRest(withIntervalPool(), "long", rules());
+    expect(plan.followUps).toEqual([
+      {
+        kind: "manualRecharge",
+        abilities: [{ title: "Luck Blade", when: "Every 7 days" }],
+      },
+    ]);
   });
 });
 

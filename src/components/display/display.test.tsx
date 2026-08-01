@@ -255,6 +255,41 @@ describe("AttunementDisplay", () => {
     await userEvent.click(screen.getAllByRole("checkbox")[0]);
     expect(dispatchedValue(dispatch)).toEqual({ attuned: true });
   });
+
+  // Attuning is the other gate on an item-owned ability: for an already-worn
+  // item, the attune checkbox is what moves the ability in and out of the
+  // Limited-Use list (unattuning parks the live row back on the item).
+  it("attuning brings an equipped item's ability in; unattuning parks it", async () => {
+    const character = aCharacter();
+    character.limitedUseAbilities = [];
+    const abilityId = randomUUID();
+    character.equipment = [
+      {
+        id: randomUUID(),
+        text: { title: "Staff of Healing", titleFormulas: [] },
+        quantity: 1,
+        equippable: true,
+        equipped: true,
+        attunement: { attuned: false },
+        ability: {
+          id: abilityId,
+          info: { title: "Cure Wounds", titleFormulas: [] },
+          maxUses: 10,
+          recharge: "Dawn",
+          expended: 0,
+        },
+      },
+    ];
+    const harness = renderWithCharacter(<AttunementDisplay />, { character });
+
+    await userEvent.click(screen.getByRole("checkbox"));
+    expect(harness.character.limitedUseAbilities).toHaveLength(1);
+    expect(harness.character.limitedUseAbilities[0].id).toBe(abilityId);
+
+    await userEvent.click(screen.getByRole("checkbox"));
+    expect(harness.character.limitedUseAbilities).toHaveLength(0);
+    expect(harness.character.equipment[0].ability!.id).toBe(abilityId);
+  });
 });
 
 describe("AmmunitionDisplay", () => {
@@ -415,6 +450,76 @@ describe("EquipmentDisplay", () => {
     expect(harness.character.attacks.some((a) => a.id === attackId)).toBe(
       false,
     );
+  });
+
+  // A magic item owns its limited-use ability the same way a weapon owns its
+  // attack: the row exists in the Limited-Use list only while the item is
+  // active (equipped, and attuned where required).
+  const withMagicItem = (attunement?: { attuned: boolean }): Character => {
+    const character = aCharacter();
+    character.limitedUseAbilities = [];
+    character.equipment.push({
+      id: randomUUID(),
+      text: { title: "Circlet of Blasting", titleFormulas: [] },
+      quantity: 1,
+      equippable: true,
+      equipped: false,
+      attunement,
+      ability: {
+        id: randomUUID(),
+        info: { title: "Scorching Ray", titleFormulas: [] },
+        maxUses: 1,
+        recharge: "Dawn",
+        expended: 0,
+      },
+    });
+    return character;
+  };
+  const magicItem = (c: Character) => c.equipment.find((i) => i.ability)!;
+
+  it("equipping a magic item adds its ability row; unequipping parks it", async () => {
+    const character = withMagicItem();
+    const abilityId = magicItem(character).ability!.id;
+    const harness = renderWithCharacter(<EquipmentDisplay />, { character });
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Circlet of Blasting — not equipped",
+      }),
+    );
+    expect(harness.character.limitedUseAbilities).toHaveLength(1);
+    expect(harness.character.limitedUseAbilities[0].id).toBe(abilityId);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Circlet of Blasting — equipped" }),
+    );
+    expect(harness.character.limitedUseAbilities).toHaveLength(0);
+    // Parked on the item, same id, ready for the next equip.
+    expect(magicItem(harness.character).ability!.id).toBe(abilityId);
+  });
+
+  it("holds an unattuned item's ability back even when equipped", async () => {
+    const character = withMagicItem({ attuned: false });
+    const harness = renderWithCharacter(<EquipmentDisplay />, { character });
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Circlet of Blasting — not equipped",
+      }),
+    );
+    expect(harness.character.limitedUseAbilities).toHaveLength(0);
+  });
+
+  it("removing a magic item takes its ability row with it", async () => {
+    const character = withMagicItem();
+    magicItem(character).equipped = true;
+    character.limitedUseAbilities.push(magicItem(character).ability!);
+    const harness = renderWithCharacter(<EquipmentDisplay />, { character });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Circlet of Blasting" }),
+    );
+    expect(harness.character.equipment.some((i) => i.ability)).toBe(false);
+    expect(harness.character.limitedUseAbilities).toHaveLength(0);
   });
 });
 

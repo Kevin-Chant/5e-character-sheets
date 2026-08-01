@@ -11,6 +11,7 @@ import {
   formatWeight,
   heavilyEncumberedThresholdLb,
   isEquippable,
+  itemAbilityActive,
   totalEquipmentWeightLb,
 } from "src/lib/rules";
 import { EquipmentItem, isTextComponentWithDetail } from "src/lib/types";
@@ -77,6 +78,31 @@ export default function EquipmentDisplay() {
         }
       }
     }
+    // An item-granted ability follows the same park/copy contract as the
+    // attack, gated on the item being fully active (equipped AND attuned where
+    // each applies) rather than on `equipped` alone.
+    const itemAbility = item.ability;
+    if (itemAbility?.id) {
+      const abilities = character.limitedUseAbilities;
+      const live = abilities.find((a) => a.id === itemAbility.id);
+      if (itemAbilityActive({ ...item, equipped })) {
+        if (!live)
+          dispatch(
+            updateAt(
+              charPath(FIELD.limitedUseAbilities),
+              abilities.concat(itemAbility),
+            ),
+          );
+      } else if (live) {
+        dispatch(updateAt(path.at(index).k("ability"), live));
+        dispatch(
+          updateAt(
+            charPath(FIELD.limitedUseAbilities),
+            abilities.filter((a) => a.id !== live.id),
+          ),
+        );
+      }
+    }
     dispatch(updateAt(path.at(index).k("equipped"), equipped));
   };
 
@@ -88,6 +114,15 @@ export default function EquipmentDisplay() {
         updateAt(
           charPath(FIELD.attacks),
           character.attacks.filter((a) => a.id !== weaponAttack.id),
+        ),
+      );
+    // Likewise a removed item takes its granted ability's live row with it.
+    const abilityId = equipment[index].ability?.id;
+    if (abilityId)
+      dispatch(
+        updateAt(
+          charPath(FIELD.limitedUseAbilities),
+          character.limitedUseAbilities.filter((a) => a.id !== abilityId),
         ),
       );
     const next = structuredClone(equipment);

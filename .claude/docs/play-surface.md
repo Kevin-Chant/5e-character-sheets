@@ -289,6 +289,15 @@ A firing trigger restores the pool to full unless the ability carries a
 in `mechanics/resolve.ts` — shared with `planRest`, which can also consume the
 `dawn` trigger when the player marks a rest as spanning dawn.
 
+**"Every X days"** triggers (`rechargeIntervalDays`) are dawn listeners with a
+countdown: `tickDawn` seeds `daysUntilRecharge` from the interval the first
+dawn after a use, decrements it per dawn (the Dawn button ticks one; a
+spans-dawn rest ticks `restDawnSpan` — 7 under gritty realism's long rest), and
+restores via `rollPoolRestore` when it comes due. `matchesTrigger` deliberately
+answers false for intervals so the plain dawn path can't full-restore what the
+countdown owns; `hasTriggerFor(…, "dawn")` still counts them, so the Dawn
+button and the spans-dawn checkbox appear.
+
 They're **auto-applied with a receipt**, not confirmed. Restoring a pool to full
 is deterministic and undoes in one step; a confirmation dialog on every turn
 boundary would cost more than the certainty is worth. `startOfTurn` only fires

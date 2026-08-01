@@ -167,6 +167,12 @@ export interface EquipmentItem {
   // in the Attacks section only while `equipped` (see `WeaponItemMechanics`).
   // Mutually exclusive with `armor`/`shield` — one item, one role.
   weapon?: WeaponItemMechanics;
+  // A limited-use ability the item grants (a magic item's charges). The item
+  // owns it the way a weapon owns its attack: it's copied into
+  // `Character.limitedUseAbilities` while the item is active — equipped (if
+  // equippable) and attuned (if attunement is required) — and parked back here,
+  // carrying any live edits, when it isn't. Same `id` across toggles.
+  ability?: LimitedUseAbility;
 }
 
 export type CoinAmounts = { [key in CoinType]?: number };
@@ -352,9 +358,19 @@ export interface ChosenOption {
 // pool can scale off level/stats; `expended` is the current spend (tracked like
 // spell slots) and resets to 0 when the `recharge` trigger fires.
 export interface LimitedUseAbility {
+  // Stable identity, mirroring `Attack.id`. Optional because abilities predate
+  // it and most are only ever addressed by index; an *item-owned* ability
+  // (`EquipmentItem.ability`) always carries one — it's how the equip/attune
+  // toggles find the live row to park edits back on.
+  id?: UUID;
   info: TextComponent;
   maxUses: CustomFormula;
   recharge: RechargeCriteria;
+  // Countdown for "Every X days" recharges: dawns left until the pool comes
+  // back, ticked down by the dawn trigger (and by rests that span dawn).
+  // Absent means the countdown hasn't started — it's seeded from the interval
+  // the first dawn after a use, and cleared when the recharge fires.
+  daysUntilRecharge?: number;
   // How many uses come back when `recharge` fires. Absent means all of them —
   // the 5e default for class features. Magic items that "regain 1d3 expended
   // charges daily at dawn" store that roll here; it's rolled when the trigger

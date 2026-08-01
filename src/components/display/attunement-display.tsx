@@ -5,7 +5,11 @@ import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
 import { calculateCustomFormula } from "src/lib/formula";
-import { DEFAULT_ATTUNEMENT_SLOTS, countAttunedItems } from "src/lib/rules";
+import {
+  DEFAULT_ATTUNEMENT_SLOTS,
+  countAttunedItems,
+  itemAbilityActive,
+} from "src/lib/rules";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 
 // The Attunement sub-section of the equipment box: one row per item flagged as
@@ -34,8 +38,36 @@ export default function AttunementDisplay() {
 
   // Replace the whole `attunement` object (not the `attuned` leaf) so the
   // optional-field cursor type-checks.
-  const setAttuned = (index: number, attuned: boolean) =>
+  const setAttuned = (index: number, attuned: boolean) => {
+    // Attuning/un-attuning moves the item's granted ability in or out of the
+    // Limited-Use list, under the same park/copy contract as the equip toggle
+    // (see `EquipmentDisplay.setEquipped`) — un-attuning parks the live row,
+    // with any edits, back on the item.
+    const item = equipment[index];
+    const itemAbility = item.ability;
+    if (itemAbility?.id) {
+      const abilities = character.limitedUseAbilities;
+      const live = abilities.find((a) => a.id === itemAbility.id);
+      if (itemAbilityActive({ ...item, attunement: { attuned } })) {
+        if (!live)
+          dispatch(
+            updateAt(
+              charPath(FIELD.limitedUseAbilities),
+              abilities.concat(itemAbility),
+            ),
+          );
+      } else if (live) {
+        dispatch(updateAt(path.at(index).k("ability"), live));
+        dispatch(
+          updateAt(
+            charPath(FIELD.limitedUseAbilities),
+            abilities.filter((a) => a.id !== live.id),
+          ),
+        );
+      }
+    }
     dispatch(updateAt(path.at(index).k("attunement"), { attuned }));
+  };
 
   return (
     <div className="column equipment-subsection attunement-section">

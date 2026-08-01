@@ -743,6 +743,9 @@
         },
         "EquipmentItem": {
             "properties": {
+                "ability": {
+                    "$ref": "#/definitions/LimitedUseAbility"
+                },
                 "armor": {
                     "$ref": "#/definitions/ArmorMechanics"
                 },
@@ -916,8 +919,15 @@
         },
         "LimitedUseAbility": {
             "properties": {
+                "daysUntilRecharge": {
+                    "type": "number"
+                },
                 "expended": {
                     "type": "number"
+                },
+                "id": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
+                    "type": "string"
                 },
                 "info": {
                     "$ref": "#/definitions/TextComponent"

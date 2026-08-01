@@ -253,6 +253,19 @@ export function isEquippable(item: EquipmentItem): boolean {
   return !!item.equippable || !!item.armor || !!item.shield || !!item.weapon;
 }
 
+// Whether an item's granted limited-use ability (`EquipmentItem.ability`) is in
+// play right now: attuned when the item requires attunement, equipped when the
+// item is equippable, and both when it's both — a Staff of Healing does nothing
+// in a backpack. An item with neither gate grants its ability just by being
+// carried. Callers pass a patched item to ask "would it be active if …"
+// (`itemAbilityActive({ ...item, equipped: true })`).
+export function itemAbilityActive(item: EquipmentItem): boolean {
+  if (!item.ability) return false;
+  if (item.attunement && !item.attunement.attuned) return false;
+  if (isEquippable(item) && !item.equipped) return false;
+  return true;
+}
+
 // Total carried weight in POUNDS: Σ per-unit weight × quantity. Items without a
 // weight contribute nothing. Kept in lb because 5e carrying capacity is in lb;
 // display converts to kg when the `weightUnit` setting asks for it.

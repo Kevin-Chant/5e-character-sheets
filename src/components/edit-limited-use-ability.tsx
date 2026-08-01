@@ -17,14 +17,110 @@ import {
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue, traverse } from "src/lib/fields";
 import { calculateCustomFormula, formatCustomFormula } from "src/lib/formula";
-import { charPath, fromStack, updateAt } from "src/lib/cursor";
+import { charPath, Cursor, fromStack, updateAt } from "src/lib/cursor";
 import { newLimitedUseAbility } from "src/lib/data/default-data";
 import { useSave } from "./modals/modal-container";
 import { ControlledEditTextLine } from "./edit-text-line";
 import EditAbilityMechanics from "./edit-ability-mechanics";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 
-const RECHARGE_PRESETS = Object.values(RestType) as string[];
+// The two rests, plus the magic-item triggers: "Dawn" fires from the play
+// surface's Dawn button or a rest that spans dawn, and "Every 7 days" counts
+// dawns until it comes due (any number works — the preset is just the common
+// one; type "Every 3 days" for a different interval).
+const RECHARGE_PRESETS = [
+  ...(Object.values(RestType) as string[]),
+  "Dawn",
+  "Every 7 days",
+];
+
+// The pool's mechanical knobs — max uses, recharge trigger, and how much a
+// firing recharge hands back. Shared between this editor and the equipment item
+// editor (a magic item's charges are the same pool, stored on the item), so
+// `cursor` points at the ability wherever it lives.
+export function PoolMetaFields({
+  ability,
+  cursor,
+}: {
+  ability: LimitedUseAbility;
+  cursor: Cursor<LimitedUseAbility | undefined>;
+}) {
+  const { character, dispatch } = useLoadedCharacter();
+  const { pushCursor } = useTargetedField();
+  const maxUses = calculateCustomFormula(ability.maxUses, character);
+  return (
+    <>
+      <div className="row limited-use-ability-meta">
+        <label className="field">
+          <span className="field-label">Maximum uses</span>
+          <button
+            type="button"
+            className="uses-formula-btn"
+            onClick={(e) => {
+              e.preventDefault();
+              pushCursor(cursor.k("maxUses"));
+            }}
+          >
+            {maxUses} <span className="uses-formula-hint">(edit formula)</span>
+          </button>
+        </label>
+        <label className="field">
+          <span className="field-label">Recharges per</span>
+          <OptionOrCustomValue
+            value={ability.recharge}
+            setValue={(v: string) =>
+              dispatch(updateAt(cursor.k("recharge"), v))
+            }
+            options={RECHARGE_PRESETS}
+            customDefaultValue=""
+            customInputType="text"
+            customValueHelpText="e.g. Dawn, Every 7 days"
+          />
+        </label>
+      </div>
+      <div className="row limited-use-ability-meta">
+        <label className="field">
+          <span className="field-label">Recharge regains</span>
+          {/* "Regains 1d3 expended charges at dawn" — the magic-item pattern.
+              Switching to a rolled amount seeds 1d3; the formula button opens
+              the full editor for the 1d6+4 staves. */}
+          <select
+            value={ability.restore === undefined ? "all" : "roll"}
+            onChange={(e) =>
+              dispatch(
+                updateAt(
+                  cursor.k("restore"),
+                  e.target.value === "roll"
+                    ? [1, { numFaces: 3 }, DieOperation.roll]
+                    : undefined,
+                ),
+              )
+            }
+          >
+            <option value="all">All uses</option>
+            <option value="roll">A rolled amount</option>
+          </select>
+        </label>
+        {ability.restore !== undefined && (
+          <label className="field">
+            <span className="field-label">Amount regained</span>
+            <button
+              type="button"
+              className="uses-formula-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                pushCursor(cursor.k("restore"));
+              }}
+            >
+              {formatCustomFormula(ability.restore, character)}{" "}
+              <span className="uses-formula-hint">(edit formula)</span>
+            </button>
+          </label>
+        )}
+      </div>
+    </>
+  );
+}
 
 export default function EditLimitedUseAbility() {
   const { character, dispatch } = useLoadedCharacter();
@@ -100,8 +196,6 @@ export default function EditLimitedUseAbility() {
       }),
     );
 
-  const maxUses = calculateCustomFormula(ability.maxUses, character);
-
   return (
     <form className="edit-limited-use-ability">
       <ControlledEditTextLine
@@ -117,74 +211,7 @@ export default function EditLimitedUseAbility() {
           clearDetails,
         }}
       />
-      <div className="row limited-use-ability-meta">
-        <label className="field">
-          <span className="field-label">Maximum uses</span>
-          <button
-            type="button"
-            className="uses-formula-btn"
-            onClick={(e) => {
-              e.preventDefault();
-              pushCursor(abilityCursor.k("maxUses"));
-            }}
-          >
-            {maxUses} <span className="uses-formula-hint">(edit formula)</span>
-          </button>
-        </label>
-        <label className="field">
-          <span className="field-label">Recharges per</span>
-          <OptionOrCustomValue
-            value={ability.recharge}
-            setValue={(v: string) =>
-              dispatch(updateAt(abilityCursor.k("recharge"), v))
-            }
-            options={RECHARGE_PRESETS}
-            customDefaultValue=""
-            customInputType="text"
-            customValueHelpText="e.g. Dawn"
-          />
-        </label>
-      </div>
-      <div className="row limited-use-ability-meta">
-        <label className="field">
-          <span className="field-label">Recharge regains</span>
-          {/* "Regains 1d3 expended charges at dawn" — the magic-item pattern.
-              Switching to a rolled amount seeds 1d3; the formula button opens
-              the full editor for the 1d6+4 staves. */}
-          <select
-            value={ability.restore === undefined ? "all" : "roll"}
-            onChange={(e) =>
-              dispatch(
-                updateAt(
-                  abilityCursor.k("restore"),
-                  e.target.value === "roll"
-                    ? [1, { numFaces: 3 }, DieOperation.roll]
-                    : undefined,
-                ),
-              )
-            }
-          >
-            <option value="all">All uses</option>
-            <option value="roll">A rolled amount</option>
-          </select>
-        </label>
-        {ability.restore !== undefined && (
-          <label className="field">
-            <span className="field-label">Amount regained</span>
-            <button
-              type="button"
-              className="uses-formula-btn"
-              onClick={(e) => {
-                e.preventDefault();
-                pushCursor(abilityCursor.k("restore"));
-              }}
-            >
-              {formatCustomFormula(ability.restore, character)}{" "}
-              <span className="uses-formula-hint">(edit formula)</span>
-            </button>
-          </label>
-        )}
-      </div>
+      <PoolMetaFields ability={ability} cursor={abilityCursor} />
       <fieldset className="limited-use-save">
         <legend className="field-label">Save DC (optional)</legend>
         <label className="settings-checkbox">

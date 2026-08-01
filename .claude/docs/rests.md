@@ -50,6 +50,14 @@ prose says "a short or long rest", and homebrew writes whatever it likes.
   trigger (`matchesTrigger` from `play/triggers.ts`) come back with the rest,
   on either rest kind — spanning dawn is a fact about the fiction, not the
   rest's length.
+- **"Every X days"** (`rechargeIntervalDays` in `play/triggers.ts`) is
+  dawn-shaped but rides a countdown: `LimitedUseAbility.daysUntilRecharge`
+  seeds from the interval the first dawn after a use, ticks down one per dawn
+  (`tickDawn`, shared by `planTrigger` and `planRest`), and restores when it
+  hits zero. A spans-dawn rest ticks `restDawnSpan` dawns — 1, except gritty
+  realism's 7-day long rest, which spans the week. A tick that doesn't come due
+  lands in the receipt's unchanged list ("6 days until recharge"); the sheet
+  caption shows the running countdown, and the pool's manual reset clears it.
 
 A pool restores **everything** when its trigger fires unless it carries a
 `restore` formula (`LimitedUseAbility.restore`, optional) — the

@@ -15,7 +15,11 @@ import {
   maxHpValue,
   rollPoolRestore,
 } from "src/lib/mechanics/resolve";
-import { matchesTrigger } from "src/lib/play/triggers";
+import {
+  matchesTrigger,
+  rechargeIntervalDays,
+  tickDawn,
+} from "src/lib/play/triggers";
 import { hitDieHealing, ridersFor } from "src/lib/mechanics/riders";
 import { rollFormula } from "src/lib/roll";
 import {
@@ -81,6 +85,13 @@ const REST_DURATIONS: Record<RestVariant, Record<RestKind, string>> = {
 
 export function restDuration(kind: RestKind, rules: RestRules): string {
   return REST_DURATIONS[rules.restVariant ?? "standard"][kind];
+}
+
+// How many dawns a rest that "spans dawn" spans. One, except gritty realism's
+// week-long long rest — which is what lets an "Every 7 days" item come all the
+// way back over it.
+export function restDawnSpan(kind: RestKind, rules: RestRules): number {
+  return rules.restVariant === "gritty" && kind === "long" ? 7 : 1;
 }
 
 // One thing a rest does (or notably doesn't) to the sheet. `key` is stable so
@@ -150,6 +161,10 @@ export function rechargesOnRest(
 // since "Dawn" may well be a proper noun at someone's table.
 export function formatRecharge(recharge: RechargeCriteria): string {
   const trigger = recharge ?? "";
+  // "Every 7 days" reads as "per 7 days" mid-sentence, not "per every 7 days".
+  const interval = rechargeIntervalDays(trigger);
+  if (interval !== undefined)
+    return interval === 1 ? "day" : `${interval} days`;
   return trigger === RestType.shortRest || trigger === RestType.longRest
     ? trigger.toLowerCase()
     : trigger;
@@ -310,7 +325,8 @@ export function preparedCasterClasses(character: Character): IClass[] {
 function poolChanges(
   character: Character,
   kind: RestKind,
-  spansDawn: boolean,
+  // Dawns this rest spans; 0 when it doesn't span dawn at all.
+  dawns: number,
 ): {
   updates: UpdateAction[];
   restored: RestChange[];
@@ -332,12 +348,43 @@ function poolChanges(
       };
       // A rest the table says spans dawn also fires the "at dawn" recharges —
       // magic items, mostly — that would otherwise land in the manual list.
-      const atDawn = spansDawn && matchesTrigger(ability.recharge, "dawn");
+      // That includes "Every X days" countdowns, which tick once per dawn the
+      // rest spans and restore when they come due.
+      const dawnish =
+        matchesTrigger(ability.recharge, "dawn") ||
+        rechargeIntervalDays(ability.recharge) !== undefined;
+      const atDawn = dawns > 0 && dawnish;
       if (!isRestTrigger(ability.recharge) && !atDawn) {
         manual.push({ title: ability.info.title, when: ability.recharge });
         return;
       }
-      if (atDawn || rechargesOnRest(ability.recharge, kind)) {
+      if (atDawn) {
+        const tick = tickDawn(character, ability, index, dawns);
+        if (!tick) return;
+        updates.push(...tick.updates);
+        if (tick.daysLeft !== undefined) {
+          // Only the countdown moved: the pool stays spent, but the tick still
+          // has to land, so the counter update above goes out regardless.
+          withheld.push({
+            ...entry,
+            detail: `${plural(ability.expended, "use")} spent — ${plural(
+              tick.daysLeft,
+              "day",
+            )} until recharge`,
+          });
+          return;
+        }
+        if (tick.restored <= 0) return;
+        const count = `${plural(tick.restored, "use")} back`;
+        restored.push({
+          ...entry,
+          detail: !tick.rolled
+            ? `${count} (${max} total) — at dawn`
+            : tick.newExpended > 0
+              ? `${count} (rolled at dawn; ${tick.newExpended} still spent)`
+              : `${count} (rolled at dawn)`,
+        });
+      } else if (rechargesOnRest(ability.recharge, kind)) {
         const back = rollPoolRestore(ability, character);
         if (back.restored <= 0) return;
         updates.push(
@@ -350,10 +397,10 @@ function poolChanges(
         restored.push({
           ...entry,
           detail: !back.rolled
-            ? `${count} (${max} total)${atDawn ? " — at dawn" : ""}`
+            ? `${count} (${max} total)`
             : back.newExpended > 0
-              ? `${count} (rolled${atDawn ? " at dawn" : ""}; ${back.newExpended} still spent)`
-              : `${count} (rolled${atDawn ? " at dawn" : ""})`,
+              ? `${count} (rolled; ${back.newExpended} still spent)`
+              : `${count} (rolled)`,
         });
       } else {
         withheld.push({
@@ -505,7 +552,11 @@ export function planRest(
   }
 
   // --- Limited-use pools ---
-  const pools = poolChanges(character, kind, options.spansDawn ?? false);
+  const pools = poolChanges(
+    character,
+    kind,
+    options.spansDawn ? restDawnSpan(kind, rules) : 0,
+  );
   updates.push(...pools.updates);
   changes.push(...pools.restored);
   unchanged.push(...pools.withheld);

@@ -110,6 +110,12 @@ export default function LimitedUseAbilitiesDisplay() {
                   {ability.restore !== undefined
                     ? `${formatCustomFormula(ability.restore, character)} per ${formatRecharge(ability.recharge)}`
                     : `per ${formatRecharge(ability.recharge)}`}
+                  {/* A running "Every X days" countdown, ticked by dawns. */}
+                  {ability.daysUntilRecharge !== undefined &&
+                    expended > 0 &&
+                    ` — ${ability.daysUntilRecharge} ${
+                      ability.daysUntilRecharge === 1 ? "day" : "days"
+                    } to go`}
                 </i>
               )}
               <div className="flex">
@@ -121,6 +127,15 @@ export default function LimitedUseAbilitiesDisplay() {
                     onClick={(e) => {
                       e.preventDefault();
                       setExpended(i, 0);
+                      // A manual reset ends any "Every X days" countdown too —
+                      // the pool is full, so there's nothing to wait for.
+                      if (ability.daysUntilRecharge !== undefined)
+                        dispatch(
+                          updateAt(
+                            list.at(i).k("daysUntilRecharge"),
+                            undefined,
+                          ),
+                        );
                     }}
                   >
                     <FaArrowRotateLeft />

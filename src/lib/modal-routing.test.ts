@@ -90,16 +90,26 @@ describe("resolveModalType", () => {
     );
   });
 
-  it("routes a limited-use ability's three kinds of formula leaf", () => {
+  it("routes a limited-use ability's four kinds of formula leaf", () => {
     for (const sub of [
       "0.info.titleFormulas.0",
       "0.maxUses",
       // The save DC — this exact path used to reopen the ability editor.
       "0.save.dc",
+      // The recharge amount — same bug, one field later: falling through to
+      // the ability editor renders an empty modal for a formula sub-path.
+      "0.restore",
     ])
       expect(resolveModalType(FIELD.limitedUseAbilities, sub), sub).toBe(
         "formula",
       );
+  });
+
+  it("routes an item-owned ability's formula leaves", () => {
+    for (const sub of ["0.ability.maxUses", "0.ability.restore"])
+      expect(resolveModalType(FIELD.equipment, sub), sub).toBe("formula");
+    // …but the item itself still opens the item editor.
+    expect(resolveModalType(FIELD.equipment, "0")).toBe("equipment");
   });
 
   it("routes formula slots inside text lines and spells", () => {
@@ -135,6 +145,7 @@ describe("the route table", () => {
       [FIELD.otherProficiencies, "toolsAndOther.0"],
       [FIELD.otherProficiencies, "languages"],
       [FIELD.equipment, "0.text.titleFormulas.0"],
+      [FIELD.equipment, "0.ability.maxUses"],
       [FIELD.limitedUseAbilities, "0.maxUses"],
       [FIELD.spells, "0.new"],
       [FIELD.features, "0.titleFormulas.0"],
