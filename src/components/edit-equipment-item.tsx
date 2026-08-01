@@ -11,6 +11,7 @@ import {
 } from "src/lib/types";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import { replaceCharacter } from "src/lib/hooks/reducers/actions";
 import { useSave } from "./modals/modal-container";
 import { fromStack, updateAt } from "src/lib/cursor";
 import { weightInUnit, weightToLb } from "src/lib/rules";
@@ -128,9 +129,10 @@ function CatalogNameInput({
 // For a new item the name input is a catalog type-ahead: picking a built-in
 // armor/shield prefills its AC mechanics and weight, and picking a weapon
 // stores a ready-to-roll Attack *on the item* (`item.weapon`). The item is the
-// source of truth for what fights: equipping it on the sheet is what copies the
-// attack into the Attacks section (see `EquipmentDisplay.setEquipped`), the
-// same way armor only counts toward AC while equipped.
+// source of truth for what fights: its attack sits in the Attacks section only
+// while the item is equipped (see `EquipmentDisplay.setEquipped`), the same way
+// armor only counts toward AC while worn. A weapon pick starts equipped, so the
+// attack row appears the moment the item saves.
 export default function EditEquipmentItem() {
   const { character, dispatch } = useLoadedCharacter();
   const { targetedField, subField, pushCursor } = useTargetedField();
@@ -292,8 +294,10 @@ export default function EditEquipmentItem() {
         entry.shield ? shieldWithBonus(entry.shield, plus) : undefined,
       ),
     );
-    // The weapon's attack lives on the item; equipping it on the sheet is what
-    // surfaces it in the Attacks section.
+    // The weapon's attack lives on the item, and a fresh weapon starts
+    // equipped — you picked it to fight with it — so its attack row appears as
+    // soon as the item saves (see `save` below). Armor keeps the unequipped
+    // default: worn gear changes AC, so donning it is the deliberate act.
     dispatch(
       updateAt(
         itemCursor.k("weapon"),
@@ -302,6 +306,7 @@ export default function EditEquipmentItem() {
           : undefined,
       ),
     );
+    dispatch(updateAt(itemCursor.k("equipped"), !!entry.weapon));
   };
 
   const pickEntry = (entry: EquipmentCatalogEntry) => {
@@ -317,6 +322,30 @@ export default function EditEquipmentItem() {
   // stay (rename your +1 longsword freely).
   const typeName = (name: string) =>
     setText({ title: name, titleFormulas: [] });
+
+  // Saving an *equipped* weapon must also put its attack row in `attacks` —
+  // that pairing is the invariant the sheet's equip toggle maintains, and the
+  // default save copies only the equipment field. Build the final state here
+  // and persist it as one edit.
+  const save = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    const weaponAttack = item.weapon?.attack;
+    if (
+      weaponAttack &&
+      item.equipped &&
+      !character.attacks.some((a) => a.id === weaponAttack.id)
+    ) {
+      saveData(
+        undefined,
+        replaceCharacter({
+          ...character,
+          attacks: character.attacks.concat(weaponAttack),
+        }),
+      );
+    } else {
+      saveData();
+    }
+  };
 
   const titleSlot = isNew ? (
     <div className="row equipment-fields equipment-name-row">
@@ -351,6 +380,16 @@ export default function EditEquipmentItem() {
     <form
       className="edit-equipment column"
       onSubmit={(e) => e.preventDefault()}
+      // The modal container's global Enter-saves shortcut runs the default save,
+      // which would persist an equipped weapon without its attack row; intercept
+      // and route through our save. Same exclusion set as the container: only
+      // plain text inputs submit on Enter.
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        if ((e.target as HTMLElement).tagName !== "INPUT") return;
+        e.stopPropagation();
+        save(e);
+      }}
     >
       {isNew && (
         <p className="field-help">
@@ -507,13 +546,7 @@ export default function EditEquipmentItem() {
         Requires attunement
       </label>
 
-      <button
-        className="btn-primary edit-save"
-        onClick={(e) => {
-          e.preventDefault();
-          saveData();
-        }}
-      >
+      <button className="btn-primary edit-save" onClick={save}>
         Save
       </button>
     </form>
