@@ -2,6 +2,7 @@ import { FIELD } from "src/lib/data/data-definitions";
 import { charPath, updateAt } from "src/lib/cursor";
 import { UpdateAction } from "src/lib/hooks/reducers/actions";
 import { calculateCustomFormula } from "src/lib/formula";
+import { rollPoolRestore } from "src/lib/mechanics/resolve";
 import { Character, RechargeCriteria } from "src/lib/types";
 
 // Event recharge — the half of `RechargeCriteria` that rests can't consume.
@@ -93,15 +94,23 @@ export function planTrigger(
   character.limitedUseAbilities.forEach((ability, index) => {
     if (!matchesTrigger(ability.recharge, event)) return;
     const total = calculateCustomFormula(ability.maxUses, character);
-    const spent = Math.max(0, Math.min(ability.expended, total));
-    if (spent === 0) return;
+    const { restored, newExpended, rolled } = rollPoolRestore(
+      ability,
+      character,
+    );
+    if (restored === 0) return;
     updates.push(
-      updateAt(charPath(FIELD.limitedUseAbilities).at(index).k("expended"), 0),
+      updateAt(
+        charPath(FIELD.limitedUseAbilities).at(index).k("expended"),
+        newExpended,
+      ),
     );
     changes.push({
       key: `ability:${index}`,
       label: ability.info.title,
-      detail: `Restored ${spent} of ${total}`,
+      detail: rolled
+        ? `Restored ${restored} (rolled) — now ${total - newExpended} of ${total}`
+        : `Restored ${restored} of ${total}`,
     });
   });
 

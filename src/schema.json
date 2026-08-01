@@ -931,6 +931,9 @@
                 "recharge": {
                     "type": "string"
                 },
+                "restore": {
+                    "$ref": "#/definitions/CustomFormula"
+                },
                 "save": {
                     "$ref": "#/definitions/SaveEffect"
                 }

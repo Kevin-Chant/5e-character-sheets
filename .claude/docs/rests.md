@@ -44,6 +44,18 @@ prose says "a short or long rest", and homebrew writes whatever it likes.
 - contains "long" → long rest only
 - anything else ("Dawn", "Initiative") → **not touched**, and reported as a
   `manualRecharge` follow-up so the player decides rather than the sheet guessing
+- …except when the table says the rest **spans dawn**
+  (`PlanRestOptions.spansDawn`, a checkbox on the rest fork offered only when
+  something on the sheet listens for dawn): then pools matching the `dawn`
+  trigger (`matchesTrigger` from `play/triggers.ts`) come back with the rest,
+  on either rest kind — spanning dawn is a fact about the fiction, not the
+  rest's length.
+
+A pool restores **everything** when its trigger fires unless it carries a
+`restore` formula (`LimitedUseAbility.restore`, optional) — the
+"regains 1d3 expended charges daily at dawn" magic-item pattern. Both planners
+roll it through `rollPoolRestore` (`mechanics/resolve.ts`), clamp to what was
+spent, and say "(rolled)" in the receipt when dice decided the number.
 
 ### Follow-ups: what the planner won't decide
 

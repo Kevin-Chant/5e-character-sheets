@@ -87,6 +87,12 @@
   font-size: 0.9rem;
 }
 
+/* The "spans dawn" toggle sits under the fork, quiet like the hint above it. */
+.rest-spans-dawn {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+}
+
 /* ---- The fork: each card previews its own rest ---- */
 .rest-fork {
   display: grid;

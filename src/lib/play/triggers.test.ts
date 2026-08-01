@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DieOperation } from "src/lib/data/data-definitions";
 import { defaultCharacter } from "src/lib/data/default-data";
-import { Character } from "src/lib/types";
+import { Character, CustomFormula } from "src/lib/types";
 import {
   hasTriggerFor,
   matchesTrigger,
@@ -17,6 +18,7 @@ function characterWith(
     recharge: string;
     max: number;
     expended: number;
+    restore?: CustomFormula;
   }[],
 ): Character {
   const character = structuredClone(defaultCharacter) as Character;
@@ -25,9 +27,12 @@ function characterWith(
     maxUses: a.max,
     recharge: a.recharge,
     expended: a.expended,
+    restore: a.restore,
   })) as Character["limitedUseAbilities"];
   return character;
 }
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("matchesTrigger", () => {
   it("matches the phrasings the catalogs actually use", () => {
@@ -78,6 +83,46 @@ describe("planTrigger", () => {
     expect(planTrigger(character, "combatStart").changes).toEqual([
       { key: "ability:1", label: "Relentless", detail: "Restored 1 of 1" },
     ]);
+  });
+
+  // "Regains 1d3 expended charges daily at dawn" — the magic-item pattern.
+  it("rolls a partial restore when the pool carries a restore formula", () => {
+    const character = characterWith([
+      {
+        title: "Wand of Magic Missiles",
+        recharge: "Dawn",
+        max: 7,
+        expended: 5,
+        restore: [1, { numFaces: 3 }, DieOperation.roll],
+      },
+    ]);
+    vi.spyOn(Math, "random").mockReturnValue(0); // every die rolls its minimum
+    const plan = planTrigger(character, "dawn");
+    expect(plan.updates).toHaveLength(1);
+    expect(plan.updates[0].payload.value).toBe(4);
+    expect(plan.changes).toEqual([
+      {
+        key: "ability:0",
+        label: "Wand of Magic Missiles",
+        detail: "Restored 1 (rolled) — now 3 of 7",
+      },
+    ]);
+  });
+
+  it("clamps a rolled restore to what was actually spent", () => {
+    const character = characterWith([
+      {
+        title: "Wand of Magic Missiles",
+        recharge: "Dawn",
+        max: 7,
+        expended: 1,
+        restore: [1, { numFaces: 3 }, DieOperation.roll],
+      },
+    ]);
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // d3 rolls a 3
+    const plan = planTrigger(character, "dawn");
+    expect(plan.updates[0].payload.value).toBe(0);
+    expect(plan.changes[0].detail).toBe("Restored 1 (rolled) — now 7 of 7");
   });
 
   // A receipt that lists things which didn't change is how the rest panel's

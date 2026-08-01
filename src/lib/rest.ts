@@ -10,7 +10,12 @@ import {
 } from "src/lib/data/data-definitions";
 import { actionFieldPath, UpdateAction } from "src/lib/hooks/reducers/actions";
 import { setFieldValue } from "src/lib/fields";
-import { abilityMaxUses, maxHpValue } from "src/lib/mechanics/resolve";
+import {
+  abilityMaxUses,
+  maxHpValue,
+  rollPoolRestore,
+} from "src/lib/mechanics/resolve";
+import { matchesTrigger } from "src/lib/play/triggers";
 import { hitDieHealing, ridersFor } from "src/lib/mechanics/riders";
 import { rollFormula } from "src/lib/roll";
 import {
@@ -305,6 +310,7 @@ export function preparedCasterClasses(character: Character): IClass[] {
 function poolChanges(
   character: Character,
   kind: RestKind,
+  spansDawn: boolean,
 ): {
   updates: UpdateAction[];
   restored: RestChange[];
@@ -323,20 +329,32 @@ function poolChanges(
       const entry = {
         key: `pool:${index}`,
         label: ability.info.title,
-        detail: `${plural(ability.expended, "use")} back (${max} total)`,
       };
-      if (!isRestTrigger(ability.recharge)) {
+      // A rest the table says spans dawn also fires the "at dawn" recharges —
+      // magic items, mostly — that would otherwise land in the manual list.
+      const atDawn = spansDawn && matchesTrigger(ability.recharge, "dawn");
+      if (!isRestTrigger(ability.recharge) && !atDawn) {
         manual.push({ title: ability.info.title, when: ability.recharge });
         return;
       }
-      if (rechargesOnRest(ability.recharge, kind)) {
+      if (atDawn || rechargesOnRest(ability.recharge, kind)) {
+        const back = rollPoolRestore(ability, character);
+        if (back.restored <= 0) return;
         updates.push(
           updateAt(
             charPath(FIELD.limitedUseAbilities).at(index).k("expended"),
-            0,
+            back.newExpended,
           ),
         );
-        restored.push(entry);
+        const count = `${plural(back.restored, "use")} back`;
+        restored.push({
+          ...entry,
+          detail: !back.rolled
+            ? `${count} (${max} total)${atDawn ? " — at dawn" : ""}`
+            : back.newExpended > 0
+              ? `${count} (rolled${atDawn ? " at dawn" : ""}; ${back.newExpended} still spent)`
+              : `${count} (rolled${atDawn ? " at dawn" : ""})`,
+        });
       } else {
         withheld.push({
           ...entry,
@@ -353,6 +371,10 @@ export interface PlanRestOptions {
   // Override the biggest-first default for which hit dice a long rest gives
   // back. Values are clamped to what's spent and to the recovery budget.
   hitDiceRecovery?: HitDice;
+  // The table says this rest spans dawn, so pools that recharge "at dawn"
+  // (matched by `matchesTrigger`) come back with the rest instead of being
+  // deferred to the manual-recharge follow-up.
+  spansDawn?: boolean;
 }
 
 export function planRest(
@@ -483,7 +505,7 @@ export function planRest(
   }
 
   // --- Limited-use pools ---
-  const pools = poolChanges(character, kind);
+  const pools = poolChanges(character, kind, options.spansDawn ?? false);
   updates.push(...pools.updates);
   changes.push(...pools.restored);
   unchanged.push(...pools.withheld);

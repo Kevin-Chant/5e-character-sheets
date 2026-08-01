@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "src/lib/browser";
 import {
+  DieOperation,
   OfficialClass,
   RestType,
   StandardDie,
@@ -236,6 +237,56 @@ describe("planRest — short rest", () => {
       },
     ]);
     expect(plan.updates).toEqual([]);
+  });
+});
+
+describe("planRest — a rest that spans dawn", () => {
+  const withDawnPool = (expended = 1, restore?: LimitedUseAbility["restore"]) =>
+    classed(OfficialClass.Fighter, 5, {
+      currHp: 50,
+      limitedUseAbilities: [
+        { ...pool("Sunlit Blade", "Dawn", expended, 7), restore },
+      ],
+    });
+
+  it("folds a dawn recharge into the rest instead of deferring it", () => {
+    const plan = planRest(withDawnPool(), "long", rules(), {
+      spansDawn: true,
+    });
+    expect(wrote(plan, "update_limitedUseAbilities", "0.expended")).toBe(0);
+    expect(changeKeys(plan.changes)).toContain("pool:0");
+    expect(plan.followUps).toEqual([]);
+  });
+
+  // Spanning dawn is the table's call about the fiction, not a property of the
+  // rest's length — a gritty-realism short rest is a full night.
+  it("fires on a short rest too", () => {
+    const plan = planRest(withDawnPool(), "short", rules(), {
+      spansDawn: true,
+    });
+    expect(wrote(plan, "update_limitedUseAbilities", "0.expended")).toBe(0);
+  });
+
+  it("rolls a partial restore and leaves the remainder spent", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // d3 rolls a 3
+    const plan = planRest(
+      withDawnPool(5, [1, { numFaces: 3 }, DieOperation.roll]),
+      "long",
+      rules(),
+      { spansDawn: true },
+    );
+    expect(wrote(plan, "update_limitedUseAbilities", "0.expended")).toBe(2);
+  });
+
+  it("honors a constant restore on an ordinary rest pool", () => {
+    const c = classed(OfficialClass.Fighter, 5, {
+      currHp: 50,
+      limitedUseAbilities: [
+        { ...pool("Charged Item", RestType.longRest, 3, 5), restore: 2 },
+      ],
+    });
+    const plan = planRest(c, "long", rules());
+    expect(wrote(plan, "update_limitedUseAbilities", "0.expended")).toBe(1);
   });
 });
 

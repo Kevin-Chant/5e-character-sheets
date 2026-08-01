@@ -355,6 +355,11 @@ export interface LimitedUseAbility {
   info: TextComponent;
   maxUses: CustomFormula;
   recharge: RechargeCriteria;
+  // How many uses come back when `recharge` fires. Absent means all of them —
+  // the 5e default for class features. Magic items that "regain 1d3 expended
+  // charges daily at dawn" store that roll here; it's rolled when the trigger
+  // actually fires, and the result is clamped to what was spent.
+  restore?: CustomFormula;
   expended: number;
   // Structured mechanics for this ability. When absent, the bundled catalog
   // (`mechanics/catalog.ts`) is consulted by title; when present, this wins —

@@ -72,6 +72,38 @@ export function abilityRemainingUses(
   return Math.max(0, abilityMaxUses(ability, character) - ability.expended);
 }
 
+// One firing of a pool's `recharge`. Without a `restore` formula everything
+// comes back — the 5e default. With one ("regains 1d3 charges at dawn") the
+// amount is rolled *here*, so both planners (rests and event triggers) hand
+// their callers a settled number they can plan and report with.
+export interface PoolRestore {
+  // Uses actually handed back — the roll clamped to what was spent.
+  restored: number;
+  newExpended: number;
+  // Dice decided the number, so a receipt should say so. A constant `restore`
+  // ("regains 2 charges") isn't a roll and doesn't claim to be.
+  rolled: boolean;
+}
+
+export function rollPoolRestore(
+  ability: LimitedUseAbility,
+  character: Character,
+): PoolRestore {
+  const spent = Math.max(
+    0,
+    Math.min(ability.expended, abilityMaxUses(ability, character)),
+  );
+  if (ability.restore === undefined)
+    return { restored: spent, newExpended: 0, rolled: false };
+  const amount = Math.max(0, rollFormula(ability.restore, character));
+  const restored = Math.min(spent, amount);
+  return {
+    restored,
+    newExpended: spent - restored,
+    rolled: formulaHasDice(ability.restore),
+  };
+}
+
 // Slot accounting lives in rules.ts (which clamps a stored `expended` to the
 // current total); re-exported here so the mechanics interpreters and their
 // tests keep one import site.

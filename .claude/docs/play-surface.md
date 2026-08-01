@@ -284,6 +284,11 @@ punts to a `manualRecharge` follow-up. Matching is textual for the same reason
 rests. **Rest triggers are excluded first**, so a homebrew "long rest or dawn"
 isn't restored by both planners.
 
+A firing trigger restores the pool to full unless the ability carries a
+`restore` formula ("regains 1d3 charges at dawn"), rolled via `rollPoolRestore`
+in `mechanics/resolve.ts` — shared with `planRest`, which can also consume the
+`dawn` trigger when the player marks a rest as spanning dawn.
+
 They're **auto-applied with a receipt**, not confirmed. Restoring a pool to full
 is deterministic and undoes in one step; a confirmation dialog on every turn
 boundary would cost more than the certainty is worth. `startOfTurn` only fires

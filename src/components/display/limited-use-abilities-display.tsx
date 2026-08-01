@@ -10,6 +10,7 @@ import { formatRecharge } from "src/lib/rest";
 import {
   calculateCustomFormula,
   describeSaveEffect,
+  formatCustomFormula,
   formatSaveEffect,
 } from "src/lib/formula";
 import AbilityActions from "./ability-actions";
@@ -104,7 +105,11 @@ export default function LimitedUseAbilitiesDisplay() {
               )}
               {!actionsOnly && (
                 <i className="font-small nowrap">
-                  per {formatRecharge(ability.recharge)}
+                  {/* A partial recharge reads like the item text: "1d3 per
+                      dawn" rather than the pool default "per dawn". */}
+                  {ability.restore !== undefined
+                    ? `${formatCustomFormula(ability.restore, character)} per ${formatRecharge(ability.recharge)}`
+                    : `per ${formatRecharge(ability.recharge)}`}
                 </i>
               )}
               <div className="flex">

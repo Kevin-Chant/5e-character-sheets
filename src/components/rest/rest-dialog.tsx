@@ -10,6 +10,7 @@ import {
   RestKind,
   RestPlan,
 } from "src/lib/rest";
+import { hasTriggerFor } from "src/lib/play/triggers";
 import HitDiceTray from "./hit-dice-tray";
 import PrepareSpellsTask from "./prepare-spells-task";
 import RestLedger from "./rest-ledger";
@@ -25,6 +26,10 @@ export default function RestDialog({ onClose }: { onClose: () => void }) {
   const { character, dispatch } = useCharacter();
   const { settings } = useSettings();
   const [kind, setKind] = useState<RestKind>();
+  // Whether this rest passes daybreak — the player's call, defaulting to no so
+  // an "at dawn" item is never quietly recharged. Only offered when something
+  // on the sheet actually listens for dawn.
+  const [spansDawn, setSpansDawn] = useState(false);
   // The plan as it stood at commit time. Kept rather than re-derived, because
   // after the rest the sheet no longer shows what was missing — and that's
   // exactly what the receipt has to report.
@@ -34,11 +39,11 @@ export default function RestDialog({ onClose }: { onClose: () => void }) {
     () =>
       character
         ? {
-            short: planRest(character, "short", settings),
-            long: planRest(character, "long", settings),
+            short: planRest(character, "short", settings, { spansDawn }),
+            long: planRest(character, "long", settings, { spansDawn }),
           }
         : undefined,
-    [character, settings],
+    [character, settings, spansDawn],
   );
 
   if (!character || !plans) return <></>;
@@ -75,14 +80,27 @@ export default function RestDialog({ onClose }: { onClose: () => void }) {
 
         <div className="rest-body">
           {!plan ? (
-            <RestFork
-              character={{
-                currHp: character.currHp,
-                maxHp: maxHpValue(character),
-              }}
-              plans={plans}
-              onPick={setKind}
-            />
+            <>
+              <RestFork
+                character={{
+                  currHp: character.currHp,
+                  maxHp: maxHpValue(character),
+                }}
+                plans={plans}
+                onPick={setKind}
+              />
+              {hasTriggerFor(character, "dawn") && (
+                <label className="settings-checkbox rest-spans-dawn">
+                  <input
+                    type="checkbox"
+                    checked={spansDawn}
+                    onChange={(e) => setSpansDawn(e.target.checked)}
+                  />
+                  This rest spans dawn — recharge &ldquo;at dawn&rdquo;
+                  abilities and items with it
+                </label>
+              )}
+            </>
           ) : (
             <RestWorkspace plan={plan} committed={committed} />
           )}

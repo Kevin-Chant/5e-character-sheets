@@ -242,6 +242,8 @@ export function isLimitedUseAbility(data: any): data is LimitedUseAbility {
     isTextComponent((data as any).info) &&
     isCustomFormula((data as any).maxUses) &&
     isRechargeCriteria((data as any).recharge) &&
+    ((data as any).restore === undefined ||
+      isCustomFormula((data as any).restore)) &&
     isNumber((data as any).expended)
   );
 }

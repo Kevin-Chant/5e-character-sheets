@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { FIELD, RestType, StatKey } from "src/lib/data/data-definitions";
+import {
+  DieOperation,
+  FIELD,
+  RestType,
+  StatKey,
+} from "src/lib/data/data-definitions";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { STAT_NAMES, saveDcFormula } from "src/lib/rules";
 import {
@@ -11,7 +16,7 @@ import {
 } from "src/lib/types";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { getFieldValue, traverse } from "src/lib/fields";
-import { calculateCustomFormula } from "src/lib/formula";
+import { calculateCustomFormula, formatCustomFormula } from "src/lib/formula";
 import { charPath, fromStack, updateAt } from "src/lib/cursor";
 import { newLimitedUseAbility } from "src/lib/data/default-data";
 import { useSave } from "./modals/modal-container";
@@ -139,6 +144,46 @@ export default function EditLimitedUseAbility() {
             customValueHelpText="e.g. Dawn"
           />
         </label>
+      </div>
+      <div className="row limited-use-ability-meta">
+        <label className="field">
+          <span className="field-label">Recharge regains</span>
+          {/* "Regains 1d3 expended charges at dawn" — the magic-item pattern.
+              Switching to a rolled amount seeds 1d3; the formula button opens
+              the full editor for the 1d6+4 staves. */}
+          <select
+            value={ability.restore === undefined ? "all" : "roll"}
+            onChange={(e) =>
+              dispatch(
+                updateAt(
+                  abilityCursor.k("restore"),
+                  e.target.value === "roll"
+                    ? [1, { numFaces: 3 }, DieOperation.roll]
+                    : undefined,
+                ),
+              )
+            }
+          >
+            <option value="all">All uses</option>
+            <option value="roll">A rolled amount</option>
+          </select>
+        </label>
+        {ability.restore !== undefined && (
+          <label className="field">
+            <span className="field-label">Amount regained</span>
+            <button
+              type="button"
+              className="uses-formula-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                pushCursor(abilityCursor.k("restore"));
+              }}
+            >
+              {formatCustomFormula(ability.restore, character)}{" "}
+              <span className="uses-formula-hint">(edit formula)</span>
+            </button>
+          </label>
+        )}
       </div>
       <fieldset className="limited-use-save">
         <legend className="field-label">Save DC (optional)</legend>
