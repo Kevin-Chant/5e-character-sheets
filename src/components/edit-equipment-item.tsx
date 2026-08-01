@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { ArmorCategory, FIELD } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
+import { UUID } from "crypto";
 import {
   ArmorMechanics,
+  Attack,
   CustomFormula,
   EquipmentItem,
   TextComponentWithDetails,
@@ -11,17 +13,19 @@ import {
 } from "src/lib/types";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { useTargetedField } from "src/lib/hooks/use-targeted-field";
+import { replaceCharacter } from "src/lib/hooks/reducers/actions";
 import { useSave } from "./modals/modal-container";
 import { fromStack, updateAt } from "src/lib/cursor";
 import { weightInUnit, weightToLb } from "src/lib/rules";
-import { ARMOR_PRESETS } from "src/lib/builder/equipment";
 import {
-  CATALOG_OPTIONS,
   EQUIPMENT_CATALOG,
   EquipmentCatalogEntry,
+  armorWithBonus,
+  buildCatalogAttack,
+  catalogItemName,
+  shieldWithBonus,
 } from "src/lib/builder/equipment-catalog";
 import { ControlledEditTextLine } from "./edit-text-line";
-import OptionOrCustomValue from "./display/option-or-custom-value";
 import StepperInput from "./stepper-input";
 
 // Default DEX contribution for a freshly-picked category — decoupled from the
@@ -32,12 +36,103 @@ const DEFAULT_DEX: Record<ArmorCategory, ArmorMechanics["dex"]> = {
   heavy: "none",
 };
 
+// The name field for a *new* item: a type-ahead over the built-in catalog that
+// doubles as the plain name input. Picking an entry prefills mechanics; typing
+// anything else just names a custom item. Enter on an exact catalog match picks
+// it (instead of saving the modal), so "shield⏎" behaves like clicking Shield.
+function CatalogNameInput({
+  value,
+  pickedName,
+  onType,
+  onPick,
+}: {
+  value: string;
+  pickedName?: string;
+  onType: (name: string) => void;
+  onPick: (entry: EquipmentCatalogEntry) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const q = value.trim().toLowerCase();
+  const matches = EQUIPMENT_CATALOG.filter((entry) =>
+    entry.name.toLowerCase().includes(q),
+  );
+  // Group in catalog order, preserving each group's first appearance.
+  const groups: { label: string; entries: EquipmentCatalogEntry[] }[] = [];
+  for (const entry of matches) {
+    const group = groups.find((g) => g.label === entry.group);
+    if (group) group.entries.push(entry);
+    else groups.push({ label: entry.group, entries: [entry] });
+  }
+
+  const pick = (entry: EquipmentCatalogEntry) => {
+    onPick(entry);
+    setOpen(false);
+  };
+
+  return (
+    <div className="typeahead">
+      <input
+        type="text"
+        placeholder="e.g. Chain Mail, Longsword…"
+        value={value}
+        onChange={(e) => {
+          onType(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          const exact = matches.find((m) => m.name.toLowerCase() === q);
+          if (exact && exact.name !== pickedName) {
+            // Consume the Enter so the modal doesn't save mid-pick.
+            e.preventDefault();
+            e.stopPropagation();
+            pick(exact);
+          }
+        }}
+      />
+      {open && groups.length > 0 && (
+        <ul className="typeahead-list rounded-border-box">
+          {groups.map((group) => (
+            <li key={group.label} className="typeahead-group">
+              <span className="typeahead-group-label">{group.label}</span>
+              <ul>
+                {group.entries.map((entry) => (
+                  <li key={entry.name}>
+                    <button
+                      type="button"
+                      className="typeahead-option"
+                      // Keep the input focused so onClick fires before onBlur.
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pick(entry)}
+                    >
+                      {entry.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // Add or edit one equipment item. Opened with subField "new" (append a fresh
 // item, seeded into the modal draft) or a numeric index (edit that item). The
 // name/description reuse `ControlledEditTextLine` (so embedded {{}} formulas keep
 // working); the structured fields — quantity, weight, equipped, and whether the
 // item requires attunement — are edited here. Whether the character is currently
 // *attuned* is a play-mode toggle on the sheet row, not part of item setup.
+//
+// For a new item the name input is a catalog type-ahead: picking a built-in
+// armor/shield prefills its AC mechanics and weight, and picking a weapon also
+// seeds a ready-to-roll Attack into the draft — which is why saving goes through
+// `replace_character` when a weapon was picked (the default save path only
+// copies the equipment field out of the draft).
 export default function EditEquipmentItem() {
   const { character, dispatch } = useLoadedCharacter();
   const { targetedField, subField, pushCursor } = useTargetedField();
@@ -57,6 +152,13 @@ export default function EditEquipmentItem() {
   const isNew = subField === "new";
   const index = isNew ? newIndex : Number(subField);
   const item: EquipmentItem | undefined = equipment[index];
+
+  // The catalog entry the type-ahead picked (new items only), the +N magic
+  // bonus applied to it, and the id of the Attack that pick seeded into the
+  // draft — tracked so re-picking replaces rather than accumulates.
+  const [picked, setPicked] = useState<EquipmentCatalogEntry>();
+  const [bonus, setBonus] = useState(0);
+  const [seededAttackId, setSeededAttackId] = useState<UUID>();
 
   // Seed a blank item into the *modal draft* when there's nothing at the target
   // index yet (the "new" add path). Living only in the draft, it's discarded if
@@ -83,6 +185,7 @@ export default function EditEquipmentItem() {
   if (!isTextComponent(textComponent)) return <></>;
 
   const itemCursor = fromStack<EquipmentItem>(FIELD.equipment, String(index));
+  const attacksCursor = fromStack<Attack[]>(FIELD.attacks, undefined);
   // `detailFormulas` lives only on the with-details TextComponent variant; this
   // narrower cursor unlocks that slot from the branch where details exist.
   const textDetail = fromStack<TextComponentWithDetails>(
@@ -172,53 +275,119 @@ export default function EditEquipmentItem() {
     dispatch(
       updateAt(itemCursor.k("shield"), { bonus: Math.max(0, bonus || 0) }),
     );
-  const applyPreset = (label: string) => {
-    const preset = ARMOR_PRESETS.find((p) => p.label === label);
-    if (!preset) return;
-    clearShield();
-    dispatch(updateAt(itemCursor.k("armor"), preset.mechanics));
-    // Name a still-unnamed item after the preset for convenience.
-    if (!textComponent.title || textComponent.title === "New item")
-      setText({ title: preset.label });
-  };
 
-  // Prefill name + mechanics from a built-in catalog item picked in the search.
-  const applyCatalogEntry = (entry: EquipmentCatalogEntry) => {
-    setText({ title: entry.name });
+  // Prefill the item from a catalog pick at a given magic bonus. Re-runs when
+  // either changes, so it always writes the full picture: name, weight,
+  // mechanics, and (for a weapon) the seeded Attack — replacing whatever a
+  // previous pick seeded.
+  const applyCatalogEntry = (entry: EquipmentCatalogEntry, plus: number) => {
+    setText({ title: catalogItemName(entry, plus), titleFormulas: [] });
+    dispatch(updateAt(itemCursor.k("weight"), entry.weight));
+
     if (entry.armor) {
       clearShield();
-      dispatch(updateAt(itemCursor.k("armor"), entry.armor));
+      dispatch(
+        updateAt(itemCursor.k("armor"), armorWithBonus(entry.armor, plus)),
+      );
     } else if (entry.shield) {
       clearArmor();
-      dispatch(updateAt(itemCursor.k("shield"), entry.shield));
+      dispatch(
+        updateAt(itemCursor.k("shield"), shieldWithBonus(entry.shield, plus)),
+      );
+    } else {
+      clearArmor();
+      clearShield();
     }
-    if (entry.weight !== undefined)
-      dispatch(updateAt(itemCursor.k("weight"), entry.weight));
+
+    // A weapon is wielded (equippable) and fights through an Attack row.
+    dispatch(
+      updateAt(itemCursor.k("equippable"), entry.weapon ? true : undefined),
+    );
+    const attacks = (character.attacks ?? []).filter(
+      (a) => a.id !== seededAttackId,
+    );
+    if (entry.weapon) {
+      const attack = buildCatalogAttack(entry.weapon, plus);
+      dispatch(updateAt(attacksCursor, attacks.concat(attack)));
+      setSeededAttackId(attack.id);
+    } else {
+      if (seededAttackId) dispatch(updateAt(attacksCursor, attacks));
+      setSeededAttackId(undefined);
+    }
   };
+
+  const pickEntry = (entry: EquipmentCatalogEntry) => {
+    setPicked(entry);
+    applyCatalogEntry(entry, bonus);
+  };
+  const changeBonus = (plus: number) => {
+    setBonus(plus);
+    if (picked) applyCatalogEntry(picked, plus);
+  };
+
+  // Typing in the type-ahead just renames the item; a picked entry's mechanics
+  // stay (rename your +1 longsword freely) but the seeded-attack bookkeeping
+  // keeps pointing at the same pick.
+  const typeName = (name: string) =>
+    setText({ title: name, titleFormulas: [] });
+
+  // The default save copies only the equipment field out of the draft; when a
+  // weapon pick seeded an Attack the draft differs on two fields, so persist
+  // the whole draft as one edit instead.
+  const save = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    if (seededAttackId) saveData(undefined, replaceCharacter(character));
+    else saveData();
+  };
+
+  const titleSlot = isNew ? (
+    <div className="row equipment-fields equipment-name-row">
+      <label className="field equipment-name-field">
+        <span className="field-label">Name</span>
+        <CatalogNameInput
+          value={textComponent.title}
+          pickedName={picked?.name}
+          onType={typeName}
+          onPick={pickEntry}
+        />
+      </label>
+      <label
+        className="field"
+        title="Magic bonus — applies to a built-in armor, shield, or weapon."
+      >
+        <span className="field-label">Bonus</span>
+        <select
+          value={bonus}
+          onChange={(e) => changeBonus(Number(e.target.value))}
+        >
+          <option value={0}>—</option>
+          <option value={1}>+1</option>
+          <option value={2}>+2</option>
+          <option value={3}>+3</option>
+        </select>
+      </label>
+    </div>
+  ) : undefined;
 
   return (
     <form
       className="edit-equipment column"
       onSubmit={(e) => e.preventDefault()}
+      // The modal container's global Enter-saves shortcut would run the default
+      // save and drop a seeded Attack; intercept it here and route through our
+      // save. Same exclusions as the container: only plain text inputs submit.
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        if ((e.target as HTMLElement).tagName !== "INPUT") return;
+        e.stopPropagation();
+        save(e);
+      }}
     >
       {isNew && (
-        <label className="field equipment-catalog-search">
-          <span className="field-label">Search built-in items (optional)</span>
-          {/* Prefills name + mechanics from the catalog; typing a name that
-              isn't in the catalog is a no-op here — use the Name field below for
-              a fully custom item. */}
-          <OptionOrCustomValue
-            value=""
-            setValue={(name: string) => {
-              const entry = EQUIPMENT_CATALOG.find((e) => e.name === name);
-              if (entry) applyCatalogEntry(entry);
-            }}
-            options={CATALOG_OPTIONS}
-            customDefaultValue=""
-            customValueHelpText="e.g. Chain Mail, Shield…"
-            customInputType="text"
-          />
-        </label>
+        <p className="field-help">
+          Pick a built-in item to prefill its stats — or type any name for a
+          custom item.
+        </p>
       )}
 
       <ControlledEditTextLine
@@ -226,6 +395,7 @@ export default function EditEquipmentItem() {
           textComponent,
           character,
           title: "Name & description",
+          titleSlot,
           updateTitle,
           editTitleFormula,
           addDetail,
@@ -281,25 +451,6 @@ export default function EditEquipmentItem() {
               <option value="shield">Shield</option>
             </select>
           </label>
-          {item.armor && (
-            <label className="field">
-              <span className="field-label">Preset</span>
-              <select
-                value=""
-                onChange={(e) => {
-                  applyPreset(e.target.value);
-                  e.target.value = "";
-                }}
-              >
-                <option value="">Custom…</option>
-                {ARMOR_PRESETS.map((p) => (
-                  <option key={p.label} value={p.label}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
         </div>
 
         {item.armor && (
@@ -387,13 +538,7 @@ export default function EditEquipmentItem() {
         Requires attunement
       </label>
 
-      <button
-        className="btn-primary edit-save"
-        onClick={(e) => {
-          e.preventDefault();
-          saveData();
-        }}
-      >
+      <button className="btn-primary edit-save" onClick={save}>
         Save
       </button>
     </form>

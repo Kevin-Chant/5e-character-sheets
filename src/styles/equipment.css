@@ -437,6 +437,31 @@ b.pos-relative.margin-large:has(> .section-add) {
   justify-content: flex-start;
 }
 
+/* The Add/Edit Item modal used to shrink-to-fit its narrowest layout, which
+   left no room for long item names or the catalog type-ahead. Give it a real
+   width instead (still clamped by .modal-content's max-width on desktop). */
+.modal-content:has(.edit-equipment) {
+  width: min(42rem, 92vw);
+}
+
+/* New-item name row: the catalog type-ahead takes the space; the +N magic-bonus
+   select keeps its natural width beside it. The globals fight this — `.field`
+   is width: 100% and `.edit-text-line-fields .row` wraps — so pin both. */
+.equipment-name-row {
+  flex-wrap: nowrap;
+  align-items: flex-end;
+}
+.equipment-name-row .field {
+  width: auto;
+}
+.equipment-name-row .equipment-name-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.equipment-name-field .typeahead {
+  width: 100%;
+}
+
 /* The homebrew mechanics editor inside the limited-use ability modal: one card
    per action, one compact row per effect. */
 .edit-ability-mechanics {

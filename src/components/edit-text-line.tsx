@@ -21,6 +21,10 @@ interface ControlledEditTextLineProps {
   // Optional sub-section heading. When omitted no heading is rendered (e.g. when
   // the surrounding modal already shows the title in its titlebar).
   title?: string;
+  // Replaces the whole Name field (label included) — for callers that supply
+  // their own name input, e.g. the equipment editor's catalog type-ahead. The
+  // details field below is unaffected.
+  titleSlot?: React.ReactNode;
   // Write the title template + its formulas together (positional {{}} mapping).
   updateTitle: (text: string, formulas: CustomFormula[]) => void;
   editTitleFormula: (index: number) => void;
@@ -35,6 +39,7 @@ export function ControlledEditTextLine({
   textComponent,
   character,
   title,
+  titleSlot,
   updateTitle,
   editTitleFormula,
   addDetail,
@@ -48,17 +53,19 @@ export function ControlledEditTextLine({
       <div className="column edit-text-line">
         {title && <b className="title edit-group-title">{title}</b>}
         <div className="column edit-text-line-fields">
-          <div className="field">
-            <span className="field-label">Name</span>
-            <EditTextWithFormulas
-              text={textComponent.title}
-              formulas={textComponent.titleFormulas}
-              character={character}
-              onChange={updateTitle}
-              onEditFormula={editTitleFormula}
-              placeholder="Name (insert values for stats)"
-            />
-          </div>
+          {titleSlot ?? (
+            <div className="field">
+              <span className="field-label">Name</span>
+              <EditTextWithFormulas
+                text={textComponent.title}
+                formulas={textComponent.titleFormulas}
+                character={character}
+                onChange={updateTitle}
+                onEditFormula={editTitleFormula}
+                placeholder="Name (insert values for stats)"
+              />
+            </div>
+          )}
           {isTextComponentWithDetail(textComponent) ? (
             <div className="field">
               <div className="row space-between field-label-row">
