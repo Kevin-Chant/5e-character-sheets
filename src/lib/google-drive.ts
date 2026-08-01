@@ -268,33 +268,44 @@ export async function patchFileAppProperties(
   });
 }
 
+// The permissions.create URL for a share-by-email, with the notification
+// options in the query string where Drive expects them. Exported for its test
+// — this is a pure string, and the only thing that goes wrong here is silent.
+export function buildShareUrl(fileId: string, emailMessage?: string): string {
+  const params = new URLSearchParams({ sendNotificationEmail: "true" });
+  if (emailMessage) params.set("emailMessage", emailMessage);
+  return `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?${params}`;
+}
+
 // Grants a user write access to a file and emails them a notification.
 //
 // `emailMessage` is the one part of that email we control: Drive renders it as
 // a personal note inside its own template. The template's button points at the
 // raw file in Drive, which is a JSON blob to a human — so the note is where the
 // link back into this app goes. Google linkifies a bare URL in it.
+//
+// Both `emailMessage` and `sendNotificationEmail` are **query parameters**, not
+// fields of the Permission resource in the body. Drive ignores an unknown body
+// field rather than rejecting it, so getting this wrong costs no error and no
+// failed share — just an email with nothing in it. Hence `buildShareUrl` and
+// its test: the placement is the part that breaks silently.
 export async function shareFileByEmail(
   fileId: string,
   email: string,
   emailMessage?: string,
 ) {
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?sendNotificationEmail=true`,
-    {
-      method: "POST",
-      headers: new Headers({
-        Authorization: `Bearer ${window.gapi.client.getToken().access_token}`,
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        role: "writer",
-        type: "user",
-        emailAddress: email,
-        ...(emailMessage ? { emailMessage } : {}),
-      }),
-    },
-  );
+  const res = await fetch(buildShareUrl(fileId, emailMessage), {
+    method: "POST",
+    headers: new Headers({
+      Authorization: `Bearer ${window.gapi.client.getToken().access_token}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({
+      role: "writer",
+      type: "user",
+      emailAddress: email,
+    }),
+  });
   if (!res.ok) {
     throw new Error(`Failed to share file (${res.status})`);
   }
