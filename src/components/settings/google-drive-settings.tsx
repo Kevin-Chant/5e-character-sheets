@@ -3,30 +3,31 @@ import {
   hasStoredGrant,
   revokeDriveAccess,
   signOutOfDrive,
-} from "src/lib/google-drive";
+  useDriveAuthStatus,
+} from "src/lib/google-auth";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
-import { useGoogleOauth } from "src/lib/hooks/use-google-oauth";
 import { clearLastDatastore, readLastDatastore } from "src/lib/last-datastore";
 import { useSettingsPanel } from "src/lib/hooks/use-settings-panel";
 import SettingsSection from "./settings-section";
 
 export default function GoogleDriveSettings() {
-  const { googleOauthReady, setGoogleOauthReady } = useGoogleOauth();
+  const authStatus = useDriveAuthStatus();
   const { setDatastore } = useDatastoreSelector();
   const { reset } = useCharacter();
   const navigate = useNavigate();
   const location = useLocation();
   const { closeSettings } = useSettingsPanel();
 
-  const connected = googleOauthReady || hasStoredGrant();
+  const connected = authStatus === "ready" || hasStoredGrant();
 
   // Return to a clean, disconnected state and send the user to the front door
   // so they're not left on a Drive-backed sheet with no session. Clearing the
   // remembered mode is what makes the hub ask the storage question again
   // instead of offering a door to a backend this browser just signed out of.
+  // (signOutOfDrive/revokeDriveAccess already dropped the token and flipped
+  // the auth status; this clears the app state built on top of it.)
   const disconnect = () => {
-    setGoogleOauthReady(false);
     if (readLastDatastore() === "drive") clearLastDatastore();
     setDatastore(undefined);
     reset();

@@ -42,6 +42,7 @@ import Tooltip from "src/components/tooltip";
 import ShareModal from "src/components/share-modal";
 import NavOverflowMenu from "src/components/nav-overflow-menu";
 import PresenceRoster from "src/components/presence-roster";
+import { requestDriveToken } from "src/lib/google-auth";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 import { navControls, navTitle } from "src/lib/nav-controls";
 
@@ -223,29 +224,54 @@ export default function Root() {
     };
   }, [fileSelected, dispatch]);
 
-  const saveIndicator = saveError ? (
-    <Tooltip
-      className="tooltip-align-end"
-      label="Couldn't save your latest changes. Check your connection; your edits are kept in this tab for now."
-    >
-      <FaTriangleExclamation className="save-indicator-error" />
-    </Tooltip>
-  ) : saving ? (
-    <Tooltip className="tooltip-align-end" label="Saving...">
-      <Spinner />
-    </Tooltip>
-  ) : unsavedChanges ? (
-    <Tooltip
-      className="tooltip-align-end"
-      label="Unsaved changes, your edits haven't been saved yet"
-    >
-      <FaCircle className="save-indicator-unsaved" />
-    </Tooltip>
-  ) : (
-    <Tooltip className="tooltip-align-end" label="Changes saved!">
-      <FaCheck />
-    </Tooltip>
-  );
+  // A save stuck on an expired Google session isn't a connection problem, and
+  // pretending it is costs the user their unsaved edits: the fix is one
+  // consent click, so the indicator *is* the button. requestDriveToken must be
+  // called from the gesture itself (popup blockers), then the retried save
+  // clears the indicator through the normal path.
+  const reauthorizeAndSave = () => {
+    void requestDriveToken().then((ok) => {
+      if (ok) saveNow();
+    });
+  };
+
+  const saveIndicator =
+    saveError === "auth" ? (
+      <Tooltip
+        className="tooltip-align-end"
+        label="Google Drive needs you to sign in again to save. Click to sign in — your edits are kept in this tab until then."
+      >
+        <button
+          className="icon-btn save-indicator-error"
+          onClick={reauthorizeAndSave}
+          aria-label="Sign in to Google Drive again and save"
+        >
+          <FaTriangleExclamation />
+        </button>
+      </Tooltip>
+    ) : saveError ? (
+      <Tooltip
+        className="tooltip-align-end"
+        label="Couldn't save your latest changes. Check your connection; your edits are kept in this tab for now."
+      >
+        <FaTriangleExclamation className="save-indicator-error" />
+      </Tooltip>
+    ) : saving ? (
+      <Tooltip className="tooltip-align-end" label="Saving...">
+        <Spinner />
+      </Tooltip>
+    ) : unsavedChanges ? (
+      <Tooltip
+        className="tooltip-align-end"
+        label="Unsaved changes, your edits haven't been saved yet"
+      >
+        <FaCircle className="save-indicator-unsaved" />
+      </Tooltip>
+    ) : (
+      <Tooltip className="tooltip-align-end" label="Changes saved!">
+        <FaCheck />
+      </Tooltip>
+    );
 
   // Still needed locally: this one control's icon and label depend on which of
   // the two character surfaces you're looking at, not just on whether it shows.

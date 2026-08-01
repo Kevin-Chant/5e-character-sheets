@@ -135,24 +135,33 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<string | undefined>();
 
-  // Everything that lands on /sheet has to re-select a backend on the way,
-  // because /sheet with none bounces straight back here. This used to happen as
-  // a side effect of the redirect; now that there isn't one, it's said once and
-  // shared by every door that leads to a character.
+  // Every door that leads to a character re-selects a backend on the way.
+  // Local is selected right here; Drive is the sheet's own job now — it
+  // resumes the Google session silently while rendering, and only detours to
+  // /auth when this browser has never granted access (or the grant needs a
+  // click), which is exactly when a dedicated page is worth the trip.
   const toCharacters = (
     mode: "local" | "drive",
-    intent?: Record<string, unknown>,
+    intent?: { openCharacter?: string; share?: boolean },
   ) => {
+    const destination = intent?.openCharacter
+      ? `/sheet/${intent.openCharacter}`
+      : "/sheet";
+    const state = intent?.share ? { share: true } : undefined;
     if (mode === "drive") {
-      // Drive can't be selected without its OAuth round-trip, which carries
-      // the errand through and comes back to it.
-      navigate("/auth", { state: { returnTo: "/sheet", ...intent } });
+      if (readLastDatastore() !== "drive") {
+        // First time on Drive from this browser: the OAuth round-trip needs
+        // its page, and carries the errand through in router state.
+        navigate("/auth", { state: { returnTo: destination, ...state } });
+        return;
+      }
+      navigate(destination, { state });
       return;
     }
     setDatastore(LocalDatastore);
     reset();
     writeLastDatastore("local");
-    navigate("/sheet", { state: intent });
+    navigate(destination, { state });
   };
 
   const openLastCharacter = () => {

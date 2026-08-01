@@ -18,7 +18,6 @@ import { TargetedFieldContextProvider } from "./lib/hooks/use-targeted-field";
 import { DatastoreSelectorContextProvider } from "./lib/hooks/use-datastore-selector";
 import { DatastoreContextProvider } from "./lib/hooks/use-datastore";
 import GoogleAuthInitializer from "./components/google-auth-initializer";
-import { GoogleOauthContextProvider } from "./lib/hooks/use-google-oauth";
 import RemoteConnectionInitializer from "./components/remote-connection-initializer";
 import HostGame from "./routes/host-game";
 import JoinSession from "./routes/join-session";
@@ -39,41 +38,39 @@ const router = createBrowserRouter([
     element: (
       <SettingsContextProvider>
         <SharingSessionsContextProvider>
-          <GoogleOauthContextProvider>
-            <DatastoreSelectorContextProvider>
-              <DatastoreContextProvider>
-                <CharacterContextProvider>
-                  {/* Above the routes, not inside the play surface: the roll
+          <DatastoreSelectorContextProvider>
+            <DatastoreContextProvider>
+              <CharacterContextProvider>
+                {/* Above the routes, not inside the play surface: the roll
                       dialog reads conditions from the sheet too, and the
                       encounter has to survive navigating between them. */}
-                  <EncounterContextProvider>
-                    {/* Above Root so the nav toggle and every roll surface
+                <EncounterContextProvider>
+                  {/* Above Root so the nav toggle and every roll surface
                         share the same app-dice/real-dice switch. */}
-                    <RollModeContextProvider>
-                      <EditModeContextProvider>
-                        <ConfirmProvider>
-                          <TargetedFieldContextProvider>
-                            <CharacterBuilderProvider>
-                              <LevelUpProvider>
-                                <RestProvider>
-                                  {/* Innermost, so the panel overlays every
+                  <RollModeContextProvider>
+                    <EditModeContextProvider>
+                      <ConfirmProvider>
+                        <TargetedFieldContextProvider>
+                          <CharacterBuilderProvider>
+                            <LevelUpProvider>
+                              <RestProvider>
+                                {/* Innermost, so the panel overlays every
                                       surface and survives navigating between
                                       them (the Drive tab leaves for /auth). */}
-                                  <SettingsPanelProvider>
-                                    <Root />
-                                  </SettingsPanelProvider>
-                                </RestProvider>
-                              </LevelUpProvider>
-                            </CharacterBuilderProvider>
-                          </TargetedFieldContextProvider>
-                        </ConfirmProvider>
-                      </EditModeContextProvider>
-                    </RollModeContextProvider>
-                  </EncounterContextProvider>
-                </CharacterContextProvider>
-              </DatastoreContextProvider>
-            </DatastoreSelectorContextProvider>
-          </GoogleOauthContextProvider>
+                                <SettingsPanelProvider>
+                                  <Root />
+                                </SettingsPanelProvider>
+                              </RestProvider>
+                            </LevelUpProvider>
+                          </CharacterBuilderProvider>
+                        </TargetedFieldContextProvider>
+                      </ConfirmProvider>
+                    </EditModeContextProvider>
+                  </RollModeContextProvider>
+                </EncounterContextProvider>
+              </CharacterContextProvider>
+            </DatastoreContextProvider>
+          </DatastoreSelectorContextProvider>
         </SharingSessionsContextProvider>
       </SettingsContextProvider>
     ),
@@ -92,6 +89,12 @@ const router = createBrowserRouter([
       },
       {
         path: "/sheet",
+        element: <SheetContainer />,
+      },
+      // The same surface with a character named in the URL, which is what
+      // lets a refresh land back on the sheet it left instead of the menu.
+      {
+        path: "/sheet/:uuid",
         element: <SheetContainer />,
       },
       {

@@ -16,6 +16,7 @@ import {
 import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
 import { missingProvider } from "src/lib/missing-provider";
+import { isDriveAuthError } from "src/lib/google-auth";
 import { writeLastCharacter } from "src/lib/last-character";
 import { readLastDatastore } from "src/lib/last-datastore";
 
@@ -44,7 +45,10 @@ interface CharacterContextData {
   canRedo: boolean;
   unsavedChanges: boolean;
   setUnsavedChanges: (isUnsaved: boolean) => void;
-  saveError: boolean;
+  // false when the last save landed; "auth" when it failed because the Google
+  // Drive session needs a sign-in click (so the indicator can offer one
+  // instead of a generic warning); "error" for everything else.
+  saveError: false | "auth" | "error";
   saveNow: () => void;
   // Persist an explicit character in the background — for flows that just
   // dispatched a whole character (wizard finishes, moves between backends) and
@@ -80,7 +84,7 @@ export const CharacterContext = React.createContext<CharacterContextData>({
 export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [character, dispatch] = useReducer(reducer, undefined);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  const [saveError, setSaveError] = useState<false | "auth" | "error">(false);
   // Per-tab undo/redo history of this user's own edits. Read the latest
   // character through a ref so an edit's "before" value is captured reliably.
   const [past, setPast] = useState<HistoryEntry[]>([]);
@@ -126,9 +130,11 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       })
       .catch((error) => {
         // Keep unsavedChanges true so the edit isn't silently treated as
-        // persisted; surface the failure via the save indicator.
+        // persisted; surface the failure via the save indicator — and say
+        // *which* failure, because "sign in again" and "check your
+        // connection" call for different clicks.
         console.error("Failed to save character", error);
-        setSaveError(true);
+        setSaveError(isDriveAuthError(error) ? "auth" : "error");
       });
   }, [character, getRole, isBorrowed, save]);
 
@@ -154,7 +160,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
         return true;
       } catch (error) {
         console.error("Failed to save character", error);
-        setSaveError(true);
+        setSaveError(isDriveAuthError(error) ? "auth" : "error");
         return false;
       }
     },

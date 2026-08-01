@@ -83,9 +83,9 @@ export function useMoveCharacter() {
       );
       writeLastDatastore("local");
       setDatastore(LocalDatastore);
-      // The swap closed the sheet; the picker's openCharacter shortcut
-      // reopens it once the local list is up.
-      navigate("/sheet", { state: { openCharacter: character.uuid } });
+      // The swap closed the sheet; the uuid in the URL reopens it once the
+      // local list is up.
+      navigate(`/sheet/${character.uuid}`);
     } finally {
       setBusy(false);
     }

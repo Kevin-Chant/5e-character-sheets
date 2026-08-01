@@ -2,7 +2,7 @@
 import { UUID } from "crypto";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "src/routes/home";
 import { CharacterContext } from "src/lib/hooks/use-character";
@@ -30,6 +30,7 @@ function renderHome() {
             <Route path="/" element={<Home />} />
             <Route path="/join/:code" element={<JoinProbe />} />
             <Route path="/sheet" element={<h1>Your characters</h1>} />
+            <Route path="/sheet/:uuid" element={<SheetProbe />} />
             <Route path="/host" element={<h1>Start a game</h1>} />
             <Route path="/auth" element={<h1>authorizing</h1>} />
           </Routes>
@@ -41,6 +42,11 @@ function renderHome() {
 
 function JoinProbe() {
   return <h1>joining</h1>;
+}
+
+function SheetProbe() {
+  const { uuid } = useParams();
+  return <h1>sheet {uuid}</h1>;
 }
 
 describe("the front door", () => {
@@ -122,6 +128,35 @@ describe("the front door", () => {
     renderHome();
     expect(screen.getByText("Brakka")).toBeInTheDocument();
     expect(screen.getByText("Saved in this browser")).toBeInTheDocument();
+  });
+
+  it("opens the last sheet by URL, so a refresh can find it again", async () => {
+    writeLastDatastore("local");
+    writeLastCharacter({ uuid: BRAKKA, name: "Brakka", mode: "local" });
+    renderHome();
+    await userEvent.click(screen.getByText("Brakka"));
+    expect(
+      screen.getByRole("heading", { name: `sheet ${BRAKKA}` }),
+    ).toBeInTheDocument();
+  });
+
+  it("skips /auth for a returning Drive user — the sheet resumes silently", async () => {
+    // lastDatastore is only ever "drive" after a successful sign-in, which is
+    // exactly the case where the silent resume is worth attempting inline.
+    writeLastDatastore("drive");
+    renderHome();
+    await userEvent.click(screen.getByText("My characters"));
+    expect(
+      screen.getByRole("heading", { name: "Your characters" }),
+    ).toBeInTheDocument();
+  });
+
+  it("still sends a first-time Drive pick through /auth for consent", async () => {
+    renderHome();
+    await userEvent.click(screen.getByText("Sync to Google Drive"));
+    expect(
+      screen.getByRole("heading", { name: "authorizing" }),
+    ).toBeInTheDocument();
   });
 
   it("forgets a table on request and stops offering it", async () => {

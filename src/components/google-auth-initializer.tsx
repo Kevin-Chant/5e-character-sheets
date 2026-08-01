@@ -1,38 +1,25 @@
-import React, { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Spinner from "src/components/spinner";
 import { useLocation, useNavigate } from "react-router-dom";
 import GoogleDriveDatastore from "src/datastores/google-drive-datastore";
 import {
-  API_KEY,
-  CLIENT_ID,
-  DISCOVERY_DOC,
-  hasStoredGrant,
-  persistToken,
-  restoreToken,
-  SCOPES,
-} from "src/lib/google-drive";
+  ensureDriveToken,
+  requestDriveToken,
+  useDriveAuthStatus,
+} from "src/lib/google-auth";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
-import { useGoogleOauth } from "src/lib/hooks/use-google-oauth";
-import useScript from "src/lib/hooks/use-script";
 import { writeLastDatastore } from "src/lib/last-datastore";
 
+// The interactive half of Drive auth. All the machinery (script loading,
+// token cache, silent refresh) lives in `src/lib/google-auth.ts` and can run
+// from anywhere; this route exists for the one step that needs a click — the
+// consent popup — and for flows that want a page to send someone to before
+// Drive is connected at all.
 export default function GoogleAuthInitializer() {
-  const {
-    tokenClient,
-    setTokenClient,
-    gapiInitialized,
-    setGapiInitialized,
-    gisInitialized,
-    setGisInitialized,
-    googleOauthReady,
-    setGoogleOauthReady,
-  } = useGoogleOauth();
+  const status = useDriveAuthStatus();
   const { setDatastore } = useDatastoreSelector();
   const navigate = useNavigate();
   const location = useLocation();
-  // Set when a silent token refresh fails, so we stop showing "Resuming..."
-  // and fall back to the Authorize button.
-  const [authPromptNeeded, setAuthPromptNeeded] = useState(false);
 
   // Whoever sent us here may have been mid-errand — a joiner picking Drive
   // from the session lobby was about to enter a game, and landing them on
@@ -41,97 +28,37 @@ export default function GoogleAuthInitializer() {
   // can carry the errand back.
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
 
+  // Landing here starts the silent path (cached token, then no-UI refresh);
+  // the Authorize button below only renders once that has been exhausted.
   useEffect(() => {
-    if (googleOauthReady) {
-      setDatastore(GoogleDriveDatastore);
-      writeLastDatastore("drive");
-      if (returnTo) {
-        navigate(returnTo, { state: location.state, replace: true });
-      } else {
-        navigate("/sheet");
-      }
-    }
-  }, [googleOauthReady]);
+    void ensureDriveToken();
+  }, []);
 
-  // Once both Google libraries are ready, try to resume a previous session
-  // without prompting: restore a still-valid cached token, otherwise (if the
-  // user has granted before) attempt a silent, no-UI refresh. Only when both
-  // fail do we fall through to the Authorize button below.
   useEffect(() => {
-    if (!gapiInitialized || !gisInitialized || googleOauthReady) return;
-    if (restoreToken()) {
-      setGoogleOauthReady(true);
-      return;
-    }
-    if (tokenClient && hasStoredGrant()) {
-      tokenClient.requestAccessToken({ prompt: "" });
-    }
-  }, [gapiInitialized, gisInitialized, googleOauthReady, tokenClient]);
-
-  const handleAuthClick = () => {
-    if (!tokenClient) {
-      throw new Error("Token client wasn't initialized properly!");
-    }
-    if (window.gapi.client.getToken() === null) {
-      // Prompt the user to select a Google Account and ask for consent to share their data
-      // when establishing a new session.
-      tokenClient.requestAccessToken({ prompt: "consent" });
+    if (status !== "ready") return;
+    setDatastore(GoogleDriveDatastore);
+    writeLastDatastore("drive");
+    if (returnTo) {
+      navigate(returnTo, { state: location.state, replace: true });
     } else {
-      // Skip display of account chooser and consent dialog for an existing session.
-      tokenClient.requestAccessToken({ prompt: "" });
+      navigate("/sheet");
     }
-  };
+  }, [status]);
 
-  useScript("https://apis.google.com/js/api.js", () => {
-    window.gapi.load("client", () => {
-      window.gapi.client
-        .init({
-          apiKey: API_KEY,
-          discoveryDocs: [DISCOVERY_DOC],
-        })
-        .then(() => {
-          setGapiInitialized(true);
-        });
-    });
-  });
-  useScript("https://accounts.google.com/gsi/client", () => {
-    setTokenClient(
-      window.google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: async (resp: google.accounts.oauth2.TokenResponse) => {
-          if (resp.error !== undefined) {
-            // A silent refresh (prompt: "") can fail when interaction is
-            // required; don't crash — surface the Authorize button instead.
-            console.warn("Google token request failed", resp);
-            setAuthPromptNeeded(true);
-            return;
-          }
-          persistToken(resp);
-          setGoogleOauthReady(true);
-          setDatastore(GoogleDriveDatastore);
-        },
-      }),
-    );
-    setGisInitialized(true);
-  });
-
-  if (!gapiInitialized || !gisInitialized)
+  if (status === "uninitialized" || status === "initializing")
     return (
       <p>
         <Spinner /> Connecting to the Google Drive API...
       </p>
     );
-  // While a previous session is being resumed silently, show progress rather
-  // than the button (so it can't be clicked into an unnecessary prompt).
-  if (hasStoredGrant() && !authPromptNeeded)
+  if (status === "restoring" || status === "ready")
     return (
       <p>
         <Spinner /> Resuming your Google session...
       </p>
     );
   return (
-    <button id="authorize_button" onClick={handleAuthClick}>
+    <button id="authorize_button" onClick={() => void requestDriveToken()}>
       Authorize
     </button>
   );

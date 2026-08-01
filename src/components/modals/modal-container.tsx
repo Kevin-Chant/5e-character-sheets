@@ -96,7 +96,7 @@ export default function ModalContainer({
     canRedo: false,
     unsavedChanges: false,
     setUnsavedChanges: () => {},
-    saveError: false,
+    saveError: false as const,
     saveNow: () => {},
     // The draft buffer never persists directly; the commit path does.
     persistCharacter: async () => true,

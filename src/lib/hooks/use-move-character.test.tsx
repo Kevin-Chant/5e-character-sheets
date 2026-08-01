@@ -59,7 +59,7 @@ function renderHook({
     canRedo: false,
     unsavedChanges: false,
     setUnsavedChanges: vi.fn(),
-    saveError: false,
+    saveError: false as const,
     saveNow: vi.fn(),
     persistCharacter: vi.fn(async () => true),
     openSharingSession: vi.fn(),
@@ -151,9 +151,10 @@ describe("useMoveCharacter", () => {
     expect(driveDelete).toHaveBeenCalledWith(character.uuid);
     expect(setDatastore).toHaveBeenCalledWith(LocalDatastore);
     expect(readLocalStorage("lastDatastore")).toBe("local");
-    // Reopens by uuid on the far side — the swap closes the sheet.
+    // Reopens by uuid on the far side — the swap closes the sheet, and the
+    // uuid in the URL is what opens it again.
     expect(screen.getByTestId("location").textContent).toBe(
-      `/sheet:{"openCharacter":"${character.uuid}"}`,
+      `/sheet/${character.uuid}:null`,
     );
   });
 

@@ -1,8 +1,12 @@
-import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import CharacterPicker from "src/components/character-picker";
 import CharSheet from "src/components/charsheet";
 import ErrorBoundary from "src/components/error-boundary";
+import Spinner from "src/components/spinner";
+import GoogleDriveDatastore from "src/datastores/google-drive-datastore";
+import LocalDatastore from "src/datastores/local-datastore";
+import { ensureDriveToken } from "src/lib/google-auth";
 import {
   loadPersistedCharacter,
   resetCharacter,
@@ -11,6 +15,8 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useCompleteMoveToDrive } from "src/lib/hooks/use-move-character";
+import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
+import { readLastDatastore } from "src/lib/last-datastore";
 import { Character } from "src/lib/types";
 
 function downloadRawCharacter(character: Character) {
@@ -26,36 +32,120 @@ function downloadRawCharacter(character: Character) {
 
 export default function SheetContainer() {
   const { character, dispatch } = useCharacter();
-  const { datastore } = useDatastoreSelector();
-  const { characters } = useDatastore();
+  const { datastore, setDatastore } = useDatastoreSelector();
+  const { characters, characterLoading } = useDatastore();
+  const { getRole, isBorrowed } = useSharingSessions();
   const navigate = useNavigate();
   const location = useLocation();
+  const { uuid: routeUuid } = useParams();
 
   // A browser → Drive move arrives here via /auth with its intent in router
   // state; this finishes it (copy in, delete local, reopen) once Drive is up.
   useCompleteMoveToDrive();
 
-  // A remote joiner has no datastore but does have a character pushed into
-  // context, so only bounce home when there's genuinely nothing to show.
+  // Cold start (a refresh, a bookmark, a direct link): no datastore is
+  // selected, because that lives in React state — but the last-used backend is
+  // remembered, so re-select it instead of bouncing home. Local is instant;
+  // Drive resumes silently in the background (`ensureDriveToken`) and only
+  // detours to /auth when a genuine click is needed. A remote joiner has no
+  // datastore but does have a character pushed into context, so only someone
+  // with genuinely nothing to show goes home.
+  const driveBootStarted = useRef(false);
   useEffect(() => {
-    if (!datastore && !character) navigate("/");
-  }, []);
+    if (datastore || character) return;
+    const mode = readLastDatastore();
+    if (mode === "local") {
+      setDatastore(LocalDatastore);
+      return;
+    }
+    if (mode === "drive") {
+      if (driveBootStarted.current) return;
+      driveBootStarted.current = true;
+      ensureDriveToken().then((ok) => {
+        if (ok) {
+          setDatastore(GoogleDriveDatastore);
+        } else {
+          navigate("/auth", {
+            replace: true,
+            state: {
+              ...((location.state as object | null) ?? {}),
+              returnTo: location.pathname,
+            },
+          });
+        }
+      });
+      return;
+    }
+    navigate("/");
+  }, [datastore, character]);
 
-  // "Open Brakka" from the front door. The shortcut can only name a uuid — it
-  // is read before any backend has loaded — so the sheet it names is resolved
-  // here, once the list arrives. A uuid that isn't in the list (deleted, or a
-  // different Drive account) simply leaves the picker up, which is the right
-  // answer to a shortcut that has gone stale.
-  const openUuid = (location.state as { openCharacter?: string } | null)
-    ?.openCharacter;
+  // The uuid in the URL names the sheet to open — it is read before any
+  // backend has loaded, so it resolves here once the list arrives. A uuid that
+  // isn't in the list (deleted, or a different Drive account) clears back to
+  // the plain picker, which is the right answer to a link that has gone stale.
+  //
+  // One effect rather than two, because the ordering matters: a sheet that
+  // just *closed* (deleted, or "back to character list") leaves its uuid in
+  // the URL, and the load arm must not see that uuid and immediately reopen
+  // what the user asked to close.
+  //
+  // Same gating subtlety as `useCompleteMoveToDrive`: this effect runs before
+  // the datastore provider's own init effect (children's effects fire first),
+  // so on arrival `characterLoading` is stale-false while the list fetch is
+  // about to start. "The uuid isn't in the list" only means anything after
+  // the list has actually loaded — hence the saw-it-load ref.
+  const sawListLoad = useRef(false);
   useEffect(() => {
-    if (!openUuid || character) return;
-    const wanted = characters.find((entry) => entry.uuid === openUuid);
-    if (wanted) dispatch(loadPersistedCharacter(wanted));
-  }, [openUuid, characters, character]);
+    if (characterLoading) sawListLoad.current = true;
+  }, [characterLoading]);
+  const hadCharacter = useRef(false);
+  useEffect(() => {
+    if (!character && hadCharacter.current) {
+      hadCharacter.current = false;
+      if (routeUuid) navigate("/sheet", { replace: true });
+      return;
+    }
+    if (character) {
+      hadCharacter.current = true;
+      return;
+    }
+    if (!routeUuid || !datastore) return;
+    const wanted = characters.find((entry) => entry.uuid === routeUuid);
+    if (wanted) {
+      dispatch(loadPersistedCharacter(wanted));
+    } else if (sawListLoad.current && !characterLoading) {
+      navigate("/sheet", { replace: true, state: location.state });
+    }
+  }, [character, routeUuid, characters, characterLoading, datastore]);
+
+  // The other direction: whichever of our own sheets is open, its uuid belongs
+  // in the URL so a refresh can find its way back. Not for a sheet joined
+  // remotely or borrowed from a DM — neither is in any local list, so its URL
+  // would be a promise a refresh can't keep.
+  useEffect(() => {
+    if (!character || !datastore) return;
+    if (getRole(character.uuid) === "remote" || isBorrowed(character.uuid))
+      return;
+    if (location.pathname !== `/sheet/${character.uuid}`) {
+      navigate(`/sheet/${character.uuid}`, {
+        replace: true,
+        state: location.state,
+      });
+    }
+    // location.pathname is a dep so landing on plain /sheet with this sheet
+    // still open (the drawer link, a back navigation) restores the uuid too.
+  }, [character?.uuid, datastore, location.pathname]);
 
   if (!datastore && !character) {
-    return <></>;
+    // The Drive resume is in flight (or about to redirect); say so instead of
+    // flashing an empty page.
+    return readLastDatastore() === "drive" ? (
+      <p className="margin">
+        <Spinner /> Opening your Google Drive characters...
+      </p>
+    ) : (
+      <></>
+    );
   }
   return (
     <>

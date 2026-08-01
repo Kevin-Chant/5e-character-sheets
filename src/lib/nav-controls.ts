@@ -48,7 +48,8 @@ export function navControls({
   canShare,
   autosave,
 }: NavContext): NavControls {
-  const onSheet = pathname === "/sheet";
+  // /sheet/<uuid> is the same surface with the open character in the URL.
+  const onSheet = pathname === "/sheet" || pathname.startsWith("/sheet/");
   const onPlay = pathname === "/play";
   const onCharacterSurface = onSheet || onPlay;
   const sheetWithCharacter = onSheet && hasCharacter;
@@ -86,6 +87,8 @@ export function navTitle(pathname: string, characterName?: string): string {
     case "/sheet":
       return characterName ?? "Character Select";
     default:
+      if (pathname.startsWith("/sheet/"))
+        return characterName ?? "Character Select";
       if (pathname.startsWith("/join/")) return "Join a game";
       // The share email's link. Named for what it does rather than for the
       // file it names, which the page itself is better placed to show.

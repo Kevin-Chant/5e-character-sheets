@@ -1,122 +1,19 @@
-// These are shipped to the browser by design (the app talks to Google Drive
-// client-side), so they are not secrets. They are configurable per-deployment
-// via env vars; the defaults point at the project's own Google Cloud app.
-export const CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ??
-  "998156536896-4j4rbhlb39epi0t6vlia682lbjlk9tia.apps.googleusercontent.com";
-export const API_KEY =
-  import.meta.env.VITE_GOOGLE_API_KEY ??
-  "AIzaSyDp__PTlFtW7FNY2SDN84ZfH1Fwx0DjprE";
-
-// Discovery doc URL for APIs used by the quickstart
-export const DISCOVERY_DOC =
-  "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest";
-
-// drive.appdata: private per-user storage (the default backend).
-// drive.file: per-file access to documents this app creates or the user opens
-// via the Picker — used for promoted/shared first-class character documents.
-// Both are non-sensitive scopes, so they avoid restricted-scope verification.
-export const SCOPES =
-  "https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file";
+// The auth machinery (config constants, token cache, silent refresh, the
+// 401-retry wrapper) lives in `src/lib/google-auth.ts`; this file holds the
+// raw Drive REST/gapi primitives. Every network call below goes through
+// `withDriveAuthRetry`, so a token that expires mid-session is refreshed
+// silently and retried once before the failure reaches a caller.
+import {
+  API_KEY,
+  CLIENT_ID,
+  DriveRequestError,
+  withDriveAuthRetry,
+} from "src/lib/google-auth";
 
 // appProperties markers stamped on promoted (first-class, shareable) character
 // documents so the app can recognize and re-list them.
 export const SHARED_MARKER_KEY = "fiveECharacter";
 export const SHARED_UUID_KEY = "fiveECharacterUuid";
-
-// GIS access tokens are short-lived (~1h) and held only in memory, so a fresh
-// page load would otherwise re-prompt for consent. We cache the granted token
-// (with its expiry + scopes) so returning users can resume silently until it
-// expires, then refresh without UI. Access tokens are not refresh tokens and
-// can't be used to mint new ones — they only let us skip the consent dialog.
-const TOKEN_STORAGE_KEY = "googleDriveToken";
-
-interface StoredToken {
-  accessToken: string;
-  expiresAt: number; // epoch ms
-  scope: string;
-}
-
-function readStoredToken(): StoredToken | undefined {
-  const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
-  if (!raw) return undefined;
-  try {
-    return JSON.parse(raw) as StoredToken;
-  } catch {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-    return undefined;
-  }
-}
-
-// Every scope we require must be present in the granted set (order/extras OK).
-function coversRequiredScopes(granted: string): boolean {
-  const grantedSet = new Set(granted.split(" "));
-  return SCOPES.split(" ").every((scope) => grantedSet.has(scope));
-}
-
-export function persistToken(resp: google.accounts.oauth2.TokenResponse) {
-  const stored: StoredToken = {
-    accessToken: resp.access_token,
-    expiresAt: Date.now() + Number(resp.expires_in) * 1000,
-    scope: resp.scope,
-  };
-  localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(stored));
-}
-
-export function clearStoredToken() {
-  localStorage.removeItem(TOKEN_STORAGE_KEY);
-}
-
-// Signs this browser out of Drive by dropping the token (in-memory + cached).
-// The OAuth grant itself persists, so a later sign-in can be silent.
-export function signOutOfDrive() {
-  if (window.gapi?.client?.getToken()) {
-    window.gapi.client.setToken(null);
-  }
-  clearStoredToken();
-}
-
-// Fully revokes the app's OAuth grant; the next sign-in requires re-consent.
-export function revokeDriveAccess(): Promise<void> {
-  return new Promise((resolve) => {
-    const token = window.gapi?.client?.getToken();
-    if (token) {
-      window.google.accounts.oauth2.revoke(token.access_token, () => resolve());
-      window.gapi.client.setToken(null);
-    } else {
-      resolve();
-    }
-    clearStoredToken();
-  });
-}
-
-// True when the user has granted access before with the scopes we need — even
-// if the cached token has since expired. Used to decide whether a silent
-// (no-UI) token refresh is worth attempting.
-export function hasStoredGrant(): boolean {
-  const stored = readStoredToken();
-  if (!stored) return false;
-  if (!coversRequiredScopes(stored.scope)) {
-    clearStoredToken();
-    return false;
-  }
-  return true;
-}
-
-// If a still-valid cached token covering the required scopes exists, prime gapi
-// with it and return true so the consent flow can be skipped. A 60s buffer
-// avoids restoring a token that would expire mid-request.
-export function restoreToken(): boolean {
-  const stored = readStoredToken();
-  if (!stored) return false;
-  if (!coversRequiredScopes(stored.scope)) {
-    clearStoredToken();
-    return false;
-  }
-  if (stored.expiresAt - 60_000 <= Date.now()) return false; // expired-ish
-  window.gapi.client.setToken({ access_token: stored.accessToken });
-  return true;
-}
 
 type FilesListParams = Parameters<
   typeof window.gapi.client.drive.files.list
@@ -128,10 +25,12 @@ async function listAllPages(
   const files: gapi.client.drive.File[] = [];
   let pageToken: string | undefined;
   do {
-    const response = await window.gapi.client.drive.files.list({
-      ...params,
-      pageToken,
-    });
+    const response = await withDriveAuthRetry(() =>
+      window.gapi.client.drive.files.list({
+        ...params,
+        pageToken,
+      }),
+    );
     files.push(...(response.result.files || []));
     pageToken = response.result.nextPageToken;
   } while (pageToken);
@@ -169,10 +68,12 @@ export async function listSharedCharacterFiles() {
 export async function getFileContents(fileId: string) {
   let response;
   try {
-    response = await window.gapi.client.drive.files.get({
-      fileId: fileId,
-      alt: "media",
-    });
+    response = await withDriveAuthRetry(() =>
+      window.gapi.client.drive.files.get({
+        fileId: fileId,
+        alt: "media",
+      }),
+    );
   } catch (err: any) {
     console.error(err);
     return;
@@ -181,24 +82,30 @@ export async function getFileContents(fileId: string) {
 }
 
 export async function updateFile(fileId: string, fileContents: string) {
-  const res = await fetch(
-    `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
-    {
-      method: "PATCH",
-      headers: new Headers({
-        Authorization: `Bearer ${window.gapi.client.getToken().access_token}`,
-        "Content-Type": "application/json",
-      }),
-      body: fileContents,
-    },
-  );
-  // fetch only rejects on network failure; an expired token (401) or missing
-  // write access (403) resolves "successfully" and would otherwise be reported
-  // as a completed save.
-  if (!res.ok) {
-    throw new Error(`Failed to write Drive file ${fileId} (${res.status})`);
-  }
-  return res;
+  return withDriveAuthRetry(async () => {
+    const res = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
+      {
+        method: "PATCH",
+        headers: new Headers({
+          Authorization: `Bearer ${window.gapi.client.getToken().access_token}`,
+          "Content-Type": "application/json",
+        }),
+        body: fileContents,
+      },
+    );
+    // fetch only rejects on network failure; an expired token (401) or missing
+    // write access (403) resolves "successfully" and would otherwise be
+    // reported as a completed save. The typed error carries the status so the
+    // retry wrapper can recognize a 401 as an auth failure.
+    if (!res.ok) {
+      throw new DriveRequestError(
+        `Failed to write Drive file ${fileId} (${res.status})`,
+        res.status,
+      );
+    }
+    return res;
+  });
 }
 
 interface CreateFileOptions {
@@ -216,9 +123,8 @@ export async function createFile(
   if (options.parents) body.parents = options.parents;
   if (options.appProperties) body.appProperties = options.appProperties;
   try {
-    const response = await window.gapi.client.drive.files.create(
-      { uploadType: "simple" },
-      body,
+    const response = await withDriveAuthRetry(() =>
+      window.gapi.client.drive.files.create({ uploadType: "simple" }, body),
     );
     if (!response.result.id) {
       throw new Error("Failed to create file; no id was returned!");
@@ -232,7 +138,9 @@ export async function createFile(
 
 // Renames a Drive file (metadata-only update, no content change).
 export async function renameFile(fileId: string, name: string) {
-  return window.gapi.client.drive.files.update({ fileId, resource: { name } });
+  return withDriveAuthRetry(() =>
+    window.gapi.client.drive.files.update({ fileId, resource: { name } }),
+  );
 }
 
 // Reads a file's app-private metadata (visible to every user who accesses the
@@ -242,10 +150,12 @@ export async function getFileAppProperties(
   fileId: string,
 ): Promise<Record<string, string>> {
   try {
-    const res = await window.gapi.client.drive.files.get({
-      fileId,
-      fields: "appProperties",
-    });
+    const res = await withDriveAuthRetry(() =>
+      window.gapi.client.drive.files.get({
+        fileId,
+        fields: "appProperties",
+      }),
+    );
     return res.result.appProperties ?? {};
   } catch (err: any) {
     console.error(err);
@@ -260,12 +170,14 @@ export async function patchFileAppProperties(
   fileId: string,
   appProperties: Record<string, string | null>,
 ) {
-  return window.gapi.client.drive.files.update({
-    fileId,
-    // Drive treats a null appProperties value as "delete this key", but the gapi
-    // types only model string values — cast at this boundary.
-    resource: { appProperties } as gapi.client.drive.File,
-  });
+  return withDriveAuthRetry(() =>
+    window.gapi.client.drive.files.update({
+      fileId,
+      // Drive treats a null appProperties value as "delete this key", but the
+      // gapi types only model string values — cast at this boundary.
+      resource: { appProperties } as gapi.client.drive.File,
+    }),
+  );
 }
 
 // The permissions.create URL for a share-by-email, with the notification
@@ -294,25 +206,32 @@ export async function shareFileByEmail(
   email: string,
   emailMessage?: string,
 ) {
-  const res = await fetch(buildShareUrl(fileId, emailMessage), {
-    method: "POST",
-    headers: new Headers({
-      Authorization: `Bearer ${window.gapi.client.getToken().access_token}`,
-      "Content-Type": "application/json",
-    }),
-    body: JSON.stringify({
-      role: "writer",
-      type: "user",
-      emailAddress: email,
-    }),
+  await withDriveAuthRetry(async () => {
+    const res = await fetch(buildShareUrl(fileId, emailMessage), {
+      method: "POST",
+      headers: new Headers({
+        Authorization: `Bearer ${window.gapi.client.getToken().access_token}`,
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        role: "writer",
+        type: "user",
+        emailAddress: email,
+      }),
+    });
+    if (!res.ok) {
+      throw new DriveRequestError(
+        `Failed to share file (${res.status})`,
+        res.status,
+      );
+    }
   });
-  if (!res.ok) {
-    throw new Error(`Failed to share file (${res.status})`);
-  }
 }
 
 export async function deleteFile(fileId: string) {
-  return window.gapi.client.drive.files.delete({ fileId });
+  return withDriveAuthRetry(() =>
+    window.gapi.client.drive.files.delete({ fileId }),
+  );
 }
 
 export interface PickedFile {
