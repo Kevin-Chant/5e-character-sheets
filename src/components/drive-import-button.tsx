@@ -13,7 +13,7 @@ export default function DriveImportButton() {
   return (
     <button
       className="margin-medium"
-      onClick={handleImport}
+      onClick={() => handleImport()}
       disabled={busy}
       title="Import a character shared with you"
     >

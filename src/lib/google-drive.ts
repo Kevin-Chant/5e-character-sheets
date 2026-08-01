@@ -269,7 +269,16 @@ export async function patchFileAppProperties(
 }
 
 // Grants a user write access to a file and emails them a notification.
-export async function shareFileByEmail(fileId: string, email: string) {
+//
+// `emailMessage` is the one part of that email we control: Drive renders it as
+// a personal note inside its own template. The template's button points at the
+// raw file in Drive, which is a JSON blob to a human — so the note is where the
+// link back into this app goes. Google linkifies a bare URL in it.
+export async function shareFileByEmail(
+  fileId: string,
+  email: string,
+  emailMessage?: string,
+) {
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?sendNotificationEmail=true`,
     {
@@ -282,6 +291,7 @@ export async function shareFileByEmail(fileId: string, email: string) {
         role: "writer",
         type: "user",
         emailAddress: email,
+        ...(emailMessage ? { emailMessage } : {}),
       }),
     },
   );
@@ -315,7 +325,15 @@ function loadPicker(): Promise<void> {
 // Picking a file is what grants this app drive.file (per-file) access to it —
 // shared-with-me files are otherwise invisible to our scopes. Resolves with the
 // selected files, or an empty array if the user cancels.
-export async function pickSharedCharacters(): Promise<PickedFile[]> {
+//
+// `query` prefills the Picker's search box. That is the whole mechanism behind
+// import links: the Picker has no "preselect this file id" API, so the closest
+// we can get to opening on one file is narrowing the list to its name. The user
+// still has to click it, and that click is what grants the access — which is
+// the point, not a limitation to route around.
+export async function pickSharedCharacters(
+  query?: string,
+): Promise<PickedFile[]> {
   await loadPicker();
   const token = window.gapi.client.getToken();
   if (!token) throw new Error("Not signed in to Google Drive.");
@@ -325,6 +343,7 @@ export async function pickSharedCharacters(): Promise<PickedFile[]> {
       .setOwnedByMe(false)
       .setIncludeFolders(false)
       .setSelectFolderEnabled(false);
+    if (query) view.setQuery(query);
 
     const picker = new google.picker.PickerBuilder()
       .setOAuthToken(token.access_token)

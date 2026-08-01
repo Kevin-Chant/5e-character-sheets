@@ -1,6 +1,7 @@
 import { useReducer, useState } from "react";
-import { FaShareNodes } from "react-icons/fa6";
+import { FaLink, FaShareNodes } from "react-icons/fa6";
 import Spinner from "src/components/spinner";
+import { copyToClipboard } from "src/lib/browser";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 
@@ -31,6 +32,18 @@ export default function DriveShareControls() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const importLink = datastore.getImportLink?.(character.uuid);
+
+  // Granting access and telling someone about it are the same act here — the
+  // email Drive sends carries this link. But that mail is easy to lose, so the
+  // link is copyable too; it opens the add-this-sheet flow for anyone who has
+  // already been granted access, and goes nowhere for anyone who hasn't.
+  const copyImportLink = () => {
+    if (!importLink) return;
+    copyToClipboard(importLink);
+    setStatus("Link copied — send it to someone you've already shared with.");
   };
 
   const handleShare = async (e: React.FormEvent) => {
@@ -72,23 +85,30 @@ export default function DriveShareControls() {
           )}
         </button>
       ) : (
-        <form className="row" onSubmit={handleShare}>
-          <input
-            type="email"
-            placeholder="Friend's email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button type="submit" disabled={busy || !email}>
-            {busy ? (
-              <>
-                Sharing <Spinner />
-              </>
-            ) : (
-              "Share with this email"
-            )}
-          </button>
-        </form>
+        <>
+          <form className="row" onSubmit={handleShare}>
+            <input
+              type="email"
+              placeholder="Friend's email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <button type="submit" disabled={busy || !email}>
+              {busy ? (
+                <>
+                  Sharing <Spinner />
+                </>
+              ) : (
+                "Share with this email"
+              )}
+            </button>
+          </form>
+          {importLink && (
+            <button className="link-button" onClick={copyImportLink}>
+              <FaLink /> Copy the link for people you&apos;ve shared with
+            </button>
+          )}
+        </>
       )}
       {status && <p className="margin-small">{status}</p>}
     </section>

@@ -86,6 +86,10 @@ export function navTitle(pathname: string, characterName?: string): string {
     case "/sheet":
       return characterName ?? "Character Select";
     default:
-      return pathname.startsWith("/join/") ? "Join a game" : "Home";
+      if (pathname.startsWith("/join/")) return "Join a game";
+      // The share email's link. Named for what it does rather than for the
+      // file it names, which the page itself is better placed to show.
+      if (pathname.startsWith("/import/")) return "Add a shared character";
+      return "Home";
   }
 }

@@ -20,8 +20,13 @@ import {
   EDITOR_PREFIX,
   SharePresenceSelf,
 } from "src/lib/share-presence";
+import {
+  importLinkFor,
+  pickerQueryFor,
+  shareEmailMessage,
+} from "src/lib/drive-import-link";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
-import { Character, Datastore } from "src/lib/types";
+import { Character, Datastore, ImportHint } from "src/lib/types";
 import { randomUUID } from "src/lib/browser";
 
 interface KnownFile {
@@ -220,7 +225,13 @@ const shareCharacter = async (uuid: UUID, email: string) => {
   if (!known?.shared) {
     throw new Error("Make the character shareable before sharing it.");
   }
-  await shareFileByEmail(known.fileId, email);
+  // Ride Drive's notification email rather than sending one of our own: the
+  // grant and the invitation are the same act, so there's nothing to keep in
+  // sync, and a hobby app with no backend has no way to send mail anyway. All
+  // we add is the note that points back here — see `drive-import-link`.
+  const link = importLinkFor(window.location.origin, known.fileId, known.name);
+  const name = localCache[uuid]?.name ?? "";
+  await shareFileByEmail(known.fileId, email, shareEmailMessage(name, link));
 };
 
 // Lets the user pick character documents shared with them (via the Google
@@ -228,8 +239,23 @@ const shareCharacter = async (uuid: UUID, email: string) => {
 // owner's Drive file — edits and live sessions go through that single source of
 // truth — and recorded in the appData index so they persist across reloads.
 // Returns the last imported character so the caller can open it.
-const importSharedCharacter = async (): Promise<Character | undefined> => {
-  const picked = await pickSharedCharacters();
+//
+// An import link passes the file it means as a `hint`. If we've already
+// imported that file the Picker never opens at all — a second click on the
+// same link is "open this character", not "import it again". Otherwise the
+// hint's name narrows the Picker to the one file, which is as close to
+// preselection as `drive.file` allows.
+const importSharedCharacter = async (
+  hint?: ImportHint,
+): Promise<Character | undefined> => {
+  if (hint?.fileId) {
+    const already = (Object.keys(importedIndex) as UUID[]).find(
+      (uuid) => importedIndex[uuid].fileId === hint.fileId,
+    );
+    if (already)
+      return localCache[already] ?? (await readThroughCache(already));
+  }
+  const picked = await pickSharedCharacters(pickerQueryFor(hint?.name));
   let imported: Character | undefined;
   for (const file of picked) {
     const contents = await getFileContents(file.id);
@@ -330,6 +356,11 @@ const GoogleDriveDatastore: Datastore = {
   },
   promoteCharacter,
   shareCharacter,
+  getImportLink: (uuid: UUID) => {
+    const known = knownFiles[uuid];
+    if (!known?.shared) return undefined;
+    return importLinkFor(window.location.origin, known.fileId, known.name);
+  },
   heartbeatSharePresence,
   clearSharePresence,
   importSharedCharacter,

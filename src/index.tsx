@@ -22,6 +22,7 @@ import { GoogleOauthContextProvider } from "./lib/hooks/use-google-oauth";
 import RemoteConnectionInitializer from "./components/remote-connection-initializer";
 import HostGame from "./routes/host-game";
 import JoinSession from "./routes/join-session";
+import ImportCharacter from "./routes/import-character";
 import SettingsAlias from "./routes/settings-alias";
 import { SettingsContextProvider } from "./lib/hooks/use-settings";
 import { SettingsPanelProvider } from "./lib/hooks/use-settings-panel";
@@ -111,6 +112,9 @@ const router = createBrowserRouter([
       // Manual entry of a character-sharing code, and where `/join/:code`
       // forwards one that turns out to be a shared sheet.
       { path: "/join", element: <RemoteConnectionInitializer /> },
+      // Where the Drive share email lands. The invite link for a *document*,
+      // as `/join/:code` is for a table.
+      { path: "/import/:fileId", element: <ImportCharacter /> },
       // Sessions used to be a page of its own, behind a nav icon; the front
       // door does that job now. Kept as a redirect for anyone holding the old
       // link (and for the muscle memory of the people who built it).

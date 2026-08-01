@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Character } from "src/lib/types";
+import { Character, ImportHint } from "src/lib/types";
 import { UUID } from "crypto";
 import { useDatastoreSelector } from "./use-datastore-selector";
 import { missingProvider } from "src/lib/missing-provider";
@@ -10,7 +10,7 @@ interface DatastoreContextData {
   save: (character: Character) => Promise<void>;
   load: (uuid: UUID) => Promise<Character | undefined>;
   createCharacter: () => Promise<Character | undefined>;
-  importCharacter: () => Promise<Character | undefined>;
+  importCharacter: (hint?: ImportHint) => Promise<Character | undefined>;
   deleteCharacter: (uuid: UUID) => void;
   // Put a character into the reactive list *now*, before any write confirms.
   // The entry is marked unsynced until a `save` for its uuid succeeds, so the
@@ -112,9 +112,11 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     return new Promise((resolve) => resolve(undefined));
   };
 
-  const importCharacter = async (): Promise<Character | undefined> => {
+  const importCharacter = async (
+    hint?: ImportHint,
+  ): Promise<Character | undefined> => {
     if (datastore?.importSharedCharacter) {
-      const character = await datastore.importSharedCharacter();
+      const character = await datastore.importSharedCharacter(hint);
       if (character) {
         setLocalCharacters((prev) => ({
           ...prev,

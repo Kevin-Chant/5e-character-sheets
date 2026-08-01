@@ -77,7 +77,7 @@ export default function NavOverflowMenu({
       key: "import-drive",
       icon: <FaCloudArrowDown />,
       label: "Import from Drive",
-      onClick: handleDriveImport,
+      onClick: () => handleDriveImport(),
       disabled: driveImportBusy,
       group: "primary" as const,
     },
