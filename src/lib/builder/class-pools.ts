@@ -1208,6 +1208,9 @@ export const RACE_POOLS: Record<
     detail: string;
     recharge: RestType;
     maxUses: CustomFormula;
+    // Total character level the pool first appears at (an aasimar subrace's
+    // 3rd-level transformation). Omitted means level 1.
+    minLevel?: number;
     mechanics?: (totalLevel: number) => FeatureMechanics;
     save?: SaveEffect;
   }
@@ -1259,6 +1262,93 @@ export const RACE_POOLS: Record<
     recharge: RestType.shortRest,
     maxUses: 1,
   },
+  "healing hands": {
+    detail:
+      "As an action, touch a creature to heal it a number of hit points equal to your level.",
+    recharge: RestType.longRest,
+    maxUses: 1,
+  },
+  "radiant soul": {
+    detail:
+      "As an action, sprout wings for 1 minute: a 30-foot fly speed and extra radiant damage equal to your level on one attack or spell each turn.",
+    recharge: RestType.longRest,
+    maxUses: 1,
+    minLevel: 3,
+  },
+  "radiant consumption": {
+    detail:
+      "As an action, unleash searing light for 1 minute: nearby creatures (and you) take radiant damage each turn, and one attack or spell each turn deals extra radiant damage equal to your level.",
+    recharge: RestType.longRest,
+    maxUses: 1,
+    minLevel: 3,
+  },
+  "necrotic shroud": {
+    detail:
+      "As an action, manifest skeletal wings for 1 minute: nearby foes must save against fright, and one attack or spell each turn deals extra necrotic damage equal to your level.",
+    recharge: RestType.longRest,
+    maxUses: 1,
+    minLevel: 3,
+  },
+  "hidden step": {
+    detail:
+      "As a bonus action, turn invisible until the start of your next turn or until you attack, cast a spell, or force a save.",
+    recharge: RestType.shortRest,
+    maxUses: 1,
+  },
+  "hungry jaws": {
+    detail:
+      "As a bonus action, make a special bite attack; on a hit you gain temporary hit points equal to your CON modifier.",
+    recharge: RestType.shortRest,
+    maxUses: 1,
+  },
+  "fury of the small": {
+    detail:
+      "When you damage a creature larger than you, deal extra damage equal to your level.",
+    recharge: RestType.shortRest,
+    maxUses: 1,
+  },
+  "saving face": {
+    detail:
+      "After missing an attack, save, or check, add a bonus (up to +5) equal to the number of allies you can see within 30 feet.",
+    recharge: RestType.shortRest,
+    maxUses: 1,
+  },
+  "grovel, cower, and beg": {
+    detail:
+      "As an action, cower to distract foes: allies gain advantage on attacks against enemies within 10 feet of you until the end of your turn.",
+    recharge: RestType.shortRest,
+    maxUses: 1,
+  },
+  "daunting roar": {
+    detail:
+      "As a bonus action, roar: nearby creatures of your choice must succeed on a Wisdom save or be frightened until the end of your next turn.",
+    recharge: RestType.shortRest,
+    maxUses: 1,
+  },
+  "rabbit hop": {
+    detail:
+      "As a bonus action, jump five times your proficiency bonus in feet without provoking opportunity attacks.",
+    recharge: RestType.longRest,
+    maxUses: PB,
+  },
+  shifting: {
+    detail:
+      "As a bonus action, shift for 1 minute: temporary hit points equal to twice your proficiency bonus, plus your shifter type's benefit.",
+    recharge: RestType.longRest,
+    maxUses: PB,
+  },
+  "fey step": {
+    detail:
+      "As a bonus action, teleport up to 30 feet to a space you can see. From 3rd level your season adds an extra effect.",
+    recharge: RestType.shortRest,
+    maxUses: 1,
+  },
+  "blessing of the raven queen": {
+    detail:
+      "As a bonus action, teleport up to 30 feet to a space you can see. From 3rd level you also gain resistance to all damage until the start of your next turn.",
+    recharge: RestType.longRest,
+    maxUses: 1,
+  },
 };
 
 // Racial innate spellcasting, keyed by the trait title that grants it. Each
@@ -1271,6 +1361,9 @@ interface InnateSpell {
   name: string;
   minLevel: number;
   atWill?: boolean;
+  // Recharge for the non-at-will spells; long rest unless stated (a firbolg's
+  // magic comes back on a short rest).
+  recharge?: RestType;
   note: string;
 }
 
@@ -1317,6 +1410,171 @@ export const RACE_INNATE_SPELLS: Record<string, InnateSpell[]> = {
       name: "Darkness",
       minLevel: 5,
       note: "Cast Darkness once per long rest without a spell slot (Charisma).",
+    },
+  ],
+  "light bearer": [
+    {
+      name: "Light",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Charisma): make an object shed bright light in a 20-foot radius for 1 hour.",
+    },
+  ],
+  "firbolg magic": [
+    {
+      name: "Detect Magic",
+      minLevel: 1,
+      recharge: RestType.shortRest,
+      note: "Cast Detect Magic once per short or long rest without a spell slot (Wisdom).",
+    },
+    {
+      name: "Disguise Self",
+      minLevel: 1,
+      recharge: RestType.shortRest,
+      note: "Cast Disguise Self once per short or long rest without a spell slot (Wisdom). You can seem up to 3 feet shorter than normal.",
+    },
+  ],
+  "control air and water": [
+    {
+      name: "Fog Cloud",
+      minLevel: 1,
+      note: "Cast Fog Cloud once per long rest without a spell slot (Charisma).",
+    },
+    {
+      name: "Gust of Wind",
+      minLevel: 3,
+      note: "Cast Gust of Wind once per long rest without a spell slot (Charisma).",
+    },
+    {
+      name: "Wall of Water",
+      minLevel: 5,
+      note: "Cast Wall of Water once per long rest without a spell slot (Charisma).",
+    },
+  ],
+  // Yuan-ti Pureblood's trait is titled just "Innate Spellcasting".
+  "innate spellcasting": [
+    {
+      name: "Poison Spray",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Charisma): a puff of poison gas, CON save or take poison damage.",
+    },
+    {
+      name: "Animal Friendship",
+      minLevel: 1,
+      atWill: true,
+      note: "Cast at will, targeting snakes only, without a spell slot (Charisma).",
+    },
+    {
+      name: "Suggestion",
+      minLevel: 3,
+      note: "Cast Suggestion once per long rest without a spell slot (Charisma).",
+    },
+  ],
+  "mingle with the wind": [
+    {
+      name: "Levitate",
+      minLevel: 1,
+      note: "Cast Levitate on yourself once per long rest without a spell slot or material components (Constitution).",
+    },
+  ],
+  "merge with stone": [
+    {
+      name: "Pass Without Trace",
+      minLevel: 1,
+      note: "Cast Pass Without Trace once per long rest without a spell slot or material components (Constitution).",
+    },
+  ],
+  "reach to the blaze": [
+    {
+      name: "Produce Flame",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Constitution): a flame in your hand for light or a thrown attack.",
+    },
+    {
+      name: "Burning Hands",
+      minLevel: 3,
+      note: "Cast Burning Hands once per long rest without a spell slot (Constitution).",
+    },
+  ],
+  "call to the wave": [
+    {
+      name: "Shape Water",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Constitution): move or reshape a small body of water.",
+    },
+    {
+      name: "Create or Destroy Water",
+      minLevel: 3,
+      note: "Cast Create or Destroy Water as a 2nd-level spell once per long rest without a spell slot (Constitution).",
+    },
+  ],
+  "githyanki psionics": [
+    {
+      name: "Mage Hand",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Intelligence): the hand is invisible. No components needed.",
+    },
+    {
+      name: "Jump",
+      minLevel: 3,
+      note: "Cast Jump once per long rest without a spell slot or components (Intelligence).",
+    },
+    {
+      name: "Misty Step",
+      minLevel: 5,
+      note: "Cast Misty Step once per long rest without a spell slot or components (Intelligence).",
+    },
+  ],
+  "githzerai psionics": [
+    {
+      name: "Mage Hand",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Wisdom): the hand is invisible. No components needed.",
+    },
+    {
+      name: "Shield",
+      minLevel: 3,
+      note: "Cast Shield once per long rest without a spell slot or components (Wisdom).",
+    },
+    {
+      name: "Detect Thoughts",
+      minLevel: 5,
+      note: "Cast Detect Thoughts once per long rest without a spell slot or components (Wisdom).",
+    },
+  ],
+  "fairy magic": [
+    {
+      name: "Druidcraft",
+      minLevel: 1,
+      atWill: true,
+      note: "At-will cantrip (Int, Wis, or Cha — chosen with the race): small nature-themed sensory wonders.",
+    },
+    {
+      name: "Faerie Fire",
+      minLevel: 3,
+      note: "Cast Faerie Fire once per long rest without a spell slot (your chosen ability).",
+    },
+    {
+      name: "Enlarge/Reduce",
+      minLevel: 5,
+      note: "Cast Enlarge/Reduce once per long rest without a spell slot (your chosen ability).",
+    },
+  ],
+  "duergar magic": [
+    {
+      name: "Enlarge/Reduce",
+      minLevel: 3,
+      note: "Cast Enlarge/Reduce (enlarge only) on yourself once per long rest without a spell slot or material components (Intelligence). Not castable in direct sunlight.",
+    },
+    {
+      name: "Invisibility",
+      minLevel: 5,
+      note: "Cast Invisibility on yourself once per long rest without a spell slot or material components (Intelligence). Not castable in direct sunlight.",
     },
   ],
 };
@@ -1394,6 +1652,9 @@ export function syncRacePools(char: Character, traitTitles: string[]): void {
   for (const title of traitTitles) {
     const def = RACE_POOLS[normalizeTitle(title)];
     if (!def) continue;
+    // Level-gated pools (an aasimar's 3rd-level transformation) appear on the
+    // level-up that reaches them, exactly as innate-spell tiers below do.
+    if (totalLevel < (def.minLevel ?? 1)) continue;
     const mechanics = def.mechanics?.(totalLevel);
     const existing = findPool(char, title);
     if (existing) {
@@ -1436,7 +1697,7 @@ export function syncRacePools(char: Character, traitTitles: string[]): void {
           detailFormulas: [],
         },
         maxUses: spell.atWill ? 0 : 1,
-        recharge: RestType.longRest,
+        recharge: spell.recharge ?? RestType.longRest,
         expended: 0,
       });
     }

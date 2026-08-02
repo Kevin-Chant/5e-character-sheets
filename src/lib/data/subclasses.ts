@@ -32,9 +32,9 @@ import { SUBCLASS_FEATURES } from "src/lib/data/subclass-features";
 // not done here — those live in `builder/class-pools.ts` `SUBCLASS_POOLS`,
 // keyed by subclass name, so their sizes re-derive on every level-up. As
 // elsewhere, we store only mechanical facts and write original short summaries,
-// never published prose. `spellIndices` reference the bundled SRD spell
-// catalog; spells absent from the SRD are named in a feature detail instead of
-// auto-added.
+// never published prose. `spellIndices` reference the full bundled catalog
+// (SRD + non-SRD); an index that doesn't resolve is silently skipped, so a
+// spell still missing from the catalog just isn't handed out.
 
 // Helper to keep entries terse. index is derived from class + name.
 const slug = (s: string) =>
@@ -151,16 +151,29 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Spirits",
       summary:
         "Tell tales guided by spirits, dealing randomized thematic effects.",
+      // Guiding Whispers: the Guidance cantrip, usable at a 60-foot range.
+      grants: { spellIndices: ["guidance"] },
     },
     {
       name: "Swords",
       summary:
         "A blade-dancing performer who fights with flourishes and martial skill.",
+      // The fighting style (Dueling or Two-Weapon Fighting) is offered by
+      // `fightingStyleDueAt`, not granted here.
+      grants: {
+        proficiencies: { armor: ["Medium Armor"], weapons: ["Scimitar"] },
+      },
     },
     {
       name: "Valor",
       summary:
         "An inspiring skald who bolsters allies and holds their own in melee.",
+      grants: {
+        proficiencies: {
+          armor: ["Medium Armor", "Shields"],
+          weapons: ["Martial Weapons"],
+        },
+      },
     },
     {
       name: "Whispers",
@@ -216,7 +229,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
       summary:
         "A radiant cleric who wards allies with flares and burns foes with fire.",
       grants: {
-        spellIndices: ["burning-hands", "faerie-fire"],
+        // Bonus Cantrip's Light rides along with the domain spells.
+        spellIndices: ["burning-hands", "faerie-fire", "light"],
         features: [
           {
             title: "Bonus Cantrip",
@@ -315,8 +329,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
         "A smith-priest who blesses arms and armor with heavy armor and tool skill.",
       grants: {
         proficiencies: { armor: ["Heavy Armor"], tools: ["Smith's Tools"] },
-        // Searing Smite isn't in the SRD catalog, so only Identify auto-adds.
-        spellIndices: ["identify"],
+        spellIndices: ["identify", "searing-smite"],
         features: [
           {
             title: "Blessing of the Forge",
@@ -331,7 +344,9 @@ export const SUBCLASSES: CatalogSubclass[] = [
       summary:
         "A tender of the boundary between life and death, magnifying healing and marking foes.",
       grants: {
-        spellIndices: ["bane", "false-life"],
+        // Circle of Mortality's Spare the Dying rides along with the domain
+        // spells (its bonus-action/30-foot upgrades stay in the prose).
+        spellIndices: ["bane", "false-life", "spare-the-dying"],
         features: [
           {
             title: "Circle of Mortality",
@@ -407,6 +422,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
           },
         ],
       },
+      // Eyes of Night's own 300-foot darkvision (sharing it stays prose).
+      levelEffects: { 1: { senses: { darkvision: 300 } } },
     },
     {
       name: "Arcana",
@@ -488,6 +505,10 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Banneret",
       summary:
         "A rallying knight (Purple Dragon Knight) who inspires and shields comrades.",
+      // Royal Envoy's Persuasion, arriving at 7th — past the choice level, so
+      // it rides `levelEffects` rather than `grants`. Its expertise clause and
+      // the already-proficient fallback stay in the feature prose.
+      levelEffects: { 7: { skills: [SkillName.Persuasion] } },
     },
     {
       name: "Battle Master",
@@ -542,6 +563,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
     {
       name: "Rune Knight",
       summary: "Inscribe giant runes to grow in size and gain magical boons.",
+      // Bonus Proficiencies; the Giant language is named in the prose.
+      grants: { proficiencies: { tools: ["Smith's Tools"] } },
     },
     {
       name: "Samurai",
@@ -578,6 +601,12 @@ export const SUBCLASSES: CatalogSubclass[] = [
     {
       name: "Drunken Master",
       summary: "A staggering, unpredictable fighter who flows between foes.",
+      grants: {
+        proficiencies: {
+          skills: [SkillName.Performance],
+          tools: ["Brewer's Supplies"],
+        },
+      },
     },
     {
       name: "Four Elements",
@@ -596,6 +625,13 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Mercy",
       summary:
         "A wandering medic who heals with one hand and harms with the other.",
+      // Implements of Mercy.
+      grants: {
+        proficiencies: {
+          skills: [SkillName.Insight, SkillName.Medicine],
+          tools: ["Herbalism Kit"],
+        },
+      },
     },
     {
       name: "Open Hand",
@@ -615,6 +651,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Shadow",
       summary:
         "A ninja-like monk who bends shadow for stealth and teleportation.",
+      // Shadow Arts: Minor Illusion; the ki-cast spells stay in the prose.
+      grants: { spellIndices: ["minor-illusion"] },
     },
     {
       name: "Sun Soul",
@@ -699,13 +737,29 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Fey Wanderer",
       summary:
         "A charming, fey-touched hunter with extra psychic damage and social magic.",
+      // Otherworldly Glamour's skill pick.
+      grants: {
+        skillChoices: {
+          choose: 1,
+          from: [
+            SkillName.Deception,
+            SkillName.Performance,
+            SkillName.Persuasion,
+          ],
+        },
+      },
     },
     {
       name: "Gloom Stalker",
       summary:
         "An ambusher of the dark, striking hard from unseen and dread-inducing.",
-      // Dread Ambusher's initiative bonus — the rest of the feature is prose.
-      levelEffects: { 3: { initiativeAbility: StatKey.wis } },
+      // Dread Ambusher's initiative bonus and Umbral Sight's darkvision (its
+      // +30 for existing darkvision can't be modeled — 60 is the floor), then
+      // Iron Mind's Wisdom saves at 7th.
+      levelEffects: {
+        3: { initiativeAbility: StatKey.wis, senses: { darkvision: 60 } },
+        7: { savingThrows: [StatKey.wis] },
+      },
     },
     {
       name: "Horizon Walker",
@@ -740,10 +794,16 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Arcane Trickster",
       summary:
         "A magical thief blending enchantment and illusion with sneak attacks.",
+      // Spellcasting's fixed cantrip; the chosen cantrips and spells arrive
+      // through the level-up wizard like any other learned spell.
+      grants: { spellIndices: ["mage-hand"] },
     },
     {
       name: "Assassin",
       summary: "A killer who excels at disguise and lethal surprise strikes.",
+      grants: {
+        proficiencies: { tools: ["Disguise Kit", "Poisoner's Kit"] },
+      },
     },
     {
       name: "Inquisitive",
@@ -753,6 +813,11 @@ export const SUBCLASSES: CatalogSubclass[] = [
     {
       name: "Mastermind",
       summary: "A schemer of intrigue who aids allies and mimics others.",
+      // Master of Intrigue's fixed kits; the gaming set and two languages are
+      // choices, named in the feature prose.
+      grants: {
+        proficiencies: { tools: ["Disguise Kit", "Forgery Kit"] },
+      },
     },
     {
       name: "Phantom",
@@ -762,6 +827,10 @@ export const SUBCLASSES: CatalogSubclass[] = [
     {
       name: "Scout",
       summary: "A skirmisher of the wilds, mobile and hard to pin down.",
+      // Survivalist: both skills, with expertise, no choice.
+      grants: {
+        expertiseSkills: [SkillName.Nature, SkillName.Survival],
+      },
     },
     {
       name: "Soulknife",
@@ -865,6 +934,9 @@ export const SUBCLASSES: CatalogSubclass[] = [
               "You learn extra spells tied to lunar phases and gain the Sacred Flame cantrip. As a bonus action you can shift between a full-, new-, or crescent-moon phase.",
           },
         ],
+        // Sacred Flame; the Lunar Embodiment tiers live in the sorcerer
+        // subclass-spells table.
+        spellIndices: ["sacred-flame"],
       },
     },
     {
@@ -888,6 +960,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
         // online at 3rd level, not at the level-1 subclass pick.
         spellIndicesByLevel: { 3: ["darkness"] },
       },
+      // Eyes of the Dark's own 120-foot darkvision.
+      levelEffects: { 1: { senses: { darkvision: 120 } } },
     },
     {
       name: "Storm Sorcery",
@@ -991,6 +1065,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
               "You have a pool of d6s (1 + your warlock level) you can spend as a bonus action to heal a creature within 60 feet, refreshed on a long rest.",
           },
         ],
+        spellIndices: ["light", "sacred-flame"],
       },
     },
     {
@@ -1011,6 +1086,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
           },
         ],
       },
+      // Gift of the Sea's swimming speed.
+      levelEffects: { 1: { speeds: { swim: 40 } } },
     },
     {
       name: "Fiend",
@@ -1102,6 +1179,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
               "You learn the Spare the Dying cantrip (cast at range), have advantage on saves against disease, and undead have trouble harming you unless they best your will.",
           },
         ],
+        spellIndices: ["spare-the-dying"],
       },
     },
   ]),
@@ -1138,9 +1216,12 @@ export const SUBCLASSES: CatalogSubclass[] = [
       summary:
         "An elven duelist who weaves spellcraft and swordplay into one graceful defence.",
       grants: {
-        // Training in War and Song also grants one one-handed melee weapon and
-        // Performance proficiency, chosen by the player (named in the feature).
-        proficiencies: { armor: ["Light Armor"] },
+        // Training in War and Song: the one-handed melee weapon is the player's
+        // choice (named in the feature); armor and Performance are fixed.
+        proficiencies: {
+          armor: ["Light Armor"],
+          skills: [SkillName.Performance],
+        },
       },
     },
     {
@@ -1172,11 +1253,15 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Illusion",
       summary:
         "A trickster who blurs what is real, sometimes hard enough to make it so.",
+      // Improved Minor Illusion (the already-know-it fallback is a manual pick).
+      grants: { spellIndices: ["minor-illusion"] },
     },
     {
       name: "Necromancy",
       summary:
         "A death-caster who drains life from the slain and commands the risen.",
+      // Undead Thralls adds Animate Dead to the spellbook at 6th.
+      grants: { spellIndicesByLevel: { 6: ["animate-dead"] } },
     },
     {
       name: "Order of Scribes",
@@ -1187,6 +1272,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Transmutation",
       summary:
         "A shaper of matter who reworks objects, stone, and eventually their own body.",
+      // Shapechanger adds Polymorph to the spellbook at 10th.
+      grants: { spellIndicesByLevel: { 10: ["polymorph"] } },
     },
     {
       name: "War Magic",
@@ -1196,22 +1283,35 @@ export const SUBCLASSES: CatalogSubclass[] = [
   ]),
   // --------------------------------------------------------------- Artificer
   ...forClass("artificer", [
+    // Each specialist's "already proficient" fallback (a different artisan's
+    // tool) is a manual pick; the fixed grant is what lands here.
     {
       name: "Alchemist",
       summary: "Brew experimental elixirs that heal, harm, and enhance.",
+      grants: { proficiencies: { tools: ["Alchemist's Supplies"] } },
     },
     {
       name: "Armorer",
       summary:
         "Wear arcane power armor configured for defense or infiltration.",
+      grants: {
+        proficiencies: { armor: ["Heavy Armor"], tools: ["Smith's Tools"] },
+      },
     },
     {
       name: "Artillerist",
       summary: "Deploy an eldritch cannon that blasts, protects, or defends.",
+      grants: { proficiencies: { tools: ["Woodcarver's Tools"] } },
     },
     {
       name: "Battle Smith",
       summary: "Fight alongside a loyal steel defender construct.",
+      grants: {
+        proficiencies: {
+          weapons: ["Martial Weapons"],
+          tools: ["Smith's Tools"],
+        },
+      },
     },
   ]),
 ];

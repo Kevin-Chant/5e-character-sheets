@@ -435,6 +435,40 @@ describe("syncRacePools", () => {
     expect(c.limitedUseAbilities).toHaveLength(1);
     expect(breathDice(c)).toBe(4);
   });
+
+  it("withholds level-gated pools until the character reaches them (Radiant Soul)", () => {
+    const c = blank();
+    c.class = [klass(OfficialClass.Fighter, 1)];
+    syncRacePools(c, ["Radiant Soul"]);
+    expect(titles(c)).toEqual([]);
+    c.class[0].level = 3;
+    syncRacePools(c, ["Radiant Soul"]);
+    expect(pool(c, "Radiant Soul").recharge).toBe(RestType.longRest);
+  });
+
+  it("innate-spell hosts carry their own recharge (Firbolg Magic on a short rest)", () => {
+    const c = blank();
+    c.class = [klass(OfficialClass.Druid, 1)];
+    syncRacePools(c, ["Firbolg Magic", "Hidden Step"]);
+    expect(titles(c)).toEqual(
+      expect.arrayContaining(["Detect Magic", "Disguise Self", "Hidden Step"]),
+    );
+    expect(pool(c, "Detect Magic").recharge).toBe(RestType.shortRest);
+    expect(pool(c, "Hidden Step").recharge).toBe(RestType.shortRest);
+  });
+
+  it("unlocks innate tiers as total level rises (Githyanki Psionics)", () => {
+    const c = blank();
+    c.class = [klass(OfficialClass.Fighter, 1)];
+    syncRacePools(c, ["Githyanki Psionics"]);
+    expect(titles(c)).toEqual(["Mage Hand"]);
+    expect(pool(c, "Mage Hand").maxUses).toBe(0); // at will
+    c.class[0].level = 5;
+    syncRacePools(c, ["Githyanki Psionics", ...titles(c)]);
+    expect(titles(c)).toEqual(
+      expect.arrayContaining(["Mage Hand", "Jump", "Misty Step"]),
+    );
+  });
 });
 
 describe("builder integration", () => {

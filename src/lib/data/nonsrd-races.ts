@@ -8,9 +8,11 @@ import { CatalogRace } from "src/lib/builder/types";
 //
 // As with `phb-subraces.ts`, only mechanical facts are stored (ability bonuses,
 // speed, proficiencies, the *names* of racial traits) and the trait details are
-// original short summaries, never the published prose. Racial spellcasting is
-// described in trait text rather than auto-added to the sheet — consistent with
-// how the SRD High Elf's cantrip is handled today.
+// original short summaries, never the published prose. Fixed racial
+// spellcasting becomes limited-use abilities via `RACE_INNATE_SPELLS` (and
+// once-per-rest traits via `RACE_POOLS`) in `builder/class-pools.ts`, keyed by
+// the trait title — so a title edit here silently drops the grant. Chosen
+// cantrips (the SRD High Elf's) stay wizard choices.
 //
 // A few post-2020 races (Fairy, Harengon, Owlin) only ever printed fully
 // "floating" ability increases. We seed a thematic default here; the builder's

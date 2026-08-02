@@ -60,6 +60,9 @@ export function applyLevelEffects(
   for (const stat of effects.savingThrows ?? [])
     char.proficiencies.savingThrows[stat] = true;
 
+  for (const skill of effects.skills ?? [])
+    char.proficiencies.skills[skill] = true;
+
   const damage =
     effects.resistances ?? effects.immunities ?? effects.vulnerabilities;
   if (damage) {

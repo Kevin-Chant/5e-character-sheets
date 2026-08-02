@@ -219,6 +219,10 @@ function applySubclassGrant(
     ];
   for (const skill of grant.proficiencies?.skills ?? [])
     char.proficiencies.skills[skill] = true;
+  for (const skill of grant.expertiseSkills ?? []) {
+    char.proficiencies.skills[skill] = true;
+    char.proficiencies.expertise[skill] = true;
+  }
   for (const f of grant.features ?? [])
     char.features.push(text(f.title, f.detail));
   for (const index of grant.spellIndices ?? [])

@@ -181,6 +181,9 @@ export function fightingStyleDueAt(
   // Champion's Additional Fighting Style — a second pick at 10th level.
   if (oc === OfficialClass.Fighter && subclass === "Champion" && level === 10)
     return FIGHTING_STYLES.map((s) => s.name);
+  // College of Swords — a style at the choice level, from a two-entry list.
+  if (oc === OfficialClass.Bard && subclass === "Swords" && level === 3)
+    return ["Dueling", "Two-Weapon Fighting"];
   return undefined;
 }
 

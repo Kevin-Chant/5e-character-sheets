@@ -23,6 +23,8 @@ export const WARLOCK_SUBCLASS_SPELLS: SubclassSpellTable = {
     5: ["lightning-bolt", "sleet-storm"],
     7: ["control-water", "summon-elemental"],
     9: ["bigbys-hand", "cone-of-cold"],
+    // Grasping Tentacles: Evard's Black Tentacles, always known.
+    10: ["black-tentacles"],
   },
   Fiend: {
     1: ["burning-hands", "command"],
@@ -36,7 +38,10 @@ export const WARLOCK_SUBCLASS_SPELLS: SubclassSpellTable = {
     3: ["phantasmal-force"],
     5: ["create-food-and-water"],
     7: ["phantasmal-killer"],
-    9: ["creation", "wish"],
+    9: ["creation"],
+    // Wish sits on the expanded list at *spell* level 9 — reachable only as
+    // the 9th-level Mystic Arcanum, so it lands at warlock 17, not 9.
+    17: ["wish"],
   },
   "Great Old One": {
     1: ["dissonant-whispers", "hideous-laughter"],

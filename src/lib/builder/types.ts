@@ -115,6 +115,9 @@ export interface CatalogClass {
 export interface LevelEffects {
   // Saving-throw proficiencies gained outright (a monk's Diamond Soul).
   savingThrows?: StatKey[];
+  // Skill proficiencies gained outright at a level *after* the subclass choice
+  // (a Banneret's Persuasion at 7th) — `grants` can't reach those levels.
+  skills?: SkillName[];
   // Damage resistances / immunities gained (Storm Sorcery's Heart of the
   // Storm). Strings, matching `DamageModifiers` — `DamageType` values are the
   // convention, but the field is free-text on the sheet.
@@ -167,6 +170,10 @@ export interface CatalogSubclass {
     // proficiency bonus for the chosen skills (Knowledge Domain). The picks live
     // in `LevelChoices.subclassSkillChoices`.
     skillChoices?: { choose: number; from: SkillName[]; expertise?: boolean };
+    // Fixed skills granted *with expertise*, no choice involved (a Scout's
+    // Nature and Survival). Distinct from `proficiencies.skills`, which grants
+    // the proficiency alone.
+    expertiseSkills?: SkillName[];
   };
   // Feature prose the subclass grants **at each level**, keyed by class level —
   // the subclass counterpart to `CLASS_FEATURES`. `grants` fires only once, at

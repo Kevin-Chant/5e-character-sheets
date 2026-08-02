@@ -120,6 +120,70 @@ describe("applyLevelUp — subclass choice with grants", () => {
   });
 });
 
+describe("applyLevelUp — grants from the wikidot verification pass", () => {
+  it("Illusion wizard learns Minor Illusion when choosing the school at 2nd", () => {
+    const char = level1("wizard");
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Wizard",
+      subclass: "Illusion",
+    });
+    expect(leveled.spells[0]?.map((s) => s.info.title)).toContain(
+      "Minor Illusion",
+    );
+  });
+
+  it("Necromancy's Animate Dead lands at 6th, long after the choice level", () => {
+    const char = level1("wizard");
+    char.class[0].level = 5;
+    char.class[0].subclass = "Necromancy";
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Wizard",
+    });
+    expect(leveled.spells[3]?.map((s) => s.info.title)).toContain(
+      "Animate Dead",
+    );
+  });
+
+  it("Scout's Survivalist grants both skills with expertise, no choice", () => {
+    const char = level1("rogue");
+    char.class[0].level = 2;
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Rogue",
+      subclass: "Scout",
+    });
+    expect(leveled.proficiencies.skills[SkillName.Nature]).toBe(true);
+    expect(leveled.proficiencies.expertise[SkillName.Nature]).toBe(true);
+    expect(leveled.proficiencies.expertise[SkillName.Survival]).toBe(true);
+  });
+
+  it("Banneret's Royal Envoy grants Persuasion at 7th via levelEffects", () => {
+    const char = level1("fighter");
+    char.class[0].level = 6;
+    char.class[0].subclass = "Banneret";
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Fighter",
+    });
+    expect(leveled.proficiencies.skills[SkillName.Persuasion]).toBe(true);
+  });
+
+  it("College of Swords grants medium armor and offers its fighting style", () => {
+    const char = level1("bard");
+    char.class[0].level = 2;
+    const leveled = applyLevelUp(char, {
+      ...defaultLevelUpState(char),
+      className: "Bard",
+      subclass: "Swords",
+      fightingStyle: "Dueling",
+    });
+    expect(leveled.otherProficiencies.armor[ArmorType.Medium]).toBe(true);
+    expect(leveled.features.map((f) => f.title)).toContain("Dueling");
+  });
+});
+
 describe("applyLevelUp — multiclassing", () => {
   it("adds a new class entry and registers spellcasting", () => {
     const char = level1("fighter");
