@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import classNames from "classnames";
 import { FaCampground, FaFileLines } from "react-icons/fa6";
+import GoogleDriveDatastore from "src/datastores/google-drive-datastore";
+import LocalDatastore from "src/datastores/local-datastore";
+import { ensureDriveToken } from "src/lib/google-auth";
+import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
+import { readLastDatastore } from "src/lib/last-datastore";
 import { useRest } from "src/lib/hooks/use-rest";
 import { calculateCustomFormula } from "src/lib/formula";
 import { useCharacter } from "src/lib/hooks/use-character";
@@ -50,6 +55,28 @@ const PLAY_EDIT_MODE = {
 
 export default function PlaySurface() {
   const { character } = useCharacter();
+  const { datastore, setDatastore } = useDatastoreSelector();
+
+  // The nav's character drawer is gated on a selected datastore, and the
+  // "no sheet" copy below points at it — but a joiner arrives here through
+  // /join/<code>, which never passes through the surfaces that re-select the
+  // remembered backend (home, or the sheet's cold-start bootstrap). Re-adopt
+  // it here the same way the sheet does: local instantly, Drive only if it
+  // resumes silently. No /auth detour and no bounce home — a seat at the
+  // table with no storage at all is a real state, not a half-loaded page.
+  const driveBootStarted = useRef(false);
+  useEffect(() => {
+    if (datastore) return;
+    const mode = readLastDatastore();
+    if (mode === "local") {
+      setDatastore(LocalDatastore);
+    } else if (mode === "drive" && !driveBootStarted.current) {
+      driveBootStarted.current = true;
+      void ensureDriveToken().then((ok) => {
+        if (ok) setDatastore(GoogleDriveDatastore);
+      });
+    }
+  }, [datastore]);
   const {
     sessionStatus,
     isDm,
@@ -236,9 +263,12 @@ export default function PlaySurface() {
                   </>
                 ) : pendingAssignment ? null : ( // the prompt above is the whole story
                   <p className="text-muted">
-                    You&apos;re at the table without a character. Open one from
-                    the sidebar to play it, or wait for your DM to offer you one
-                    or hand one to you.
+                    {/* Only point at the sidebar when the drawer button is
+                      actually in the nav — it's gated on a selected datastore,
+                      and a joiner with no storage doesn't have one. */}
+                    {datastore
+                      ? "You're at the table without a character. Open one from the sidebar to play it, or wait for your DM to offer you one or hand one to you."
+                      : "You're at the table without a character. Your DM can offer you one or hand one to you right here."}
                   </p>
                 )}
               </div>
