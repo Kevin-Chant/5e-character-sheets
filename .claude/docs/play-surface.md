@@ -402,7 +402,7 @@ The lanes, and what each one earned its counter for:
   before the fix. A deliberate release carries a newer `seatRev` and still
   wins — the guard is against ignorance, not intent.
 - **Participant rows are five lanes**: `identityRev` (name, ownership, offer,
-  hidden), `vitalsRev` (the projection, with the guard that a copy holding no
+  hidden, side), `vitalsRev` (the projection, with the guard that a copy holding no
   vitals can't win the lane), `statusRev` (conditions + concentration),
   `initiativeRev`, `economyRev` (spent). Split this finely because each pair
   has a real author pair behind it — DM damage vs player concentration, DM
@@ -727,6 +727,13 @@ per-recipient copies exist), it just isn't drawn — real secrets never enter
 the encounter at all. Anyone holding the run-combat controls still sees
 hidden rows, so an unclaimed-seat table can't end up fighting ghosts.
 
+**Sides** — every DM row also carries a Foe/Party chip (`Participant.side`,
+identity lane, `setSide`): the grouping the players' target strip and the
+dialog's pickers read via `isFoe`. It defaults from the no-sheet-means-foe
+heuristic and exists because that heuristic misses both ways (a hand-typed
+NPC ally, a sheet-backed villain) — and because sides change mid-fight.
+Advisory grouping only: anyone can still target anyone.
+
 **The sharing dial** (`Encounter.sharing`, DM-set, defaulting to
 `bloodied-enemies`): how much health players see of each other and the
 monsters. Four levels — open numbers / bloodied enemies / bloodied everyone /
@@ -844,8 +851,8 @@ to rule on them. The order is now **target first, then dice**:
 - **The target is remembered** (`lastTargetId`, local to the browser), so a
   second swing at the same goblin needs no second pick — and it can be set
   _before_ any attack from the **target strip** (`target-strip.tsx`): a
-  standing row of foe chips (rows with no character sheet behind them,
-  `isDmCreature`) between the play header and the board, each showing the
+  standing row of foe chips (`isFoe`: the DM's explicit `side` if set, else
+  no-sheet-means-foe) between the play header and the board, each showing the
   shared-vitals read and conditions, one tap making it your target. The roll
   dialog's single-target select groups by the same split (Enemies above
   Party; healing reverses the order).

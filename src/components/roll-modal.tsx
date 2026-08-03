@@ -54,7 +54,7 @@ import { conditionRollNotes } from "src/lib/play/conditions";
 import { OutgoingRoll, ReportedDamage, RollStage } from "src/lib/play/reports";
 import { calculateCustomFormula } from "src/lib/formula";
 import { RollRequest } from "src/lib/hooks/use-roller";
-import { isDmCreature, Participant } from "src/lib/play/encounter";
+import { isFoe, Participant } from "src/lib/play/encounter";
 import {
   AttackContext,
   applicableRiders,
@@ -346,11 +346,8 @@ function useTargeting(exchangeId: string, isAttack: boolean, multi: boolean) {
   );
   // The goblins above the party: the picker groups by side so eight rows of
   // mixed friends and monsters read as a choice rather than a roster dump.
-  const foes = useMemo(() => targets.filter(isDmCreature), [targets]);
-  const party = useMemo(
-    () => targets.filter((t) => !isDmCreature(t)),
-    [targets],
-  );
+  const foes = useMemo(() => targets.filter(isFoe), [targets]);
+  const party = useMemo(() => targets.filter((t) => !isFoe(t)), [targets]);
   const enabled = isAttack && reportsEnabled && targets.length > 0;
   // The last thing this player swung at, which in a fight is very often the
   // next thing too. Dropped if it has left the order.

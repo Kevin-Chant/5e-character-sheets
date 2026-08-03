@@ -25,6 +25,8 @@ import {
   setVitals,
   startCombat,
   visibleParticipants,
+  isFoe,
+  setSide,
   vitalsVisibility,
 } from "src/lib/play/encounter";
 
@@ -433,6 +435,41 @@ describe("staging hidden combatants", () => {
     const encounter = setHidden(roster(), "c", true);
     expect(setHidden(encounter, "c", true)).toBe(encounter);
     expect(setHidden(encounter, "ghost", true)).toBe(encounter);
+  });
+});
+
+describe("which side a row fights for", () => {
+  it("reads a sheetless row as a foe and a sheet-backed one as party", () => {
+    const encounter = roster();
+    const goblin = encounter.participants.find((p) => p.id === "c")!;
+    expect(isFoe(goblin)).toBe(true);
+    expect(isFoe({ ...goblin, characterUuid: "0-0-0-0-0" as never })).toBe(
+      false,
+    );
+  });
+
+  it("lets the DM's explicit side override the heuristic both ways", () => {
+    let encounter = roster();
+    // The hand-typed NPC ally, and the villain with a full sheet.
+    encounter = setSide(encounter, "c", "party");
+    const ally = encounter.participants.find((p) => p.id === "c")!;
+    expect(isFoe(ally)).toBe(false);
+    expect(
+      isFoe({
+        ...ally,
+        side: "foe",
+        characterUuid: "0-0-0-0-0" as never,
+      }),
+    ).toBe(true);
+  });
+
+  it("writes on the identity lane, and no-ops on a repeat or a ghost", () => {
+    const encounter = setSide(roster(), "c", "party");
+    expect(encounter.participants.find((p) => p.id === "c")?.identityRev).toBe(
+      1,
+    );
+    expect(setSide(encounter, "c", "party")).toBe(encounter);
+    expect(setSide(encounter, "ghost", "party")).toBe(encounter);
   });
 });
 

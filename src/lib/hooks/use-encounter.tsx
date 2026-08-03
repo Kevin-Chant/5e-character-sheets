@@ -49,6 +49,7 @@ import {
   reseatParticipant,
   setConcentration,
   setHidden,
+  setSide,
   setHideDeathSaves,
   setInitiative,
   setSharing,
@@ -189,6 +190,9 @@ export interface EncounterContextData {
   fallen: Participant[];
   // Stage or reveal a combatant. Hidden rows don't render on player clients.
   setCombatantHidden: (id: string, hidden: boolean) => void;
+  // Which side a row fights for — the grouping the target pickers and the
+  // players' target strip read. Overrides the no-sheet-means-foe heuristic.
+  setCombatantSide: (id: string, side: "party" | "foe") => void;
   setCombatantInitiative: (id: string, initiative: number) => void;
 
   setSlotSpent: (id: string, slot: EconomySlot, spent: boolean) => void;
@@ -300,6 +304,7 @@ export const NO_ENCOUNTER: EncounterContextData = {
   clearFallen: NOOP,
   fallen: [],
   setCombatantHidden: NOOP,
+  setCombatantSide: NOOP,
   setCombatantInitiative: NOOP,
   setSlotSpent: NOOP,
   setCombatantVitals: NOOP,
@@ -900,6 +905,8 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       fallen: fallenParticipants(encounter),
       setCombatantHidden: (id, hidden) =>
         update((current) => setHidden(current, id, hidden)),
+      setCombatantSide: (id, side) =>
+        update((current) => setSide(current, id, side)),
       // Re-seats mid-combat: editing a number is declaring where the row acts,
       // so the row moves there (and whoever is acting keeps acting).
       setCombatantInitiative: (id, initiative) =>

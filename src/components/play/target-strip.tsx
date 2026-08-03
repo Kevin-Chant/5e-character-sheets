@@ -1,7 +1,7 @@
 import classNames from "classnames";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { useTableTalk } from "src/lib/hooks/use-table-talk";
-import { isDmCreature } from "src/lib/play/encounter";
+import { isFoe } from "src/lib/play/encounter";
 import { SharedVitals } from "./initiative-rail";
 
 // The opposition, as a standing row of chips — the answer to "who can I
@@ -16,10 +16,10 @@ import { SharedVitals } from "./initiative-rail";
 export default function TargetStrip() {
   const { encounter, self, sharing, hideDeathSaves } = useEncounter();
   const { reportsEnabled, lastTargetId, rememberTarget } = useTableTalk();
-  // The DM's creatures only — the party is never "targets" at a glance, and
-  // healing picks its own list in the dialog. Hidden rows stay hidden.
+  // The foes only — the party is never "targets" at a glance, and healing
+  // picks its own list in the dialog. Hidden rows stay hidden.
   const foes = encounter.participants.filter(
-    (p) => !p.hidden && p.id !== self?.id && isDmCreature(p),
+    (p) => !p.hidden && p.id !== self?.id && isFoe(p),
   );
   if (!reportsEnabled || foes.length === 0) return null;
   return (

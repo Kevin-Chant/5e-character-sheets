@@ -16,6 +16,7 @@ import {
   applyHealing,
   concentrationDc,
   inInitiativeOrder,
+  isFoe,
   Participant,
   ParticipantVitals,
   SHARING_LABELS,
@@ -68,6 +69,7 @@ export default function DmBoard() {
     present,
     assignSheetTo,
     setCombatantHidden,
+    setCombatantSide,
     sharing,
     setSharingLevel,
     hideDeathSaves,
@@ -243,6 +245,31 @@ export default function DmBoard() {
                     {participant.hidden ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 )}
+                {/* Which side the row fights for — what the players' target
+                    strip and the pickers group by. Defaults from the sheet
+                    heuristic (no sheet → foe) and flips with a click, because
+                    the heuristic misses both the hand-typed ally and the
+                    sheet-backed villain — and sides change mid-fight. */}
+                <button
+                  type="button"
+                  className={classNames("dm-side-btn", {
+                    foe: isFoe(participant),
+                  })}
+                  aria-label={`Mark ${participant.name} as ${isFoe(participant) ? "party" : "a foe"}`}
+                  title={
+                    isFoe(participant)
+                      ? "A foe — players see it in their target strip. Click to mark it party."
+                      : "Party — kept out of the players' target strip. Click to mark it a foe."
+                  }
+                  onClick={() =>
+                    setCombatantSide(
+                      participant.id,
+                      isFoe(participant) ? "party" : "foe",
+                    )
+                  }
+                >
+                  {isFoe(participant) ? "Foe" : "Party"}
+                </button>
                 {/* Offering is the deliberate per-sheet act that consents to
                     the whole sheet travelling — bringing it only showed a
                     projection. Once a player picks it up (ownership moves to

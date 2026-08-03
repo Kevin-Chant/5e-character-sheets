@@ -1644,3 +1644,23 @@
   font-size: 0.75rem;
   font-weight: 600;
 }
+
+/* Which side a row fights for. A quiet chip beside the name — the DM's call,
+   defaulted from the no-sheet heuristic, flipped with a click. */
+.dm-side-btn {
+  padding: 0 0.45rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dm-side-btn.foe {
+  border-color: var(--health);
+  color: var(--health);
+}

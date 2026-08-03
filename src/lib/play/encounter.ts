@@ -92,6 +92,12 @@ export interface Participant {
   // consents to the whole sheet travelling. The flag survives a pickup, so the
   // sheet reverts to offered when its player leaves.
   claimable?: boolean;
+  // Which side of the screen the row fights for, as target pickers and the
+  // players' target strip group it. The DM's call (identity lane); absent
+  // falls back to the sheet heuristic — see `isFoe`. Optional so stored
+  // encounters need no migration, and advisory like the grouping it drives:
+  // nothing rules on it, anyone can still target anyone.
+  side?: "party" | "foe";
   // Staged but not revealed: the ambush in the trees, the second wave. Hidden
   // rows render only for whoever runs the table — on player clients they
   // vanish from the rail, and a hidden combatant's turn reads as "the DM is
@@ -122,7 +128,7 @@ export interface Participant {
   // arrive looking identical, and the fix for one is the bug in the other.
   vitalsRev?: number;
   // Who this row is and how it's presented: name, ownership, the offer flag,
-  // hidden. Mostly the DM's writes.
+  // hidden, side. Mostly the DM's writes.
   identityRev?: number;
   // What's *wrong* with them: conditions and concentration. The lane a player
   // ticks while the DM writes their damage.
@@ -706,15 +712,30 @@ export function claimableSheets(
   );
 }
 
-// Which side of the screen a row reads as, as far as a target picker can
-// tell: a creature is a row with no character sheet behind it — the monsters
-// and NPCs someone typed into the order by hand (`addParticipant` stamps no
+// Which side of the screen a row reads as. The DM's explicit `side` wins;
+// without one, a row with no character sheet behind it reads as a foe — the
+// monsters someone typed into the order by hand (`addParticipant` stamps no
 // ownership on those, so the sheet's absence is the only mark they carry).
-// Advisory grouping only: an absent ally typed in by a player lands here too,
-// and stays targetable; nothing rules on this, it just puts the goblins above
-// the party in a list.
-export function isDmCreature(participant: Participant): boolean {
-  return !participant.characterUuid;
+// The explicit flag exists because the heuristic fails both ways: a
+// hand-typed NPC ally reads as a foe, a sheet-backed villain as party.
+// Advisory grouping only: it puts the goblins above the party in a list, and
+// nothing rules on it — anyone can still target anyone.
+export function isFoe(participant: Participant): boolean {
+  return participant.side
+    ? participant.side === "foe"
+    : !participant.characterUuid;
+}
+
+// Flip a row's side — the DM's roster toggle. Identity lane: it's a fact
+// about who the row is, written by the seat.
+export function setSide(
+  encounter: Encounter,
+  id: string,
+  side: "party" | "foe",
+): Encounter {
+  const existing = encounter.participants.find((p) => p.id === id);
+  if (!existing || existing.side === side) return encounter;
+  return mapParticipant(encounter, id, "identityRev", (p) => ({ ...p, side }));
 }
 
 // Take over a participant someone else contributed.

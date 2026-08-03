@@ -327,10 +327,17 @@ export const ENCOUNTER_LANES: Lane<Encounter>[] = [
 ];
 
 export const PARTICIPANT_LANES: Lane<Participant>[] = [
-  // Who the row is and how it's shown — name, ownership, offer, hidden.
+  // Who the row is and how it's shown — name, ownership, offer, hidden, side.
   {
     rev: "identityRev",
-    fields: ["name", "characterUuid", "ownerClientId", "claimable", "hidden"],
+    fields: [
+      "name",
+      "characterUuid",
+      "ownerClientId",
+      "claimable",
+      "hidden",
+      "side",
+    ],
   },
   // A copy with no vitals is an untracked copy, and an untracked copy must
   // never blank a tracked one, whatever its counter says.
