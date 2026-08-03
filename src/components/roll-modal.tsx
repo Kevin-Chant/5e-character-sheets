@@ -622,7 +622,9 @@ export function TargetPicker({
 
 // The save-based counterpart: checkboxes, because "Orc 1 and 2 are in the
 // blast" is a set, not a pick. Same grouping as the single-target select.
-function TargetMultiPicker({
+// Exported for the ability rows' save-the-room uses (Turn the Unholy) the
+// same way TargetPicker is for their single-target ones.
+export function TargetMultiPicker({
   selfId,
   foes,
   party,

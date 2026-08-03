@@ -350,14 +350,17 @@ effects with an **action-economy cost** (`action` / `bonusAction` / `reaction`
 / `free` / `special` + `costNote`, rendered as a badge) and optional choices
 (a slot level, or a free amount capped at remaining uses — Lay on Hands).
 
-An action may also declare `applies: {name, rounds?, note?}` — the condition
-it puts on a chosen target (Stunning Strike's Stunned, Hexblade's Curse,
-Bardic Inspiration, Vow of Enmity). At a table the action row grows the roll
+An action may also declare `applies: AppliedCondition` — the condition it
+puts on a chosen target (Stunning Strike's Stunned, Hexblade's Curse, Bardic
+Inspiration, Vow of Enmity). At a table the action row grows the roll
 dialog's grouped target picker and the use reports a `cast` stage carrying the
 condition **name** (same wire shape as a condition-granting spell, so consent
 prompts / DM apply buttons fall out of the existing fan-out; see
 play-surface.md); solo it changes nothing, because the condition lives on an
-encounter row. Caster-side benefits (the curse's +PB and 19–20 crits, the
+encounter row. `multi: true` marks a save-the-room grant (the Channel
+Divinity turns, Conquering Presence): the row offers Fireball's
+`TargetMultiPicker` checkboxes instead and the report carries `targetIds` —
+and unlike a single-target pick, the set includes your own row. Caster-side benefits (the curse's +PB and 19–20 crits, the
 vow's advantage) are `against` riders in `CONDITION_MECHANICS`, paid off the
 mark's provenance — not effects here.
 

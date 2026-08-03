@@ -119,6 +119,12 @@ export const CLERIC_ACTION_HOSTS: HostTable = {
       pool: "Channel Divinity",
       amount: 1,
       note: "Beasts and plant creatures within 30 ft. that can see you make a WIS save (your spell save DC) or are charmed toward you and creatures you designate for 1 minute (ends early if they take damage).",
+      applies: {
+        name: "Charmed",
+        rounds: 10,
+        note: "beasts and plant creatures only, on a failed WIS save; ends if it takes damage",
+        multi: true,
+      },
     },
   ],
   Order: [
@@ -131,6 +137,12 @@ export const CLERIC_ACTION_HOSTS: HostTable = {
       pool: "Channel Divinity",
       amount: 1,
       note: "Creatures you choose within 30 ft. that can see or hear you make a WIS save (your spell save DC) or are charmed until the end of your next turn or until they take damage; you may also make charmed failures drop what they're holding.",
+      applies: {
+        name: "Charmed",
+        rounds: 1,
+        note: "on a failed WIS save; ends if it takes damage",
+        multi: true,
+      },
     },
   ],
   Peace: [

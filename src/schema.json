@@ -4,21 +4,7 @@
         "AbilityAction": {
             "properties": {
                 "applies": {
-                    "properties": {
-                        "name": {
-                            "type": "string"
-                        },
-                        "note": {
-                            "type": "string"
-                        },
-                        "rounds": {
-                            "type": "number"
-                        }
-                    },
-                    "required": [
-                        "name"
-                    ],
-                    "type": "object"
+                    "$ref": "#/definitions/AppliedCondition"
                 },
                 "choose": {
                     "properties": {
@@ -209,6 +195,26 @@
                     "type": "object"
                 }
             ]
+        },
+        "AppliedCondition": {
+            "properties": {
+                "multi": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "rounds": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "type": "object"
         },
         "ArmorCategory": {
             "enum": [
@@ -1508,21 +1514,7 @@
                                     "$ref": "#/definitions/CustomFormula"
                                 },
                                 "applies": {
-                                    "properties": {
-                                        "name": {
-                                            "type": "string"
-                                        },
-                                        "note": {
-                                            "type": "string"
-                                        },
-                                        "rounds": {
-                                            "type": "number"
-                                        }
-                                    },
-                                    "required": [
-                                        "name"
-                                    ],
-                                    "type": "object"
+                                    "$ref": "#/definitions/AppliedCondition"
                                 },
                                 "damageType": {
                                     "$ref": "#/definitions/DamageType"

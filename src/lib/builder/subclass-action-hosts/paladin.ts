@@ -21,6 +21,12 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "action",
       pool: "Channel Divinity",
       note: "Each fiend or undead within 30 ft. makes a WIS save against your Channel Divinity DC or is turned for 1 minute (flees, can't take reactions, breaks on damage).",
+      applies: {
+        name: "Turned",
+        rounds: 10,
+        note: "fiends and undead only, on a failed WIS save; ends if it takes damage",
+        multi: true,
+      },
     },
   ],
   Vengeance: [
@@ -70,6 +76,12 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "action",
       pool: "Channel Divinity",
       note: "Each fey or fiend within 30 ft. that can hear you makes a WIS save (your Channel Divinity DC); on a failure it's turned for 1 minute or until it takes damage.",
+      applies: {
+        name: "Turned",
+        rounds: 10,
+        note: "fey and fiends only, on a failed WIS save; ends if it takes damage",
+        multi: true,
+      },
     },
   ],
   Conquest: [
@@ -81,6 +93,12 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "action",
       pool: "Channel Divinity",
       note: "Each creature of your choice within 30 ft. makes a WIS save (your Channel Divinity DC); on a failure it's frightened of you for 1 minute, repeating the save at the end of each of its turns.",
+      applies: {
+        name: "Frightened",
+        rounds: 10,
+        note: "on a failed WIS save; repeats the save at the end of its turns",
+        multi: true,
+      },
     },
     {
       title: "Channel Divinity: Guided Strike",
@@ -100,6 +118,11 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "bonusAction",
       pool: "Channel Divinity",
       note: "Each creature of your choice within 30 ft. makes a WIS save; on a failure it can't willingly move more than 30 ft. away from you until you're incapacitated, die, or it ends up more than 30 ft. away.",
+      applies: {
+        name: "Champion Challenge",
+        note: "on a failed WIS save",
+        multi: true,
+      },
     },
     {
       title: "Channel Divinity: Turn the Tide",
@@ -145,6 +168,12 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "action",
       pool: "Channel Divinity",
       note: "Each creature within 30 ft. who can see you makes a WIS save (your Channel Divinity DC); on a failure it's frightened of you for 1 minute, retrying the save if it ends its turn more than 30 ft. away from you.",
+      applies: {
+        name: "Frightened",
+        rounds: 10,
+        note: "on a failed WIS save; retries the save after ending a turn more than 30 ft. away",
+        multi: true,
+      },
     },
   ],
   Redemption: [
@@ -175,6 +204,7 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "action",
       pool: "Channel Divinity",
       note: "Choose creatures you can see within 30 ft., up to a number equal to your CHA modifier (minimum 1); you and they have advantage on INT, WIS, and CHA saving throws for 1 minute.",
+      applies: { name: "Watcher's Will", rounds: 10, multi: true },
     },
     {
       title: "Channel Divinity: Abjure the Extraplanar",
@@ -183,6 +213,12 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "action",
       pool: "Channel Divinity",
       note: "Each aberration, celestial, elemental, fey, or fiend within 30 ft. that can hear you makes a WIS save (your Channel Divinity DC); on a failure it's turned for 1 minute or until it takes damage.",
+      applies: {
+        name: "Turned",
+        rounds: 10,
+        note: "aberrations, celestials, elementals, fey, and fiends only, on a failed WIS save; ends if it takes damage",
+        multi: true,
+      },
     },
   ],
 };

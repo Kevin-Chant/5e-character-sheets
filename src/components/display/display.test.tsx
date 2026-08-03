@@ -743,6 +743,50 @@ describe("AbilityActions — condition-applying uses at a table", () => {
     expect(cast.targetId).toBeUndefined();
   });
 
+  it("offers a save-the-room use the checkbox set, self included", async () => {
+    // A Turn-shaped `multi` grant: the same targetIds shape Fireball sends,
+    // so per-target offers and DM apply buttons need nothing new. Unlike a
+    // strike, a room-wide effect may include your own row.
+    const character = aCharacter();
+    character.limitedUseAbilities.push({
+      // Not "Channel Divinity" — the fixture paladin already owns that pool,
+      // and two rows with one accessible name would make the click ambiguous.
+      info: { title: "Turning", titleFormulas: [] },
+      maxUses: 1,
+      recharge: RestType.shortRest,
+      expended: 0,
+      mechanics: {
+        actions: [
+          {
+            id: "turn-the-unholy",
+            name: "Turn the Unholy",
+            cost: "action",
+            applies: { name: "Turned", rounds: 10, multi: true },
+            effects: [
+              { effect: "spendUses", amount: { fixed: 1 } },
+              { effect: "remind", note: "WIS save or turned." },
+            ],
+          },
+        ],
+      },
+    });
+    const sendReport = vi.fn();
+    atTable(character, sendReport);
+    await userEvent.click(screen.getByRole("checkbox", { name: "Goblin 1" }));
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: "Brakka (you)" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Use Turning" }));
+    const cast = sendReport.mock.calls
+      .map((c) => c[0])
+      .find((r) => r.stage === "cast");
+    expect(cast).toMatchObject({
+      targetIds: [GOBLIN.id, SELF.id],
+      condition: { name: "Turned", rounds: 10 },
+    });
+    expect(cast.targetId).toBeUndefined();
+  });
+
   it("shows no picker solo — there is no row for the condition to land on", () => {
     renderWithCharacter(<LimitedUseAbilitiesDisplay />, {
       character: withKi(),

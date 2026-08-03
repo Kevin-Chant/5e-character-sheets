@@ -101,8 +101,21 @@ export interface AbilityAction {
   // carrying the condition *name*, and the table-talk layer turns it into
   // consent prompts / DM apply buttons. At a table this adds a target picker
   // to the action row; solo it changes nothing.
-  applies?: { name: string; rounds?: number; note?: string };
+  applies?: AppliedCondition;
   effects: Effect[];
+}
+
+// A condition an ability use or rider puts on its target(s). `multi` marks a
+// save-the-room effect ("each fiend within 30 ft.") — the action row offers
+// the same checkbox set Fireball does, and the report carries `targetIds`.
+// Single-target is the default: a strike, a curse, an inspiration all name
+// exactly one creature. (Ignored on a damage rider, whose target is the
+// attack's one target by construction.)
+export interface AppliedCondition {
+  name: string;
+  rounds?: number;
+  note?: string;
+  multi?: boolean;
 }
 
 // What kind of roll is happening, as a tag the roll dialog supplies. `check`
@@ -229,7 +242,7 @@ type RollRiderKind =
       // attack, so there's no action row to carry an `applies`. When the extra
       // lands on a rolled damage report, the dialog stamps the condition onto
       // it, and the wire path from there is the spell/ability one.
-      applies?: { name: string; rounds?: number; note?: string };
+      applies?: AppliedCondition;
       // The player opts in per attack (Sneak Attack, Divine Smite) vs it always
       // applies on a qualifying hit (Rage damage, Divine Strike). Default false.
       optional?: boolean;

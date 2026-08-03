@@ -18,6 +18,7 @@ import {
 } from "src/lib/mechanics/catalog";
 import {
   ActionCost,
+  AppliedCondition,
   FeatureMechanics,
   RollKind,
 } from "src/lib/mechanics/types";
@@ -108,7 +109,7 @@ const bardicSpender = (opts: {
   costNote?: string;
   note: string;
   // The condition this use puts on a chosen target (see `AbilityAction`).
-  applies?: { name: string; rounds?: number; note?: string };
+  applies?: AppliedCondition;
 }): ClassPoolDef => ({
   title: opts.title,
   detail: opts.detail,
@@ -592,7 +593,7 @@ function runeKnightPools(): ClassPoolDef[] {
           note: string;
           roll?: { label: string; count?: number; die: StandardDie };
           // The condition the invoke puts on its target (Stone Rune's charm).
-          applies?: { name: string; rounds?: number; note?: string };
+          applies?: AppliedCondition;
         }
       | {
           onHit: {
@@ -601,7 +602,7 @@ function runeKnightPools(): ClassPoolDef[] {
             note: string;
             // The condition the hit puts on the target (Fire Rune's
             // restrain) — carried by the damage rider, stamped by the dialog.
-            applies?: { name: string; rounds?: number; note?: string };
+            applies?: AppliedCondition;
           };
         }
     ),

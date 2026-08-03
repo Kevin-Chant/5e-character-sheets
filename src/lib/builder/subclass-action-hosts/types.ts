@@ -1,5 +1,5 @@
 import { StandardDie } from "src/lib/data/data-definitions";
-import { ActionCost } from "src/lib/mechanics/types";
+import { ActionCost, AppliedCondition } from "src/lib/mechanics/types";
 
 // A pool-less "action host" as plain data: a subclass feature that spends a
 // *shared* resource it doesn't own (a monk discipline spending Ki, a domain's
@@ -29,7 +29,7 @@ export interface SharedPoolHost {
   // The table prompt shown after spending — what the feature does.
   note: string;
   // The condition this use puts on a chosen target (see `AbilityAction`).
-  applies?: { name: string; rounds?: number; note?: string };
+  applies?: AppliedCondition;
 }
 
 export type HostTable = Record<string, SharedPoolHost[]>;

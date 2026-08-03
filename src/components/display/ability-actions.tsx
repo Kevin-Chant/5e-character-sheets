@@ -19,7 +19,7 @@ import { isFoe } from "src/lib/play/encounter";
 import { randomUUID } from "src/lib/browser";
 import { LimitedUseAbility } from "src/lib/types";
 import { ordinal } from "src/lib/utils";
-import { TargetPicker } from "../roll-modal";
+import { TargetMultiPicker, TargetPicker } from "../roll-modal";
 import StepperInput from "../stepper-input";
 
 // Play-mode action rows for limited-use abilities the mechanics catalog knows
@@ -72,19 +72,27 @@ export function ActionRow({
   const [amount, setAmount] = useState(1);
   const [outcome, setOutcome] = useState<string | null>(null);
   const [targetId, setTargetId] = useState("");
+  const [targetIds, setTargetIds] = useState<string[]>([]);
 
   // A condition-applying action (Stunning Strike, Inspire) asks whom, the same
   // grouped pick the roll dialog makes — only at a table, since the condition
-  // lands on an encounter row and solo there is no row to land on. Your own
-  // row is left out: both exemplar shapes (a strike, an inspiration for
-  // someone else) exclude you, and a self-buff can loosen this when one
-  // arrives.
+  // lands on an encounter row and solo there is no row to land on. A
+  // single-target use leaves your own row out (a strike, an inspiration for
+  // someone else — neither ever names you); a save-the-room `multi` use
+  // includes it, because "creatures of your choice within 30 ft." routinely
+  // does.
   const applies = action.applies;
   const selfId = self?.id;
   const targetable =
     applies && reportsEnabled
-      ? encounter.participants.filter((p) => !p.hidden && p.id !== selfId)
+      ? encounter.participants.filter(
+          (p) => !p.hidden && (applies.multi || p.id !== selfId),
+        )
       : [];
+  const toggleTarget = (id: string, on: boolean) =>
+    setTargetIds((current) =>
+      on ? [...current, id] : current.filter((t) => t !== id),
+    );
 
   const levels = slotLevelOptions(action, character);
   const needsLevel = !!action.choose?.slotLevel;
@@ -147,6 +155,13 @@ export function ActionRow({
     // (anyone else). Untargeted, it still announces the use — just with
     // nowhere to offer the condition to.
     const exchangeId = randomUUID();
+    const address = applies?.multi
+      ? targetIds.length > 0
+        ? { targetIds: [...targetIds] }
+        : {}
+      : targetId
+        ? { targetId }
+        : {};
     if (applies) {
       sendReport({
         exchangeId,
@@ -154,7 +169,7 @@ export function ActionRow({
         attempt: 1,
         label: source,
         total: 0,
-        ...(targetId ? { targetId } : {}),
+        ...address,
         condition: {
           name: applies.name,
           ...(applies.rounds !== undefined ? { rounds: applies.rounds } : {}),
@@ -168,7 +183,7 @@ export function ActionRow({
         attempt: 1,
         label: r.label === "Healing" ? source : `${source} — ${r.label}`,
         total: r.total,
-        ...(applies && targetId ? { targetId } : {}),
+        ...(applies ? address : {}),
       }),
     );
   };
@@ -181,16 +196,25 @@ export function ActionRow({
 
   return (
     <div className="column ability-action">
-      {targetable.length > 0 && (
-        <TargetPicker
-          healing={false}
-          verb={action.name}
-          foes={targetable.filter(isFoe)}
-          party={targetable.filter((p) => !isFoe(p))}
-          targetId={targetId}
-          setTargetId={setTargetId}
-        />
-      )}
+      {targetable.length > 0 &&
+        (applies?.multi ? (
+          <TargetMultiPicker
+            selfId={selfId}
+            foes={targetable.filter(isFoe)}
+            party={targetable.filter((p) => !isFoe(p))}
+            targetIds={targetIds}
+            toggleTarget={toggleTarget}
+          />
+        ) : (
+          <TargetPicker
+            healing={false}
+            verb={action.name}
+            foes={targetable.filter(isFoe)}
+            party={targetable.filter((p) => !isFoe(p))}
+            targetId={targetId}
+            setTargetId={setTargetId}
+          />
+        ))}
       <div className="row ability-action-row">
         {needsLevel && (
           <select

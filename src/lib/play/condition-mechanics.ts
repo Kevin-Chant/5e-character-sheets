@@ -332,6 +332,11 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
     summary:
       "One of several chosen rites takes hold: +1d4 to ability checks (Coming of Age), +1d4 to saving throws (Dedication), or +2 to a chosen d20 roll for the wedded pair (Wedding), for 24 hours.",
   },
+  // Granted by the Crown paladin's Channel Divinity action, not a spell.
+  "Champion Challenge": {
+    summary:
+      "Can't willingly move more than 30 ft. from the paladin who challenged it, until they are incapacitated or die or it ends up beyond 30 ft.",
+  },
   "Chill Touch": {
     summary:
       "Can't regain hit points while the ghostly hand grips it; against an undead target it also has disadvantage on attacks against the caster.",
@@ -1271,6 +1276,20 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
         rider: {
           rider: "advantage",
           note: "you have advantage on attacks against your sworn enemy",
+        },
+      },
+    ],
+  },
+  // Granted by the Watchers paladin's Channel Divinity action, not a spell.
+  "Watcher's Will": {
+    summary:
+      "Advantage on Intelligence, Wisdom, and Charisma saving throws for 1 minute.",
+    riders: [
+      {
+        appliesTo: ["save"],
+        rider: {
+          rider: "advantage",
+          note: "advantage on INT, WIS, and CHA saving throws",
         },
       },
     ],

@@ -891,9 +891,13 @@ to rule on them. The order is now **target first, then dice**:
   And when the condition lands on a _hit_ rather than a use (Fire Rune's
   restrain, Eldritch Smite's prone), the `extraDamage` rider carries the
   `applies` and the dialog stamps it onto the damage report the extra rode.
-  AoE features ("each fiend within 30 ft." — Turn Undead proper, Conquering
-  Presence) stay unwired: the ability row's picker is single-target, and a
-  room-wide save is the DM's to adjudicate row by row. What happens next splits by who keeps the target: **your own
+  A save-the-room feature ("each fiend within 30 ft." — the Channel Divinity
+  turns, Conquering Presence, Watcher's Will) sets `multi` on the grant: the
+  row offers Fireball's checkbox set (`TargetMultiPicker`), the report
+  carries `targetIds`, and the per-target offers/apply buttons need nothing
+  new. A `multi` picker includes your own row (a room-wide effect routinely
+  does — Watcher's Will names "you and they"); a single-target one never
+  offers you. What happens next splits by who keeps the target: **your own
   row** prompts you locally, **another character** gets a `ConditionOffer`
   over the wire ("Ellora cast Bless on you — apply?") and applying is the
   bearer's own statusRev write, **a sheet-less row** gets neither — the DM

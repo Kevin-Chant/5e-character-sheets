@@ -6,6 +6,7 @@ import { ActionCost, RollRider } from "src/lib/types";
 // consumers keep one import root, and holds the runtime-only bits.
 export type {
   AbilityAction,
+  AppliedCondition,
   ActionCost,
   AmountExpr,
   Effect,
