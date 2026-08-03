@@ -130,6 +130,9 @@ export interface ConditionOffer {
   targetId: string;
   condition: { name: string; rounds?: number };
   fromName: string;
+  // The caster's participant row — written into `ActiveCondition.from` on
+  // apply, so a caster-only mark pays its caster (see `TargetedRider`).
+  fromParticipantId?: string;
   // What put it there — "Bless". The recipient shouldn't have to accept an
   // anonymous status effect.
   label?: string;
@@ -167,6 +170,9 @@ export function conditionOffersFor(
           targetId,
           condition: roll.condition!,
           fromName,
+          ...(selfParticipantId
+            ? { fromParticipantId: selfParticipantId }
+            : {}),
           ...(label ? { label } : {}),
         },
         toSelf: targetId === selfParticipantId,

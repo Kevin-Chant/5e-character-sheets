@@ -657,6 +657,7 @@ function StageRow({
             key={`cond:${t.id}`}
             target={t}
             condition={roll.condition!}
+            from={roll.fromParticipantId}
           />
         ))}
       {/* One apply row per tracked target: a Fireball's 24 lands on each orc
@@ -698,9 +699,13 @@ const STAGE_LABELS: Record<ExchangeStage["stage"], string> = {
 function ApplyConditionButton({
   target,
   condition,
+  from,
 }: {
   target: Participant;
   condition: { name: string; rounds?: number };
+  // The caster's participant row, off the report — recorded as the mark's
+  // provenance so caster-only benefits (Hex) pay the right client.
+  from?: string;
 }) {
   const { giveCondition } = useEncounter();
   const held = target.conditions.some((c) => c.name === condition.name);
@@ -717,6 +722,7 @@ function ApplyConditionButton({
             ...(condition.rounds !== undefined
               ? { rounds: condition.rounds }
               : {}),
+            ...(from ? { from } : {}),
           })
         }
       >

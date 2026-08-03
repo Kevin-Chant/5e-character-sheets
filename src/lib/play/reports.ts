@@ -109,6 +109,11 @@ export interface RollReport {
   // the wire. The DM board offers per-target apply buttons off it; character-
   // backed targets get a consent prompt instead (`ConditionOffer`).
   condition?: { name: string; rounds?: number };
+  // The sender's own participant row, stamped by the table-talk layer — a
+  // mark's provenance. Whoever applies the condition writes it into
+  // `ActiveCondition.from`, which is what pays a caster-only mark (Hex's d6)
+  // to its caster and nobody else.
+  fromParticipantId?: string;
 }
 
 // What a roll surface hands the encounter to publish. Identity and the

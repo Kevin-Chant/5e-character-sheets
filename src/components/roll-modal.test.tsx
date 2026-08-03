@@ -632,6 +632,89 @@ describe("RollModal — cast conditions", () => {
     expect(screen.getByText(/\+4 — Bless \(d4: 4\)/)).toBeInTheDocument();
   });
 
+  it("cashes out a mark on the chosen target, for its caster only", async () => {
+    const HEXER: Participant = {
+      id: "pc:hexer",
+      name: "Ellora",
+      characterUuid: randomUUID(),
+      initiative: 15,
+      spent: { action: false, bonusAction: false, reaction: false },
+      conditions: [],
+      vitals: { currHp: 20, maxHp: 30, ac: 18 },
+    };
+    const HEXED: Participant = {
+      id: "combatant:goblin",
+      name: "Goblin 1",
+      initiative: 12,
+      spent: { action: false, bonusAction: false, reaction: false },
+      conditions: [{ name: "Hex", from: HEXER.id }],
+      vitals: { currHp: 7, maxHp: 7, ac: 13 },
+    };
+    const at = (self: Participant) =>
+      open(
+        { kind: "attack", toHit: 7, damage: GREATSWORD },
+        {},
+        "app",
+        {
+          encounter: { ...EMPTY_ENCOUNTER, participants: [HEXER, HEXED] },
+          self,
+        },
+        {
+          reportsEnabled: true,
+          sendReport: vi.fn(),
+          rememberTarget: vi.fn(),
+          lastTargetId: HEXED.id,
+        },
+      );
+    // The hexer swings: the d6 rides, itemised with its source.
+    at(HEXER);
+    await userEvent.click(screen.getByRole("button", { name: "Roll Damage" }));
+    expect(total()).toBe(2 * 6 + 5 + 6);
+    expect(screen.getByText(/\+6 Necrotic — Hex/)).toBeInTheDocument();
+    cleanup();
+    // Someone else swings at the same goblin: the mark isn't theirs.
+    at({ ...HEXER, id: "pc:other", name: "Brakka" });
+    await userEvent.click(screen.getByRole("button", { name: "Roll Damage" }));
+    expect(total()).toBe(2 * 6 + 5);
+  });
+
+  it("notes the target's state on the to-hit roll", () => {
+    const SELF: Participant = {
+      id: "pc:self",
+      name: "Brakka",
+      characterUuid: randomUUID(),
+      initiative: 15,
+      spent: { action: false, bonusAction: false, reaction: false },
+      conditions: [],
+    };
+    const DOWNED: Participant = {
+      id: "combatant:orc",
+      name: "Orc 1",
+      initiative: 9,
+      spent: { action: false, bonusAction: false, reaction: false },
+      conditions: [{ name: "Prone" }],
+      vitals: { currHp: 3, maxHp: 15, ac: 13 },
+    };
+    open(
+      { kind: "attack", toHit: 7, damage: GREATSWORD },
+      {},
+      "app",
+      {
+        encounter: { ...EMPTY_ENCOUNTER, participants: [SELF, DOWNED] },
+        self: SELF,
+      },
+      {
+        reportsEnabled: true,
+        sendReport: vi.fn(),
+        rememberTarget: vi.fn(),
+        lastTargetId: DOWNED.id,
+      },
+    );
+    expect(
+      screen.getByText(/Target prone: Melee attacks from within 5 feet/),
+    ).toBeInTheDocument();
+  });
+
   it("rides a bearer's damage-side condition onto a weapon hit", async () => {
     // Divine Favor: +1d4 radiant on the bearer's weapon damage, auto-applied.
     open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "app", {

@@ -166,7 +166,7 @@ interface TableTalkInput {
   // writes of its own). Used only for the *own* row, on accepting an offer.
   applyConditionTo: (
     participantId: string,
-    condition: { name: string; rounds?: number },
+    condition: { name: string; rounds?: number; from?: string },
   ) => void;
 }
 
@@ -308,6 +308,11 @@ export function useTableTalkState({
           reportId: randomUUID(),
           fromClientId: clientId,
           fromName: displayName,
+          // A mark's provenance: whoever applies the carried condition
+          // records which row placed it.
+          ...(selfParticipantId
+            ? { fromParticipantId: selfParticipantId }
+            : {}),
           total: Math.floor(roll.total),
           ...(target ? { targetName: target.name } : { targetId: undefined }),
           ...(knownIds.length
@@ -373,7 +378,12 @@ export function useTableTalkState({
       applyIncomingCondition: (offerId) => {
         const offer = incomingConditions.find((o) => o.offerId === offerId);
         if (offer && selfParticipantId)
-          applyConditionTo(selfParticipantId, offer.condition);
+          applyConditionTo(selfParticipantId, {
+            ...offer.condition,
+            ...(offer.fromParticipantId
+              ? { from: offer.fromParticipantId }
+              : {}),
+          });
         setIncomingConditions((current) =>
           current.filter((o) => o.offerId !== offerId),
         );

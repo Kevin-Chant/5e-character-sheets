@@ -41,7 +41,9 @@ describe("the spell-condition catalogs", () => {
 
   it("authors riders only in shapes the dialog consumes", () => {
     for (const [name, entry] of Object.entries(CONDITION_MECHANICS)) {
-      for (const r of entry.riders ?? []) {
+      // Bearer-side and attacker-side riders take the same shapes; only who
+      // they apply to differs.
+      for (const r of [...(entry.riders ?? []), ...(entry.against ?? [])]) {
         expect(r.appliesTo.length, name).toBeGreaterThan(0);
         for (const k of r.appliesTo)
           expect(KINDS.has(k), `${name}: ${k}`).toBe(true);

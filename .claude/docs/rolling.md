@@ -186,7 +186,11 @@ a `bonusDice` rider on the `attack` and `save` kinds — saves are a `RollKind`
 of their own, so it folds in automatically on a save and never touches a
 skill check. It's rolled with the d20, shown as its own result line, and
 rolled by the app even in manual mode — only the d20 belongs to the physical
-roller).
+roller). The chosen **target's** conditions join from the other side:
+`against` riders (`ridersAgainst` / `conditionExtrasAgainst`) pay the marks
+on it — Hex's d6 to its hexer only (`casterOnly` + `ActiveCondition.from`),
+Faerie Fire's advantage to anyone — and `conditionTargetNotes` adds the
+advisory line for a Prone or Restrained target.
 
 ## Critical hits
 

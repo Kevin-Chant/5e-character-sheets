@@ -83,6 +83,61 @@ export const CONDITION_ROLL_EFFECTS: Partial<
   },
 };
 
+// The other side of the table: what a condition on your *target* means for
+// your roll against it. Advisory like the bearer-side table above, and for
+// the same reason — half the clauses hinge on facts the sheet can't see
+// (distance for Prone, whether the attacker can see the Invisible bearer).
+export const CONDITION_TARGET_EFFECTS: Partial<
+  Record<StandardCondition, ConditionEffect>
+> = {
+  Blinded: {
+    appliesTo: ["attack"],
+    note: "Attack rolls against it have advantage.",
+  },
+  Invisible: {
+    appliesTo: ["attack"],
+    note: "Attack rolls against it have disadvantage.",
+  },
+  Paralyzed: {
+    appliesTo: ["attack"],
+    note: "Attacks against it have advantage; a hit from within 5 feet is a critical hit.",
+  },
+  Petrified: {
+    appliesTo: ["attack"],
+    note: "Attacks against it have advantage (and it resists all damage).",
+  },
+  Prone: {
+    appliesTo: ["attack"],
+    note: "Melee attacks from within 5 feet have advantage; other attacks have disadvantage.",
+  },
+  Restrained: {
+    appliesTo: ["attack"],
+    note: "Attack rolls against it have advantage.",
+  },
+  Stunned: {
+    appliesTo: ["attack"],
+    note: "Attack rolls against it have advantage.",
+  },
+  Unconscious: {
+    appliesTo: ["attack"],
+    note: "Attacks against it have advantage; a hit from within 5 feet is a critical hit.",
+  },
+};
+
+// Notes about the chosen target's conditions, for a roll of this kind against
+// it. Same "Source: note" shape as `conditionRollNotes`.
+export function conditionTargetNotes(
+  conditions: ConditionName[],
+  kind: RollKind,
+): string[] {
+  return conditions.flatMap((name) => {
+    const effect = CONDITION_TARGET_EFFECTS[name as StandardCondition];
+    return effect?.appliesTo.includes(kind)
+      ? [`Target ${name.toLowerCase()}: ${effect.note}`]
+      : [];
+  });
+}
+
 // Conditions that stop you acting at all. Surfaced as a banner on the board
 // rather than by disabling anything — the same advisory rule as everywhere else,
 // and a stunned character still has a DM who might rule otherwise.

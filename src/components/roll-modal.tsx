@@ -21,6 +21,7 @@ import {
 import {
   availableSlotLevels,
   conditionExtras,
+  conditionExtrasAgainst,
   damageMapFor,
   damageOnSave,
   DamageResolution,
@@ -51,7 +52,10 @@ import {
 import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { useTableTalk } from "src/lib/hooks/use-table-talk";
-import { conditionRollNotes } from "src/lib/play/conditions";
+import {
+  conditionRollNotes,
+  conditionTargetNotes,
+} from "src/lib/play/conditions";
 import { OutgoingRoll, ReportedDamage, RollStage } from "src/lib/play/reports";
 import { calculateCustomFormula } from "src/lib/formula";
 import { RollRequest } from "src/lib/hooks/use-roller";
@@ -59,6 +63,7 @@ import { isFoe, Participant } from "src/lib/play/encounter";
 import {
   conditionRiders,
   conditionSummary,
+  ridersAgainst,
 } from "src/lib/play/condition-mechanics";
 import { spellConditionFor } from "src/lib/spells/spell-conditions";
 import {
@@ -183,6 +188,13 @@ function RollBody({
     isHealing || (!!conditionGrant && !saveEffect),
   );
   const { targetId, report } = targeting;
+  // The chosen target's row, when a single one is chosen — what pays out the
+  // marks *on* it (Hex's d6 to its hexer, Faerie Fire's advantage to anyone)
+  // and the advisory notes about its state (attacking someone Prone).
+  const targetParticipant =
+    !multiTarget && targetId
+      ? targeting.targets.find((t) => t.id === targetId)
+      : undefined;
   const mechanics = spec.kind === "attack" ? spec.spell?.mechanics : undefined;
   // Whether there are dice on this side of the screen at all. Without any
   // (Hideous Laughter), the act still has to reach the DM — that's the
@@ -291,6 +303,8 @@ function RollBody({
               modifier={spec.toHit}
               isAttack
               context={context}
+              target={targetParticipant}
+              selfId={targeting.selfId}
               onCrit={(crit, explosions) => {
                 setCritical(crit);
                 setExtraSets(explosions);
@@ -324,6 +338,8 @@ function RollBody({
               spell={spec.spell}
               save={saveEffect}
               context={context}
+              target={targetParticipant}
+              selfId={targeting.selfId}
               titled={spec.toHit !== undefined || saveEffect !== undefined}
               critical={critical}
               extraSets={extraSets}
@@ -525,6 +541,7 @@ function useTargeting(
     multi,
     targeted,
     selfId,
+    targets,
     foes,
     party,
     targetId,
@@ -788,6 +805,8 @@ function CheckControls({
   isAttack = false,
   isSave = false,
   context = NO_CONTEXT,
+  target,
+  selfId,
   onCrit,
   onRolled,
 }: {
@@ -798,6 +817,11 @@ function CheckControls({
   // A saving throw rather than an ability/skill check — the kind save-only
   // riders (Bless's d4, Dwarven Resilience's note) key off.
   isSave?: boolean;
+  // The chosen target's row, for the marks *on it* (True Strike's advantage
+  // for its caster, Faerie Fire's for anyone) and the advisory notes about
+  // its state. `selfId` is who is rolling, for the caster-only ones.
+  target?: Participant;
+  selfId?: string;
   // The weapon being attacked with, as the rider conditions see it. Empty for a
   // plain check (and for a spell attack), which leaves every weapon condition
   // undecided — the pre-tags behaviour.
@@ -831,8 +855,10 @@ function CheckControls({
     () => [
       ...applicableRiders(ridersFor(character, d20Kind), context),
       ...conditionRiders(conditions, d20Kind),
+      // The marks on the chosen target, cashing out for this roller.
+      ...ridersAgainst(target?.conditions ?? [], selfId, d20Kind),
     ],
-    [character, d20Kind, context, conditions],
+    [character, d20Kind, context, conditions, target, selfId],
   );
   const [result, setResult] = useState<
     | (ReturnType<typeof rollD20Check> & {
@@ -1014,6 +1040,12 @@ function CheckControls({
       {[
         ...advantageNotes(riders),
         ...conditionRollNotes(conditions, d20Kind),
+        // What the target's state means for this roll — attacking someone
+        // Prone or Restrained is the advantage a table most often forgets.
+        ...conditionTargetNotes(
+          (target?.conditions ?? []).map((c) => c.name),
+          d20Kind,
+        ),
       ].map((note) => (
         <p key={note} className="muted font-small">
           {note}
@@ -1076,6 +1108,8 @@ function EffectControls({
   spell,
   save,
   context = NO_CONTEXT,
+  target,
+  selfId,
   titled,
   critical = false,
   extraSets = 0,
@@ -1090,6 +1124,9 @@ function EffectControls({
   save?: SaveEffect;
   // The weapon being attacked with, as the rider conditions see it.
   context?: AttackContext;
+  // The chosen target's row — the marks on it (Hex's d6) pay out here.
+  target?: Participant;
+  selfId?: string;
   titled?: boolean;
   critical?: boolean;
   extraSets?: number;
@@ -1135,8 +1172,20 @@ function EffectControls({
       // What's *on* the bearer joins in (Divine Favor's radiant d4) — not
       // weapon-gated, since a self-buff rides whatever the bearer swings.
       ...conditionExtras(selfConditions),
+      // And the marks on the *target* cash out (Hex's necrotic d6, for the
+      // hexer only).
+      ...conditionExtrasAgainst(target?.conditions ?? [], selfId),
     ],
-    [character, damage, spell, context, isCantrip, selfConditions],
+    [
+      character,
+      damage,
+      spell,
+      context,
+      isCantrip,
+      selfConditions,
+      target,
+      selfId,
+    ],
   );
   // Opt-in extras (Sneak Attack, Divine Smite, Rage) start unchecked; the ones
   // the weapon's tags fully settle apply on their own. Keyed by source.
@@ -1236,10 +1285,12 @@ function EffectControls({
   const reportedLevel = spell && !isCantrip ? castLevel : undefined;
   const rollDamageEffect = () => {
     // Condition riders join here too, so a condition's flat damage bonus
-    // (Magic Weapon's +1) folds through `applyTotalRiders` like a feature's.
+    // (Magic Weapon's +1) folds through `applyTotalRiders` like a feature's —
+    // own conditions and the target's marks alike.
     const damageRiders = [
       ...applicableRiders(ridersFor(character, "damage"), context),
       ...conditionRiders(selfConditions, "damage"),
+      ...ridersAgainst(target?.conditions ?? [], selfId, "damage"),
     ];
     const resolution = resolveDamage({
       character,

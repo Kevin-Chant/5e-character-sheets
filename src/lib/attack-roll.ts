@@ -12,7 +12,10 @@ import {
 } from "src/lib/types";
 import { getSpellSaveDcFormula } from "src/lib/formula";
 import { spellConditionFor } from "src/lib/spells/spell-conditions";
-import { conditionRiders } from "src/lib/play/condition-mechanics";
+import {
+  conditionRiders,
+  ridersAgainst,
+} from "src/lib/play/condition-mechanics";
 import { ConditionName } from "src/lib/play/conditions";
 import {
   CritSpec,
@@ -192,6 +195,21 @@ export function conditionExtras(
     r.rider.rider === "extraDamage" && r.rider.declareAt !== "before-attack"
       ? [{ source: r.source, rider: r.rider, optIn: !!r.rider.optional }]
       : [],
+  );
+}
+
+// The mirror: extra damage the chosen *target's* conditions owe this roller —
+// a mark cashing out (Hex's necrotic d6, for the hexer only). Same
+// entry shape, so the dialog itemises and crit-doubles it like any extra.
+export function conditionExtrasAgainst(
+  targetConditions: { name: ConditionName; from?: string }[],
+  selfParticipantId: string | undefined,
+): ExtraDamageEntry[] {
+  return ridersAgainst(targetConditions, selfParticipantId, "damage").flatMap(
+    (r) =>
+      r.rider.rider === "extraDamage" && r.rider.declareAt !== "before-attack"
+        ? [{ source: r.source, rider: r.rider, optIn: !!r.rider.optional }]
+        : [],
   );
 }
 

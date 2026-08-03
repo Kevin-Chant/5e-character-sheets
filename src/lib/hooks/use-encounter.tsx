@@ -635,8 +635,10 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     // The one encounter write the chatter layer makes: a condition landing on
     // the player's own row, on accepting an offer.
     applyConditionTo: useCallback(
-      (participantId: string, condition: { name: string; rounds?: number }) =>
-        update((current) => addCondition(current, participantId, condition)),
+      (
+        participantId: string,
+        condition: { name: string; rounds?: number; from?: string },
+      ) => update((current) => addCondition(current, participantId, condition)),
       [update],
     ),
   });

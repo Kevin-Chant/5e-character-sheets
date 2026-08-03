@@ -894,6 +894,16 @@ to rule on them. The order is now **target first, then dice**:
   rider, rolled at roll time), a summary line for everything else — which is what
   makes "fully wired conditions" safe: a rogue client can lie about which
   buff it cast, but cannot inject mechanics into a peer's rolls.
+  **Marks are the mirror**: a condition's `against` riders apply to rolls
+  aimed _at_ its bearer, read off the dialog's chosen target — Faerie Fire's
+  advantage for anyone, and `casterOnly` ones (Hex's necrotic d6, Hunter's
+  Mark, True Strike) only for whoever placed it, which is why conditions
+  carry provenance (`ActiveCondition.from`, stamped from the report/offer's
+  `fromParticipantId`). The same target read surfaces
+  `CONDITION_TARGET_EFFECTS` advisory notes — attacking someone Prone or
+  Restrained is the advantage a table most often forgets. Marks are a table
+  feature by construction: the condition lives on an encounter row, so solo
+  there is no row to bear it.
 
 **What deliberately does not cross the wire.** Two boundaries hold by design,
 not omission — changing either is a product decision, not a gap fix:

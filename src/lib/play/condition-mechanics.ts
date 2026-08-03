@@ -26,8 +26,22 @@ import { ConditionName } from "src/lib/play/conditions";
 // never leaks onto the other; `optional` remains for eligibility the kinds
 // still can't express (Guidance boosts *one* check, then ends).
 
+// A rider applied to rolls made *against* a bearer of the condition — the
+// attacker's side of the mirror. `casterOnly` limits it to whoever placed
+// the condition (`ActiveCondition.from`): Hex's d6 is the hexer's, while
+// Faerie Fire's advantage belongs to anyone who can see the glow.
+export interface TargetedRider extends FeatureRider {
+  casterOnly?: boolean;
+}
+
 export interface ConditionMechanics {
+  // What the condition does to the *bearer's* own rolls (Bless's d4).
   riders?: FeatureRider[];
+  // What it does to rolls aimed *at* the bearer (Hex's d6, Faerie Fire's
+  // advantage). Consumed by the dialog when the roll's chosen target bears
+  // the condition — which is why marks only work at a table: the condition
+  // lives on an encounter row, and solo there is no row to bear it.
+  against?: TargetedRider[];
   // One line for banners and the DM board: what accepting this means.
   summary?: string;
 }
@@ -68,11 +82,11 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
       "Falls prone, incapacitated with laughter; repeats the save when damaged",
   },
 
-  // --- 2026-08-03 catalog fan-out (see spell-conditions.ts). Riders only
-  // where the bearer-side effect is expressible; four caster-side effects
-  // (Hex, Hunter's Mark, True Strike, Friends) are deliberately summary-
-  // only — the rider model is bearer-side, and their benefit belongs to
-  // whoever attacks or targets the bearer, not the bearer itself.
+  // --- 2026-08-03 catalog fan-out (see spell-conditions.ts). `riders` only
+  // where the bearer-side effect is expressible; caster-/attacker-side
+  // effects (Hex, Hunter's Mark, True Strike, Friends, Faerie Fire, Guiding
+  // Bolt) live in `against` instead — applied to rolls aimed at the bearer,
+  // `casterOnly` where the benefit belongs to whoever placed the mark.
   "Absorb Elements": {
     summary:
       "Resistance to the triggering damage type, and the bearer's first successful melee attack that turn deals an extra 1d6 of that type.",
@@ -379,6 +393,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Faerie Fire": {
     summary:
       "Outlined in light: attackers who can see the bearer have advantage against it, and it can't benefit from invisibility.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "attacks against the outlined target have advantage if you can see it",
+        },
+      },
+    ],
   },
   "False Life": {
     summary: "Gains 1d4 + 4 temporary hit points.",
@@ -441,6 +464,16 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   Friends: {
     summary:
       "The caster has advantage on Charisma checks directed at the target creature.",
+    against: [
+      {
+        appliesTo: ["check"],
+        casterOnly: true,
+        rider: {
+          rider: "advantage",
+          note: "your Charisma checks directed at it (it knows afterwards)",
+        },
+      },
+    ],
   },
   Frostbite: {
     summary:
@@ -500,6 +533,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Guiding Bolt": {
     summary:
       "The next attack roll against the bearer before the end of the caster's next turn has advantage.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "the next attack against it has advantage — remove the condition once someone uses it",
+        },
+      },
+    ],
   },
   Haste: {
     summary:
@@ -537,7 +579,20 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   },
   Hex: {
     summary:
-      "+1d6 necrotic damage on the bearer's hits against the cursed target, which also has disadvantage on checks with one named ability score.",
+      "Cursed: the hexer's hits against it deal +1d6 necrotic, and it has disadvantage on checks with one named ability score.",
+    against: [
+      {
+        appliesTo: ["damage"],
+        casterOnly: true,
+        rider: {
+          rider: "extraDamage",
+          amount: [1, StandardDie.d6, DieOperation.roll],
+          damageType: DamageType.Necrotic,
+          declareAt: "on-hit",
+          note: "every hit against the hexed target, spell attacks included",
+        },
+      },
+    ],
   },
   "Holy Aura": {
     summary:
@@ -555,7 +610,19 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   },
   "Hunter's Mark": {
     summary:
-      "+1d6 damage on the bearer's weapon attacks against the marked target, and advantage on Perception/Survival checks to find it.",
+      "Marked: the marker's weapon hits against it deal +1d6, and the marker has advantage on Perception/Survival checks to find it.",
+    against: [
+      {
+        appliesTo: ["damage"],
+        casterOnly: true,
+        rider: {
+          rider: "extraDamage",
+          amount: [1, StandardDie.d6, DieOperation.roll],
+          declareAt: "on-hit",
+          note: "weapon attacks against the marked target",
+        },
+      },
+    ],
   },
   "Hypnotic Pattern": {
     summary: "Charmed and incapacitated, with its speed reduced to 0.",
@@ -938,6 +1005,16 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "True Strike": {
     summary:
       "The caster has advantage on their first attack roll against the target on their next turn, then the spell ends.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        casterOnly: true,
+        rider: {
+          rider: "advantage",
+          note: "your first attack against it on your next turn, then the spell ends",
+        },
+      },
+    ],
   },
   "Vicious Mockery": {
     summary:
@@ -1004,6 +1081,27 @@ export function conditionRiders(
     return (entry?.riders ?? [])
       .filter((r) => r.appliesTo.includes(kind))
       .map((r) => ({ source: name, rider: r.rider }));
+  });
+}
+
+// The riders the chosen *target's* conditions contribute to a roll against
+// it. Takes the full ActiveConditions (not just names) because provenance
+// gates the caster-only ones: a Hex someone else placed pays you nothing.
+export function ridersAgainst(
+  targetConditions: { name: ConditionName; from?: string }[],
+  selfParticipantId: string | undefined,
+  kind: RollKind,
+): ActiveRider[] {
+  return targetConditions.flatMap((c) => {
+    const entry = CONDITION_MECHANICS[c.name];
+    return (entry?.against ?? [])
+      .filter((r) => r.appliesTo.includes(kind))
+      .filter(
+        (r) =>
+          !r.casterOnly ||
+          (!!c.from && !!selfParticipantId && c.from === selfParticipantId),
+      )
+      .map((r) => ({ source: c.name, rider: r.rider }));
   });
 }
 

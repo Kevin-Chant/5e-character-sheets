@@ -36,6 +36,12 @@ export interface ActiveCondition {
   // Rounds left, ticked down at the start of the bearer's turn. Absent means
   // indefinite — "until someone removes it", which is most of them.
   rounds?: number;
+  // The participant who placed it — a mark's provenance. Hex's d6 belongs to
+  // the hexer, not to anyone who swings at the bearer, and this is how the
+  // dialog tells (see `casterOnly` in `condition-mechanics.ts`). Optional so
+  // stored encounters and hand-ticked conditions need nothing; absent means
+  // "unowned", which correctly denies caster-only benefits.
+  from?: string;
 }
 
 export interface Concentration {
