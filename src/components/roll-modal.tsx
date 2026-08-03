@@ -20,6 +20,7 @@ import {
 } from "src/lib/roll";
 import {
   availableSlotLevels,
+  conditionExtras,
   damageMapFor,
   damageOnSave,
   DamageResolution,
@@ -1113,6 +1114,7 @@ function EffectControls({
   } = useSettings();
   const { rollMode } = useRollMode();
   const manual = rollMode === "manual";
+  const { selfConditions } = useEncounter();
   const mechanics = spell?.mechanics;
   const isHealing = !!mechanics?.healing;
   const isCantrip = mechanics?.level === 0;
@@ -1130,8 +1132,11 @@ function EffectControls({
       // same rendering/resolution; `extrasForAttack` is empty for a spell and
       // this is empty for a weapon, so the two never overlap.
       ...spellExtrasForCast(character, spell, isCantrip),
+      // What's *on* the bearer joins in (Divine Favor's radiant d4) — not
+      // weapon-gated, since a self-buff rides whatever the bearer swings.
+      ...conditionExtras(selfConditions),
     ],
-    [character, damage, spell, context, isCantrip],
+    [character, damage, spell, context, isCantrip, selfConditions],
   );
   // Opt-in extras (Sneak Attack, Divine Smite, Rage) start unchecked; the ones
   // the weapon's tags fully settle apply on their own. Keyed by source.
@@ -1230,10 +1235,12 @@ function EffectControls({
   // level, and labelling either "(1st)" would be a lie.
   const reportedLevel = spell && !isCantrip ? castLevel : undefined;
   const rollDamageEffect = () => {
-    const damageRiders = applicableRiders(
-      ridersFor(character, "damage"),
-      context,
-    );
+    // Condition riders join here too, so a condition's flat damage bonus
+    // (Magic Weapon's +1) folds through `applyTotalRiders` like a feature's.
+    const damageRiders = [
+      ...applicableRiders(ridersFor(character, "damage"), context),
+      ...conditionRiders(selfConditions, "damage"),
+    ];
     const resolution = resolveDamage({
       character,
       map,

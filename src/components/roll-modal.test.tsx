@@ -632,6 +632,17 @@ describe("RollModal — cast conditions", () => {
     expect(screen.getByText(/\+4 — Bless \(d4: 4\)/)).toBeInTheDocument();
   });
 
+  it("rides a bearer's damage-side condition onto a weapon hit", async () => {
+    // Divine Favor: +1d4 radiant on the bearer's weapon damage, auto-applied.
+    open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "app", {
+      selfConditions: ["Divine Favor"],
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Roll Damage" }));
+    // 2d6 (maxed) + STR 5, plus the maxed d4.
+    expect(total()).toBe(2 * 6 + 5 + 4);
+    expect(screen.getByText(/\+4 Radiant — Divine Favor/)).toBeInTheDocument();
+  });
+
   it("keeps the d4 off an ability check entirely", async () => {
     open({ kind: "check", modifier: 3 }, {}, "app", {
       selfConditions: ["Bless"],

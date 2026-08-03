@@ -12,6 +12,8 @@ import {
 } from "src/lib/types";
 import { getSpellSaveDcFormula } from "src/lib/formula";
 import { spellConditionFor } from "src/lib/spells/spell-conditions";
+import { conditionRiders } from "src/lib/play/condition-mechanics";
+import { ConditionName } from "src/lib/play/conditions";
 import {
   CritSpec,
   DamageRollResult,
@@ -174,6 +176,23 @@ export function availableSlotLevels(
     if (availableSpellSlots(character, lvl as LeveledSpellLevel) > 0)
       out.push(lvl);
   return out;
+}
+
+// The extra-damage riders the bearer's own active conditions contribute
+// (Divine Favor's radiant d4, Absorb Elements' stored d6). Unlike
+// `extrasForAttack` these aren't weapon-gated — a self-buff's dice ride
+// whatever the bearer swings — and they carry no weapon conditions to
+// settle: opt-in iff authored optional. Deliberately *bearer-side only*:
+// Hex and Hunter's Mark mark the target, and their dice belong to the
+// attacker, which this model can't express (they stay summary chips).
+export function conditionExtras(
+  conditions: ConditionName[],
+): ExtraDamageEntry[] {
+  return conditionRiders(conditions, "damage").flatMap((r) =>
+    r.rider.rider === "extraDamage" && r.rider.declareAt !== "before-attack"
+      ? [{ source: r.source, rider: r.rider, optIn: !!r.rider.optional }]
+      : [],
+  );
 }
 
 // Whether the roll dialog has anything to offer for a spell: dice to roll, a
