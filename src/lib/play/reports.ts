@@ -37,10 +37,18 @@ export type RollStage =
   | "toHit"
   // Damage rolled at a target. Applyable — the DM's write, as before.
   | "damage"
-  // Healing rolled for a target. Approved, then offered to the recipient.
+  // Healing rolled for a target. Approved, then offered to the recipient —
+  // or, untargeted, a self-heal announced for visibility (a hit die, Second
+  // Wind): the HP change reaches the DM through the vitals projection, this
+  // is the "why" that used to be invisible beside it. No target → nothing to
+  // apply, the card just says what happened.
   | "healing"
   // Any other d20 the table asked for: a save, a skill, a concentration check.
-  | "check";
+  | "check"
+  // A die rolled for its own sake in front of the table — a feature's display
+  // roll (Temporary HP, a superiority die). Nothing to rule and nothing to
+  // apply; visibility is the whole point, same bargain as `manual`.
+  | "roll";
 
 // One damage type's contribution, itemised. On the wire because resistance and
 // immunity are the DM's ruling and they can't make it from a lump sum — and
@@ -112,7 +120,10 @@ export type OutgoingRoll = Omit<
 export interface RollVerdict {
   exchangeId: string;
   toClientId: string;
-  outcome: "hit" | "miss" | "critical";
+  // hit / miss / critical answer a to-hit; success / failure answer a check —
+  // the same spoken sentence, two words wider, so "you make it" no longer has
+  // to cross the table by voice while "that hits" doesn't.
+  outcome: "hit" | "miss" | "critical" | "success" | "failure";
 }
 
 // How many reports the queue keeps. A table rolls a lot in an evening and
@@ -168,6 +179,7 @@ export interface Exchange {
 const STAGE_ORDER: RollStage[] = [
   "cast",
   "check",
+  "roll",
   "toHit",
   "damage",
   "healing",

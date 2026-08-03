@@ -91,7 +91,10 @@ roller.
   `1d<die> + CON`, then an explicit Apply button heals current HP and marks one
   die expended. It's declarative (not an `afterRoll` callback) so the modal can
   gate on the live character: Roll disabled at zero remaining dice, healing
-  clamped to max HP, and any minimum-total rider (Durable) applied. The apply
+  clamped to max HP, and any minimum-total rider (Durable) applied. At a
+  table the roll reports itself as **untargeted healing** — the HP write
+  syncs through the projection anyway; the report is the "why" beside it, and
+  with no target there's nothing for the DM to apply. The apply
   step goes through the mechanics resolver (`resolveEffects` → normal
   `dispatch`es; see [`ability-mechanics.md`](./ability-mechanics.md)) —
   play-mode dispatching is fine, only the edit-modal machinery is off-limits.
@@ -138,9 +141,11 @@ For an `attack` spec the modal renders:
   every stage travel addressed and on its own; see the roll-report section of
   [`play-surface.md`](./play-surface.md) for what crosses the wire and why
   re-rolls are numbered rather than blocked. Defaults to whoever you attacked
-  last (settable ahead of time from the play surface's target strip). An
+  last (settable ahead of time from the play surface's target strip; only an
+  attack opens pre-aimed — checks and hit dice never inherit it). An
   attack roll picks **one** target from a select grouped Enemies-above-Party
-  (healing reverses the order); a save-based effect picks a **set** with
+  (healing reverses the order, and offers **yourself** first); a save-based
+  effect picks a **set** with
   checkboxes — Fireball names everyone in the blast — and a save-based spell
   with no dice at all (Hideous Laughter) swaps the roll button for an
   **Announce cast** that sends the label, DC and targets on their own.

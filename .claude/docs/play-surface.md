@@ -823,7 +823,20 @@ to rule on them. The order is now **target first, then dice**:
   `vitals.ac` with a `beatsAc` opinion, and **Hit / Miss** sends a `VERDICT`
   back to the roller, who sees "Your DM says: that hits" under the roll it
   answers. Advisory both ways — the opinion can't see a Shield reaction, and
-  the damage button never waited on the answer.
+  the damage button never waited on the answer. A **check** gets the same
+  treatment via `CheckRuling` — **Success / Fail**, no advisory opinion (the
+  DC lives in the DM's head) — and the answer lands under the roll-call
+  prompt or the check dialog alike. Death saves are exempt: they score
+  themselves, so the verdict is already in the label.
+- **Self-directed rolls report themselves.** A hit-die spend and every
+  resource-action roll (`ActionRow` → `resolveEffects` display rolls — Second
+  Wind's d10, a feature's `roll` effect) go to the seat as they land: the HP
+  write reaches the DM as a bare projection change, and these are the
+  "Second Wind: 9" that explains it. Healing-shaped rolls ride the `healing`
+  stage _untargeted_ (no target → no apply row — the write is the player's
+  own); anything else rides the generic `roll` stage, which has nothing to
+  rule and nothing to apply. Each ability use is its own exchange at
+  attempt 1 — using Second Wind twice is two acts, not a re-roll.
 - **Damage still lands the same way**: an editable amount ("it saved, halving
   that") and **Apply**, an ordinary `setVitals` write, so a player-owned
   target's sheet gets it via `ownVitals`. Applying dismisses the card — with
@@ -849,13 +862,32 @@ to rule on them. The order is now **target first, then dice**:
   targets, and the card renders it with no total (the save chip is the
   number). Re-announcing is numbered like any re-roll.
 - **The target is remembered** (`lastTargetId`, local to the browser), so a
-  second swing at the same goblin needs no second pick — and it can be set
-  _before_ any attack from the **target strip** (`target-strip.tsx`): a
+  second swing at the same goblin needs no second pick — but **only an
+  attack opens pre-aimed**: a plain check or a hit die must not inherit the
+  goblin from your last swing and report itself as aimed at it (it briefly
+  did). It can be set _before_ any attack from the **target strip**
+  (`target-strip.tsx`): a
   standing row of foe chips (`isFoe`: the DM's explicit `side` if set, else
   no-sheet-means-foe) between the play header and the board, each showing the
   shared-vitals read and conditions, one tap making it your target. The roll
   dialog's single-target select groups by the same split (Enemies above
-  Party; healing reverses the order).
+  Party; healing reverses the order) — and healing may aim at **yourself**,
+  listed "(you)" and first in the Party group; a DM-approved self-heal offer
+  routes back to the caster like any character-backed target.
+
+**What deliberately does not cross the wire.** Two boundaries hold by design,
+not omission — changing either is a product decision, not a gap fix:
+
+- **Reports flow player→seat only.** `reportsEnabled` is false for the DM
+  (and solo), and only the DM board renders the queue — so players never see
+  each other's rolls, and the DM's own rolls are never broadcast ("the DM
+  rolls in the open" tables aren't supported). Opening this up means both a
+  wire change and a player-facing feed surface.
+- **Resources stay private by construction.** Slots, pools, ammo, and
+  everything else on the sheet never enter the participant projection —
+  name/initiative/HP/AC/conditions is the whole of it. The privacy default
+  holds because the data never travels, not because a flag hides it; widening
+  the projection erodes that guarantee.
 - **Concentration checks fire wherever the damage lands.** `concentrationDc`
   (max(10, ⌊damage/2⌋), in `encounter.ts`) backs two prompts. DM side: every
   HP write on the board goes through one `applyVitals` wrapper, so damage to a

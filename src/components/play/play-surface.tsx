@@ -401,7 +401,7 @@ function CheckLauncher({ character }: { character: Character }) {
 // dialog strikes: never block the re-roll, always show it.
 function RollCallPrompt() {
   const { isDm } = useEncounter();
-  const { rollCall, dismissRollCall, sendReport } = useTableTalk();
+  const { rollCall, dismissRollCall, sendReport, verdicts } = useTableTalk();
   const { character } = useCharacter();
   const { rollMode } = useRollMode();
   const [raw, setRaw] = useState("");
@@ -454,6 +454,22 @@ function RollCallPrompt() {
       {sent && (
         <span>
           You sent <strong>{sent.total}</strong>.
+          {/* The seat's answer, keyed to this ask — the sentence that used to
+              come back only by voice. */}
+          {verdicts[rollCall.callId] && (
+            <>
+              {" "}
+              Your DM says:{" "}
+              <strong>
+                {verdicts[rollCall.callId] === "success"
+                  ? "that's a success"
+                  : verdicts[rollCall.callId] === "failure"
+                    ? "that's not enough"
+                    : verdicts[rollCall.callId]}
+              </strong>
+              .
+            </>
+          )}
         </span>
       )}
       {rollMode === "manual" ? (

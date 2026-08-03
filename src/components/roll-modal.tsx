@@ -163,6 +163,7 @@ function RollBody({
     request.id,
     spec.kind === "attack",
     multiTarget,
+    isHealing,
   );
   const { targetId, report } = targeting;
   const mechanics = spec.kind === "attack" ? spec.spell?.mechanics : undefined;
@@ -208,6 +209,7 @@ function RollBody({
         ) : (
           <TargetPicker
             healing={isHealing}
+            selfId={targeting.selfId}
             foes={targeting.foes}
             party={targeting.party}
             targetId={targeting.targetId}
@@ -215,19 +217,33 @@ function RollBody({
           />
         ))}
       {spec.kind === "check" && (
-        <CheckControls
-          character={character}
-          modifier={spec.modifier}
-          onRolled={(rolled) =>
-            report({ stage: "check", label: request.label, ...rolled }, false)
-          }
-        />
+        <>
+          <CheckControls
+            character={character}
+            modifier={spec.modifier}
+            onRolled={(rolled) =>
+              report({ stage: "check", label: request.label, ...rolled }, false)
+            }
+          />
+          {/* "Your DM says: that's a success" — the check's counterpart to
+              the attack dialog's hit/miss line. */}
+          <VerdictLine exchangeId={request.id} />
+        </>
       )}
       {spec.kind === "formula" && (
         <FormulaControls character={character} formula={spec.formula} />
       )}
       {spec.kind === "hitDie" && (
-        <HitDieControls character={character} die={spec.die} />
+        <HitDieControls
+          character={character}
+          die={spec.die}
+          // Untargeted healing: nothing for the DM to apply (the HP write is
+          // the player's own and syncs through the projection) — this is the
+          // "why" arriving next to it.
+          onRolled={(rolled) =>
+            report({ stage: "healing", label: request.label, ...rolled }, false)
+          }
+        />
       )}
       {spec.kind === "deathSave" && (
         <DeathSaveControls
@@ -335,24 +351,50 @@ function RollBody({
 // `report` that stamps each roll with the exchange and its attempt number.
 // `multi` is the save-based shape — the *target* rolls, so a Fireball names
 // every creature in the blast where an attack roll names exactly one.
-function useTargeting(exchangeId: string, isAttack: boolean, multi: boolean) {
+function useTargeting(
+  exchangeId: string,
+  isAttack: boolean,
+  multi: boolean,
+  // Healing may aim at yourself — the most common cure there is. Attacks
+  // never list you.
+  includeSelf: boolean,
+) {
   const { encounter, self } = useEncounter();
   const { reportsEnabled, sendReport, lastTargetId, rememberTarget } =
     useTableTalk();
+  const selfId = self?.id;
   // No hidden rows: what a player can't see, they can't call a target.
   const targets = useMemo(
-    () => encounter.participants.filter((p) => p.id !== self?.id && !p.hidden),
-    [encounter.participants, self?.id],
+    () =>
+      encounter.participants.filter(
+        (p) => (includeSelf || p.id !== selfId) && !p.hidden,
+      ),
+    [encounter.participants, selfId, includeSelf],
   );
   // The goblins above the party: the picker groups by side so eight rows of
   // mixed friends and monsters read as a choice rather than a roster dump.
   const foes = useMemo(() => targets.filter(isFoe), [targets]);
-  const party = useMemo(() => targets.filter((t) => !isFoe(t)), [targets]);
+  const party = useMemo(() => {
+    const rest = targets.filter((t) => !isFoe(t));
+    // Yourself first when you're offered at all — a heal's likeliest target.
+    return includeSelf && selfId
+      ? [
+          ...rest.filter((t) => t.id === selfId),
+          ...rest.filter((t) => t.id !== selfId),
+        ]
+      : rest;
+  }, [targets, includeSelf, selfId]);
   const enabled = isAttack && reportsEnabled && targets.length > 0;
   // The last thing this player swung at, which in a fight is very often the
-  // next thing too. Dropped if it has left the order.
+  // next thing too. Dropped if it has left the order. Only an attack opens
+  // pre-aimed: a plain check or a hit die must not inherit the goblin from
+  // your last swing and report itself as aimed at it (which is exactly what
+  // happened before this gate).
   const [targetId, setTargetId] = useState(() =>
-    !multi && lastTargetId && targets.some((t) => t.id === lastTargetId)
+    isAttack &&
+    !multi &&
+    lastTargetId &&
+    targets.some((t) => t.id === lastTargetId)
       ? lastTargetId
       : "",
   );
@@ -438,6 +480,7 @@ function useTargeting(exchangeId: string, isAttack: boolean, multi: boolean) {
     enabled,
     multi,
     targeted,
+    selfId,
     foes,
     party,
     targetId,
@@ -465,12 +508,14 @@ function targetGroups(
 
 function TargetPicker({
   healing,
+  selfId,
   foes,
   party,
   targetId,
   setTargetId,
 }: {
   healing: boolean;
+  selfId?: string;
   foes: Participant[];
   party: Participant[];
   targetId: string;
@@ -489,7 +534,7 @@ function TargetPicker({
           <optgroup key={label} label={label}>
             {list.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
+                {p.id === selfId ? `${p.name} (you)` : p.name}
               </option>
             ))}
           </optgroup>
@@ -539,21 +584,17 @@ function VerdictLine({ exchangeId }: { exchangeId: string }) {
   const { verdicts } = useTableTalk();
   const outcome = verdicts[exchangeId];
   if (!outcome) return null;
+  const bad = outcome === "miss" || outcome === "failure";
+  const wording: Record<typeof outcome, string> = {
+    critical: "critical hit",
+    hit: "that hits",
+    miss: "that misses",
+    success: "that's a success",
+    failure: "that's not enough",
+  };
   return (
-    <p
-      className={classNames("roll-verdict", {
-        hit: outcome !== "miss",
-        miss: outcome === "miss",
-      })}
-    >
-      Your DM says:{" "}
-      <strong>
-        {outcome === "critical"
-          ? "critical hit"
-          : outcome === "hit"
-            ? "that hits"
-            : "that misses"}
-      </strong>
+    <p className={classNames("roll-verdict", { hit: !bad, miss: bad })}>
+      Your DM says: <strong>{wording[outcome]}</strong>
     </p>
   );
 }
@@ -1488,9 +1529,14 @@ function EffectControls({
 function HitDieControls({
   character,
   die,
+  onRolled,
 }: {
   character: Character;
   die: StandardDie;
+  // The roll on its way to the table, healing riders included — reported as
+  // it lands, like every other roll, so the DM's queue explains the HP change
+  // the projection is about to show them.
+  onRolled?: (rolled: Pick<OutgoingRoll, "total" | "manual">) => void;
 }) {
   const { dispatch } = useCharacter();
   const { rollMode } = useRollMode();
@@ -1504,13 +1550,17 @@ function HitDieControls({
     applied: number | null;
   } | null>(null);
 
+  const land = (total: number, dice: number[], manualEntry?: true) => {
+    setResult({ total, dice, applied: null });
+    onRolled?.({
+      total: hitDieHealing(character, total),
+      ...(manualEntry ? { manual: manualEntry } : {}),
+    });
+  };
+
   const roll = () => {
     const dice: number[] = [];
-    setResult({
-      total: rollFormula(formula, character, dice, riders),
-      dice,
-      applied: null,
-    });
+    land(rollFormula(formula, character, dice, riders), dice);
   };
 
   const healing = result ? hitDieHealing(character, result.total) : 0;
@@ -1555,7 +1605,7 @@ function HitDieControls({
             // A negative CON can floor a hit die at 0 — still a rolled die the
             // player needs to spend, so 0 must be enterable.
             min={0}
-            onCommit={(total) => setResult({ total, dice: [], applied: null })}
+            onCommit={(total) => land(total, [], true)}
           />
         )
       ) : (

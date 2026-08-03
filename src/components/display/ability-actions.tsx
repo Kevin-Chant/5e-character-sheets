@@ -13,6 +13,8 @@ import {
   EffectContext,
 } from "src/lib/mechanics/resolve";
 import { AbilityAction, ACTION_COST_LABELS } from "src/lib/mechanics/types";
+import { useTableTalk } from "src/lib/hooks/use-table-talk";
+import { randomUUID } from "src/lib/browser";
 import { LimitedUseAbility } from "src/lib/types";
 import { ordinal } from "src/lib/utils";
 import StepperInput from "../stepper-input";
@@ -61,6 +63,7 @@ export function ActionRow({
   action: AbilityAction;
 }) {
   const { character, dispatch } = useLoadedCharacter();
+  const { sendReport } = useTableTalk();
   const [level, setLevel] = useState<LeveledSpellLevel>(1);
   const [amount, setAmount] = useState(1);
   const [outcome, setOutcome] = useState<string | null>(null);
@@ -80,22 +83,6 @@ export function ActionRow({
   };
   const blocked = actionBlocked(action, ctx);
 
-  const perform = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (blocked) return;
-    const { updates, reminders, rolls } = resolveEffects(action.effects, ctx);
-    updates.forEach((update) => dispatch(update));
-    const parts = [
-      ...rolls.map(
-        (r) =>
-          `${r.label}: ${r.total}` +
-          (r.dice.length > 0 ? ` (dice: ${r.dice.join(" + ")})` : ""),
-      ),
-      ...reminders,
-    ];
-    setOutcome(parts.length > 0 ? parts.join(" — ") : null);
-  };
-
   // Most pools carry a single action named after the pool, so the button just
   // repeated the name already printed above it — "Divine Sense" under "Divine
   // Sense", and three rows of "Channel Divinity: …" under three pools called
@@ -111,6 +98,39 @@ export function ActionRow({
   const abilityName = ability.info.title.trim();
   const restatesAbility =
     action.name.trim().toLowerCase() === abilityName.toLowerCase();
+
+  const perform = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (blocked) return;
+    const { updates, reminders, rolls } = resolveEffects(action.effects, ctx);
+    updates.forEach((update) => dispatch(update));
+    const parts = [
+      ...rolls.map(
+        (r) =>
+          `${r.label}: ${r.total}` +
+          (r.dice.length > 0 ? ` (dice: ${r.dice.join(" + ")})` : ""),
+      ),
+      ...reminders,
+    ];
+    setOutcome(parts.length > 0 ? parts.join(" — ") : null);
+    // Every rolled amount goes to the table as it lands (a no-op when there
+    // is no table) — the writes above reach the DM as bare HP changes in the
+    // projection, and these are the "Second Wind: 9" that explains them.
+    // Each roll is its own exchange at attempt 1: using an ability twice is
+    // two acts, not a re-roll of one.
+    const source = restatesAbility
+      ? abilityName
+      : `${abilityName} — ${action.name}`;
+    rolls.forEach((r) =>
+      sendReport({
+        exchangeId: randomUUID(),
+        stage: r.label === "Healing" ? "healing" : "roll",
+        attempt: 1,
+        label: r.label === "Healing" ? source : `${source} — ${r.label}`,
+        total: r.total,
+      }),
+    );
+  };
 
   // Slot-creation options show their point cost inline when the action spends
   // by chosen level.

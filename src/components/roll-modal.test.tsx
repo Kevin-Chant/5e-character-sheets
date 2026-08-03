@@ -470,6 +470,102 @@ describe("RollModal — save-based spells", () => {
   });
 });
 
+// The self-directed rolls: a hit die reports itself (the HP change reaches
+// the DM as a bare projection write — this is the "why" beside it), a heal
+// may target yourself, and a plain check must not inherit the target of your
+// last attack.
+describe("RollModal — self-directed rolls at a table", () => {
+  const SELF: Participant = {
+    id: "pc:self",
+    name: "Brakka",
+    characterUuid: randomUUID(),
+    initiative: 15,
+    spent: { action: false, bonusAction: false, reaction: false },
+    conditions: [],
+    vitals: { currHp: 20, maxHp: 30, ac: 18 },
+  };
+  const GOBLIN: Participant = {
+    id: "combatant:goblin",
+    name: "Goblin 1",
+    initiative: 12,
+    spent: { action: false, bonusAction: false, reaction: false },
+    conditions: [],
+    vitals: { currHp: 7, maxHp: 7, ac: 13 },
+  };
+  const CURE = {
+    spellcastingClass: randomUUID() as never,
+    info: { title: "Cure Wounds", titleFormulas: [] },
+    mechanics: {
+      level: 1,
+      resolution: { kind: "auto" },
+      healing: {
+        operation: "addition",
+        operands: [[1, StandardDie.d8, DieOperation.roll]],
+      },
+    },
+  } as never;
+
+  it("reports a hit-die spend as untargeted healing", async () => {
+    const sendReport = vi.fn();
+    open(
+      { kind: "hitDie", die: StandardDie.d10 },
+      {},
+      "manual",
+      { encounter: { ...EMPTY_ENCOUNTER, participants: [SELF, GOBLIN] } },
+      {
+        reportsEnabled: true,
+        sendReport,
+        // The goblin from the last swing must not be inherited by a self-heal.
+        lastTargetId: GOBLIN.id,
+        rememberTarget: vi.fn(),
+      },
+    );
+    await userEvent.type(
+      screen.getByLabelText("Total rolled, modifiers included"),
+      "9{enter}",
+    );
+    expect(sendReport).toHaveBeenCalledTimes(1);
+    const report = sendReport.mock.calls[0][0] as OutgoingRoll;
+    expect(report.stage).toBe("healing");
+    expect(report.total).toBe(9);
+    expect(report.manual).toBe(true);
+    expect(report.targetId).toBeUndefined();
+  });
+
+  it("does not stamp a plain check with the last attack's target", async () => {
+    const sendReport = vi.fn();
+    open(
+      { kind: "check", modifier: 3 },
+      {},
+      "app",
+      { encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN] } },
+      {
+        reportsEnabled: true,
+        sendReport,
+        lastTargetId: GOBLIN.id,
+        rememberTarget: vi.fn(),
+      },
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Roll" }));
+    expect(sendReport.mock.calls[0][0].targetId).toBeUndefined();
+  });
+
+  it("offers yourself as a healing target, marked and first", () => {
+    open(
+      { kind: "attack", spell: CURE },
+      {},
+      "app",
+      {
+        encounter: { ...EMPTY_ENCOUNTER, participants: [SELF, GOBLIN] },
+        self: SELF,
+      },
+      { reportsEnabled: true, sendReport: vi.fn(), rememberTarget: vi.fn() },
+    );
+    const you = screen.getByRole("option", { name: "Brakka (you)" });
+    expect(screen.getByRole("group", { name: "Party" })).toContainElement(you);
+  });
+});
+
 describe("RollModal — result breakdowns", () => {
   it("names the flat modifier alongside the dice", async () => {
     open({ kind: "attack", toHit: 7, damage: GREATSWORD });

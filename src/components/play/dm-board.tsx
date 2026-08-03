@@ -640,6 +640,13 @@ function StageRow({
           onRule={onRule}
         />
       )}
+      {/* A check gets the same spoken answer a to-hit does — minus the AC
+          opinion, because the DC lives in the DM's head. A death save scores
+          itself (the verdict is already in the label), so ruling on it would
+          only contradict the dice. */}
+      {stage.stage === "check" && !roll.label?.startsWith("Death save") && (
+        <CheckRuling verdict={verdict} onRule={onRule} />
+      )}
       {/* One apply row per tracked target: a Fireball's 24 lands on each orc
           separately, because "Orc 1 saved, Orc 2 didn't" is the ordinary
           ruling and each box takes its own halving. */}
@@ -669,7 +676,45 @@ const STAGE_LABELS: Record<ExchangeStage["stage"], string> = {
   damage: "Damage",
   healing: "Healing",
   check: "Check",
+  roll: "Roll",
 };
+
+// "That's a success." The check's counterpart to Hit/Miss — the DM knows the
+// DC, the app doesn't, so there's no advisory opinion here, just the answer
+// travelling in-app instead of by voice. Re-rulable like the to-hit buttons.
+function CheckRuling({
+  verdict,
+  onRule,
+}: {
+  verdict?: RollVerdict["outcome"];
+  onRule: (outcome: RollVerdict["outcome"]) => void;
+}) {
+  return (
+    <span className="dm-stage-ruling">
+      <span className="dm-ruling-buttons">
+        <button
+          type="button"
+          className={classNames({ "btn-primary": verdict !== "failure" })}
+          aria-pressed={verdict === "success"}
+          title={verdict === "success" ? "You ruled this a success" : undefined}
+          onClick={() => onRule("success")}
+        >
+          Success
+        </button>
+        <button
+          type="button"
+          className={classNames({ "btn-primary": verdict === "failure" })}
+          aria-pressed={verdict === "failure"}
+          title={verdict === "failure" ? "You ruled this a failure" : undefined}
+          onClick={() => onRule("failure")}
+        >
+          Fail
+        </button>
+        {verdict && <span className="dm-ruled">you said {verdict}</span>}
+      </span>
+    </span>
+  );
+}
 
 // Everything about a roll that isn't its total: the faces behind it, whether
 // it was a crit, the save it has to beat, what it's made of. Most of this
