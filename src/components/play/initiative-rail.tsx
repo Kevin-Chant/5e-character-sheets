@@ -285,8 +285,9 @@ export default function InitiativeRail({
 // The projection the party shares, filtered through the table's sharing
 // policy. Shown for everyone but you (your own bar is right there in the
 // vitals rail), in and out of combat alike — "how hurt is everyone" is a
-// between-fights question as much as a mid-fight one.
-function SharedVitals({
+// between-fights question as much as a mid-fight one. Exported for the
+// target strip, which shows the same read on the same rows.
+export function SharedVitals({
   participant,
   selfId,
   sharing,

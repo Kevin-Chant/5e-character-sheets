@@ -65,9 +65,10 @@ export interface TableTalkData {
   verdicts: Record<string, RollVerdict["outcome"]>;
   // Who this client attacked last, so a second swing at the same goblin needs
   // no second pick. Local to the browser — a target is a choice in progress,
-  // not table state.
+  // not table state. Also settable *before* any attack (the play surface's
+  // target strip), and clearable with undefined.
   lastTargetId?: string;
-  rememberTarget: (targetId: string) => void;
+  rememberTarget: (targetId?: string) => void;
 
   // --- Roll calls ---
   // "Give me a Perception check" — to everyone, or one present client.
@@ -245,9 +246,12 @@ export function useTableTalkState({
       // surface shouldn't have to know that.
       sendReport: (roll) => {
         if (!reportsEnabled) return;
-        const target = roll.targetId
-          ? encounter.participants.find((p) => p.id === roll.targetId)
-          : undefined;
+        const named = (id: string) =>
+          encounter.participants.find((p) => p.id === id);
+        const target = roll.targetId ? named(roll.targetId) : undefined;
+        // Multi-target (a save-based effect): unknown ids are dropped the way
+        // an unknown single target is, and the names travel index-aligned.
+        const knownIds = (roll.targetIds ?? []).filter((id) => named(id));
         senders.current?.sendRollReport({
           ...roll,
           reportId: randomUUID(),
@@ -255,6 +259,12 @@ export function useTableTalkState({
           fromName: displayName,
           total: Math.floor(roll.total),
           ...(target ? { targetName: target.name } : { targetId: undefined }),
+          ...(knownIds.length
+            ? {
+                targetIds: knownIds,
+                targetNames: knownIds.map((id) => named(id)!.name),
+              }
+            : { targetIds: undefined, targetNames: undefined }),
         });
       },
       reportsEnabled,

@@ -7,8 +7,10 @@ import {
   Character,
   CustomFormulaWithDamage,
   RollRider,
+  SaveEffect,
   Spell,
 } from "src/lib/types";
+import { getSpellSaveDcFormula } from "src/lib/formula";
 import {
   CritSpec,
   DamageRollResult,
@@ -171,6 +173,41 @@ export function availableSlotLevels(
     if (availableSpellSlots(character, lvl as LeveledSpellLevel) > 0)
       out.push(lvl);
   return out;
+}
+
+// Whether the roll dialog has anything to offer for a spell: dice to roll, or
+// — with no dice at all — a save to show and announce (Hideous Laughter has
+// nothing to roll, but "I cast it on Goblin 1" still has to reach the DM).
+// The one gate both the spell list and the play board use.
+export function rollableSpell(spell: Spell): boolean {
+  const m = spell.mechanics;
+  if (!m) return false;
+  return !!(
+    m.damage ||
+    m.damageTable ||
+    m.healing ||
+    m.resolution?.kind === "save"
+  );
+}
+
+// A save-resolution spell's save, in the shape the dialog and the wire speak
+// (`SaveEffect`). Spells never carry one directly — the catalog models
+// `resolution: {kind: "save"}` — so this is the bridge the weapon path never
+// needed. `onSuccess` only when there's damage for it to scale.
+export function spellSaveEffect(
+  character: Character,
+  spell?: Spell,
+): SaveEffect | undefined {
+  const mechanics = spell?.mechanics;
+  const res = mechanics?.resolution;
+  if (!res || res.kind !== "save") return undefined;
+  return {
+    dc: getSpellSaveDcFormula(character, spell!.spellcastingClass),
+    stat: res.ability,
+    ...(mechanics.damage || mechanics.damageTable
+      ? { onSuccess: res.halfOnSuccess ? "half" : ("none" as const) }
+      : {}),
+  };
 }
 
 /** The damage map to roll: a spell's level-scaled damage, or the fixed map. */

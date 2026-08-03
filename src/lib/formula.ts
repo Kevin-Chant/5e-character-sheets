@@ -29,8 +29,26 @@ import {
   getPB,
   levelOfClassId,
   modifier,
+  saveDcFormula,
   spellcastingAbilityFor,
 } from "./rules";
+
+// The spell save DC for a class on this character, as a formula: the per-class
+// `saveDcOverride` if set, else the standard 8 + PB + spellcasting ability.
+// Mirrors the default the spellcasting card shows — the roll dialog uses it to
+// put a save-based spell's DC in front of the caster (and on the wire).
+export function getSpellSaveDcFormula(
+  character: Character,
+  classId: UUID,
+): CustomFormula {
+  const entry = character.spellcastingClasses.find(
+    (c) => c.classId === classId,
+  );
+  return (
+    entry?.saveDcOverride ??
+    saveDcFormula(spellcastingAbilityFor(character, classId))
+  );
+}
 
 // The spell attack bonus for a class on this character: the per-class
 // `attackBonusOverride` if set, else PB + the class's spellcasting modifier.

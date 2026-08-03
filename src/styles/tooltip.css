@@ -366,6 +366,18 @@
   max-width: 11rem;
 }
 
+/* The save-based variant: a set of checkboxes, not a pick. Groups keep the
+   goblins above the party the way the select's optgroups do. */
+.roll-target-multi {
+  align-items: stretch;
+  gap: 0.2rem;
+}
+
+.roll-target-group {
+  gap: 0.1rem;
+  margin-left: 0.4rem;
+}
+
 /* "Your DM says: that hits." The answer that used to be shouted across the
    table, landing under the roll it answers. */
 .roll-verdict {

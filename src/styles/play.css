@@ -1591,3 +1591,56 @@
 .check-launcher {
   max-width: 11rem;
 }
+
+/* The target strip: the opposition as a standing row of chips, one tap from
+   being your target. Chips read like the rail's rows (name, shared vitals,
+   conditions) but answer a different question — "who can I aim at". */
+.target-strip {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.target-strip-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.target-strip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.target-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.target-chip.targeted {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.target-chip-conditions {
+  font-size: 0.7rem;
+  color: var(--health);
+}
+
+/* Whose HP a multi-target apply box drains — printed only when a stage has
+   several of them. */
+.dm-apply-target {
+  font-size: 0.75rem;
+  font-weight: 600;
+}

@@ -138,10 +138,19 @@ For an `attack` spec the modal renders:
   every stage travel addressed and on its own; see the roll-report section of
   [`play-surface.md`](./play-surface.md) for what crosses the wire and why
   re-rolls are numbered rather than blocked. Defaults to whoever you attacked
-  last.
+  last (settable ahead of time from the play surface's target strip). An
+  attack roll picks **one** target from a select grouped Enemies-above-Party
+  (healing reverses the order); a save-based effect picks a **set** with
+  checkboxes — Fireball names everyone in the blast — and a save-based spell
+  with no dice at all (Hideous Laughter) swaps the roll button for an
+  **Announce cast** that sends the label, DC and targets on their own.
 - **To Hit** — shown when `toHit` is set (weapon attack bonus, or spell attack
   bonus via `getSpellAttackBonus`). A d20 check with advantage/disadvantage.
-- **Saving Throw** — shown instead when `save` is set. Deliberately **not
+- **Saving Throw** — shown instead when the effect resolves by a save: a
+  weapon/ability's hand-authored `save`, or a spell's catalog
+  `resolution: {kind: "save"}` bridged through `spellSaveEffect`
+  (`attack-roll.ts`) into the same `SaveEffect` — the DC formula is the
+  class's spell save DC (`getSpellSaveDcFormula`). Deliberately **not
   rollable**: the target's save is the DM's roll, so the section is read-only —
   the DC, what a success does, and any advisory note. The player still rolls
   damage once; the result line reports both outcomes ("Failed save: 12 —
@@ -159,7 +168,10 @@ For an `attack` spec the modal renders:
   for** (`availableSpellSlots`), at or above the spell's base level; with none it
   shows "No spell slots available" and disables rolling.
 
-A spell with no structured `mechanics` (damage or healing) shows no die button.
+A spell shows a die button when it has something the dialog can offer
+(`rollableSpell`): damage, healing, **or** a save resolution — a save with no
+dice opens on the DC and the announce path. A spell with none of those shows
+no button.
 
 ## Critical hits
 

@@ -823,8 +823,32 @@ to rule on them. The order is now **target first, then dice**:
   every roll at the table arriving here, a queue that only grew would be
   unreadable by round three. Reports are transient provider state like
   presence: deduped by id, capped at `REPORT_CAP`, cleared with the connection.
+- **A save-based effect targets a set, not a pick.** An attack roll carries
+  one `targetId`; a save-based spell or ability carries `targetIds` (+
+  index-aligned `targetNames`) — checkboxes in the dialog, because "Orc 1 and
+  2 are in the blast" is a set. The exchange card normalises both shapes into
+  `Exchange.targets` and renders **one apply row per tracked target** ("Orc 1
+  saved, Orc 2 didn't" is the ordinary ruling, so each box takes its own
+  halving); with several rows, applying one marks it Applied and the card
+  stays until dismissed, so the first orc's ruling can't sweep the second's
+  box off the queue. The spell's save DC rides the report (`spellSaveEffect`
+  in `attack-roll.ts` bridges the catalog's `resolution: {kind:"save"}` into
+  the dialog's `SaveEffect` — the dialog used to drop it entirely, so
+  Fireball showed no DC).
+- **A diceless cast still crosses the wire** — the `cast` stage. Hideous
+  Laughter rolls nothing on the caster's side, so the dialog (rollable now
+  means "dice, or a save to announce" — `rollableSpell`) offers **Announce
+  cast**: disabled until aimed, then one button sends the label + DC +
+  targets, and the card renders it with no total (the save chip is the
+  number). Re-announcing is numbered like any re-roll.
 - **The target is remembered** (`lastTargetId`, local to the browser), so a
-  second swing at the same goblin needs no second pick.
+  second swing at the same goblin needs no second pick — and it can be set
+  _before_ any attack from the **target strip** (`target-strip.tsx`): a
+  standing row of foe chips (rows with no character sheet behind them,
+  `isDmCreature`) between the play header and the board, each showing the
+  shared-vitals read and conditions, one tap making it your target. The roll
+  dialog's single-target select groups by the same split (Enemies above
+  Party; healing reverses the order).
 - **Concentration checks fire wherever the damage lands.** `concentrationDc`
   (max(10, ⌊damage/2⌋), in `encounter.ts`) backs two prompts. DM side: every
   HP write on the board goes through one `applyVitals` wrapper, so damage to a

@@ -706,6 +706,17 @@ export function claimableSheets(
   );
 }
 
+// Which side of the screen a row reads as, as far as a target picker can
+// tell: a creature is a row with no character sheet behind it — the monsters
+// and NPCs someone typed into the order by hand (`addParticipant` stamps no
+// ownership on those, so the sheet's absence is the only mark they carry).
+// Advisory grouping only: an absent ally typed in by a player lands here too,
+// and stays targetable; nothing rules on this, it just puts the goblins above
+// the party in a list.
+export function isDmCreature(participant: Participant): boolean {
+  return !participant.characterUuid;
+}
+
 // Take over a participant someone else contributed.
 //
 // This is what happens when a DM brings a character into the session and the

@@ -92,7 +92,31 @@ describe("exchanges", () => {
         targetName: "Goblin 2",
       }),
     ]);
-    expect(card.targetName).toBe("Goblin 2");
+    expect(card.targets).toEqual([{ id: "p2", name: "Goblin 2" }]);
+  });
+
+  it("normalises a multi-target report into the card's target list", () => {
+    const [card] = exchanges([
+      report({
+        reportId: "a",
+        stage: "damage",
+        label: "Fireball (3rd)",
+        targetIds: ["p2", "p3"],
+        targetNames: ["Orc 1", "Orc 2"],
+      }),
+    ]);
+    expect(card.targets).toEqual([
+      { id: "p2", name: "Orc 1" },
+      { id: "p3", name: "Orc 2" },
+    ]);
+  });
+
+  it("orders a cast announcement ahead of the damage it precedes", () => {
+    const [card] = exchanges([
+      report({ reportId: "a", stage: "damage", total: 24 }),
+      report({ reportId: "b", stage: "cast", total: 0 }),
+    ]);
+    expect(card.stages.map((s) => s.stage)).toEqual(["cast", "damage"]);
   });
 
   it("keeps separate acts apart, oldest first", () => {

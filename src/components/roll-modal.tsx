@@ -28,6 +28,7 @@ import {
   resolveDamage,
   slotDiceCount,
   spellExtrasForCast,
+  spellSaveEffect,
   usesPoolState,
 } from "src/lib/attack-roll";
 import { spellHealingAtLevel } from "src/lib/spells/spell-scaling";
@@ -53,7 +54,7 @@ import { conditionRollNotes } from "src/lib/play/conditions";
 import { OutgoingRoll, ReportedDamage, RollStage } from "src/lib/play/reports";
 import { calculateCustomFormula } from "src/lib/formula";
 import { RollRequest } from "src/lib/hooks/use-roller";
-import { Participant } from "src/lib/play/encounter";
+import { isDmCreature, Participant } from "src/lib/play/encounter";
 import {
   AttackContext,
   applicableRiders,
@@ -146,20 +147,47 @@ function RollBody({
   );
 
   const isHealing = spec.kind === "attack" && !!spec.spell?.mechanics?.healing;
-  const targeting = useTargeting(request.id, spec.kind === "attack");
+  // One `SaveEffect` whichever way it was authored: a weapon or ability
+  // carries its own `save`, a spell carries `resolution: {kind: "save"}` in
+  // the catalog's shape — which this dialog used to ignore entirely, so
+  // Fireball showed no DC at all.
+  const saveEffect =
+    spec.kind === "attack"
+      ? (spec.save ?? spellSaveEffect(character, spec.spell))
+      : undefined;
+  // A save-based effect targets a *set* (everyone in the blast rolls their
+  // own save); an attack roll targets exactly one creature.
+  const multiTarget =
+    spec.kind === "attack" && !!saveEffect && spec.toHit === undefined;
+  const targeting = useTargeting(
+    request.id,
+    spec.kind === "attack",
+    multiTarget,
+  );
   const { targetId, report } = targeting;
+  const mechanics = spec.kind === "attack" ? spec.spell?.mechanics : undefined;
+  // Whether there are dice on this side of the screen at all. Without any
+  // (Hideous Laughter), the act still has to reach the DM — that's the
+  // announce path below.
+  const hasRollableEffect =
+    spec.kind === "attack" &&
+    !!(
+      spec.damage ||
+      mechanics?.damage ||
+      mechanics?.damageTable ||
+      mechanics?.healing
+    );
 
   // The save a target rolls, as a number the DM can rule with. It never used
   // to leave this dialog — a save-based spell's damage arrived at the seat as
   // a bare total, and the DC had to be said out loud.
-  const save =
-    spec.kind === "attack" && spec.save
-      ? {
-          dc: calculateCustomFormula(spec.save.dc, character),
-          ...(spec.save.stat ? { stat: spec.save.stat } : {}),
-          ...(spec.save.onSuccess ? { onSuccess: spec.save.onSuccess } : {}),
-        }
-      : undefined;
+  const save = saveEffect
+    ? {
+        dc: calculateCustomFormula(saveEffect.dc, character),
+        ...(saveEffect.stat ? { stat: saveEffect.stat } : {}),
+        ...(saveEffect.onSuccess ? { onSuccess: saveEffect.onSuccess } : {}),
+      }
+    : undefined;
 
   return (
     <>
@@ -169,14 +197,23 @@ function RollBody({
           after the fact, if at all. Picking first means the to-hit and the
           damage both arrive addressed, and the damage roll needs no second
           answer to a question already answered. */}
-      {targeting.enabled && (
-        <TargetPicker
-          healing={isHealing}
-          targets={targeting.targets}
-          targetId={targeting.targetId}
-          setTargetId={targeting.setTargetId}
-        />
-      )}
+      {targeting.enabled &&
+        (multiTarget ? (
+          <TargetMultiPicker
+            foes={targeting.foes}
+            party={targeting.party}
+            targetIds={targeting.targetIds}
+            toggleTarget={targeting.toggleTarget}
+          />
+        ) : (
+          <TargetPicker
+            healing={isHealing}
+            foes={targeting.foes}
+            party={targeting.party}
+            targetId={targeting.targetId}
+            setTargetId={targeting.setTargetId}
+          />
+        ))}
       {spec.kind === "check" && (
         <CheckControls
           character={character}
@@ -219,41 +256,64 @@ function RollBody({
               }
             />
           )}
-          {spec.save && <SaveControls character={character} save={spec.save} />}
-          <EffectControls
-            character={character}
-            damage={spec.damage}
-            spell={spec.spell}
-            save={spec.save}
-            context={context}
-            titled={spec.toHit !== undefined || spec.save !== undefined}
-            critical={critical}
-            extraSets={extraSets}
-            onRolled={({ castLevel, ...rolled }) =>
-              report(
-                {
-                  ...rolled,
-                  label: castLevel
-                    ? `${request.label} (${ordinalSlot(castLevel)})`
-                    : request.label,
-                  ...(save ? { save } : {}),
-                },
-                true,
-              )
-            }
-            // Only a to-hit roll can crit — a save-based spell never does, so
-            // that variant gets no toggle.
-            setCritical={
-              spec.toHit !== undefined
-                ? (crit) => {
-                    setCritical(crit);
-                    // Un-ticking drops any exploding stack with it; ticking by
-                    // hand is a plain crit until a roll says otherwise.
-                    setExtraSets(0);
-                  }
-                : undefined
-            }
-          />
+          {saveEffect && (
+            <SaveControls character={character} save={saveEffect} />
+          )}
+          {hasRollableEffect || !saveEffect ? (
+            <EffectControls
+              character={character}
+              damage={spec.damage}
+              spell={spec.spell}
+              save={saveEffect}
+              context={context}
+              titled={spec.toHit !== undefined || saveEffect !== undefined}
+              critical={critical}
+              extraSets={extraSets}
+              onRolled={({ castLevel, ...rolled }) =>
+                report(
+                  {
+                    ...rolled,
+                    label: castLevel
+                      ? `${request.label} (${ordinalSlot(castLevel)})`
+                      : request.label,
+                    ...(save ? { save } : {}),
+                  },
+                  true,
+                )
+              }
+              // Only a to-hit roll can crit — a save-based spell never does, so
+              // that variant gets no toggle.
+              setCritical={
+                spec.toHit !== undefined
+                  ? (crit) => {
+                      setCritical(crit);
+                      // Un-ticking drops any exploding stack with it; ticking by
+                      // hand is a plain crit until a roll says otherwise.
+                      setExtraSets(0);
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            // No dice at all — Hideous Laughter, a stunning gaze: the target
+            // rolls, this side only declares. The announcement is the whole
+            // act, so it gets an explicit button rather than riding a roll.
+            <CastAnnounce
+              enabled={targeting.enabled}
+              targeted={targeting.targeted}
+              onAnnounce={() =>
+                report(
+                  {
+                    stage: "cast",
+                    label: request.label,
+                    total: 0,
+                    ...(save ? { save } : {}),
+                  },
+                  true,
+                )
+              }
+            />
+          )}
           {/* The answer that used to be a sentence across the table. Purely
               informational here: the damage button never waited on it, and
               still doesn't. */}
@@ -271,9 +331,11 @@ function RollBody({
   );
 }
 
-// What the dialog needs to report its rolls: the chosen target, and a `report`
-// that stamps each roll with the exchange and its attempt number.
-function useTargeting(exchangeId: string, isAttack: boolean) {
+// What the dialog needs to report its rolls: the chosen target(s), and a
+// `report` that stamps each roll with the exchange and its attempt number.
+// `multi` is the save-based shape — the *target* rolls, so a Fireball names
+// every creature in the blast where an attack roll names exactly one.
+function useTargeting(exchangeId: string, isAttack: boolean, multi: boolean) {
   const { encounter, self } = useEncounter();
   const { reportsEnabled, sendReport, lastTargetId, rememberTarget } =
     useTableTalk();
@@ -282,16 +344,31 @@ function useTargeting(exchangeId: string, isAttack: boolean) {
     () => encounter.participants.filter((p) => p.id !== self?.id && !p.hidden),
     [encounter.participants, self?.id],
   );
+  // The goblins above the party: the picker groups by side so eight rows of
+  // mixed friends and monsters read as a choice rather than a roster dump.
+  const foes = useMemo(() => targets.filter(isDmCreature), [targets]);
+  const party = useMemo(
+    () => targets.filter((t) => !isDmCreature(t)),
+    [targets],
+  );
   const enabled = isAttack && reportsEnabled && targets.length > 0;
   // The last thing this player swung at, which in a fight is very often the
   // next thing too. Dropped if it has left the order.
   const [targetId, setTargetId] = useState(() =>
-    lastTargetId && targets.some((t) => t.id === lastTargetId)
+    !multi && lastTargetId && targets.some((t) => t.id === lastTargetId)
       ? lastTargetId
       : "",
   );
+  const [targetIds, setTargetIds] = useState<string[]>(() =>
+    multi && lastTargetId && targets.some((t) => t.id === lastTargetId)
+      ? [lastTargetId]
+      : [],
+  );
   const targetRef = useRef(targetId);
   targetRef.current = targetId;
+  const targetIdsRef = useRef(targetIds);
+  targetIdsRef.current = targetIds;
+  const targeted = multi ? targetIds.length > 0 : !!targetId;
   // Attempts per stage, counted locally. Rolling three times before naming a
   // target and then naming one must not report "attempt 1" — the point of the
   // number is that a re-roll can't hide behind the moment it was sent.
@@ -300,51 +377,105 @@ function useTargeting(exchangeId: string, isAttack: boolean) {
 
   const report = useCallback(
     (
-      roll: Omit<OutgoingRoll, "exchangeId" | "attempt" | "targetId"> & {
+      roll: Omit<
+        OutgoingRoll,
+        "exchangeId" | "attempt" | "targetId" | "targetIds"
+      > & {
         stage: RollStage;
       },
       needsTarget: boolean,
     ) => {
       const attempt = (attempts.current[roll.stage] ?? 0) + 1;
       attempts.current[roll.stage] = attempt;
+      const chosen = multi
+        ? targetIdsRef.current.length > 0
+        : !!targetRef.current;
       const full: OutgoingRoll = {
         ...roll,
         exchangeId,
         attempt,
-        ...(targetRef.current ? { targetId: targetRef.current } : {}),
+        ...(multi
+          ? chosen
+            ? { targetIds: [...targetIdsRef.current] }
+            : {}
+          : targetRef.current
+            ? { targetId: targetRef.current }
+            : {}),
       };
       // Rolled before choosing: hold it rather than drop it, and send it the
       // moment a target is named. Rolling first and picking after is otherwise
       // the way to make a bad roll disappear.
-      if (needsTarget && !targetRef.current) {
+      if (needsTarget && !chosen) {
         held.current[roll.stage] = full;
         return;
       }
       delete held.current[roll.stage];
       sendReport(full);
     },
-    [exchangeId, sendReport],
+    [exchangeId, sendReport, multi],
   );
 
   useEffect(() => {
-    if (!targetId) return;
-    rememberTarget(targetId);
+    if (!targeted) return;
+    rememberTarget(multi ? targetIds[targetIds.length - 1] : targetId);
     const flushing = Object.values(held.current);
     held.current = {};
-    flushing.forEach((roll) => sendReport({ ...roll, targetId }));
-  }, [targetId]);
+    flushing.forEach((roll) =>
+      sendReport(
+        multi ? { ...roll, targetIds: [...targetIds] } : { ...roll, targetId },
+      ),
+    );
+  }, [targetId, targetIds]);
 
-  return { enabled, targets, targetId, setTargetId, report };
+  const toggleTarget = useCallback(
+    (id: string, on: boolean) =>
+      setTargetIds((prev) =>
+        on
+          ? [...prev.filter((x) => x !== id), id]
+          : prev.filter((x) => x !== id),
+      ),
+    [],
+  );
+
+  return {
+    enabled,
+    multi,
+    targeted,
+    foes,
+    party,
+    targetId,
+    setTargetId,
+    targetIds,
+    toggleTarget,
+    report,
+  };
+}
+
+// The two sides in picking order: what you're attacking first, unless you're
+// healing — then your own people lead.
+function targetGroups(
+  healing: boolean,
+  foes: Participant[],
+  party: Participant[],
+): [string, Participant[]][] {
+  const groups: [string, Participant[]][] = [
+    ["Enemies", foes],
+    ["Party", party],
+  ];
+  if (healing) groups.reverse();
+  return groups.filter(([, list]) => list.length > 0);
 }
 
 function TargetPicker({
   healing,
-  targets,
+  foes,
+  party,
   targetId,
   setTargetId,
 }: {
   healing: boolean;
-  targets: Participant[];
+  foes: Participant[];
+  party: Participant[];
   targetId: string;
   setTargetId: (id: string) => void;
 }) {
@@ -357,13 +488,52 @@ function TargetPicker({
         onChange={(e) => setTargetId(e.target.value)}
       >
         <option value="">Choose a target…</option>
-        {targets.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
+        {targetGroups(healing, foes, party).map(([label, list]) => (
+          <optgroup key={label} label={label}>
+            {list.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
     </label>
+  );
+}
+
+// The save-based counterpart: checkboxes, because "Orc 1 and 2 are in the
+// blast" is a set, not a pick. Same grouping as the single-target select.
+function TargetMultiPicker({
+  foes,
+  party,
+  targetIds,
+  toggleTarget,
+}: {
+  foes: Participant[];
+  party: Participant[];
+  targetIds: string[];
+  toggleTarget: (id: string, on: boolean) => void;
+}) {
+  return (
+    <div className="column roll-target roll-target-multi">
+      <span>Targets</span>
+      {targetGroups(false, foes, party).map(([label, list]) => (
+        <div key={label} className="column roll-target-group">
+          <span className="muted font-small">{label}</span>
+          {list.map((p) => (
+            <label key={p.id} className="row roll-extra-toggle">
+              <input
+                type="checkbox"
+                checked={targetIds.includes(p.id)}
+                onChange={(e) => toggleTarget(p.id, e.target.checked)}
+              />
+              <span>{p.name}</span>
+            </label>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -436,6 +606,45 @@ function ManualRollInput({
         {buttonLabel}
       </button>
     </form>
+  );
+}
+
+// "I cast Hideous Laughter on Goblin 1", as a button. Only rendered when the
+// effect has no dice of its own; only sendable once it's aimed at someone,
+// because the address *is* the message. Re-announcing is numbered like any
+// re-roll, never blocked.
+function CastAnnounce({
+  enabled,
+  targeted,
+  onAnnounce,
+}: {
+  enabled: boolean;
+  targeted: boolean;
+  onAnnounce: () => void;
+}) {
+  const [announced, setAnnounced] = useState(0);
+  // Solo, or no DM to tell: the save DC above is the whole story.
+  if (!enabled) return null;
+  return (
+    <div className="column roll-section">
+      <button
+        className="btn-primary roll-go"
+        disabled={!targeted}
+        onClick={() => {
+          onAnnounce();
+          setAnnounced((n) => n + 1);
+        }}
+      >
+        {announced ? "Announce again" : "Announce cast"}
+      </button>
+      {announced > 0 ? (
+        <p className="muted font-small">Announced — your DM sees it.</p>
+      ) : (
+        !targeted && (
+          <p className="muted font-small">Pick who it&apos;s aimed at first.</p>
+        )
+      )}
+    </div>
   );
 }
 

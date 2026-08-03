@@ -371,6 +371,105 @@ describe("RollModal — real dice (manual mode)", () => {
   });
 });
 
+// Save-based spells: the catalog's `resolution: {kind: "save"}` has to reach
+// the dialog as a DC (it used to be dropped entirely), targeting is a set
+// rather than a pick, and a spell with no dice at all still crosses the wire
+// as an announced cast.
+describe("RollModal — save-based spells", () => {
+  const spellBase = {
+    spellcastingClass: randomUUID() as never,
+  };
+  const FIREBALL = {
+    ...spellBase,
+    info: { title: "Fireball", titleFormulas: [] },
+    mechanics: {
+      level: 3,
+      resolution: { kind: "save", ability: StatKey.dex, halfOnSuccess: true },
+      damage: [
+        {
+          damageType: DamageType.Fire,
+          formula: [8, StandardDie.d6, DieOperation.roll],
+        },
+      ],
+    },
+  } as never;
+  const HIDEOUS = {
+    ...spellBase,
+    info: { title: "Hideous Laughter", titleFormulas: [] },
+    mechanics: {
+      level: 1,
+      resolution: { kind: "save", ability: StatKey.wis },
+    },
+  } as never;
+  const GOBLIN: Participant = {
+    id: "combatant:goblin",
+    name: "Goblin 1",
+    initiative: 12,
+    spent: { action: false, bonusAction: false, reaction: false },
+    conditions: [],
+    vitals: { currHp: 7, maxHp: 7, ac: 13 },
+  };
+  const ORC: Participant = { ...GOBLIN, id: "combatant:orc", name: "Orc 1" };
+
+  it("shows the save DC a spell's catalog resolution implies", () => {
+    open({ kind: "attack", spell: FIREBALL });
+    expect(screen.getByText("Saving Throw")).toBeInTheDocument();
+    // 8 + PB 4 (level 12) + INT 0 (no spellcasting entry falls back to the
+    // ability) — the point is the number exists at all; it used to be absent.
+    expect(screen.getByText(/DC 12/)).toBeInTheDocument();
+    expect(screen.getByText(/Half damage on a success/)).toBeInTheDocument();
+  });
+
+  it("targets a set, not a pick, and announces a diceless cast at them", async () => {
+    const sendReport = vi.fn();
+    open(
+      { kind: "attack", spell: HIDEOUS },
+      {},
+      "app",
+      { encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN, ORC] } },
+      { reportsEnabled: true, sendReport, rememberTarget: vi.fn() },
+    );
+    // No dice on this side of the screen: no roll button, an announce instead,
+    // gated on aiming it at someone.
+    const announce = screen.getByRole("button", { name: "Announce cast" });
+    expect(announce).toBeDisabled();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Goblin 1" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Orc 1" }));
+    await userEvent.click(announce);
+    expect(sendReport).toHaveBeenCalledTimes(1);
+    const report = sendReport.mock.calls[0][0] as OutgoingRoll;
+    expect(report.stage).toBe("cast");
+    expect(report.targetIds).toEqual([GOBLIN.id, ORC.id]);
+    // The DC rides along; no onSuccess clause, because there's no damage for
+    // a successful save to scale.
+    expect(report.save).toEqual({ dc: 12, stat: StatKey.wis });
+  });
+
+  it("groups the single-target picker by side", () => {
+    const ALLY: Participant = {
+      ...ORC,
+      id: "pc:ally",
+      name: "Maelina",
+      characterUuid: randomUUID(),
+    };
+    open(
+      { kind: "attack", toHit: 7, damage: GREATSWORD },
+      {},
+      "app",
+      { encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN, ALLY] } },
+      { reportsEnabled: true, sendReport: vi.fn(), rememberTarget: vi.fn() },
+    );
+    const enemies = screen.getByRole("group", { name: "Enemies" });
+    const party = screen.getByRole("group", { name: "Party" });
+    expect(enemies).toContainElement(
+      screen.getByRole("option", { name: "Goblin 1" }),
+    );
+    expect(party).toContainElement(
+      screen.getByRole("option", { name: "Maelina" }),
+    );
+  });
+});
+
 describe("RollModal — result breakdowns", () => {
   it("names the flat modifier alongside the dice", async () => {
     open({ kind: "attack", toHit: 7, damage: GREATSWORD });

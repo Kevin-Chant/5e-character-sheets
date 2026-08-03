@@ -9,6 +9,7 @@ import ComponentWithPopover from "./component-with-popover";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 import RollButton from "../roll-button";
 import { getSpellAttackBonus } from "src/lib/formula";
+import { rollableSpell } from "src/lib/attack-roll";
 import { classNameForId, isPreparedCaster } from "src/lib/rules";
 
 // A school's badge letter. Enchantment/Evocation share an initial, so both take
@@ -97,10 +98,7 @@ export default function SpellList({
             formulas={info.titleFormulas}
           />
         );
-        const rollable =
-          spell.mechanics?.damage ||
-          spell.mechanics?.damageTable ||
-          spell.mechanics?.healing;
+        const rollable = rollableSpell(spell);
         return (
           <div key={i} className="row space-between spell-row">
             <div className="row spell-row-main">

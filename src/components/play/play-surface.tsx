@@ -33,6 +33,7 @@ import DmBoard from "./dm-board";
 import InitiativeRail from "./initiative-rail";
 import PlayVitals from "./play-vitals";
 import SessionBar from "./session-bar";
+import TargetStrip from "./target-strip";
 import TurnEconomy from "./turn-economy";
 
 // Play mode is its own surface rather than a lighter sheet: the sheet answers
@@ -158,7 +159,8 @@ export default function PlaySurface() {
             )}
             {/* "Alright everyone — roll initiative!" In app-dice mode one click
               rolls with the sheet's own modifier; with real dice the prompt
-              asks for the total instead. Either way it lands on your row. */}
+              asks what the d20 showed and adds the modifier itself. Either way
+              it lands on your row. */}
             {initiativeCalled && !isDm && character && self && (
               <InitiativeCallPrompt
                 character={character}
@@ -228,6 +230,10 @@ export default function PlaySurface() {
                     </Link>
                   </div>
                 </header>
+                {/* Who's across the table, one tap from being your target.
+                  Between the header and the board because it answers the
+                  question the board's attack buttons are about to ask. */}
+                <TargetStrip />
                 <div
                   className={classNames("play-body", { "off-turn": offTurn })}
                 >

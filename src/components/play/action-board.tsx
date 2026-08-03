@@ -5,6 +5,7 @@ import { useEncounter } from "src/lib/hooks/use-encounter";
 import { resolveEffects } from "src/lib/mechanics/resolve";
 import { Spell } from "src/lib/types";
 import { availableSpellSlots } from "src/lib/rules";
+import { rollableSpell } from "src/lib/attack-roll";
 import {
   calculateCustomFormula,
   formatCustomFormulaWithDamage,
@@ -118,13 +119,10 @@ function ActionControl({ action }: { action: TurnAction }) {
     const cast = action.level > 0 && (
       <CastButton level={action.level as LeveledSpellLevel} spell={spell} />
     );
-    // Same gate the spell list uses: a spell with no structured damage or
-    // healing has nothing to roll, and offering a die for it would promise a
-    // result the engine can't produce.
-    const rollable =
-      spell.mechanics?.damage ||
-      spell.mechanics?.damageTable ||
-      spell.mechanics?.healing;
+    // Same gate the spell list uses: dice to roll, or a save to show and
+    // announce. A spell with neither would promise a result the engine can't
+    // produce.
+    const rollable = rollableSpell(spell);
     if (!rollable) return <>{cast}</>;
     return (
       <>

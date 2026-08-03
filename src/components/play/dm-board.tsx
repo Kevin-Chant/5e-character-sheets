@@ -151,9 +151,7 @@ export default function DmBoard() {
               <ExchangeCard
                 key={exchange.exchangeId}
                 exchange={exchange}
-                target={encounter.participants.find(
-                  (p) => p.id === exchange.targetId,
-                )}
+                participants={encounter.participants}
                 verdict={verdicts[exchange.exchangeId]}
                 onRule={(outcome) =>
                   ruleOnAttack(
@@ -473,7 +471,7 @@ function RollCallForm({
 // so approval sends an offer and *they* apply it to their own sheet.
 function ExchangeCard({
   exchange,
-  target,
+  participants,
   verdict,
   onRule,
   onApply,
@@ -481,7 +479,7 @@ function ExchangeCard({
   onDone,
 }: {
   exchange: Exchange;
-  target?: Participant;
+  participants: Participant[];
   verdict?: RollVerdict["outcome"];
   onRule: (outcome: RollVerdict["outcome"]) => void;
   onApply: (
@@ -497,21 +495,34 @@ function ExchangeCard({
   ) => void;
   onDone: () => void;
 }) {
+  // A Fireball names a set of targets; an attack roll names one. Either way
+  // each named id resolves (or doesn't) against the current order.
+  const resolved = exchange.targets.map((t) => ({
+    ...t,
+    participant: participants.find((p) => p.id === t.id),
+  }));
+  const targets = resolved
+    .map((t) => t.participant)
+    .filter((p): p is Participant => !!p);
   return (
     <li className="dm-exchange">
       <div className="dm-exchange-head">
         <strong>{exchange.fromName}</strong>
-        {exchange.targetName && (
+        {resolved.length > 0 && (
           <>
             <span className="dm-exchange-arrow">→</span>
-            <strong>{exchange.targetName}</strong>
+            <strong>
+              {resolved
+                .map((t) => t.participant?.name ?? t.name ?? "?")
+                .join(", ")}
+            </strong>
           </>
         )}
         <span className="dm-exchange-label">{exchange.label}</span>
-        {target && !target.vitals && (
+        {targets.some((t) => !t.vitals) && (
           <span className="text-muted"> — untracked, give it HP first</span>
         )}
-        {exchange.targetId && !target && (
+        {resolved.some((t) => !t.participant) && (
           <span className="text-muted"> — no longer in the order</span>
         )}
         <button
@@ -527,7 +538,7 @@ function ExchangeCard({
         <StageRow
           key={stage.stage}
           stage={stage}
-          target={target}
+          targets={targets}
           fromName={exchange.fromName}
           verdict={verdict}
           onRule={onRule}
@@ -542,7 +553,7 @@ function ExchangeCard({
 
 function StageRow({
   stage,
-  target,
+  targets,
   fromName,
   verdict,
   onRule,
@@ -551,7 +562,7 @@ function StageRow({
   onResolved,
 }: {
   stage: ExchangeStage;
-  target?: Participant;
+  targets: Participant[];
   fromName: string;
   verdict?: RollVerdict["outcome"];
   onRule: (outcome: RollVerdict["outcome"]) => void;
@@ -573,42 +584,60 @@ function StageRow({
   return (
     <div className="dm-exchange-stage">
       <span className="dm-stage-name">{STAGE_LABELS[stage.stage]}</span>
-      <span className="dm-stage-total">{roll.total}</span>
+      {/* A cast announces, it doesn't total — the save chip in the detail is
+          the number that matters. */}
+      {stage.stage !== "cast" && (
+        <span className="dm-stage-total">{roll.total}</span>
+      )}
       <RollDetail roll={roll} />
       {/* The re-roll trail. Nothing was blocked and nothing is being accused
           — but a number that was rolled twice says so, which is the only
           honesty this layer can offer and, at most tables, the only one it
           needs. */}
-      {stage.superseded.length > 0 && (
-        <span className="dm-stage-rerolled" title="Rolled more than once">
-          re-rolled ×{stage.superseded.length} — was{" "}
-          {stage.superseded.map((r) => r.total).join(", ")}
-        </span>
-      )}
+      {stage.superseded.length > 0 &&
+        (stage.stage === "cast" ? (
+          <span className="dm-stage-rerolled" title="Announced more than once">
+            announced ×{stage.superseded.length + 1}
+          </span>
+        ) : (
+          <span className="dm-stage-rerolled" title="Rolled more than once">
+            re-rolled ×{stage.superseded.length} — was{" "}
+            {stage.superseded.map((r) => r.total).join(", ")}
+          </span>
+        ))}
       {stage.stage === "toHit" && (
         <ToHitRuling
           roll={roll}
-          target={target}
+          target={targets[0]}
           verdict={verdict}
           onRule={onRule}
         />
       )}
-      {(stage.stage === "damage" || heals) && target?.vitals && (
-        <ApplyAmount
-          roll={roll}
-          target={target}
-          fromName={fromName}
-          healing={heals}
-          onApply={onApply}
-          onOfferHealing={onOfferHealing}
-          onResolved={onResolved}
-        />
-      )}
+      {/* One apply row per tracked target: a Fireball's 24 lands on each orc
+          separately, because "Orc 1 saved, Orc 2 didn't" is the ordinary
+          ruling and each box takes its own halving. */}
+      {(stage.stage === "damage" || heals) &&
+        targets
+          .filter((t) => t.vitals)
+          .map((t) => (
+            <ApplyAmount
+              key={t.id}
+              roll={roll}
+              target={t}
+              named={targets.length > 1}
+              fromName={fromName}
+              healing={heals}
+              onApply={onApply}
+              onOfferHealing={onOfferHealing}
+              onResolved={onResolved}
+            />
+          ))}
     </div>
   );
 }
 
 const STAGE_LABELS: Record<ExchangeStage["stage"], string> = {
+  cast: "Cast",
   toHit: "To hit",
   damage: "Damage",
   healing: "Healing",
@@ -736,6 +765,7 @@ function ToHitRuling({
 function ApplyAmount({
   roll,
   target,
+  named,
   fromName,
   healing,
   onApply,
@@ -744,6 +774,9 @@ function ApplyAmount({
 }: {
   roll: RollReport;
   target: Participant;
+  // Whether to print the target's name on the row — only when the stage has
+  // several apply rows and a bare box wouldn't say whose HP it drains.
+  named?: boolean;
   fromName: string;
   healing: boolean;
   onApply: (
@@ -763,8 +796,12 @@ function ApplyAmount({
   onResolved: () => void;
 }) {
   const [amount, setAmount] = useState(String(roll.total));
+  const [applied, setApplied] = useState(false);
   // A re-roll is a new number; a box still holding the old one would be a trap.
-  useEffect(() => setAmount(String(roll.total)), [roll.reportId]);
+  useEffect(() => {
+    setAmount(String(roll.total));
+    setApplied(false);
+  }, [roll.reportId]);
 
   const parsed = Number(amount);
   const offersInstead = healing && !!target.characterUuid;
@@ -772,6 +809,7 @@ function ApplyAmount({
 
   return (
     <span className="dm-stage-ruling">
+      {named && <span className="dm-apply-target">{target.name}</span>}
       <input
         type="text"
         inputMode="numeric"
@@ -783,7 +821,7 @@ function ApplyAmount({
       <button
         type="button"
         className="btn-primary"
-        disabled={!(parsed > 0)}
+        disabled={!(parsed > 0) || applied}
         title={
           offersInstead
             ? "Send it on — the player applies it to their own sheet"
@@ -798,11 +836,16 @@ function ApplyAmount({
           } else {
             onApply(target, applyDamage(vitals, parsed), Math.floor(parsed));
           }
-          onResolved();
+          // With one target the number landing resolves the whole act; with
+          // several, the card stays until each row has had its ruling — Orc 1
+          // taking its half must not sweep Orc 2's box off the queue.
+          if (named) setApplied(true);
+          else onResolved();
         }}
       >
-        {offersInstead ? "Approve" : "Apply"}
-        {parsed > 0 && parsed !== roll.total ? ` ${parsed}` : ""}
+        {applied
+          ? "Applied"
+          : `${offersInstead ? "Approve" : "Apply"}${parsed > 0 && parsed !== roll.total ? ` ${parsed}` : ""}`}
       </button>
     </span>
   );
