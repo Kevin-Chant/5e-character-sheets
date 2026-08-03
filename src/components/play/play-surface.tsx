@@ -282,8 +282,13 @@ export default function PlaySurface() {
 }
 
 // The answer to the DM's call, in whichever dice the player is using: app mode
-// rolls with the sheet's modifier in one click; manual mode takes the total
-// the way the table hears it called out. Both write straight to your row.
+// rolls with the sheet's modifier in one click; manual mode takes the die face
+// and adds the modifier itself — the same ask as every other manual d20 (the
+// roll dialog's checks, death saves), so the one rule a physical roller learns
+// is "one d20: type the face; a fistful of dice: type the total". This prompt
+// used to ask for the total instead, and a player who typed the face the way
+// the dialog taught them set an initiative missing its modifier. Both modes
+// write straight to your row.
 function InitiativeCallPrompt({
   character,
   selfId,
@@ -299,7 +304,8 @@ function InitiativeCallPrompt({
   const [raw, setRaw] = useState("");
   const modifier = initiativeModifierFor(character);
   const parsed = Number(raw);
-  const valid = raw.trim() !== "" && Number.isFinite(parsed);
+  const valid =
+    raw.trim() !== "" && Number.isFinite(parsed) && parsed >= 1 && parsed <= 20;
   return (
     <div className="assign-prompt">
       <span>
@@ -311,20 +317,21 @@ function InitiativeCallPrompt({
           onSubmit={(e) => {
             e.preventDefault();
             if (!valid) return;
-            setCombatantInitiative(selfId, Math.floor(parsed));
+            setCombatantInitiative(selfId, Math.floor(parsed) + modifier);
             dismiss();
           }}
         >
           <input
             type="text"
             inputMode="numeric"
-            aria-label="Your initiative total"
-            placeholder={`Your total (d20 ${modifier >= 0 ? "+" : ""}${modifier})`}
+            aria-label="What did the d20 show?"
+            placeholder="What did the d20 show?"
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
           />
           <button type="submit" className="btn-primary" disabled={!valid}>
-            Set
+            Set ({modifier >= 0 ? "+" : ""}
+            {modifier})
           </button>
         </form>
       ) : (
@@ -381,8 +388,8 @@ function CheckLauncher({ character }: { character: Character }) {
 }
 
 // "Brakka — give me a Perception check." The DM's ask, routed through the
-// tool: answer with one click (or type your real-dice total) and the number
-// travels back to the seat. Nothing here closes on being answered — a player
+// tool: answer with one click (or type the die your real d20 showed) and the
+// number travels back to the seat. Nothing here closes on being answered — a player
 // who rolled before hearing "with advantage" just rolls again, and the seat
 // sees both, keyed to the same ask. That is the same bargain the attack
 // dialog strikes: never block the re-roll, always show it.
@@ -444,26 +451,32 @@ function RollCallPrompt() {
         </span>
       )}
       {rollMode === "manual" ? (
+        // The die face, not the total — the same ask as the roll dialog's
+        // manual checks, so the modifier can't be forgotten or double-counted,
+        // and the seat gets the face alongside the sum it can trust.
         <form
           className="row roll-manual"
           onSubmit={(e) => {
             e.preventDefault();
             const parsed = Number(raw);
             if (!raw.trim() || !Number.isFinite(parsed)) return;
-            send(Math.floor(parsed), { manual: true });
+            const face = Math.floor(parsed);
+            if (face < 1 || face > 20) return;
+            send(face + mod, { faces: [face], kept: face, manual: true });
             setRaw("");
           }}
         >
           <input
             type="text"
             inputMode="numeric"
-            aria-label="Your roll total"
-            placeholder={`Your total (d20 ${mod >= 0 ? "+" : ""}${mod})`}
+            aria-label="What did the d20 show?"
+            placeholder="What did the d20 show?"
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
           />
           <button type="submit" className="btn-primary">
-            {sent ? "Send again" : "Send"}
+            {sent ? "Send again" : "Send"} ({mod >= 0 ? "+" : ""}
+            {mod})
           </button>
         </form>
       ) : (

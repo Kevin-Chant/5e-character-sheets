@@ -349,6 +349,14 @@ describe("RollModal — real dice (manual mode)", () => {
       "20{enter}",
     );
     expect(screen.getByText("Critical Hit")).toBeInTheDocument();
+    // …and the damage half says so too — as a reminder naming the table's
+    // crit flavor, never a checkbox (the entered total is the authority).
+    expect(
+      screen.getByText(/Critical hit — double the damage dice — apply it/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: /Critical/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("takes the damage total as rolled, extras shown as reminders", async () => {

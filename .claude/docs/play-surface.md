@@ -758,7 +758,8 @@ temp HP merely expires.
 brought (`initiativeModifierFor` in `play/initiative.ts`, shared with the
 rail's self-roll button) and prompts every player. The prompt follows the
 roll-mode toggle (see `rolling.md`): app mode is one click with the sheet's
-own modifier; real-dice mode is a type-your-total box. Either writes the
+own modifier; real-dice mode asks for the d20's face and adds the modifier
+itself, the same ask as every other manual d20. Either writes the
 row directly; "Not now" dismisses. The prompt clears when combat starts or
 the connection drops. In real-dice mode the rail's self-roll die button
 also disappears — the stepper beside it is the entry.
@@ -848,7 +849,8 @@ Three more loops on the same report-never-write pattern:
   side: the board's "Ask for a roll" form sends `ROLL_CALL {check,
 toClientId?}` — everyone, or one present client, same routing as sheet
   assignment. The prompt (`RollCallPrompt`) answers in one click (Disadv. /
-  Roll / Adv., or a type-your-total box in real-dice mode) and sends a
+  Roll / Adv., or a what-did-the-d20-show box in real-dice mode — the app
+  adds the modifier and sends the face along) and sends a
   `check`-stage `RollReport` keyed on the call's own id, so a second answer
   lands under the first as attempt 2 rather than as an unrelated number. The
   prompt doesn't close on being answered — same bargain as the attack dialog:

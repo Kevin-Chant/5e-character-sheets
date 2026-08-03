@@ -962,6 +962,7 @@ function EffectControls({
             !noSlots && (
               <ManualRollInput
                 prompt="Total healing"
+                min={0}
                 onCommit={(total) => {
                   setHealResult({ total, dice: [] });
                   onRolled?.({
@@ -1129,6 +1130,18 @@ function EffectControls({
               })}
             </div>
           )}
+          {/* With real dice the crit stays a reminder, not a checkbox — the
+              entered total is the authority, so the app's only job is to say
+              which house rule the player should be applying to their own
+              dice. Without this line a manual nat 20 said "Critical Hit" in
+              the to-hit half and then asked for damage as if nothing had
+              happened. */}
+          {manual && crit && hasDamage && (
+            <p className="muted font-small">
+              Critical hit — {CRIT_MODE_LABELS[criticalDamageMode]} — apply it
+              to the total you enter.
+            </p>
+          )}
           {!manual && setCritical && hasDamage && (
             <label className="row roll-extra-toggle roll-crit-toggle">
               <input
@@ -1144,6 +1157,7 @@ function EffectControls({
             !noSlots && (
               <ManualRollInput
                 prompt="Total damage"
+                min={0}
                 onCommit={(total) => {
                   setDamageResult({ total, parts: [], extras: [] });
                   onRolled?.({
@@ -1298,6 +1312,10 @@ function HitDieControls({
     ? Math.min(maxHpValue(character), character.currHp + healing) -
       character.currHp
     : 0;
+  // Only full HP makes applying pointless. `gained` alone can't gate the
+  // button: a negative CON floors a hit die at 0 healing, and that die was
+  // still rolled and still needs spending.
+  const atFullHp = character.currHp >= maxHpValue(character);
 
   const apply = () => {
     if (!result || result.applied !== null) return;
@@ -1327,7 +1345,10 @@ function HitDieControls({
       {manual ? (
         remaining > 0 && (
           <ManualRollInput
-            prompt="Your total, modifiers included"
+            prompt="Total rolled, modifiers included"
+            // A negative CON can floor a hit die at 0 — still a rolled die the
+            // player needs to spend, so 0 must be enterable.
+            min={0}
             onCommit={(total) => setResult({ total, dice: [], applied: null })}
           />
         )
@@ -1352,8 +1373,8 @@ function HitDieControls({
           ) : (
             <button
               onClick={apply}
-              disabled={gained <= 0}
-              title={gained <= 0 ? "Already at full HP" : undefined}
+              disabled={atFullHp}
+              title={atFullHp ? "Already at full HP" : undefined}
             >
               {gained < healing
                 ? `Heal +${gained} HP (max) & spend 1 ${die}`
@@ -1496,7 +1517,8 @@ function FormulaControls({
       </p>
       {rollMode === "manual" ? (
         <ManualRollInput
-          prompt="Your total"
+          prompt="Total rolled, modifiers included"
+          min={0}
           onCommit={(total) => setResult({ total, dice: [] })}
         />
       ) : (

@@ -56,20 +56,29 @@ each surface offering both affordances at once:
 
 - **`app`** (default): the Roll buttons as described in this doc.
 - **`manual`**: each dialog section swaps its Roll buttons for a
-  type-what-you-rolled input (`ManualRollInput` in `roll-modal.tsx`). d20
-  checks ask for the **die face** — the app still adds the modifier (ticked
-  bonus riders included) and calls the crit off the entered face; multi-die
-  rolls (damage, healing, hit dice) ask for the **total**, since nobody reads
-  out four dice one at a time. Damage extras (Sneak Attack, Smite) render as
+  type-what-you-rolled input (`ManualRollInput` in `roll-modal.tsx`). The one
+  rule, on **every** surface: a single d20 asks for the **die face** ("What
+  did the d20 show?") — the app adds the modifier (ticked bonus riders
+  included) and calls the crit off the entered face; multi-die rolls (damage,
+  healing, hit dice) ask for the **total**, since nobody reads out four dice
+  one at a time. The play surface's roll-call and initiative-call prompts ask
+  for the face under the same rule — they used to ask for the total, and a
+  player who typed the face the way the dialog taught them sent the seat a
+  number missing its modifier. Damage extras (Sneak Attack, Smite) render as
   reminders instead of checkboxes — the entered total is the authority, so a
-  checkbox that changed nothing would lie. The initiative-call prompt on the
-  play surface and the rail's self-roll button follow the same switch.
+  checkbox that changed nothing would lie; a crit carried over from the to-hit
+  face gets the same treatment, a reminder line naming the table's crit flavor
+  rather than a toggle. The rail's self-roll button follows the switch too
+  (with real dice the stepper beside it _is_ the entry).
 
-The mode is deliberately **in-memory, not a persisted setting**: it's a table
-posture, and a refresh falling back to app dice costs one click. A manually
-entered damage total feeds the same result rendering — including the
-report-to-DM row — so the physical roller participates in the DM's
-adjudication queue exactly like the app roller.
+The mode is **persisted to localStorage** (`STORAGE_KEY` in
+`use-roll-mode.tsx`): a physical roller is one for the whole campaign, and a
+mid-game refresh — the common way back into a live session — shouldn't hand
+their dice to the app. The nav toggle stays the only control; it's a table
+posture, not a settings-panel entry. A manually entered damage total feeds the
+same result rendering — including the report-to-DM row — so the physical
+roller participates in the DM's adjudication queue exactly like the app
+roller.
 
 ## The four roll kinds (`RollSpec`)
 
