@@ -1,6 +1,7 @@
 import {
   DamageType,
   DieOperation,
+  PB,
   StandardDie,
 } from "src/lib/data/data-definitions";
 import { ActiveRider } from "src/lib/mechanics/types";
@@ -206,6 +207,23 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Banishing Smite": {
     summary:
       "Banished to a harmless demiplane and incapacitated until the spell ends, then reappears where it left.",
+  },
+  // Granted by the bard's Inspire action, not a spell. The die scales with the
+  // *bard's* level (d6→d12), which the bearer's sheet can't know — so it stays
+  // an advisory note rather than a `bonusDice` rider that would roll the wrong
+  // size.
+  "Bardic Inspiration": {
+    summary:
+      "Add an inspiration die (d6–d12 by the bard's level) to one attack roll, ability check, or saving throw within 10 minutes; then it's spent.",
+    riders: [
+      {
+        appliesTo: ["attack", "check", "save"],
+        rider: {
+          rider: "advantage",
+          note: "you may add your inspiration die (d6–d12 by the bard's level) to this roll — remove the condition after using it",
+        },
+      },
+    ],
   },
   Barkskin: {
     summary:
@@ -688,6 +706,30 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
       },
     ],
   },
+  // Granted by the hexblade's Curse action, not a spell. The +PB damage and
+  // the widened crit range belong to the curser alone — both riders ride
+  // `casterOnly` off the mark's provenance, the same way Hex's d6 does.
+  "Hexblade's Curse": {
+    summary:
+      "Cursed: the curser's damage rolls against it gain the curser's proficiency bonus, the curser crits against it on 19–20, and the curser regains HP if it dies.",
+    against: [
+      {
+        appliesTo: ["damage"],
+        casterOnly: true,
+        rider: {
+          rider: "extraDamage",
+          amount: PB,
+          declareAt: "on-hit",
+          note: "your proficiency bonus, on any damage roll against your cursed target",
+        },
+      },
+      {
+        appliesTo: ["attack"],
+        casterOnly: true,
+        rider: { rider: "critRange", value: 19 },
+      },
+    ],
+  },
   "Holy Aura": {
     summary:
       "Sheds dim light, has advantage on all saving throws, and attackers have disadvantage against it; a fiend or undead that melee-hits it must save or be blinded.",
@@ -695,6 +737,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
       {
         appliesTo: ["save"],
         rider: { rider: "advantage", note: "advantage on all saving throws" },
+      },
+    ],
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "your attack has disadvantage; a fiend or undead that melee-hits must save or be blinded",
+        },
       },
     ],
   },
@@ -1149,6 +1200,21 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Vicious Mockery": {
     summary:
       "Disadvantage on the next attack roll it makes before the end of its next turn.",
+  },
+  // Granted by the Vengeance paladin's Channel Divinity action, not a spell.
+  "Vow of Enmity": {
+    summary:
+      "Sworn enemy of the paladin who vowed: they have advantage on attack rolls against it for 1 minute, or until it drops to 0 HP or falls unconscious.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        casterOnly: true,
+        rider: {
+          rider: "advantage",
+          note: "you have advantage on attacks against your sworn enemy",
+        },
+      },
+    ],
   },
   "Warding Bond": {
     summary:

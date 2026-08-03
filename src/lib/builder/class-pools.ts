@@ -225,6 +225,7 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
               die: bardicInspirationDie(k.level),
             },
             note: "Give one creature other than you within 60 ft. the die to add to one d20 roll in the next 10 minutes.",
+            applies: { name: "Bardic Inspiration", rounds: 100 },
           }),
         ],
       }),

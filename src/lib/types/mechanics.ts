@@ -94,6 +94,14 @@ export interface AbilityAction {
     // Offer a free-typed amount, capped at the pool's remaining uses.
     amount?: "uses";
   };
+  // The condition this use puts on a chosen target — Stunning Strike's
+  // Stunned, Hexblade's Curse's mark, Bardic Inspiration's die. Same shape and
+  // rounds convention as a spell's `SpellConditionGrant` (1 round = 1, 1
+  // minute = 10), and the same wire path: the use reports a `cast` stage
+  // carrying the condition *name*, and the table-talk layer turns it into
+  // consent prompts / DM apply buttons. At a table this adds a target picker
+  // to the action row; solo it changes nothing.
+  applies?: { name: string; rounds?: number; note?: string };
   effects: Effect[];
 }
 

@@ -14,9 +14,12 @@ import {
 } from "src/lib/mechanics/resolve";
 import { AbilityAction, ACTION_COST_LABELS } from "src/lib/mechanics/types";
 import { useTableTalk } from "src/lib/hooks/use-table-talk";
+import { useEncounter } from "src/lib/hooks/use-encounter";
+import { isFoe } from "src/lib/play/encounter";
 import { randomUUID } from "src/lib/browser";
 import { LimitedUseAbility } from "src/lib/types";
 import { ordinal } from "src/lib/utils";
+import { TargetPicker } from "../roll-modal";
 import StepperInput from "../stepper-input";
 
 // Play-mode action rows for limited-use abilities the mechanics catalog knows
@@ -63,10 +66,25 @@ export function ActionRow({
   action: AbilityAction;
 }) {
   const { character, dispatch } = useLoadedCharacter();
-  const { sendReport } = useTableTalk();
+  const { sendReport, reportsEnabled } = useTableTalk();
+  const { encounter, self } = useEncounter();
   const [level, setLevel] = useState<LeveledSpellLevel>(1);
   const [amount, setAmount] = useState(1);
   const [outcome, setOutcome] = useState<string | null>(null);
+  const [targetId, setTargetId] = useState("");
+
+  // A condition-applying action (Stunning Strike, Inspire) asks whom, the same
+  // grouped pick the roll dialog makes — only at a table, since the condition
+  // lands on an encounter row and solo there is no row to land on. Your own
+  // row is left out: both exemplar shapes (a strike, an inspiration for
+  // someone else) exclude you, and a self-buff can loosen this when one
+  // arrives.
+  const applies = action.applies;
+  const selfId = self?.id;
+  const targetable =
+    applies && reportsEnabled
+      ? encounter.participants.filter((p) => !p.hidden && p.id !== selfId)
+      : [];
 
   const levels = slotLevelOptions(action, character);
   const needsLevel = !!action.choose?.slotLevel;
@@ -121,13 +139,36 @@ export function ActionRow({
     const source = restatesAbility
       ? abilityName
       : `${abilityName} — ${action.name}`;
+    // A condition-applying use is one act with an address, so its cast and its
+    // rolls share an exchange — Inspire's die and its condition arrive as one
+    // card. The cast rides the same path a condition-granting spell does: the
+    // condition *name* on a `cast` stage, which the table-talk layer fans into
+    // consent prompts (a character-backed target) and DM apply buttons
+    // (anyone else). Untargeted, it still announces the use — just with
+    // nowhere to offer the condition to.
+    const exchangeId = randomUUID();
+    if (applies) {
+      sendReport({
+        exchangeId,
+        stage: "cast",
+        attempt: 1,
+        label: source,
+        total: 0,
+        ...(targetId ? { targetId } : {}),
+        condition: {
+          name: applies.name,
+          ...(applies.rounds !== undefined ? { rounds: applies.rounds } : {}),
+        },
+      });
+    }
     rolls.forEach((r) =>
       sendReport({
-        exchangeId: randomUUID(),
+        exchangeId: applies ? exchangeId : randomUUID(),
         stage: r.label === "Healing" ? "healing" : "roll",
         attempt: 1,
         label: r.label === "Healing" ? source : `${source} — ${r.label}`,
         total: r.total,
+        ...(applies && targetId ? { targetId } : {}),
       }),
     );
   };
@@ -140,6 +181,16 @@ export function ActionRow({
 
   return (
     <div className="column ability-action">
+      {targetable.length > 0 && (
+        <TargetPicker
+          healing={false}
+          verb={action.name}
+          foes={targetable.filter(isFoe)}
+          party={targetable.filter((p) => !isFoe(p))}
+          targetId={targetId}
+          setTargetId={setTargetId}
+        />
+      )}
       <div className="row ability-action-row">
         {needsLevel && (
           <select

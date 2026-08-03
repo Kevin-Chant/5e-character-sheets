@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -18,6 +18,9 @@ import { randomUUID } from "src/lib/browser";
 import { charPath } from "src/lib/cursor";
 import { MAX_EXHAUSTION } from "src/lib/rules";
 import { maxHpValue } from "src/lib/mechanics/resolve";
+import { EncounterContext, NO_ENCOUNTER } from "src/lib/hooks/use-encounter";
+import { NO_TABLE_TALK, TableTalkContext } from "src/lib/hooks/use-table-talk";
+import { EMPTY_ENCOUNTER, Participant } from "src/lib/play/encounter";
 import AmmunitionDisplay from "./ammunition-display";
 import AttunementDisplay from "./attunement-display";
 import CoinsDisplay from "./coins-display";
@@ -647,6 +650,107 @@ describe("AbilityActions — Lay on Hands", () => {
     expect(
       screen.getByRole("button", { name: "Use Lay on Hands" }),
     ).toBeDisabled();
+  });
+});
+
+describe("AbilityActions — condition-applying uses at a table", () => {
+  // Stunning Strike's `applies` grant: at a table the row asks whom, and the
+  // use reports a `cast` stage carrying the condition *name* — the same wire
+  // shape a condition-granting spell sends, so offers and DM apply buttons
+  // fall out of the existing fan-out.
+  const SELF: Participant = {
+    id: "pc:self",
+    name: "Brakka",
+    characterUuid: randomUUID(),
+    initiative: 15,
+    spent: { action: false, bonusAction: false, reaction: false },
+    conditions: [],
+    vitals: { currHp: 20, maxHp: 30, ac: 18 },
+  };
+  const GOBLIN: Participant = {
+    id: "combatant:goblin",
+    name: "Goblin 1",
+    initiative: 12,
+    spent: { action: false, bonusAction: false, reaction: false },
+    conditions: [],
+    vitals: { currHp: 7, maxHp: 7, ac: 13 },
+  };
+  const withKi = (): Character => {
+    const c = aCharacter();
+    c.limitedUseAbilities.push({
+      info: { title: "Ki", titleFormulas: [] },
+      maxUses: 5,
+      recharge: RestType.shortRest,
+      expended: 0,
+    });
+    return c;
+  };
+  const atTable = (
+    character: Character,
+    sendReport: ReturnType<typeof vi.fn>,
+  ) =>
+    renderWithCharacter(
+      <EncounterContext.Provider
+        value={{
+          ...NO_ENCOUNTER,
+          encounter: { ...EMPTY_ENCOUNTER, participants: [SELF, GOBLIN] },
+          self: SELF,
+        }}
+      >
+        <TableTalkContext.Provider
+          value={{ ...NO_TABLE_TALK, reportsEnabled: true, sendReport }}
+        >
+          <LimitedUseAbilitiesDisplay />
+        </TableTalkContext.Provider>
+      </EncounterContext.Provider>,
+      { character, editMode: false },
+    );
+  const stunningStrikeButton = () =>
+    screen
+      .getAllByText("Stunning Strike")
+      .find((el) => el.tagName === "BUTTON") as HTMLElement;
+
+  it("asks whom, and reports the use as a cast carrying the condition", async () => {
+    const sendReport = vi.fn();
+    const harness = atTable(withKi(), sendReport);
+    await userEvent.selectOptions(
+      screen.getByLabelText("Who stunning strike targets"),
+      GOBLIN.id,
+    );
+    await userEvent.click(stunningStrikeButton());
+    const cast = sendReport.mock.calls
+      .map((c) => c[0])
+      .find((r) => r.stage === "cast");
+    expect(cast).toMatchObject({
+      targetId: GOBLIN.id,
+      condition: { name: "Stunned", rounds: 1 },
+    });
+    // The spend still happened — the report is a side channel, not the write.
+    const ki = harness.character.limitedUseAbilities.find(
+      (a) => a.info.title === "Ki",
+    );
+    expect(ki?.expended).toBe(1);
+  });
+
+  it("still announces an untargeted use, with nowhere to offer it", async () => {
+    const sendReport = vi.fn();
+    atTable(withKi(), sendReport);
+    await userEvent.click(stunningStrikeButton());
+    const cast = sendReport.mock.calls
+      .map((c) => c[0])
+      .find((r) => r.stage === "cast");
+    expect(cast.condition.name).toBe("Stunned");
+    expect(cast.targetId).toBeUndefined();
+  });
+
+  it("shows no picker solo — there is no row for the condition to land on", () => {
+    renderWithCharacter(<LimitedUseAbilitiesDisplay />, {
+      character: withKi(),
+      editMode: false,
+    });
+    expect(
+      screen.queryByLabelText("Who stunning strike targets"),
+    ).not.toBeInTheDocument();
   });
 });
 

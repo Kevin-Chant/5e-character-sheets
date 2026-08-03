@@ -29,6 +29,7 @@ const toPoolDef = (h: SharedPoolHost): ClassPoolDef => ({
       ...(h.amount ? { amount: h.amount } : {}),
       ...(h.roll ? { roll: h.roll } : {}),
       note: h.note,
+      ...(h.applies ? { applies: h.applies } : {}),
     }),
 });
 

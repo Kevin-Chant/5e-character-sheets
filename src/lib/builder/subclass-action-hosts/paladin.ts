@@ -39,6 +39,7 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "bonusAction",
       pool: "Channel Divinity",
       note: "You have advantage on attack rolls against the target for 1 minute or until it drops to 0 HP or falls unconscious.",
+      applies: { name: "Vow of Enmity", rounds: 10 },
     },
   ],
   Ancients: [

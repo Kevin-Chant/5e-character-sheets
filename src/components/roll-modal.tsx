@@ -571,8 +571,12 @@ function targetGroups(
   return groups.filter(([, list]) => list.length > 0);
 }
 
-function TargetPicker({
+// Exported for the ability action rows, which need the same grouped pick when
+// an ability puts a condition on someone (Stunning Strike, Inspire) — `verb`
+// replaces the attack/heal wording there ("Stunning Strike" isn't either).
+export function TargetPicker({
   healing,
+  verb,
   selfId,
   foes,
   party,
@@ -580,6 +584,7 @@ function TargetPicker({
   setTargetId,
 }: {
   healing: boolean;
+  verb?: string;
   selfId?: string;
   foes: Participant[];
   party: Participant[];
@@ -588,9 +593,15 @@ function TargetPicker({
 }) {
   return (
     <label className="row roll-target">
-      <span>{healing ? "Healing" : "Attacking"}</span>
+      <span>{verb ?? (healing ? "Healing" : "Attacking")}</span>
       <select
-        aria-label={healing ? "Who you are healing" : "Who you are attacking"}
+        aria-label={
+          verb
+            ? `Who ${verb.toLowerCase()} targets`
+            : healing
+              ? "Who you are healing"
+              : "Who you are attacking"
+        }
         value={targetId}
         onChange={(e) => setTargetId(e.target.value)}
       >

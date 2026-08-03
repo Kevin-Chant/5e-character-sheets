@@ -28,6 +28,8 @@ export interface SharedPoolHost {
   roll?: { label: string; die: StandardDie; count?: number };
   // The table prompt shown after spending — what the feature does.
   note: string;
+  // The condition this use puts on a chosen target (see `AbilityAction`).
+  applies?: { name: string; rounds?: number; note?: string };
 }
 
 export type HostTable = Record<string, SharedPoolHost[]>;

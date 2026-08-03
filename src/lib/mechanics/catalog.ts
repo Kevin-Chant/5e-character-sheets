@@ -90,11 +90,14 @@ export const spendRollRemind = (opts: {
   // Omit for a roll-less action (a pure trigger/reminder).
   roll?: { label: string; count?: number; die: DieDefinition };
   note: string;
+  // The condition this use puts on a chosen target (see `AbilityAction`).
+  applies?: AbilityAction["applies"];
 }): AbilityAction => ({
   id: opts.id,
   name: opts.name,
   cost: opts.cost,
   ...(opts.costNote ? { costNote: opts.costNote } : {}),
+  ...(opts.applies ? { applies: opts.applies } : {}),
   effects: [
     spendOneUse,
     ...(opts.roll
@@ -140,6 +143,8 @@ export const spendsSharedPool = (opts: {
   amount?: number | "choose";
   roll?: { label: string; count?: number; die: DieDefinition };
   note: string;
+  // The condition this use puts on a chosen target (see `AbilityAction`).
+  applies?: AbilityAction["applies"];
 }): FeatureMechanics => ({
   actions: [
     {
@@ -147,6 +152,7 @@ export const spendsSharedPool = (opts: {
       name: opts.name,
       cost: opts.cost,
       ...(opts.costNote ? { costNote: opts.costNote } : {}),
+      ...(opts.applies ? { applies: opts.applies } : {}),
       ...(opts.amount === "choose"
         ? { choose: { amount: "uses" as const } }
         : {}),
@@ -679,6 +685,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
         name: "Inspire",
         cost: "bonusAction",
         note: "Give one creature other than you within 60 ft. an inspiration die to add to one d20 roll in the next 10 minutes.",
+        applies: { name: "Bardic Inspiration", rounds: 100 },
       }),
     ],
   },
@@ -713,6 +720,11 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
         cost: "special",
         costNote: "when you hit with a melee weapon attack",
         note: "Target must succeed on a Constitution save (your ki save DC, 8 + PB + WIS) or be stunned until the end of your next turn.",
+        applies: {
+          name: "Stunned",
+          rounds: 1,
+          note: "on a failed CON save against your ki save DC",
+        },
       }),
     ],
   },
@@ -779,7 +791,9 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Hexblade's Curse (hexblade warlock): the ongoing marks are table state.
+  // Hexblade's Curse (hexblade warlock): the mark rides the condition system —
+  // its `against` riders in CONDITION_MECHANICS pay the curser (and only the
+  // curser) the +PB damage and the widened crit range.
   "hexblade's curse": {
     actions: [
       spendRollRemind({
@@ -787,6 +801,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
         name: "Curse a target",
         cost: "bonusAction",
         note: "Curse one creature within 30 ft. for 1 minute: +PB to damage against it, crits on 19–20, and regain CHA mod + warlock level HP if it dies.",
+        applies: { name: "Hexblade's Curse", rounds: 10 },
       }),
     ],
   },

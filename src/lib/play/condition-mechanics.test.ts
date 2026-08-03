@@ -58,6 +58,25 @@ describe("condition mechanics", () => {
     expect(ridersAgainst(cursed, "pc:ally", "damage")).toEqual([]);
   });
 
+  it("pays Hexblade's Curse — the +PB damage and the 19–20 crits — to the curser alone", () => {
+    const cursed = [{ name: "Hexblade's Curse", from: "pc:hexblade" }];
+    const [damage] = ridersAgainst(cursed, "pc:hexblade", "damage");
+    expect(damage.rider).toMatchObject({
+      rider: "extraDamage",
+      amount: "proficiencyBonus",
+    });
+    const [crit] = ridersAgainst(cursed, "pc:hexblade", "attack");
+    expect(crit.rider).toEqual({ rider: "critRange", value: 19 });
+    expect(ridersAgainst(cursed, "pc:ally", "damage")).toEqual([]);
+    expect(ridersAgainst(cursed, "pc:ally", "attack")).toEqual([]);
+  });
+
+  it("gives Vow of Enmity's advantage only to the paladin who vowed", () => {
+    const sworn = [{ name: "Vow of Enmity", from: "pc:paladin" }];
+    expect(ridersAgainst(sworn, "pc:paladin", "attack")).toHaveLength(1);
+    expect(ridersAgainst(sworn, "pc:rogue", "attack")).toEqual([]);
+  });
+
   it("warns any attacker about a defensive ward on their target", () => {
     // The sweep's advisory family: no die to wire, but the reminder lands on
     // exactly the rolls it concerns.

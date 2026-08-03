@@ -3,6 +3,23 @@
     "definitions": {
         "AbilityAction": {
             "properties": {
+                "applies": {
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "note": {
+                            "type": "string"
+                        },
+                        "rounds": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "name"
+                    ],
+                    "type": "object"
+                },
                 "choose": {
                     "properties": {
                         "amount": {

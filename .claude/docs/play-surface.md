@@ -881,7 +881,12 @@ to rule on them. The order is now **target first, then dice**:
   JSON both stay untouched) stamps `condition: {name, rounds?}` onto every
   report of its exchange, and announces even with no dice and no save (Bless:
   the announcement _is_ the cast, and a save-less condition may target
-  yourself). What happens next splits by who keeps the target: **your own
+  yourself). **Abilities ride the same channel**: an `AbilityAction` with
+  `applies` (Stunning Strike → Stunned, Hexblade's Curse, Bardic
+  Inspiration, Vow of Enmity) gives its action row the grouped target picker
+  and reports the use as a `cast` stage with the condition name — the ability
+  path (`ability-actions.tsx`) and the spell path converge before the wire,
+  so offers and DM apply buttons need no second mechanism. What happens next splits by who keeps the target: **your own
   row** prompts you locally, **another character** gets a `ConditionOffer`
   over the wire ("Ellora cast Bless on you — apply?") and applying is the
   bearer's own statusRev write, **a sheet-less row** gets neither — the DM
