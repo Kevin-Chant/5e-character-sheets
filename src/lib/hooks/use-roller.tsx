@@ -61,11 +61,19 @@ export interface RollRequest {
   id: string;
   label: string;
   spec: RollSpec;
+  // Where this dialog's attempt numbering starts. Normally 0, but a dialog
+  // re-opened onto an existing exchange (answering a roll call a second time)
+  // must not report "attempt 1" again — the number is what makes a re-roll
+  // visible, and the dialog's own counter resets with each opening.
+  attemptBase?: number;
 }
 
 interface RollerContextData {
   request: RollRequest | null;
-  openRoller: (request: Omit<RollRequest, "id">) => void;
+  // `id` may be supplied to aim the dialog at an existing exchange (a roll
+  // call's answer reports under the call's own id); omitted, each opening is
+  // its own exchange.
+  openRoller: (request: Omit<RollRequest, "id"> & { id?: string }) => void;
   closeRoller: () => void;
 }
 
@@ -84,7 +92,8 @@ export function RollerProvider(props: React.PropsWithChildren) {
     <RollerContext.Provider
       value={{
         request,
-        openRoller: (opened) => setRequest({ ...opened, id: randomUUID() }),
+        openRoller: (opened) =>
+          setRequest({ ...opened, id: opened.id ?? randomUUID() }),
         closeRoller: () => setRequest(null),
       }}
     >

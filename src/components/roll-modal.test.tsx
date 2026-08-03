@@ -53,6 +53,9 @@ const character: Character = (() => {
 
 const dispatch = vi.fn();
 let spec: RollSpec;
+// Set by the one test that opens the dialog onto an exchange with attempts
+// already sent under it (a roll call answered a second time).
+let requestAttemptBase: number | undefined;
 // Stable, because it doubles as the exchange id every roll in the dialog is
 // reported under.
 const EXCHANGE = "exchange-1";
@@ -63,7 +66,12 @@ vi.mock("src/lib/hooks/use-character", () => ({
 vi.mock("src/lib/hooks/use-roller", async (orig) => ({
   ...(await orig<object>()),
   useRoller: () => ({
-    request: { id: EXCHANGE, label: "Greatsword", spec },
+    request: {
+      id: EXCHANGE,
+      label: "Greatsword",
+      spec,
+      attemptBase: requestAttemptBase,
+    },
     closeRoller: vi.fn(),
   }),
 }));
@@ -110,6 +118,7 @@ beforeEach(() => {
   // about *how many* dice were rolled rather than about luck.
   vi.spyOn(Math, "random").mockReturnValue(0.999);
   localStorage.clear();
+  requestAttemptBase = undefined;
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -827,6 +836,23 @@ describe("RollModal — reporting to the table", () => {
     await toHit();
     await toHit();
     expect(reports().map((r) => r.attempt)).toEqual([1, 2]);
+  });
+
+  it("numbers on from attempts sent before the dialog opened", async () => {
+    // A roll call answered a second time: the prompt re-opens the dialog onto
+    // the call's exchange with the attempts already sent under it, and the new
+    // roll must not claim to be an innocent first.
+    requestAttemptBase = 2;
+    sendReport = vi.fn();
+    open(
+      { kind: "check", modifier: 3 },
+      {},
+      "app",
+      { encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN] } },
+      { reportsEnabled: true, sendReport, rememberTarget: vi.fn() },
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Roll" }));
+    expect(reports().map((r) => r.attempt)).toEqual([3]);
   });
 
   it("holds a roll made before a target is named, then sends its true attempt", async () => {

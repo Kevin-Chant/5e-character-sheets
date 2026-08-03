@@ -24,7 +24,7 @@ import {
   checkLabel,
   checkModifier,
 } from "src/lib/play/checks";
-import { CheckMode, rollD20Check } from "src/lib/roll";
+import { rollD20Check } from "src/lib/roll";
 import { usePlayTurn } from "src/lib/play/use-turn";
 import { TurnFlowProvider } from "src/lib/play/use-turn-flow";
 import { Character } from "src/lib/types";
@@ -402,58 +402,25 @@ function CheckLauncher({ character }: { character: Character }) {
 }
 
 // "Brakka — give me a Perception check." The DM's ask, routed through the
-// tool: answer with one click (or type the die your real d20 showed) and the
-// number travels back to the seat. Nothing here closes on being answered — a player
-// who rolled before hearing "with advantage" just rolls again, and the seat
-// sees both, keyed to the same ask. That is the same bargain the attack
-// dialog strikes: never block the re-roll, always show it.
+// tool: one button opens the ordinary roll dialog aimed at the call's own
+// exchange id, so the answer travels back to the seat with everything the
+// dialog knows — Bless's d4, a condition's note, advantage buttons, the
+// real-dice mode. This prompt used to roll inline, which silently skipped
+// every rider the dialog applies: the same character answered "Roll a check…"
+// with the d4 and the DM's call without it. Nothing here closes on being
+// answered — a player who rolled before hearing "with advantage" opens it
+// again, and `attemptBase` numbers the new roll on from the last, so the seat
+// sees both keyed to the same ask.
 function RollCallPrompt() {
   const { isDm } = useEncounter();
-  const { rollCall, dismissRollCall, sendReport, verdicts } = useTableTalk();
+  const { rollCall, dismissRollCall, sentChecks, verdicts } = useTableTalk();
   const { character } = useCharacter();
-  const { rollMode } = useRollMode();
-  const [raw, setRaw] = useState("");
-  const [answered, setAnswered] = useState<{
-    callId: string;
-    total: number;
-    attempt: number;
-  } | null>(null);
+  const { openRoller } = useRoller();
   if (!rollCall || isDm || !character) return null;
 
   const label = checkLabel(rollCall.check);
   const mod = checkModifier(character, rollCall.check);
-  const sent = answered?.callId === rollCall.callId ? answered : null;
-  const send = (
-    total: number,
-    detail: {
-      faces?: number[];
-      kept?: number;
-      mode?: CheckMode;
-      manual?: true;
-    },
-  ) => {
-    const attempt = (sent?.attempt ?? 0) + 1;
-    // The ask's own id is the exchange, so a second answer lands under the
-    // first rather than arriving as an unrelated number.
-    sendReport({
-      exchangeId: rollCall.callId,
-      stage: "check",
-      attempt,
-      label,
-      total,
-      ...detail,
-    });
-    setAnswered({ callId: rollCall.callId, total, attempt });
-  };
-  const rollAndSend = (mode: CheckMode) => {
-    const rolled = rollD20Check(mod, mode);
-    send(rolled.total, {
-      faces: rolled.dice,
-      kept: rolled.kept,
-      mode,
-    });
-  };
-
+  const sent = sentChecks[rollCall.callId];
   return (
     <div className="assign-prompt">
       <span>
@@ -480,53 +447,25 @@ function RollCallPrompt() {
           )}
         </span>
       )}
-      {rollMode === "manual" ? (
-        // The die face, not the total — the same ask as the roll dialog's
-        // manual checks, so the modifier can't be forgotten or double-counted,
-        // and the seat gets the face alongside the sum it can trust.
-        <form
-          className="row roll-manual"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const parsed = Number(raw);
-            if (!raw.trim() || !Number.isFinite(parsed)) return;
-            const face = Math.floor(parsed);
-            if (face < 1 || face > 20) return;
-            send(face + mod, { faces: [face], kept: face, manual: true });
-            setRaw("");
-          }}
-        >
-          <input
-            type="text"
-            inputMode="numeric"
-            aria-label="What did the d20 show?"
-            placeholder="What did the d20 show?"
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-          />
-          <button type="submit" className="btn-primary">
-            {sent ? "Send again" : "Send"} ({mod >= 0 ? "+" : ""}
-            {mod})
-          </button>
-        </form>
-      ) : (
-        <span className="row roll-manual">
-          <button type="button" onClick={() => rollAndSend("disadvantage")}>
-            Disadv.
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => rollAndSend("normal")}
-          >
-            {sent ? "Roll again" : "Roll"} ({mod >= 0 ? "+" : ""}
-            {mod})
-          </button>
-          <button type="button" onClick={() => rollAndSend("advantage")}>
-            Adv.
-          </button>
-        </span>
-      )}
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={() =>
+          openRoller({
+            id: rollCall.callId,
+            label,
+            spec: {
+              kind: "check",
+              modifier: mod,
+              ...(rollCall.check.kind === "save" ? { save: true } : {}),
+            },
+            attemptBase: sent?.attempt ?? 0,
+          })
+        }
+      >
+        {sent ? "Roll again" : "Roll"} ({mod >= 0 ? "+" : ""}
+        {mod})
+      </button>
       <button type="button" onClick={dismissRollCall}>
         {sent ? "Done" : "Not now"}
       </button>

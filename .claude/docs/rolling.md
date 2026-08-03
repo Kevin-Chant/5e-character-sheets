@@ -61,10 +61,11 @@ each surface offering both affordances at once:
   did the d20 show?") — the app adds the modifier (ticked bonus riders
   included) and calls the crit off the entered face; multi-die rolls (damage,
   healing, hit dice) ask for the **total**, since nobody reads out four dice
-  one at a time. The play surface's roll-call and initiative-call prompts ask
-  for the face under the same rule — they used to ask for the total, and a
-  player who typed the face the way the dialog taught them sent the seat a
-  number missing its modifier. Damage extras (Sneak Attack, Smite) render as
+  one at a time. The play surface's initiative-call prompt asks for the face
+  under the same rule — it used to ask for the total, and a player who typed
+  the face the way the dialog taught them sent the seat a number missing its
+  modifier (the roll-call prompt now opens this dialog rather than taking
+  entry itself, so it inherits the rule). Damage extras (Sneak Attack, Smite) render as
   reminders instead of checkboxes — the entered total is the authority, so a
   checkbox that changed nothing would lie; a crit carried over from the to-hit
   face gets the same treatment, a reminder line naming the table's crit flavor

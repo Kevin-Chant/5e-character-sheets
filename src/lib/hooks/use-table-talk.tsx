@@ -81,6 +81,11 @@ export interface TableTalkData {
   // A call addressed to (or including) this client, awaiting an answer.
   rollCall?: RollCall;
   dismissRollCall: () => void;
+  // The check answers *this* client has sent, by exchange id. The broker drops
+  // self-echoes, so a sender's own rolls never come back through `reports` —
+  // this is how the roll-call prompt knows what it already answered (and where
+  // the next dialog's attempt numbering should start).
+  sentChecks: Record<string, { total: number; attempt: number }>;
 
   // --- Healing ---
   // The DM approved a healing report at a character-backed row: offer it to
@@ -124,6 +129,7 @@ export const NO_TABLE_TALK: TableTalkData = {
   rememberTarget: NOOP,
   callForRoll: NOOP,
   dismissRollCall: NOOP,
+  sentChecks: {},
   offerHealing: NOOP,
   applyIncomingHealing: NOOP,
   declineIncomingHealing: NOOP,
@@ -205,6 +211,10 @@ export function useTableTalkState({
   const [lastTargetId, setLastTargetId] = useState<string | undefined>();
   // The DM asked this client (or everyone) for a d20, unanswered.
   const [rollCall, setRollCall] = useState<RollCall | undefined>();
+  // Our own answers, by exchange — see `TableTalkData.sentChecks`.
+  const [sentChecks, setSentChecks] = useState<
+    Record<string, { total: number; attempt: number }>
+  >({});
   // Approved healing addressed to the open character, unanswered.
   const [incomingHealing, setIncomingHealing] = useState<
     HealingOffer | undefined
@@ -234,6 +244,7 @@ export function useTableTalkState({
     setVerdicts({});
     setLastTargetId(undefined);
     setRollCall(undefined);
+    setSentChecks({});
     setIncomingHealing(undefined);
     setIncomingConditions([]);
   }, []);
@@ -297,6 +308,17 @@ export function useTableTalkState({
       // surface shouldn't have to know that.
       sendReport: (roll) => {
         if (!reportsEnabled) return;
+        // Remember our own check answers — the one stage another surface (the
+        // roll-call prompt) needs to read back, since self-echoes never
+        // arrive.
+        if (roll.stage === "check")
+          setSentChecks((current) => ({
+            ...current,
+            [roll.exchangeId]: {
+              total: Math.floor(roll.total),
+              attempt: roll.attempt,
+            },
+          }));
         const named = (id: string) =>
           encounter.participants.find((p) => p.id === id);
         const target = roll.targetId ? named(roll.targetId) : undefined;
@@ -362,6 +384,7 @@ export function useTableTalkState({
       // Deliberately doesn't clear on answering — the prompt keeps showing what
       // was sent until the player dismisses it (or the next call replaces it).
       dismissRollCall: () => setRollCall(undefined),
+      sentChecks,
 
       offerHealing: (targetId, amount, fromName, label) => {
         if (!(amount > 0)) return;
@@ -422,6 +445,7 @@ export function useTableTalkState({
       verdicts,
       lastTargetId,
       rollCall,
+      sentChecks,
       incomingHealing,
       incomingConditions,
       selfParticipantId,

@@ -186,6 +186,7 @@ function RollBody({
     // You can aim a heal at yourself — and a save-less condition (Bless is a
     // buff; a save means the target resists, i.e. not you).
     isHealing || (!!conditionGrant && !saveEffect),
+    request.attemptBase,
   );
   const { targetId, report } = targeting;
   // The chosen target's row, when a single one is chosen — what pays out the
@@ -418,6 +419,9 @@ function useTargeting(
   // Healing may aim at yourself — the most common cure there is. Attacks
   // never list you.
   includeSelf: boolean,
+  // Attempts already sent under this exchange before the dialog opened — see
+  // `RollRequest.attemptBase`.
+  attemptBase = 0,
 ) {
   const { encounter, self } = useEncounter();
   const { reportsEnabled, sendReport, lastTargetId, rememberTarget } =
@@ -484,7 +488,7 @@ function useTargeting(
       },
       needsTarget: boolean,
     ) => {
-      const attempt = (attempts.current[roll.stage] ?? 0) + 1;
+      const attempt = (attempts.current[roll.stage] ?? attemptBase) + 1;
       attempts.current[roll.stage] = attempt;
       const chosen = multi
         ? targetIdsRef.current.length > 0
@@ -511,7 +515,7 @@ function useTargeting(
       delete held.current[roll.stage];
       sendReport(full);
     },
-    [exchangeId, sendReport, multi],
+    [exchangeId, sendReport, multi, attemptBase],
   );
 
   useEffect(() => {
