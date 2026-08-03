@@ -48,4 +48,23 @@ describe("condition mechanics", () => {
     // Wrong kind: nothing.
     expect(ridersAgainst(outlined, "pc:someone-else", "damage")).toEqual([]);
   });
+
+  it("pays Bestow Curse's necrotic d8 only to whoever placed it", () => {
+    const cursed = [{ name: "Bestow Curse", from: "pc:witch" }];
+    const [rider] = ridersAgainst(cursed, "pc:witch", "damage");
+    expect(rider.rider.rider).toBe("extraDamage");
+    // One of four curse options, so it waits for a tick.
+    expect(rider.rider).toMatchObject({ optional: true });
+    expect(ridersAgainst(cursed, "pc:ally", "damage")).toEqual([]);
+  });
+
+  it("warns any attacker about a defensive ward on their target", () => {
+    // The sweep's advisory family: no die to wire, but the reminder lands on
+    // exactly the rolls it concerns.
+    for (const name of ["Blurred", "Sanctuary", "Mirror Image"]) {
+      const [rider] = ridersAgainst([{ name }], "pc:anyone", "attack");
+      expect(rider.source).toBe(name);
+      expect(rider.rider.rider).toBe("advantage");
+    }
+  });
 });

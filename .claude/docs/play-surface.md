@@ -897,9 +897,12 @@ to rule on them. The order is now **target first, then dice**:
   **Marks are the mirror**: a condition's `against` riders apply to rolls
   aimed _at_ its bearer, read off the dialog's chosen target — Faerie Fire's
   advantage for anyone, and `casterOnly` ones (Hex's necrotic d6, Hunter's
-  Mark, True Strike) only for whoever placed it, which is why conditions
-  carry provenance (`ActiveCondition.from`, stamped from the report/offer's
-  `fromParticipantId`). The same target read surfaces
+  Mark, True Strike, Bestow Curse's d8) only for whoever placed it, which is
+  why conditions carry provenance (`ActiveCondition.from`, stamped from the
+  report/offer's `fromParticipantId`). Defensive wards with no wireable die
+  (Blur, Sanctuary, Mirror Image, Fire Shield, Protection from Evil and Good)
+  ride the same channel as advisory `advantage`-notes, so "your attack has
+  disadvantage" appears on exactly the roll it concerns. The same target read surfaces
   `CONDITION_TARGET_EFFECTS` advisory notes — attacking someone Prone or
   Restrained is the advantage a table most often forgets. Marks are a table
   feature by construction: the condition lives on an encounter row, so solo
@@ -941,13 +944,19 @@ Three more loops on the same report-never-write pattern:
   roll dialog — advantage, condition notes and real-dice mode included. DM
   side: the board's "Ask for a roll" form sends `ROLL_CALL {check,
 toClientId?}` — everyone, or one present client, same routing as sheet
-  assignment. The prompt (`RollCallPrompt`) answers in one click (Disadv. /
-  Roll / Adv., or a what-did-the-d20-show box in real-dice mode — the app
-  adds the modifier and sends the face along) and sends a
-  `check`-stage `RollReport` keyed on the call's own id, so a second answer
-  lands under the first as attempt 2 rather than as an unrelated number. The
-  prompt doesn't close on being answered — same bargain as the attack dialog:
-  never block the re-roll, always show it. Any check rolled through the dialog
+  assignment. The prompt (`RollCallPrompt`) is one button that opens the
+  ordinary roll dialog **aimed at the call's own exchange id**
+  (`openRoller({id: callId, attemptBase})`), so the answer is a `check`-stage
+  `RollReport` under the ask and carries everything the dialog knows — Bless's
+  d4, a condition's note, advantage buttons, real-dice entry. (It used to roll
+  inline, which silently skipped every rider: the same character answered
+  "Roll a check…" with the d4 and the DM's call without it.) The prompt reads
+  what it already sent from `sentChecks` in the table-talk layer — the broker
+  drops self-echoes, so a sender's own rolls never come back through
+  `reports` — and passes the last attempt as `attemptBase`, so a dialog
+  re-opened onto the same call numbers its roll attempt 2 rather than posing
+  as an innocent first. The prompt doesn't close on being answered — same
+  bargain as the attack dialog: never block the re-roll, always show it. Any check rolled through the dialog
   while at a table reports itself the same way, which is what picking up a d20
   in front of your DM has always meant.
 - **Healing routes through the DM, then the recipient.** The roll dialog's

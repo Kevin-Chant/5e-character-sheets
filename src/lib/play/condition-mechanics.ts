@@ -84,9 +84,12 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
 
   // --- 2026-08-03 catalog fan-out (see spell-conditions.ts). `riders` only
   // where the bearer-side effect is expressible; caster-/attacker-side
-  // effects (Hex, Hunter's Mark, True Strike, Friends, Faerie Fire, Guiding
-  // Bolt) live in `against` instead — applied to rolls aimed at the bearer,
-  // `casterOnly` where the benefit belongs to whoever placed the mark.
+  // effects (Hex's d6, Blur's disadvantage, Sanctuary's save) live in
+  // `against` instead — applied to rolls aimed at the bearer, `casterOnly`
+  // where the benefit belongs to whoever placed the mark. When neither a die
+  // nor a modifier is wireable, an `advantage` rider (advisory by design)
+  // still puts the reminder on exactly the rolls it concerns — Fire Shield's
+  // burn, Mirror Image's duplicates.
   "Absorb Elements": {
     summary:
       "Resistance to the triggering damage type, and the bearer's first successful melee attack that turn deals an extra 1d6 of that type.",
@@ -150,6 +153,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Armor of Agathys": {
     summary:
       "Gains 5 temporary hit points; while any remain, a creature that hits the bearer with a melee attack takes cold damage equal to the hit points still remaining.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "a melee hit deals cold damage to you equal to the bearer's remaining temporary hit points",
+        },
+      },
+    ],
   },
   "Arms of Hadar": {
     summary: "Can't take reactions.",
@@ -178,6 +190,18 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   Bane: {
     summary:
       "Subtracts a rolled d4 from the bearer's attack rolls and saving throws.",
+    // A *negative* bonus die has no rider shape (bonusDice only adds), so the
+    // d4 stays the roller's to subtract — but the reminder lands on exactly
+    // the rolls it taxes.
+    riders: [
+      {
+        appliesTo: ["attack", "save"],
+        rider: {
+          rider: "advantage",
+          note: "subtract a rolled d4 from the total",
+        },
+      },
+    ],
   },
   "Banishing Smite": {
     summary:
@@ -220,6 +244,22 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Bestow Curse": {
     summary:
       "Cursed with a caster-chosen effect: disadvantage on one ability's checks/saves, disadvantage attacking the caster, a Wisdom save each turn just to act, or extra necrotic damage from the caster's attacks and spells.",
+    against: [
+      {
+        appliesTo: ["damage"],
+        casterOnly: true,
+        rider: {
+          rider: "extraDamage",
+          amount: [1, StandardDie.d8, DieOperation.roll],
+          damageType: DamageType.Necrotic,
+          declareAt: "on-hit",
+          // One of four curse options, so it waits for a tick where Hex's d6
+          // folds in on its own.
+          optional: true,
+          note: "only if the extra-damage curse was the option chosen",
+        },
+      },
+    ],
   },
   "Blade Ward": {
     summary:
@@ -228,6 +268,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Blindness/Deafness": {
     summary:
       "Blinded (attack rolls against it have advantage, its own attacks have disadvantage) or Deafened, whichever the caster chose.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "advantage on your attack if the Blinded option was chosen",
+        },
+      },
+    ],
   },
   Blink: {
     summary:
@@ -236,6 +285,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   Blurred: {
     summary:
       "Attackers have disadvantage on attack rolls against the bearer, unless they don't rely on sight.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "your attack has disadvantage unless you don't rely on sight",
+        },
+      },
+    ],
   },
   "Booming Blade": {
     summary:
@@ -276,6 +334,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Compelled Duel": {
     summary:
       "Disadvantage on attack rolls against anyone but the caster, and must succeed on a Wisdom save to willingly move more than 30 feet from them.",
+    riders: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "disadvantage on attacks against anyone but the caster who compelled you",
+        },
+      },
+    ],
   },
   Compulsion: {
     summary:
@@ -311,6 +378,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Dispel Evil and Good": {
     summary:
       "Celestials, elementals, fey, fiends, and undead have disadvantage on attack rolls against the caster.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "celestials, elementals, fey, fiends, and undead attack the bearer with disadvantage",
+        },
+      },
+    ],
   },
   "Divine Favor": {
     summary: "+1d4 radiant damage on the bearer's weapon attacks.",
@@ -421,6 +497,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Fire Shield": {
     summary:
       "Resistance to one damage type (fire or cold) and deals 2d8 of the other type to any melee attacker that hits it within 5 feet.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "a melee hit from within 5 feet burns you for 2d8 fire or cold damage",
+        },
+      },
+    ],
   },
   "Flame Arrows": {
     summary: "Touched ammunition deals an extra 1d6 fire damage on a hit.",
@@ -449,6 +534,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
         rider: {
           rider: "advantage",
           note: "can't be surprised; advantage on attack rolls, ability checks, and saving throws",
+        },
+      },
+    ],
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "your attack against this creature has disadvantage",
         },
       },
     ],
@@ -663,6 +757,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Investiture of Wind": {
     summary:
       "Grants a 60-foot fly speed and disadvantage to ranged attacks made against the bearer; can also whip up a damaging gust once per action.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "ranged attacks against the bearer have disadvantage",
+        },
+      },
+    ],
   },
   "Irresistible Dance": {
     summary:
@@ -737,6 +840,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Mirror Image": {
     summary:
       "Three illusory duplicates redirect incoming attacks (rolled per attack) until they run out or are destroyed.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "your attack may strike an illusory duplicate instead — roll a d20 to see (6+ with three duplicates, 8+ with two, 11+ with one)",
+        },
+      },
+    ],
   },
   "Modify Memory": {
     summary:
@@ -796,6 +908,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   "Protection from Evil and Good": {
     summary:
       "Aberrations, celestials, elementals, fey, fiends, and undead have disadvantage on attacks against the bearer, and can't charm, frighten, or possess it.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "aberrations, celestials, elementals, fey, fiends, and undead attack the bearer with disadvantage",
+        },
+      },
+    ],
   },
   "Raise Dead": {
     summary:
@@ -855,6 +976,15 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   Sanctuary: {
     summary:
       "Anyone targeting the bearer with an attack or harmful spell must first succeed on a Wisdom save or redirect elsewhere.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "make a Wisdom save before attacking — on a failure you must choose a new target or lose the attack",
+        },
+      },
+    ],
   },
   "Searing Smite": {
     summary:
