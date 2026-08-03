@@ -224,6 +224,12 @@ type RollRiderKind =
       // the hit is known but before damage (Sneak Attack, Divine Smite — you may
       // wait to learn it hit/crit), or after the damage roll (reroll effects).
       declareAt: "before-attack" | "on-hit" | "after-damage";
+      // The condition the rider's hit puts on the target (Fire Rune's
+      // Restrained, Eldritch Smite's Prone) — for extras whose invoke *is* the
+      // attack, so there's no action row to carry an `applies`. When the extra
+      // lands on a rolled damage report, the dialog stamps the condition onto
+      // it, and the wire path from there is the spell/ability one.
+      applies?: { name: string; rounds?: number; note?: string };
       // The player opts in per attack (Sneak Attack, Divine Smite) vs it always
       // applies on a qualifying hit (Rage damage, Divine Strike). Default false.
       optional?: boolean;

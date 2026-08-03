@@ -1507,6 +1507,23 @@
                                 "amount": {
                                     "$ref": "#/definitions/CustomFormula"
                                 },
+                                "applies": {
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "note": {
+                                            "type": "string"
+                                        },
+                                        "rounds": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "required": [
+                                        "name"
+                                    ],
+                                    "type": "object"
+                                },
                                 "damageType": {
                                     "$ref": "#/definitions/DamageType"
                                 },

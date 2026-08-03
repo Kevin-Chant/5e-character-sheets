@@ -1159,6 +1159,9 @@ function EffectControls({
     manual?: boolean;
     // The slot the spell went out at, so the label can say so.
     castLevel?: number;
+    // A landed extra's condition (Fire Rune's Restrained) — see the
+    // `extraDamage` rider's `applies`.
+    condition?: { name: string; rounds?: number };
   }) => void;
 }) {
   const {
@@ -1325,6 +1328,13 @@ function EffectControls({
       applyTotals: (t) => applyTotalRiders(t, damageRiders, character, context),
     });
     setDamageResult(resolution);
+    // A landed extra may carry a condition (Fire Rune's Restrained, Eldritch
+    // Smite's Prone): resolved off the extras that actually rode this roll,
+    // so an unticked rune stamps nothing. One condition per report — two
+    // condition-riders on one swing is unheard of, and the first wins.
+    const granted = resolution.extras
+      .map((e) => extras.find((x) => x.source === e.source)?.rider.applies)
+      .find(Boolean);
     onRolled?.({
       stage: "damage",
       total: resolution.total,
@@ -1341,6 +1351,16 @@ function EffectControls({
       ],
       crit: !!resolution.critical,
       castLevel: reportedLevel,
+      ...(granted
+        ? {
+            condition: {
+              name: granted.name,
+              ...(granted.rounds !== undefined
+                ? { rounds: granted.rounds }
+                : {}),
+            },
+          }
+        : {}),
     });
   };
   // Spend the chosen slot that powers the smite (an explicit, one-time commit,

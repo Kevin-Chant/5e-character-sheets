@@ -411,6 +411,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
           declareAt: "on-hit",
           optional: true,
           note: "On a hit with your pact weapon. Expends a warlock spell slot, and knocks a Huge or smaller target prone.",
+          // No save and no duration — prone until it stands, so no rounds.
+          applies: { name: "Prone", note: "if the target is Huge or smaller" },
           requires: { tags: ["melee"] },
           slot: { minLevel: 1, die: StandardDie.d8, diceAtMin: 2, maxDice: 6 },
         },

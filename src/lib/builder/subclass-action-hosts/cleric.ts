@@ -16,6 +16,11 @@ export const CLERIC_ACTION_HOSTS: HostTable = {
       pool: "Channel Divinity",
       amount: 1,
       note: "Target celestial, elemental, fey, or fiend within 30 ft. makes a WIS save (your spell save DC) or is turned for 1 minute or until it takes damage; at cleric level 5+, a target below the banishment CR threshold is banished instead of turned.",
+      applies: {
+        name: "Turned",
+        rounds: 10,
+        note: "on a failed WIS save; banished instead at cleric 5+ if below the CR threshold",
+      },
     },
   ],
   Death: [
@@ -54,6 +59,7 @@ export const CLERIC_ACTION_HOSTS: HostTable = {
       pool: "Channel Divinity",
       amount: 1,
       note: "Curse one creature you can see within 30 ft. until the end of your next turn; the first attack against it by you or an ally gives it vulnerability to all of that attack's damage, then the curse ends.",
+      applies: { name: "Path to the Grave", rounds: 1 },
     },
   ],
   Knowledge: [

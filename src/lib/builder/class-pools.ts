@@ -107,6 +107,8 @@ const bardicSpender = (opts: {
   cost: ActionCost;
   costNote?: string;
   note: string;
+  // The condition this use puts on a chosen target (see `AbilityAction`).
+  applies?: { name: string; rounds?: number; note?: string };
 }): ClassPoolDef => ({
   title: opts.title,
   detail: opts.detail,
@@ -125,6 +127,7 @@ const bardicSpender = (opts: {
         die: bardicInspirationDie(k.level),
       },
       note: opts.note,
+      ...(opts.applies ? { applies: opts.applies } : {}),
     }),
 });
 
@@ -424,10 +427,29 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       maxUses: () => PB,
       requiresFeature: "Favored Foe",
       // The die grows 1d4 → 1d6 (6th) → 1d8 (14th). Its damage lands on a hit,
-      // so it rides the attack's damage roll; the use is what *marks* the foe, so
-      // the spend button is pressed on the marking hit and left alone on the
-      // turns after it, which the note says out loud.
+      // so it rides the attack's damage roll. The *spend* belongs to the mark,
+      // not the damage: the "Mark a foe" action takes the use and puts the
+      // condition on the target (which is what carries the mark to the table),
+      // and the rider's ticks on later turns cost nothing — RAW, only marking
+      // spends. The rider used to own the spend, which double-charged anyone
+      // who ticked it on turn two.
       mechanics: (k) => ({
+        actions: [
+          {
+            id: "favored-foe-mark",
+            name: "Mark a foe",
+            cost: "special",
+            costNote: "when you hit a creature with an attack roll",
+            applies: { name: "Favored Foe", rounds: 10 },
+            effects: [
+              spendOneUse,
+              {
+                effect: "remind",
+                note: "The mark lasts 1 minute and needs your concentration. Your first hit against it each turn deals your Favored Foe die extra.",
+              },
+            ],
+          },
+        ],
         riders: [
           {
             appliesTo: ["damage"],
@@ -444,8 +466,7 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
               declareAt: "on-hit",
               optional: true,
               oncePerTurn: true,
-              note: "The first time you hit your marked foe on each of your turns. Spend a use only to mark a new foe (the mark lasts a minute and needs your concentration).",
-              uses: { pool: "Favored Foe" },
+              note: "The first time you hit your marked foe on each of your turns.",
             },
           },
         ],
@@ -570,12 +591,17 @@ function runeKnightPools(): ClassPoolDef[] {
           costNote?: string;
           note: string;
           roll?: { label: string; count?: number; die: StandardDie };
+          // The condition the invoke puts on its target (Stone Rune's charm).
+          applies?: { name: string; rounds?: number; note?: string };
         }
       | {
           onHit: {
             amount: CustomFormula;
             damageType: DamageType;
             note: string;
+            // The condition the hit puts on the target (Fire Rune's
+            // restrain) — carried by the damage rider, stamped by the dialog.
+            applies?: { name: string; rounds?: number; note?: string };
           };
         }
     ),
@@ -621,6 +647,9 @@ function runeKnightPools(): ClassPoolDef[] {
                     declareAt: "on-hit" as const,
                     optional: true,
                     note: opts.onHit.note,
+                    ...(opts.onHit.applies
+                      ? { applies: opts.onHit.applies }
+                      : {}),
                     uses: { pool: title },
                   },
                 },
@@ -638,6 +667,7 @@ function runeKnightPools(): ClassPoolDef[] {
                   ...(opts.costNote ? { costNote: opts.costNote } : {}),
                   ...(opts.roll ? { roll: opts.roll } : {}),
                   note: opts.note,
+                  ...(opts.applies ? { applies: opts.applies } : {}),
                 }),
               ],
             }),
@@ -731,6 +761,11 @@ function runeKnightPools(): ClassPoolDef[] {
         amount: dieRoll(2, StandardDie.d6),
         damageType: DamageType.Fire,
         note: "On a weapon hit. The target must also succeed on a Strength saving throw (the rune DC) or be restrained for 1 minute, taking 2d6 fire at the start of each of its turns (it repeats the save at the end of its turns).",
+        applies: {
+          name: "Restrained",
+          rounds: 10,
+          note: "on a failed STR save against the rune DC; 2d6 fire at the start of its turns, repeating the save at the end of them",
+        },
       },
     }),
     rune({
@@ -752,6 +787,11 @@ function runeKnightPools(): ClassPoolDef[] {
       detail:
         "Passive: advantage on Insight checks and darkvision to 120 ft. Invoke as a reaction to charm a creature within 30 ft.",
       note: "The triggering creature within 30 ft. must succeed on a Wisdom saving throw or be charmed for 1 minute (it repeats the save at the end of each of its turns, and whenever it takes damage).",
+      applies: {
+        name: "Charmed",
+        rounds: 10,
+        note: "on a failed WIS save against the rune DC; repeats the save at the end of its turns and when it takes damage",
+      },
     }),
     rune({
       name: "Hill",
@@ -1110,6 +1150,7 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
       level: 3,
       cost: "bonusAction",
       note: "Subtract the roll from the target's next saving throw before your next turn.",
+      applies: { name: "Unsettling Words", rounds: 1 },
     }),
     {
       title: "Universal Speech",

@@ -31,6 +31,11 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "action",
       pool: "Channel Divinity",
       note: "The target makes a WIS save against your Channel Divinity DC (a fiend or undead has disadvantage): on a failure it is frightened and its speed drops to 0 for 1 minute; on a success its speed is halved for 1 minute.",
+      applies: {
+        name: "Frightened",
+        rounds: 10,
+        note: "on a failed WIS save (fiends and undead save at disadvantage); its speed is also 0 — halved instead on a success",
+      },
     },
     {
       title: "Channel Divinity: Vow of Enmity",
@@ -51,6 +56,11 @@ export const PALADIN_ACTION_HOSTS: HostTable = {
       cost: "action",
       pool: "Channel Divinity",
       note: "The target makes a STR or DEX save (its choice, against your Channel Divinity DC) or is restrained, repeating the save at the end of each of its turns to break free.",
+      applies: {
+        name: "Restrained",
+        rounds: 10,
+        note: "on a failed STR or DEX save (its choice); repeats the save at the end of its turns",
+      },
     },
     {
       title: "Channel Divinity: Turn the Faithless",

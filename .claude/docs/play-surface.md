@@ -883,10 +883,17 @@ to rule on them. The order is now **target first, then dice**:
   the announcement _is_ the cast, and a save-less condition may target
   yourself). **Abilities ride the same channel**: an `AbilityAction` with
   `applies` (Stunning Strike → Stunned, Hexblade's Curse, Bardic
-  Inspiration, Vow of Enmity) gives its action row the grouped target picker
-  and reports the use as a `cast` stage with the condition name — the ability
-  path (`ability-actions.tsx`) and the spell path converge before the wire,
-  so offers and DM apply buttons need no second mechanism. What happens next splits by who keeps the target: **your own
+  Inspiration, Vow of Enmity, the Channel Divinity turns and curses, Stone
+  Rune, Favored Foe's mark, Quivering Palm) gives its action row the grouped
+  target picker and reports the use as a `cast` stage with the condition name
+  — the ability path (`ability-actions.tsx`) and the spell path converge
+  before the wire, so offers and DM apply buttons need no second mechanism.
+  And when the condition lands on a _hit_ rather than a use (Fire Rune's
+  restrain, Eldritch Smite's prone), the `extraDamage` rider carries the
+  `applies` and the dialog stamps it onto the damage report the extra rode.
+  AoE features ("each fiend within 30 ft." — Turn Undead proper, Conquering
+  Presence) stay unwired: the ability row's picker is single-target, and a
+  room-wide save is the DM's to adjudicate row by row. What happens next splits by who keeps the target: **your own
   row** prompts you locally, **another character** gets a `ConditionOffer`
   over the wire ("Ellora cast Bless on you — apply?") and applying is the
   bearer's own statusRev write, **a sheet-less row** gets neither — the DM

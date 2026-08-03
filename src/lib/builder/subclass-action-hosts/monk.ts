@@ -154,6 +154,8 @@ export const MONK_ACTION_HOSTS: HostTable = {
       pool: "Ki",
       amount: 3,
       note: "At any point before the vibrations end, you may use a bonus action to end them, forcing a Constitution save: the target drops to 0 hit points on a failure, or takes 10d10 necrotic damage on a success. Only one target's vibrations can be active at a time.",
+      // Days, not rounds — no rounds, so it never ticks away mid-fight.
+      applies: { name: "Quivering Palm" },
     },
   ],
   Shadow: [

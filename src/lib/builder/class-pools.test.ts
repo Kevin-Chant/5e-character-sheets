@@ -304,6 +304,10 @@ describe("syncClassPools", () => {
     expect(rider.declareAt).toBe("on-hit");
     // And ticking it costs the rune's own use.
     expect(rider.uses?.pool).toBe("Fire Rune");
+    // The hit's restrain rides the rider, so the damage report can carry it.
+    expect((rider as { applies?: { name: string } }).applies?.name).toBe(
+      "Restrained",
+    );
     // A rune invoked on its own keeps its button.
     c.features.push({
       title: "Frost Rune",
@@ -318,7 +322,7 @@ describe("syncClassPools", () => {
     expect(mechanicsForAbility(pool(c, "Frost Rune"))?.actions).toHaveLength(1);
   });
 
-  it("Favored Foe's damage rides the attack, spending a use to mark", () => {
+  it("Favored Foe marks with its action and rolls its die for free", () => {
     const c = blank();
     c.features.push({
       title: "Favored Foe",
@@ -333,7 +337,9 @@ describe("syncClassPools", () => {
         amount: [number, StandardDie, unknown];
         uses?: { pool: string };
       };
-      expect(rider.uses?.pool).toBe("Favored Foe");
+      // The damage tick costs nothing — RAW, only marking spends. The rider
+      // used to own the spend, which double-charged a tick on turn two.
+      expect(rider.uses).toBeUndefined();
       return rider.amount[1];
     };
     expect([dieOf(1), dieOf(6), dieOf(14)]).toEqual([
@@ -341,9 +347,14 @@ describe("syncClassPools", () => {
       StandardDie.d6,
       StandardDie.d8,
     ]);
-    expect(
-      mechanicsForAbility(pool(c, "Favored Foe"))?.actions,
-    ).toBeUndefined();
+    // The mark is the action: it takes the use and carries the condition.
+    const [mark] = mechanicsForAbility(pool(c, "Favored Foe"))?.actions ?? [];
+    expect(mark.name).toBe("Mark a foe");
+    expect(mark.applies).toEqual({ name: "Favored Foe", rounds: 10 });
+    expect(mark.effects).toContainEqual({
+      effect: "spendUses",
+      amount: { fixed: 1 },
+    });
   });
 
   it("a Whispers bard's Psychic Blades is a rider spending Bardic Inspiration", () => {

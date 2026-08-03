@@ -361,6 +361,12 @@ encounter row. Caster-side benefits (the curse's +PB and 19–20 crits, the
 vow's advantage) are `against` riders in `CONDITION_MECHANICS`, paid off the
 mark's provenance — not effects here.
 
+When the condition lands on a _hit_ rather than a use — Fire Rune's restrain,
+Eldritch Smite's prone — there is no action row to carry it, so the
+`extraDamage` **rider** carries `applies` instead: the roll dialog stamps the
+condition onto the damage report of the swing the extra actually rode
+(unticked, nothing is stamped), and the wire path from there is the same.
+
 Two-pass contract in `resolve.ts`, and the reason for it:
 
 - **`actionBlocked` runs at render time and never rolls dice.** `fixed`

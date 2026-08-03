@@ -6,6 +6,7 @@ import {
   DamageType,
   DieOperation,
   OfficialClass,
+  RestType,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -836,6 +837,56 @@ describe("RollModal — reporting to the table", () => {
     await toHit();
     await toHit();
     expect(reports().map((r) => r.attempt)).toEqual([1, 2]);
+  });
+
+  it("stamps a landed extra's condition onto the damage report", async () => {
+    // A Fire Rune-shaped rider: its invoke *is* the hit, so the condition
+    // rides the damage report of the swing it landed on — and only when the
+    // extra was actually ticked.
+    character.limitedUseAbilities.push({
+      info: { title: "Fire Rune", titleFormulas: [] },
+      maxUses: 1,
+      recharge: RestType.shortRest,
+      expended: 0,
+      mechanics: {
+        riders: [
+          {
+            appliesTo: ["damage"],
+            rider: {
+              rider: "extraDamage",
+              amount: [2, StandardDie.d6, DieOperation.roll],
+              damageType: DamageType.Fire,
+              declareAt: "on-hit",
+              optional: true,
+              note: "On a weapon hit.",
+              applies: { name: "Restrained", rounds: 10 },
+            },
+          },
+        ],
+      },
+    } as LimitedUseAbility);
+    try {
+      atTable();
+      await aim();
+      await userEvent.click(
+        screen.getByRole("checkbox", { name: /Fire Rune/ }),
+      );
+      await damage();
+      expect(reports().find((r) => r.stage === "damage")?.condition).toEqual({
+        name: "Restrained",
+        rounds: 10,
+      });
+      cleanup();
+      // Unticked, the swing stamps nothing.
+      atTable();
+      await aim();
+      await damage();
+      expect(
+        reports().find((r) => r.stage === "damage")?.condition,
+      ).toBeUndefined();
+    } finally {
+      character.limitedUseAbilities.pop();
+    }
   });
 
   it("numbers on from attempts sent before the dialog opened", async () => {

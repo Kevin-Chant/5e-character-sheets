@@ -504,6 +504,24 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
     summary:
       "May teleport up to 60 feet as a bonus action on this and later turns.",
   },
+  // Granted by the ranger's Mark a foe action (Tasha's Favored Foe), not a
+  // spell. The die scales with the *ranger's* level (d4→d8), which a static
+  // rider can't say — so the payout stays an advisory note; the ranger's own
+  // dialog rolls the real die via the Favored Foe damage rider.
+  "Favored Foe": {
+    summary:
+      "Marked as the ranger's favored foe (concentration, 1 minute): their first hit each turn deals their Favored Foe die extra.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        casterOnly: true,
+        rider: {
+          rider: "advantage",
+          note: "your first hit against your favored foe each turn deals your Favored Foe die extra — tick it on the damage roll",
+        },
+      },
+    ],
+  },
   Feeblemind: {
     summary:
       "Intelligence and Charisma drop to 1; can't cast spells, activate magic items, understand language, or communicate intelligibly.",
@@ -926,6 +944,21 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
     summary:
       "+10 bonus to Dexterity (Stealth) checks and can't be tracked except by magical means.",
   },
+  // Granted by the Grave cleric's Channel Divinity action, not a spell. The
+  // vulnerability is anyone's to cash — the first attack, ally or cleric.
+  "Path to the Grave": {
+    summary:
+      "Cursed until the end of the cleric's next turn: the first attack to hit it makes it vulnerable to all of that attack's damage, then the curse ends.",
+    against: [
+      {
+        appliesTo: ["attack"],
+        rider: {
+          rider: "advantage",
+          note: "the first hit makes the target vulnerable to all of the attack's damage (double it) — the curse then ends",
+        },
+      },
+    ],
+  },
   "Phantasmal Force": {
     summary:
       "Perceives a harmless-seeming illusion as real, taking 1d6 psychic damage each round it interacts with it.",
@@ -1130,6 +1163,11 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
     summary:
       "Thoughts scrambled, subtracting a rolled penalty from attack rolls, ability checks, and concentration saves.",
   },
+  // Granted by the Open Hand monk's Quivering Palm action, not a spell.
+  "Quivering Palm": {
+    summary:
+      "Carries lethal vibrations for a number of days equal to the monk's level; the monk may end them as a bonus action, forcing a CON save — 0 HP on a failure, 10d10 necrotic on a success.",
+  },
   "Tasha's Caustic Brew": {
     summary:
       "Coated in acid, taking the initial damage again at the start of each of its turns until it scrapes the acid off or the spell ends.",
@@ -1193,6 +1231,27 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
         rider: {
           rider: "advantage",
           note: "your first attack against it on your next turn, then the spell ends",
+        },
+      },
+    ],
+  },
+  // Granted by turn features (Arcane Abjuration; Turn Undead when it gets an
+  // action) — one shared name, since "turned" means the same thing wherever
+  // it comes from.
+  Turned: {
+    summary:
+      "Turned: must spend its turns trying to move as far from the turner as it can, can't willingly move within 30 ft. of them, and can't take reactions; ends if it takes damage.",
+  },
+  // Granted by the Eloquence bard's Unsettling Words action, not a spell.
+  "Unsettling Words": {
+    summary:
+      "Subtract the bard's inspiration die from the next saving throw it makes before the start of the bard's next turn.",
+    riders: [
+      {
+        appliesTo: ["save"],
+        rider: {
+          rider: "advantage",
+          note: "subtract the bard's inspiration die from this save",
         },
       },
     ],
