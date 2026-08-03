@@ -290,8 +290,13 @@ describe("syncClassPools", () => {
     });
     const fire = pool(c, "Fire Rune");
     const mechanics = mechanicsForAbility(fire);
-    // No button in the abilities panel — the 2d6 belongs to the attack roll.
-    expect(mechanics?.actions).toBeUndefined();
+    // The 2d6 belongs to the attack roll, so the row is a signpost: a
+    // remind-only action (no spend — the dialog's tick takes the use) that
+    // makes the rune visible on the play board at all.
+    const [signpost] = mechanics?.actions ?? [];
+    expect(signpost.name).toBe("Invoke Fire Rune");
+    expect(signpost.effects).toHaveLength(1);
+    expect(signpost.effects[0].effect).toBe("remind");
     const extra = extraDamageRiders(c).find((r) => r.source === "Fire Rune");
     const rider = extra?.rider as {
       amount: unknown;
@@ -644,6 +649,28 @@ describe("builder integration", () => {
       (e) => e.effect === "spendUses",
     );
     expect(spend && "pool" in spend && spend.pool).toBe("Channel Divinity");
+  });
+
+  it("a cleric's Channel Divinity turns undead, and says when it destroys them", () => {
+    const c = blank();
+    syncClassPools(c, klass(OfficialClass.Cleric, 2));
+    const [turn, option] =
+      mechanicsForAbility(pool(c, "Channel Divinity"))?.actions ?? [];
+    // Turn Undead is base-class — every cleric owns it, so it can't live in
+    // the subclass-keyed host registry with the domain options.
+    expect(turn.name).toBe("Turn Undead");
+    expect(turn.applies).toMatchObject({ name: "Turned", multi: true });
+    expect(option.name).toBe("Use a domain option");
+    // Destroy Undead arrives at 5 and its CR ceiling scales.
+    const remindAt = (level: number) => {
+      syncClassPools(c, klass(OfficialClass.Cleric, level));
+      const [t] = mechanicsForAbility(pool(c, "Channel Divinity"))!.actions!;
+      const remind = t.effects.find((e) => e.effect === "remind");
+      return remind && "note" in remind ? remind.note : "";
+    };
+    expect(remindAt(2)).not.toContain("Destroy Undead");
+    expect(remindAt(5)).toContain("CR 1/2 or lower");
+    expect(remindAt(17)).toContain("CR 4 or lower");
   });
 
   it("a Totem Warrior's totem sub-choice grants the chosen totem's feature", () => {

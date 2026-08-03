@@ -79,6 +79,16 @@ const atLevel = <T>(level: number, steps: [number, T][]): T => {
 const short = () => RestType.shortRest;
 const long = () => RestType.longRest;
 
+// Destroy Undead's CR ceiling by cleric level (5th: 1/2, then 1/2/3/4).
+const DESTROY_UNDEAD_CR = (level: number): string =>
+  atLevel(level, [
+    [5, "1/2"],
+    [8, "1"],
+    [11, "2"],
+    [14, "3"],
+    [17, "4"],
+  ]);
+
 // A die-roll expression as a formula (`count`d`die`), for riders/mechanics that
 // bake a die size from the character's level (Giant's Might's extra damage).
 const dieRoll = (count: number, die: StandardDie): CustomFormula => [
@@ -272,6 +282,49 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       level: 2,
       recharge: short,
       maxUses: (k) => (k.level >= 18 ? 3 : k.level >= 6 ? 2 : 1),
+      // The cleric's pool overrides the shared catalog entry (which the
+      // paladin still uses) because Turn Undead is a base-class feature every
+      // cleric owns — the subclass-keyed host registry had no slot for it, so
+      // it hid inside a generic "use an option" button until conditions could
+      // cross the wire and gave it something real to do.
+      mechanics: (k) => ({
+        actions: [
+          {
+            id: "turn-undead",
+            name: "Turn Undead",
+            cost: "action",
+            applies: {
+              name: "Turned",
+              rounds: 10,
+              note: "undead only, on a failed WIS save against your spell save DC; ends if it takes damage",
+              multi: true,
+            },
+            effects: [
+              spendOneUse,
+              {
+                effect: "remind",
+                note:
+                  "Each undead within 30 ft. that can see or hear you makes a WIS save against your spell save DC or is turned for 1 minute (flees, can't take reactions; ends if it takes damage)." +
+                  (k.level >= 5
+                    ? ` Destroy Undead: one that fails and has CR ${DESTROY_UNDEAD_CR(k.level)} or lower is destroyed outright.`
+                    : ""),
+              },
+            ],
+          },
+          {
+            id: "channel-divinity-option",
+            name: "Use a domain option",
+            cost: "action",
+            effects: [
+              spendOneUse,
+              {
+                effect: "remind",
+                note: "Use one of your domain's Channel Divinity options.",
+              },
+            ],
+          },
+        ],
+      }),
     },
     {
       title: "Divine Intervention",
@@ -658,7 +711,28 @@ function runeKnightPools(): ClassPoolDef[] {
             : []),
         ],
         ...("onHit" in opts
-          ? {}
+          ? {
+              // A hit-riding invoke has no roll of its own — the dice and the
+              // spend live in the attack dialog's damage section — but without
+              // a row it was invisible on the play board, and a player who
+              // never opened a damage roll had no way to learn the rune
+              // existed. The row is a signpost: remind-only, no spend (the
+              // dialog's own button takes the use when the extra is ticked).
+              actions: [
+                {
+                  id: slugId(`invoke-${opts.name}-rune`),
+                  name: `Invoke ${opts.name} Rune`,
+                  cost: "special" as const,
+                  costNote: "on a weapon hit",
+                  effects: [
+                    {
+                      effect: "remind" as const,
+                      note: `Invoked from the attack's damage roll: tick ${opts.name} Rune there to add the dice (and spend the use). ${opts.onHit.note}`,
+                    },
+                  ],
+                },
+              ],
+            }
           : {
               actions: [
                 spendRollRemind({

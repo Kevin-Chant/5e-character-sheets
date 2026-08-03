@@ -1240,8 +1240,8 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
       },
     ],
   },
-  // Granted by turn features (Arcane Abjuration; Turn Undead when it gets an
-  // action) — one shared name, since "turned" means the same thing wherever
+  // Granted by turn features (Turn Undead, Arcane Abjuration, the paladin
+  // turns) — one shared name, since "turned" means the same thing wherever
   // it comes from.
   Turned: {
     summary:
