@@ -56,6 +56,11 @@ import { calculateCustomFormula } from "src/lib/formula";
 import { RollRequest } from "src/lib/hooks/use-roller";
 import { isFoe, Participant } from "src/lib/play/encounter";
 import {
+  conditionRiders,
+  conditionSummary,
+} from "src/lib/play/condition-mechanics";
+import { spellConditionFor } from "src/lib/spells/spell-conditions";
+import {
   AttackContext,
   applicableRiders,
   attackContext,
@@ -155,15 +160,26 @@ function RollBody({
     spec.kind === "attack"
       ? (spec.save ?? spellSaveEffect(character, spec.spell))
       : undefined;
-  // A save-based effect targets a *set* (everyone in the blast rolls their
-  // own save); an attack roll targets exactly one creature.
+  // The condition this cast puts on its targets (Bless, Hideous Laughter) —
+  // looked up by title at cast time (see spell-conditions.ts for why it's an
+  // overlay, not a mechanics field).
+  const conditionGrant =
+    spec.kind === "attack" ? spellConditionFor(spec.spell) : undefined;
+  // A save-based or condition-granting effect targets a *set* (everyone in
+  // the blast, the three allies Bless touches); an attack roll targets
+  // exactly one creature.
   const multiTarget =
-    spec.kind === "attack" && !!saveEffect && spec.toHit === undefined;
+    spec.kind === "attack" &&
+    spec.toHit === undefined &&
+    !isHealing &&
+    (!!saveEffect || !!conditionGrant);
   const targeting = useTargeting(
     request.id,
     spec.kind === "attack",
     multiTarget,
-    isHealing,
+    // You can aim a heal at yourself — and a save-less condition (Bless is a
+    // buff; a save means the target resists, i.e. not you).
+    isHealing || (!!conditionGrant && !saveEffect),
   );
   const { targetId, report } = targeting;
   const mechanics = spec.kind === "attack" ? spec.spell?.mechanics : undefined;
@@ -189,6 +205,18 @@ function RollBody({
         ...(saveEffect.onSuccess ? { onSuccess: saveEffect.onSuccess } : {}),
       }
     : undefined;
+  // Rides every report of this exchange; the table-talk layer turns it into
+  // per-target consent prompts, and the DM card into apply buttons.
+  const reportedCondition = conditionGrant
+    ? {
+        condition: {
+          name: conditionGrant.name,
+          ...(conditionGrant.rounds !== undefined
+            ? { rounds: conditionGrant.rounds }
+            : {}),
+        },
+      }
+    : {};
 
   return (
     <>
@@ -201,6 +229,7 @@ function RollBody({
       {targeting.enabled &&
         (multiTarget ? (
           <TargetMultiPicker
+            selfId={targeting.selfId}
             foes={targeting.foes}
             party={targeting.party}
             targetIds={targeting.targetIds}
@@ -275,7 +304,18 @@ function RollBody({
           {saveEffect && (
             <SaveControls character={character} save={saveEffect} />
           )}
-          {hasRollableEffect || !saveEffect ? (
+          {/* What the cast leaves on its targets, said before anything rolls
+              — the same slot the save DC occupies for the other family. */}
+          {conditionGrant && (
+            <p className="muted font-small roll-applies">
+              Applies <strong>{conditionGrant.name}</strong>
+              {conditionSummary(conditionGrant.name)
+                ? ` — ${conditionSummary(conditionGrant.name)}`
+                : ""}
+              {conditionGrant.note ? ` (${conditionGrant.note})` : ""}
+            </p>
+          )}
+          {hasRollableEffect || (!saveEffect && !conditionGrant) ? (
             <EffectControls
               character={character}
               damage={spec.damage}
@@ -293,6 +333,7 @@ function RollBody({
                       ? `${request.label} (${ordinalSlot(castLevel)})`
                       : request.label,
                     ...(save ? { save } : {}),
+                    ...reportedCondition,
                   },
                   true,
                 )
@@ -324,6 +365,7 @@ function RollBody({
                     label: request.label,
                     total: 0,
                     ...(save ? { save } : {}),
+                    ...reportedCondition,
                   },
                   true,
                 )
@@ -547,11 +589,13 @@ function TargetPicker({
 // The save-based counterpart: checkboxes, because "Orc 1 and 2 are in the
 // blast" is a set, not a pick. Same grouping as the single-target select.
 function TargetMultiPicker({
+  selfId,
   foes,
   party,
   targetIds,
   toggleTarget,
 }: {
+  selfId?: string;
   foes: Participant[];
   party: Participant[];
   targetIds: string[];
@@ -570,7 +614,7 @@ function TargetMultiPicker({
                 checked={targetIds.includes(p.id)}
                 onChange={(e) => toggleTarget(p.id, e.target.checked)}
               />
-              <span>{p.name}</span>
+              <span>{p.id === selfId ? `${p.name} (you)` : p.name}</span>
             </label>
           ))}
         </div>
@@ -772,18 +816,55 @@ function CheckControls({
   const manual = rollMode === "manual";
   const { selfConditions: conditions } = useEncounter();
   // Riders the weapon rules out (Archery on a greatsword, Reckless Attack's
-  // note on a bow) are dropped before anything else looks at them.
+  // note on a bow) are dropped before anything else looks at them. What's *on*
+  // you joins what you *are*: active conditions (Bless) contribute riders of
+  // their own, resolved by name from the bundled catalog — no weapon gating,
+  // a condition doesn't care what you swing.
   const riders = useMemo(
-    () =>
-      applicableRiders(
+    () => [
+      ...applicableRiders(
         ridersFor(character, isAttack ? "attack" : "check"),
         context,
       ),
-    [character, isAttack, context],
+      ...conditionRiders(conditions, isAttack ? "attack" : "check"),
+    ],
+    [character, isAttack, context, conditions],
   );
-  const [result, setResult] = useState<ReturnType<typeof rollD20Check> | null>(
-    null,
+  const [result, setResult] = useState<
+    | (ReturnType<typeof rollD20Check> & {
+        bonus?: { source: string; die: StandardDie; rolled: number[] }[];
+      })
+    | null
+  >(null);
+  // Bonus *dice* riders (Bless's d4) — rolled with the check, not folded into
+  // the modifier: the whole point is real randomness, and the result line
+  // shows the die it came from. Optional ones wait for a tick (the sheet
+  // can't tell a save from a skill check); in manual mode the app still rolls
+  // them — only the d20 itself belongs to the physical roller.
+  const bonusDice = useMemo(
+    () =>
+      riders.flatMap((r) =>
+        r.rider.rider === "bonusDice"
+          ? [{ source: r.source, rider: r.rider }]
+          : [],
+      ),
+    [riders],
   );
+  const [chosenDice, setChosenDice] = useState<Set<string>>(new Set());
+  const rollBonusDice = () =>
+    bonusDice
+      .filter((r) => !r.rider.optional || chosenDice.has(r.source))
+      .map((r) => ({
+        source: r.source,
+        die: r.rider.die,
+        rolled: Array.from(
+          { length: r.rider.count },
+          () => Math.floor(Math.random() * Number(r.rider.die.slice(1))) + 1,
+        ),
+      }));
+  const bonusSum = (
+    bonus: { source: string; die: StandardDie; rolled: number[] }[],
+  ) => bonus.reduce((sum, b) => sum + b.rolled.reduce((s, v) => s + v, 0), 0);
   // Flat `bonus` riders fold into the modifier rather than the total — a d20
   // check's total can legitimately be negative, so `applyTotalRiders` (which
   // floors at 0) is the wrong tool here. Ones the weapon settles apply on their
@@ -807,10 +888,12 @@ function CheckControls({
       // Only an attack's crit stacks damage, and only when the table opted in.
       isAttack && explodingCriticals && onCrit ? threshold : undefined,
     );
-    setResult(rolled);
+    const bonus = rollBonusDice();
+    const total = rolled.total + bonusSum(bonus);
+    setResult({ ...rolled, total, bonus });
     onCrit?.(rolled.kept >= threshold, rolled.explosions ?? 0);
     onRolled?.({
-      total: rolled.total,
+      total,
       faces: rolled.dice,
       kept: rolled.kept,
       mode,
@@ -844,6 +927,29 @@ function CheckControls({
           </span>
         </label>
       ))}
+      {bonusDice
+        .filter((r) => r.rider.optional)
+        .map((r) => (
+          <label key={`dice:${r.source}`} className="row roll-extra-toggle">
+            <input
+              type="checkbox"
+              checked={chosenDice.has(r.source)}
+              onChange={(e) =>
+                setChosenDice((prev) => {
+                  const next = new Set(prev);
+                  if (e.target.checked) next.add(r.source);
+                  else next.delete(r.source);
+                  return next;
+                })
+              }
+            />
+            <span>
+              {r.source} (+{r.rider.count}
+              {r.rider.die}){r.rider.note ? ` — ${r.rider.note}` : ""}
+              {manual ? " — the app rolls this die" : ""}
+            </span>
+          </label>
+        ))}
       {manual ? (
         // The die face rather than the total: the app still does the
         // arithmetic (so the ticked bonuses above count) and can call the
@@ -853,15 +959,18 @@ function CheckControls({
           min={1}
           max={20}
           onCommit={(face) => {
+            const bonus = rollBonusDice();
+            const total = face + effectiveModifier + bonusSum(bonus);
             setResult({
               dice: [face],
               kept: face,
               modifier: effectiveModifier,
-              total: face + effectiveModifier,
+              total,
+              bonus,
             });
             onCrit?.(face >= threshold, 0);
             onRolled?.({
-              total: face + effectiveModifier,
+              total,
               faces: [face],
               kept: face,
               manual: true,
@@ -934,6 +1043,12 @@ function CheckControls({
                   : `(${result.kept})`}{" "}
                 {signed(result.modifier)}
               </span>
+              {result.bonus?.map((b) => (
+                <span key={b.source} className="roll-part muted">
+                  +{b.rolled.reduce((s, v) => s + v, 0)} — {b.source} ({b.die}:{" "}
+                  {b.rolled.join(", ")})
+                </span>
+              ))}
               {result.explosionDice && (
                 <span className="roll-part muted">
                   Exploding: {result.explosionDice.join(", ")}

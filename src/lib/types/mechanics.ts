@@ -164,6 +164,20 @@ type RollRiderKind =
       // The condition, shown alongside the checkbox.
       note?: string;
     }
+  // A bonus *die* rolled onto a d20 check at roll time (Bless's d4, Guidance).
+  // Distinct from `bonus`, whose formula folds through the deterministic
+  // engine — this one is real randomness, rolled with the check and shown as
+  // its own result line. In manual mode the app still rolls it (only the d20
+  // itself is the physical roller's), so the reported total stays whole.
+  | {
+      rider: "bonusDice";
+      count: number;
+      die: StandardDie;
+      // Offered as a checkbox when the eligibility is situational (Bless is
+      // saves and attacks, not skills — the sheet can't tell those apart).
+      optional?: boolean;
+      note?: string;
+    }
   // d20s at or above this crit (Improved Critical's 19).
   | { rider: "critRange"; value: number }
   // Advisory only — surfaced as a note, since advantage is situational.

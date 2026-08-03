@@ -17,6 +17,7 @@ import { RollerProvider, useRoller } from "src/lib/hooks/use-roller";
 import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import { getPB, modifier } from "src/lib/rules";
 import { initiativeModifierFor } from "src/lib/play/initiative";
+import { conditionSummary } from "src/lib/play/condition-mechanics";
 import {
   CHECK_GROUPS,
   checkForValue,
@@ -171,6 +172,7 @@ export default function PlaySurface() {
             )}
             <RollCallPrompt />
             <IncomingHealingBanner />
+            <IncomingConditionBanners />
             <ConcentrationCheckBanner />
             <InitiativeRail variant={isDm ? "dm" : "player"} />
             {/* Holding the seat swaps the whole body: a player asks "what can I
@@ -550,6 +552,47 @@ function IncomingHealingBanner() {
         Ignore
       </button>
     </div>
+  );
+}
+
+// "Ellora cast Bless on you." The last leg of a cast condition: applying is
+// the bearer's own write on their own row — same consent shape as healing,
+// one banner per pending offer since Bless and Shield of Faith landing in
+// the same round is ordinary.
+function IncomingConditionBanners() {
+  const {
+    incomingConditions,
+    applyIncomingCondition,
+    declineIncomingCondition,
+  } = useTableTalk();
+  return (
+    <>
+      {incomingConditions.map((offer) => {
+        const summary = conditionSummary(offer.condition.name);
+        return (
+          <div key={offer.offerId} className="assign-prompt">
+            <span>
+              <strong>{offer.fromName}</strong> cast{" "}
+              <strong>{offer.label ?? offer.condition.name}</strong> on you
+              {summary ? <> — {summary}</> : null}.
+            </span>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => applyIncomingCondition(offer.offerId)}
+            >
+              Apply {offer.condition.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => declineIncomingCondition(offer.offerId)}
+            >
+              Ignore
+            </button>
+          </div>
+        );
+      })}
+    </>
   );
 }
 

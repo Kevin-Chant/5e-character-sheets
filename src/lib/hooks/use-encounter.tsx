@@ -557,6 +557,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     onRollVerdict: (verdict) => talkRef.current?.onRollVerdict(verdict),
     onRollCall: (call) => talkRef.current?.onRollCall(call),
     onHealingOffer: (offer) => talkRef.current?.onHealingOffer(offer),
+    onConditionOffer: (offer) => talkRef.current?.onConditionOffer(offer),
     // The DM pointed a sheet at us. Nothing has travelled yet — this only
     // raises the prompt, and the sheet moves when the player accepts, through
     // the ordinary claim flow. Ignoring a stale id is the ghost-safe half:
@@ -631,6 +632,13 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     character,
     dispatch,
     selfParticipantId: participantFor(encounter, character?.uuid)?.id,
+    // The one encounter write the chatter layer makes: a condition landing on
+    // the player's own row, on accepting an offer.
+    applyConditionTo: useCallback(
+      (participantId: string, condition: { name: string; rounds?: number }) =>
+        update((current) => addCondition(current, participantId, condition)),
+      [update],
+    ),
   });
   talkRef.current = talk;
   talk.bind(session);

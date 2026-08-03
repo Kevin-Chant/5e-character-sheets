@@ -875,6 +875,26 @@ to rule on them. The order is now **target first, then dice**:
   listed "(you)" and first in the Party group; a DM-approved self-heal offer
   routes back to the caster like any character-backed target.
 
+- **Cast conditions travel as names, never mechanics.** A condition-granting
+  spell (looked up by title in `spells/spell-conditions.ts` — an overlay, not
+  a mechanics field, so already-imported sheets and the generator-owned SRD
+  JSON both stay untouched) stamps `condition: {name, rounds?}` onto every
+  report of its exchange, and announces even with no dice and no save (Bless:
+  the announcement _is_ the cast, and a save-less condition may target
+  yourself). What happens next splits by who keeps the target: **your own
+  row** prompts you locally, **another character** gets a `ConditionOffer`
+  over the wire ("Ellora cast Bless on you — apply?") and applying is the
+  bearer's own statusRev write, **a sheet-less row** gets neither — the DM
+  applies from the exchange card's per-target button, disabled while the row
+  already holds it. Offer ids are deterministic (exchange:stage:target), so a
+  re-rolled report re-implying the same offers is an idempotent repeat. The
+  receiving side resolves the _name_ against the bundled
+  `CONDITION_MECHANICS` catalog (`play/condition-mechanics.ts`) — wired
+  riders for buffs (Bless's d4 rides checks via the `bonusDice` rider,
+  rolled at roll time), a summary line for everything else — which is what
+  makes "fully wired conditions" safe: a rogue client can lie about which
+  buff it cast, but cannot inject mechanics into a peer's rolls.
+
 **What deliberately does not cross the wire.** Two boundaries hold by design,
 not omission — changing either is a product decision, not a gap fix:
 

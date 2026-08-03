@@ -88,6 +88,11 @@ export const PlaySessionEvent = {
   // healing report; the recipient applies it to their own sheet (or ignores
   // it) — their vitals, their write, same authority rule as everywhere else.
   HEAL: BASE_APPNAME + ".encounter.heal",
+  // "Ellora cast Bless on you — apply it?" A condition looking for consent
+  // from the character it targets. Sent by the *caster* directly (unlike
+  // HEAL there is nothing for the DM to arithmetic-check first); sheet-less
+  // rows skip this entirely — the DM applies those from the exchange card.
+  CONDITION: BASE_APPNAME + ".encounter.condition",
 };
 
 // The DM asked for a d20. `toClientId` absent means everyone — "alright
@@ -109,6 +114,65 @@ export interface HealingOffer {
   // What healed them — "Cure Wounds (2nd)". The recipient was being asked to
   // accept an anonymous number otherwise.
   label?: string;
+}
+
+// "Ellora cast Bless on you — apply it?" A condition looking for its bearer,
+// the sibling of `HealingOffer` and consent-shaped for the same reason:
+// anyone *can* write a condition onto any row (statusRev is unguarded, the DM
+// does it all evening), but a buff landing silently on your row is a buff you
+// never noticed, and the prompt is both the notice and the choice. Carries
+// the condition's **name only** — mechanics resolve from the bundled
+// `CONDITION_MECHANICS` catalog on the bearer's own client.
+export interface ConditionOffer {
+  offerId: string;
+  // The participant gaining the condition; each client checks whether that
+  // row is its own open character.
+  targetId: string;
+  condition: { name: string; rounds?: number };
+  fromName: string;
+  // What put it there — "Bless". The recipient shouldn't have to accept an
+  // anonymous status effect.
+  label?: string;
+}
+
+// The offers a condition-carrying roll report implies, split by who acts on
+// them: your own row is applied locally (the broker drops self-echoes, so an
+// offer to yourself would never arrive), other characters get the consent
+// prompt over the wire, and sheet-less rows (monsters) get neither — the DM
+// applies those from the exchange card. Deterministic `offerId` (exchange +
+// stage + target), so a re-roll re-sending the report is an idempotent
+// repeat, not a second nagging prompt.
+export function conditionOffersFor(
+  roll: {
+    exchangeId: string;
+    stage: string;
+    condition?: { name: string; rounds?: number };
+    targetId?: string;
+    targetIds?: string[];
+  },
+  participants: Participant[],
+  selfParticipantId: string | undefined,
+  fromName: string,
+  label?: string,
+): { offer: ConditionOffer; toSelf: boolean }[] {
+  if (!roll.condition) return [];
+  const ids = roll.targetIds ?? (roll.targetId ? [roll.targetId] : []);
+  return ids.flatMap((targetId) => {
+    const target = participants.find((p) => p.id === targetId);
+    if (!target?.characterUuid) return [];
+    return [
+      {
+        offer: {
+          offerId: `${roll.exchangeId}:${roll.stage}:${targetId}`,
+          targetId,
+          condition: roll.condition!,
+          fromName,
+          ...(label ? { label } : {}),
+        },
+        toSelf: targetId === selfParticipantId,
+      },
+    ];
+  });
 }
 
 // Session codes are **uuids, and the uuid is the authentication** — the same
@@ -228,6 +292,7 @@ export type SessionMessage =
   | { kind: "rollVerdict"; clientId: string; verdict: RollVerdict }
   | { kind: "rollCall"; clientId: string; call: RollCall }
   | { kind: "healingOffer"; clientId: string; offer: HealingOffer }
+  | { kind: "conditionOffer"; clientId: string; offer: ConditionOffer }
   | {
       kind: "assignSheet";
       clientId: string;
@@ -260,6 +325,7 @@ export const TOPIC_FOR: Record<SessionMessage["kind"], string> = {
   rollVerdict: PlaySessionEvent.VERDICT,
   rollCall: PlaySessionEvent.ROLL_CALL,
   healingOffer: PlaySessionEvent.HEAL,
+  conditionOffer: PlaySessionEvent.CONDITION,
   assignSheet: PlaySessionEvent.ASSIGN,
   claimSheet: PlaySessionEvent.CLAIM_SHEET,
   sheet: PlaySessionEvent.SHEET,

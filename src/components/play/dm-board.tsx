@@ -8,6 +8,7 @@ import {
   FaXmark,
 } from "react-icons/fa6";
 import { copyToClipboard } from "src/lib/browser";
+import { conditionSummary } from "src/lib/play/condition-mechanics";
 import { useDeferredNumber } from "src/lib/hooks/use-deferred-number";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { useTableTalk } from "src/lib/hooks/use-table-talk";
@@ -647,6 +648,17 @@ function StageRow({
       {stage.stage === "check" && !roll.label?.startsWith("Death save") && (
         <CheckRuling verdict={verdict} onRule={onRule} />
       )}
+      {/* The cast's condition, offered per target. Character-backed targets
+          already got their own consent prompt; a monster has no player to
+          ask, so the seat is its keeper and the card offers the write. */}
+      {roll.condition &&
+        targets.map((t) => (
+          <ApplyConditionButton
+            key={`cond:${t.id}`}
+            target={t}
+            condition={roll.condition!}
+          />
+        ))}
       {/* One apply row per tracked target: a Fireball's 24 lands on each orc
           separately, because "Orc 1 saved, Orc 2 didn't" is the ordinary
           ruling and each box takes its own halving. */}
@@ -678,6 +690,43 @@ const STAGE_LABELS: Record<ExchangeStage["stage"], string> = {
   check: "Check",
   roll: "Roll",
 };
+
+// "Apply Hideous Laughter to Goblin 1." The DM's half of a cast condition —
+// re-clickable never, because the row itself says it's held: the disabled
+// state derives from the live participant, so a condition the player removed
+// can be re-applied and one already ticking can't be stacked.
+function ApplyConditionButton({
+  target,
+  condition,
+}: {
+  target: Participant;
+  condition: { name: string; rounds?: number };
+}) {
+  const { giveCondition } = useEncounter();
+  const held = target.conditions.some((c) => c.name === condition.name);
+  const summary = conditionSummary(condition.name);
+  return (
+    <span className="dm-stage-ruling">
+      <button
+        type="button"
+        disabled={held}
+        title={summary}
+        onClick={() =>
+          giveCondition(target.id, {
+            name: condition.name,
+            ...(condition.rounds !== undefined
+              ? { rounds: condition.rounds }
+              : {}),
+          })
+        }
+      >
+        {held
+          ? `${condition.name} on ${target.name}`
+          : `Apply ${condition.name} to ${target.name}`}
+      </button>
+    </span>
+  );
+}
 
 // "That's a success." The check's counterpart to Hit/Miss — the DM knows the
 // DC, the app doesn't, so there's no advisory opinion here, just the answer
@@ -734,6 +783,14 @@ function RollDetail({ roll }: { roll: RollReport }) {
           title="Typed from real dice, not rolled by the app"
         >
           typed
+        </span>
+      )}
+      {roll.condition && (
+        <span
+          className="dm-stage-chip"
+          title={conditionSummary(roll.condition.name)}
+        >
+          {roll.condition.name}
         </span>
       )}
       {roll.save && (

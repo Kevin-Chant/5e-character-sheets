@@ -6,7 +6,12 @@ import { getOptionalInitializer } from "src/lib/rules";
 import { charPath, updateAt } from "src/lib/cursor";
 import { Encounter } from "src/lib/play/encounter";
 import { RollCallCheck } from "src/lib/play/checks";
-import { HealingOffer, RollCall } from "src/lib/play/session";
+import {
+  ConditionOffer,
+  conditionOffersFor,
+  HealingOffer,
+  RollCall,
+} from "src/lib/play/session";
 import {
   OutgoingRoll,
   RollReport,
@@ -90,6 +95,16 @@ export interface TableTalkData {
   incomingHealing?: HealingOffer;
   applyIncomingHealing: () => void;
   declineIncomingHealing: () => void;
+
+  // --- Conditions ---
+  // "Ellora cast Bless on you." Conditions addressed to the open character,
+  // waiting on the player — a small queue rather than latest-wins, because
+  // Bless and Shield of Faith landing the same round is ordinary. Applying
+  // writes the condition onto the player's *own* participant row (their
+  // lane, their write); the caster never touches the row directly.
+  incomingConditions: ConditionOffer[];
+  applyIncomingCondition: (offerId: string) => void;
+  declineIncomingCondition: (offerId: string) => void;
 }
 
 const NOOP = () => {};
@@ -112,6 +127,9 @@ export const NO_TABLE_TALK: TableTalkData = {
   offerHealing: NOOP,
   applyIncomingHealing: NOOP,
   declineIncomingHealing: NOOP,
+  incomingConditions: [],
+  applyIncomingCondition: NOOP,
+  declineIncomingCondition: NOOP,
 };
 
 export const TableTalkContext =
@@ -125,6 +143,7 @@ export interface TableTalkSenders {
   sendRollVerdict: (verdict: RollVerdict) => void;
   sendRollCall: (call: RollCall) => void;
   sendHealingOffer: (offer: HealingOffer) => void;
+  sendConditionOffer: (offer: ConditionOffer) => void;
 }
 
 interface TableTalkInput {
@@ -142,6 +161,13 @@ interface TableTalkInput {
   // The participant standing in for the open character, so an offer addressed
   // to that row can be recognised as ours.
   selfParticipantId?: string;
+  // Write a condition onto a participant row — supplied by the encounter
+  // provider (the row is encounter state, and this layer owns no encounter
+  // writes of its own). Used only for the *own* row, on accepting an offer.
+  applyConditionTo: (
+    participantId: string,
+    condition: { name: string; rounds?: number },
+  ) => void;
 }
 
 // The handlers the transport calls, and the value the context carries.
@@ -151,6 +177,7 @@ export interface TableTalk {
   onRollVerdict: (verdict: RollVerdict) => void;
   onRollCall: (call: RollCall) => void;
   onHealingOffer: (offer: HealingOffer) => void;
+  onConditionOffer: (offer: ConditionOffer) => void;
   // Everything above describes a connection; a new one starts empty.
   reset: () => void;
   bind: (senders: TableTalkSenders) => void;
@@ -164,6 +191,7 @@ export function useTableTalkState({
   character,
   dispatch,
   selfParticipantId,
+  applyConditionTo,
 }: TableTalkInput): TableTalk {
   // Everyone receives every report; only the DM board renders the queue, so
   // for everyone else this is a small, capped list that clears with the
@@ -181,6 +209,20 @@ export function useTableTalkState({
   const [incomingHealing, setIncomingHealing] = useState<
     HealingOffer | undefined
   >();
+  // Cast conditions addressed to the open character, unanswered. Deduped by
+  // offerId — the id is deterministic per (exchange, stage, target), so a
+  // re-rolled damage report re-offering the same condition is a repeat, not
+  // a second prompt — and capped, like every queue nobody has to clear.
+  const [incomingConditions, setIncomingConditions] = useState<
+    ConditionOffer[]
+  >([]);
+  const enqueueCondition = useCallback((offer: ConditionOffer) => {
+    setIncomingConditions((current) =>
+      current.some((o) => o.offerId === offer.offerId)
+        ? current
+        : [...current, offer].slice(-8),
+    );
+  }, []);
 
   const senders = React.useRef<TableTalkSenders>();
   const bind = useCallback((next: TableTalkSenders) => {
@@ -193,6 +235,7 @@ export function useTableTalkState({
     setLastTargetId(undefined);
     setRollCall(undefined);
     setIncomingHealing(undefined);
+    setIncomingConditions([]);
   }, []);
 
   const onRollReport = useCallback(
@@ -238,6 +281,14 @@ export function useTableTalkState({
     },
     [selfParticipantId],
   );
+  // A cast condition looking for consent: same addressing rule as healing.
+  const onConditionOffer = useCallback(
+    (offer: ConditionOffer) => {
+      if (!selfParticipantId || selfParticipantId !== offer.targetId) return;
+      enqueueCondition(offer);
+    },
+    [selfParticipantId, enqueueCondition],
+  );
 
   const value = useMemo<TableTalkData>(
     () => ({
@@ -266,6 +317,22 @@ export function useTableTalkState({
               }
             : { targetIds: undefined, targetNames: undefined }),
         });
+        // A condition-carrying report also implies consent prompts: one per
+        // character-backed target. Our own row can't hear its own broadcast
+        // (the envelope drops self-echoes), so that one is enqueued locally —
+        // casting Bless on yourself prompts you like anyone else. Sheet-less
+        // rows get nothing; the DM applies those from the exchange card.
+        conditionOffersFor(
+          roll,
+          encounter.participants,
+          selfParticipantId,
+          displayName,
+          roll.label,
+        ).forEach(({ offer, toSelf }) =>
+          toSelf
+            ? enqueueCondition(offer)
+            : senders.current?.sendConditionOffer(offer),
+        );
       },
       reportsEnabled,
       reports,
@@ -301,6 +368,21 @@ export function useTableTalkState({
           ...(label ? { label } : {}),
         });
       },
+      incomingConditions,
+      // The bearer's write, on their own row — the caster never touches it.
+      applyIncomingCondition: (offerId) => {
+        const offer = incomingConditions.find((o) => o.offerId === offerId);
+        if (offer && selfParticipantId)
+          applyConditionTo(selfParticipantId, offer.condition);
+        setIncomingConditions((current) =>
+          current.filter((o) => o.offerId !== offerId),
+        );
+      },
+      declineIncomingCondition: (offerId) =>
+        setIncomingConditions((current) =>
+          current.filter((o) => o.offerId !== offerId),
+        ),
+
       incomingHealing,
       // The recipient's write, on their own sheet — which is the whole point
       // of routing healing as an offer rather than a vitals edit.
@@ -331,6 +413,10 @@ export function useTableTalkState({
       lastTargetId,
       rollCall,
       incomingHealing,
+      incomingConditions,
+      selfParticipantId,
+      applyConditionTo,
+      enqueueCondition,
       encounter,
       character,
       clientId,
@@ -345,6 +431,7 @@ export function useTableTalkState({
     onRollVerdict,
     onRollCall,
     onHealingOffer,
+    onConditionOffer,
     reset,
     bind,
   };

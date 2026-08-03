@@ -174,9 +174,17 @@ For an `attack` spec the modal renders:
   shows "No spell slots available" and disables rolling.
 
 A spell shows a die button when it has something the dialog can offer
-(`rollableSpell`): damage, healing, **or** a save resolution — a save with no
-dice opens on the DC and the announce path. A spell with none of those shows
-no button.
+(`rollableSpell`): damage, healing, a save resolution — a save with no dice
+opens on the DC and the announce path — or a **condition it applies**
+(`spells/spell-conditions.ts`; Bless rolls nothing and asks no save, but the
+announcement is the cast, and the dialog says what it applies). A spell with
+none of those shows no button. Cast conditions travel as names and come back
+as consent prompts and riders — see the roll-report section of
+[`play-surface.md`](./play-surface.md). On the bearer's side, an active
+condition's riders join the character's own in `CheckControls` (Bless's d4 is
+a `bonusDice` rider: rolled with the check, shown as its own result line, and
+rolled by the app even in manual mode — only the d20 belongs to the physical
+roller).
 
 ## Critical hits
 

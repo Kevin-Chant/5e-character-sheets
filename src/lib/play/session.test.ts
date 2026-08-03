@@ -9,6 +9,7 @@ import {
 } from "src/lib/play/encounter";
 import {
   bumpRevision,
+  conditionOffersFor,
   isValidSessionCode,
   mergeEncounter,
   forgetSession,
@@ -463,6 +464,77 @@ describe("invites", () => {
     expect(inviteLink("http://localhost:3000/", code)).toBe(
       `http://localhost:3000/join/${code}`,
     );
+  });
+});
+
+describe("conditionOffersFor", () => {
+  const roll = {
+    exchangeId: "x1",
+    stage: "cast",
+    condition: { name: "Bless", rounds: 10 },
+    targetIds: ["self", "ally", "orc"],
+  };
+  const participants = [
+    addParticipant(EMPTY_ENCOUNTER, {
+      id: "self",
+      name: "Ellora",
+      characterUuid: ALICE_CHAR,
+      initiative: 10,
+    }),
+    // one encounter per row just to reuse the helper; flatten below
+  ]
+    .flatMap((e) => e.participants)
+    .concat([
+      {
+        id: "ally",
+        name: "Brakka",
+        characterUuid: BOB_CHAR,
+        initiative: 9,
+        spent: { action: false, bonusAction: false, reaction: false },
+        conditions: [],
+      },
+      {
+        id: "orc",
+        name: "Orc 1",
+        initiative: 8,
+        spent: { action: false, bonusAction: false, reaction: false },
+        conditions: [],
+      },
+    ]);
+
+  it("splits targets by who acts: self locally, characters by wire, monsters not at all", () => {
+    const offers = conditionOffersFor(roll, participants, "self", "Ellora");
+    expect(offers.map((o) => [o.offer.targetId, o.toSelf])).toEqual([
+      ["self", true],
+      ["ally", false],
+    ]);
+  });
+
+  it("stamps a deterministic offer id, so a re-sent report is a repeat", () => {
+    const [first] = conditionOffersFor(roll, participants, "self", "Ellora");
+    expect(first.offer.offerId).toBe("x1:cast:self");
+    expect(
+      conditionOffersFor(roll, participants, "self", "Ellora")[0].offer.offerId,
+    ).toBe(first.offer.offerId);
+  });
+
+  it("yields nothing without a condition or targets", () => {
+    expect(
+      conditionOffersFor(
+        { ...roll, condition: undefined },
+        participants,
+        "self",
+        "Ellora",
+      ),
+    ).toEqual([]);
+    expect(
+      conditionOffersFor(
+        { ...roll, targetIds: undefined },
+        participants,
+        "self",
+        "Ellora",
+      ),
+    ).toEqual([]);
   });
 });
 

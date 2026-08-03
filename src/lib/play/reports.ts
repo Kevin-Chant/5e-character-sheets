@@ -103,6 +103,12 @@ export interface RollReport {
   // A save-based effect's DC, so the DM can rule without being told it out
   // loud — the one number the old damage report left entirely to the voice.
   save?: { dc: number; stat?: StatKey; onSuccess?: "half" | "none" };
+  // The condition this cast puts on its targets ("Bless", "Hideous
+  // Laughter"). A *name*, never mechanics — every client resolves it against
+  // the bundled `CONDITION_MECHANICS` catalog, so nothing executable crosses
+  // the wire. The DM board offers per-target apply buttons off it; character-
+  // backed targets get a consent prompt instead (`ConditionOffer`).
+  condition?: { name: string; rounds?: number };
 }
 
 // What a roll surface hands the encounter to publish. Identity and the

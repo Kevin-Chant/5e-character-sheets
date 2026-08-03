@@ -1392,6 +1392,44 @@
                     "allOf": [
                         {
                             "properties": {
+                                "count": {
+                                    "type": "number"
+                                },
+                                "die": {
+                                    "$ref": "#/definitions/StandardDie"
+                                },
+                                "note": {
+                                    "type": "string"
+                                },
+                                "optional": {
+                                    "type": "boolean"
+                                },
+                                "rider": {
+                                    "const": "bonusDice",
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "count",
+                                "die",
+                                "rider"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
                                 "rider": {
                                     "const": "critRange",
                                     "type": "string"

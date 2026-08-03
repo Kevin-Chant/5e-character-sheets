@@ -566,6 +566,81 @@ describe("RollModal — self-directed rolls at a table", () => {
   });
 });
 
+// Cast conditions: a spell with nothing to roll and no save (Bless) still
+// announces, names the condition it applies, and — once the bearer accepts —
+// the condition's wired riders reach their d20s from the bundled catalog.
+describe("RollModal — cast conditions", () => {
+  const SELF: Participant = {
+    id: "pc:self",
+    name: "Ellora",
+    characterUuid: randomUUID(),
+    initiative: 15,
+    spent: { action: false, bonusAction: false, reaction: false },
+    conditions: [],
+    vitals: { currHp: 20, maxHp: 30, ac: 18 },
+  };
+  const ALLY: Participant = {
+    ...SELF,
+    id: "pc:ally",
+    name: "Brakka",
+    characterUuid: randomUUID(),
+  };
+  const BLESS = {
+    spellcastingClass: randomUUID() as never,
+    info: { title: "Bless", titleFormulas: [] },
+  } as never;
+
+  it("announces a save-less buff at its set of targets, condition riding along", async () => {
+    const sendReport = vi.fn();
+    open(
+      { kind: "attack", spell: BLESS },
+      {},
+      "app",
+      {
+        encounter: { ...EMPTY_ENCOUNTER, participants: [SELF, ALLY] },
+        self: SELF,
+      },
+      { reportsEnabled: true, sendReport, rememberTarget: vi.fn() },
+    );
+    // The dialog says what the cast applies…
+    expect(
+      screen.getByText(/attack rolls and saving throws/),
+    ).toBeInTheDocument();
+    // …and yourself is a valid target of your own buff.
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: "Ellora (you)" }),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: "Brakka" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Announce cast" }),
+    );
+    const report = sendReport.mock.calls[0][0] as OutgoingRoll;
+    expect(report.stage).toBe("cast");
+    expect(report.condition).toEqual({ name: "Bless", rounds: 10 });
+    expect(report.targetIds).toEqual([SELF.id, ALLY.id]);
+  });
+
+  it("rolls the blessing d4 into a check once the bearer ticks it", async () => {
+    open({ kind: "check", modifier: 3 }, {}, "app", {
+      selfConditions: ["Bless"],
+    });
+    const tick = screen.getByRole("checkbox", { name: /Bless \(\+1d4\)/ });
+    await userEvent.click(tick);
+    await userEvent.click(screen.getByRole("button", { name: "Roll" }));
+    // Math.random pinned high: d20 = 20, d4 = 4 → 20 + 3 + 4.
+    expect(total()).toBe(27);
+    expect(screen.getByText(/\+4 — Bless \(d4: 4\)/)).toBeInTheDocument();
+  });
+
+  it("leaves the d4 out until it's ticked", async () => {
+    open({ kind: "check", modifier: 3 }, {}, "app", {
+      selfConditions: ["Bless"],
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Roll" }));
+    expect(total()).toBe(23);
+  });
+});
+
 describe("RollModal — result breakdowns", () => {
   it("names the flat modifier alongside the dice", async () => {
     open({ kind: "attack", toHit: 7, damage: GREATSWORD });

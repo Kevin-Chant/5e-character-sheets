@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Encounter } from "src/lib/play/encounter";
 import {
+  ConditionOffer,
   HealingOffer,
   isEncounter,
   isValidSessionCode,
@@ -62,6 +63,8 @@ interface PlaySessionOptions {
   // Approved healing looking for its recipient — each client checks whether
   // the target participant is its own open character.
   onHealingOffer: (offer: HealingOffer, fromClientId: string) => void;
+  // A cast condition looking for consent — same addressing rule as healing.
+  onConditionOffer: (offer: ConditionOffer, fromClientId: string) => void;
   // Someone wants to play an offered sheet: whoever owns it replies.
   onClaimSheet: (participantId: string, fromClientId: string) => void;
   // A whole sheet arrived, addressed to us. The provider validates and loads it.
@@ -120,6 +123,8 @@ export function usePlaySession(options: PlaySessionOptions) {
           return on.onRollCall(message.call, message.clientId);
         case "healingOffer":
           return on.onHealingOffer(message.offer, message.clientId);
+        case "conditionOffer":
+          return on.onConditionOffer(message.offer, message.clientId);
         case "claimSheet":
           return on.onClaimSheet(message.participantId, message.clientId);
         case "sheet":
@@ -232,6 +237,11 @@ export function usePlaySession(options: PlaySessionOptions) {
     sendHealingOffer: useCallback(
       (offer: HealingOffer) =>
         publish({ kind: "healingOffer", clientId, offer }),
+      [publish, clientId],
+    ),
+    sendConditionOffer: useCallback(
+      (offer: ConditionOffer) =>
+        publish({ kind: "conditionOffer", clientId, offer }),
       [publish, clientId],
     ),
     requestSheet: useCallback(

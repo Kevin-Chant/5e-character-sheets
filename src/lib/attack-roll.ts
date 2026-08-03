@@ -11,6 +11,7 @@ import {
   Spell,
 } from "src/lib/types";
 import { getSpellSaveDcFormula } from "src/lib/formula";
+import { spellConditionFor } from "src/lib/spells/spell-conditions";
 import {
   CritSpec,
   DamageRollResult,
@@ -175,19 +176,16 @@ export function availableSlotLevels(
   return out;
 }
 
-// Whether the roll dialog has anything to offer for a spell: dice to roll, or
-// — with no dice at all — a save to show and announce (Hideous Laughter has
-// nothing to roll, but "I cast it on Goblin 1" still has to reach the DM).
-// The one gate both the spell list and the play board use.
+// Whether the roll dialog has anything to offer for a spell: dice to roll, a
+// save to show and announce (Hideous Laughter rolls nothing, but "I cast it
+// on Goblin 1" still has to reach the DM), or a condition to put on its
+// targets (Bless rolls nothing and asks no save — the announcement *is* the
+// cast). The one gate both the spell list and the play board use.
 export function rollableSpell(spell: Spell): boolean {
   const m = spell.mechanics;
-  if (!m) return false;
-  return !!(
-    m.damage ||
-    m.damageTable ||
-    m.healing ||
-    m.resolution?.kind === "save"
-  );
+  if (m && (m.damage || m.damageTable || m.healing)) return true;
+  if (m?.resolution?.kind === "save") return true;
+  return !!spellConditionFor(spell);
 }
 
 // A save-resolution spell's save, in the shape the dialog and the wire speak
