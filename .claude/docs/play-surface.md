@@ -890,8 +890,8 @@ to rule on them. The order is now **target first, then dice**:
   re-rolled report re-implying the same offers is an idempotent repeat. The
   receiving side resolves the _name_ against the bundled
   `CONDITION_MECHANICS` catalog (`play/condition-mechanics.ts`) — wired
-  riders for buffs (Bless's d4 rides checks via the `bonusDice` rider,
-  rolled at roll time), a summary line for everything else — which is what
+  riders for buffs (Bless's d4 rides attacks and saves via the `bonusDice`
+  rider, rolled at roll time), a summary line for everything else — which is what
   makes "fully wired conditions" safe: a rogue client can lie about which
   buff it cast, but cannot inject mechanics into a peer's rolls.
 

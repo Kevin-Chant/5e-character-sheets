@@ -253,8 +253,9 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   },
 
   // Reliable Talent (rogue 11): d20s of 9 or lower count as 10. Fidelity gap:
-  // RAW applies only to proficient ability checks; the sheet applies it to all
-  // non-attack d20s since the roll dialog doesn't know the source skill.
+  // RAW applies only to *proficient* ability checks; the sheet applies it to
+  // every ability/skill check since the dialog doesn't know the source skill.
+  // (Saves are their own kind now, so at least those are correctly excluded.)
   "reliable talent": {
     riders: [
       { appliesTo: ["check"], rider: { rider: "minimumDie", value: 10 } },
@@ -548,7 +549,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   "danger sense": {
     riders: [
       {
-        appliesTo: ["check"],
+        appliesTo: ["save"],
         rider: {
           rider: "advantage",
           note: "Advantage on Dexterity saving throws against effects you can see (not while blinded, deafened, or incapacitated).",
@@ -634,7 +635,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   rage: {
     riders: [
       {
-        appliesTo: ["check"],
+        appliesTo: ["check", "save"],
         rider: {
           rider: "advantage",
           note: "Advantage on Strength checks and Strength saving throws while raging.",
@@ -996,11 +997,12 @@ export const RACE_MECHANICS: Record<string, FeatureMechanics> = {
   halfling: {
     riders: [
       {
-        appliesTo: ["check", "attack"],
+        // RAW: attack rolls, ability checks, and saving throws — all three.
+        appliesTo: ["check", "attack", "save"],
         rider: { rider: "rerollBelow", threshold: 1 },
       },
       {
-        appliesTo: ["check"],
+        appliesTo: ["save"],
         rider: {
           rider: "advantage",
           note: "Brave: advantage on saves against being frightened.",
@@ -1012,7 +1014,7 @@ export const RACE_MECHANICS: Record<string, FeatureMechanics> = {
   dwarf: {
     riders: [
       {
-        appliesTo: ["check"],
+        appliesTo: ["save"],
         rider: {
           rider: "advantage",
           note: "Dwarven Resilience: advantage on saves against poison.",
@@ -1024,7 +1026,7 @@ export const RACE_MECHANICS: Record<string, FeatureMechanics> = {
   elf: {
     riders: [
       {
-        appliesTo: ["check"],
+        appliesTo: ["save"],
         rider: {
           rider: "advantage",
           note: "Fey Ancestry: advantage on saves against being charmed.",
@@ -1036,7 +1038,7 @@ export const RACE_MECHANICS: Record<string, FeatureMechanics> = {
   gnome: {
     riders: [
       {
-        appliesTo: ["check"],
+        appliesTo: ["save"],
         rider: {
           rider: "advantage",
           note: "Gnome Cunning: advantage on INT/WIS/CHA saves against magic.",

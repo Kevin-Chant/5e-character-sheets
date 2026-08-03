@@ -20,6 +20,9 @@ interface ProficiencyDisplayProps {
   // When set, show a d20 roll button that rolls (this row's value) + d20 — used
   // for skills and saving throws, whose transformed value is the modifier.
   rollLabel?: string;
+  // This row is a saving throw, not an ability/skill check — the roll opens
+  // under the save `RollKind`, so save-only riders (Bless) reach it.
+  rollIsSave?: boolean;
   // Advance the proficiency state on click. Saving throws cycle none↔proficient;
   // skills cycle none→proficient→expert→none (see the parent). The control shows
   // a ✓ for proficiency and a stylized "e" for expertise.
@@ -41,6 +44,7 @@ export default function ProficiencyDisplay({
   transform,
   readOnly,
   rollLabel,
+  rollIsSave,
   onToggle,
   onEditBonus,
   hasBonus,
@@ -81,7 +85,10 @@ export default function ProficiencyDisplay({
           {text} {subtext}
         </TextComponent>
         {rollLabel && typeof value === "number" && (
-          <RollButton label={rollLabel} check={value} />
+          <RollButton
+            label={rollLabel}
+            {...(rollIsSave ? { savingThrow: value } : { check: value })}
+          />
         )}
         {editMode && onEditBonus && (
           <button

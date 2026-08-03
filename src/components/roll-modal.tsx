@@ -250,6 +250,7 @@ function RollBody({
           <CheckControls
             character={character}
             modifier={spec.modifier}
+            isSave={!!spec.save}
             onRolled={(rolled) =>
               report({ stage: "check", label: request.label, ...rolled }, false)
             }
@@ -784,6 +785,7 @@ function CheckControls({
   modifier,
   label,
   isAttack = false,
+  isSave = false,
   context = NO_CONTEXT,
   onCrit,
   onRolled,
@@ -792,6 +794,9 @@ function CheckControls({
   modifier: number;
   label?: string;
   isAttack?: boolean;
+  // A saving throw rather than an ability/skill check — the kind save-only
+  // riders (Bless's d4, Dwarven Resilience's note) key off.
+  isSave?: boolean;
   // The weapon being attacked with, as the rider conditions see it. Empty for a
   // plain check (and for a spell attack), which leaves every weapon condition
   // undecided — the pre-tags behaviour.
@@ -820,15 +825,13 @@ function CheckControls({
   // you joins what you *are*: active conditions (Bless) contribute riders of
   // their own, resolved by name from the bundled catalog — no weapon gating,
   // a condition doesn't care what you swing.
+  const d20Kind = isAttack ? "attack" : isSave ? "save" : "check";
   const riders = useMemo(
     () => [
-      ...applicableRiders(
-        ridersFor(character, isAttack ? "attack" : "check"),
-        context,
-      ),
-      ...conditionRiders(conditions, isAttack ? "attack" : "check"),
+      ...applicableRiders(ridersFor(character, d20Kind), context),
+      ...conditionRiders(conditions, d20Kind),
     ],
-    [character, isAttack, context, conditions],
+    [character, d20Kind, context, conditions],
   );
   const [result, setResult] = useState<
     | (ReturnType<typeof rollD20Check> & {
@@ -1009,7 +1012,7 @@ function CheckControls({
           from the encounter, which is empty on the sheet and outside a fight. */}
       {[
         ...advantageNotes(riders),
-        ...conditionRollNotes(conditions, isAttack ? "attack" : "check"),
+        ...conditionRollNotes(conditions, d20Kind),
       ].map((note) => (
         <p key={note} className="muted font-small">
           {note}

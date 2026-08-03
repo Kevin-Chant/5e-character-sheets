@@ -5,17 +5,19 @@ import {
 } from "src/lib/play/condition-mechanics";
 
 describe("condition mechanics", () => {
-  it("gives Bless's d4 to attacks and checks, as an opt-in", () => {
-    for (const kind of ["attack", "check"] as const) {
+  it("gives Bless's d4 to attacks and saves, folding in on its own", () => {
+    for (const kind of ["attack", "save"] as const) {
       const [bless] = conditionRiders(["Bless"], kind);
       expect(bless.source).toBe("Bless");
-      expect(bless.rider).toMatchObject({
+      // Not optional: saves and attacks are exactly what Bless touches, and
+      // exactly what the split roll kinds can now say.
+      expect(bless.rider).toEqual({
         rider: "bonusDice",
         count: 1,
         die: "d4",
-        optional: true,
       });
     }
+    expect(conditionRiders(["Bless"], "check")).toEqual([]);
   });
 
   it("keeps Guidance off attack rolls", () => {

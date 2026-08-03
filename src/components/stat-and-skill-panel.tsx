@@ -73,6 +73,7 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
                 }
                 text={statName}
                 rollLabel={`${statName} Save`}
+                rollIsSave
                 onToggle={() => dispatch(updateAt(cursor, !proficient))}
               />
             );

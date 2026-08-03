@@ -620,22 +620,25 @@ describe("RollModal — cast conditions", () => {
     expect(report.targetIds).toEqual([SELF.id, ALLY.id]);
   });
 
-  it("rolls the blessing d4 into a check once the bearer ticks it", async () => {
-    open({ kind: "check", modifier: 3 }, {}, "app", {
+  it("rolls the blessing d4 into a saving throw on its own", async () => {
+    open({ kind: "check", modifier: 3, save: true }, {}, "app", {
       selfConditions: ["Bless"],
     });
-    const tick = screen.getByRole("checkbox", { name: /Bless \(\+1d4\)/ });
-    await userEvent.click(tick);
+    // No tick needed: saves are exactly what Bless touches, and the roll
+    // kinds can say so now.
     await userEvent.click(screen.getByRole("button", { name: "Roll" }));
     // Math.random pinned high: d20 = 20, d4 = 4 → 20 + 3 + 4.
     expect(total()).toBe(27);
     expect(screen.getByText(/\+4 — Bless \(d4: 4\)/)).toBeInTheDocument();
   });
 
-  it("leaves the d4 out until it's ticked", async () => {
+  it("keeps the d4 off an ability check entirely", async () => {
     open({ kind: "check", modifier: 3 }, {}, "app", {
       selfConditions: ["Bless"],
     });
+    expect(
+      screen.queryByRole("checkbox", { name: /Bless/ }),
+    ).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Roll" }));
     expect(total()).toBe(23);
   });

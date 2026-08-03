@@ -18,8 +18,9 @@ import { ConditionName } from "src/lib/play/conditions";
 // The standard 5e conditions stay advisory-only (their clauses hinge on
 // facts the sheet can't see); entries here are the buff/debuff conditions
 // spells mint — Bless, Guidance — whose effects are unconditional enough to
-// wire. `optional` riders still surface as checkboxes, because the sheet
-// can't tell a saving throw from a skill check.
+// wire. Checks and saves are distinct `RollKind`s, so a rider aimed at one
+// never leaks onto the other; `optional` remains for eligibility the kinds
+// still can't express (Guidance boosts *one* check, then ends).
 
 export interface ConditionMechanics {
   riders?: FeatureRider[];
@@ -32,15 +33,13 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
     summary: "+1d4 to attack rolls and saving throws",
     riders: [
       {
-        appliesTo: ["attack", "check"],
+        // Saves and attacks are exactly what Bless touches and exactly what
+        // the kinds can now say — so the d4 folds in on its own, no tick.
+        appliesTo: ["attack", "save"],
         rider: {
           rider: "bonusDice",
           count: 1,
           die: StandardDie.d4,
-          // The sheet can't tell a save from a skill check, so the d4 is a
-          // tick, not a fold.
-          optional: true,
-          note: "attack rolls and saving throws",
         },
       },
     ],

@@ -16,7 +16,11 @@ import {
   spendsSharedPool,
   SUPERIORITY,
 } from "src/lib/mechanics/catalog";
-import { ActionCost, FeatureMechanics } from "src/lib/mechanics/types";
+import {
+  ActionCost,
+  FeatureMechanics,
+  RollKind,
+} from "src/lib/mechanics/types";
 import { SUBCLASS_ACTION_HOSTS } from "src/lib/builder/subclass-action-hosts";
 import { saveDcFormula } from "src/lib/rules";
 import {
@@ -555,6 +559,9 @@ function runeKnightPools(): ClassPoolDef[] {
       level: number; // 3, or 7 for Hill/Storm
       detail: string;
       checkNote?: string;
+      // Which d20s the passive note rides — skill checks for most runes;
+      // Hill's poison advantage is a save.
+      checkNoteKinds?: RollKind[];
       save?: boolean;
     } & (
       | {
@@ -594,7 +601,7 @@ function runeKnightPools(): ClassPoolDef[] {
           ...(opts.checkNote
             ? [
                 {
-                  appliesTo: ["check" as const],
+                  appliesTo: opts.checkNoteKinds ?? ["check" as const],
                   rider: {
                     rider: "advantage" as const,
                     note: opts.checkNote,
@@ -648,7 +655,7 @@ function runeKnightPools(): ClassPoolDef[] {
       mechanics: (k) => ({
         riders: [
           {
-            appliesTo: ["check"],
+            appliesTo: ["check", "save"],
             rider: {
               rider: "advantage",
               note: "While enlarged: advantage on Strength checks and Strength saving throws.",
@@ -751,6 +758,7 @@ function runeKnightPools(): ClassPoolDef[] {
       cost: "bonusAction",
       checkNote:
         "Advantage on saving throws against being poisoned (and resistance to poison damage).",
+      checkNoteKinds: ["save"],
       detail:
         "Passive: advantage on saves against poison and resistance to poison damage. Invoke as a bonus action for resistance to physical damage.",
       note: "For 1 minute, gain resistance to bludgeoning, piercing, and slashing damage.",

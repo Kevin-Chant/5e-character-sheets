@@ -748,10 +748,14 @@ describe("builder integration", () => {
     );
     const attack = ridersFor(c, "attack");
     const check = ridersFor(c, "check");
+    const save = ridersFor(c, "save");
     expect(attack.some((r) => r.source === "Reckless Attack")).toBe(true);
-    expect(check.some((r) => r.source === "Danger Sense")).toBe(true);
-    // Rage's Strength-check advantage is advisory and always present.
+    // Danger Sense is a save rider now that saves are their own kind.
+    expect(save.some((r) => r.source === "Danger Sense")).toBe(true);
+    expect(check.some((r) => r.source === "Danger Sense")).toBe(false);
+    // Rage's Strength advantage is advisory on both checks and saves.
     expect(check.some((r) => r.source === "Rage")).toBe(true);
+    expect(save.some((r) => r.source === "Rage")).toBe(true);
   });
 
   it("a barbarian at level 7 gains the Feral Instinct initiative rider", () => {

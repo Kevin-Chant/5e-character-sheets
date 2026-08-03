@@ -58,7 +58,7 @@ export const CONDITION_ROLL_EFFECTS: Partial<
     note: "Attack rolls have advantage.",
   },
   Paralyzed: {
-    appliesTo: ["attack", "check"],
+    appliesTo: ["save"],
     note: "You automatically fail Strength and Dexterity saves, and can't take actions.",
   },
   Poisoned: {
@@ -70,15 +70,15 @@ export const CONDITION_ROLL_EFFECTS: Partial<
     note: "Attack rolls have disadvantage.",
   },
   Restrained: {
-    appliesTo: ["attack", "check"],
+    appliesTo: ["attack", "save"],
     note: "Attack rolls have disadvantage, as do Dexterity saves.",
   },
   Stunned: {
-    appliesTo: ["attack", "check"],
+    appliesTo: ["save"],
     note: "You automatically fail Strength and Dexterity saves, and can't take actions.",
   },
   Unconscious: {
-    appliesTo: ["attack", "check"],
+    appliesTo: ["save"],
     note: "You automatically fail Strength and Dexterity saves, and can't take actions.",
   },
 };

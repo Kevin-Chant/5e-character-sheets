@@ -12,8 +12,11 @@ import {
 // What a roll button asks the roller to roll.
 export type RollSpec =
   // A d20 + flat modifier check (skills, saves, ability checks, initiative).
-  // Supports advantage/disadvantage.
-  | { kind: "check"; modifier: number }
+  // Supports advantage/disadvantage. `save: true` marks a saving throw — one
+  // dialog shape, but a different `RollKind`, so save-only riders (Bless's
+  // d4, Dwarven Resilience) reach the rolls they mean and skip the ones they
+  // don't.
+  | { kind: "check"; modifier: number; save?: boolean }
   // A single dice formula rolled on its own.
   | { kind: "formula"; formula: CustomFormula }
   // Spending a hit die: rolls 1d<die> + CON, then offers to apply the healing

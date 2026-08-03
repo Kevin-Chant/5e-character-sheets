@@ -144,9 +144,14 @@ side of the table. It shows the DC, and the damage result reports both outcomes
 
 A `RollRider` modifies matching rolls: `minimumTotal` (Durable), `minimumDie`
 (Reliable Talent), `rerollBelow` (Great Weapon Fighting, Halfling Luck),
-`bonus`, `critRange` (Improved/Superior Critical), `advantage` (advisory note
+`bonus`, `bonusDice` (a die rolled onto the check at roll time — Bless's d4),
+`critRange` (Improved/Superior Critical), `advantage` (advisory note
 only — advantage is situational). Each is granted with `appliesTo: RollKind[]`
-tags; `RollModal` calls `ridersFor(character, kind)` and passes the result to
+tags — and **saving throws are their own kind** (`"save"`), split from
+ability/skill checks (`"check"`), because 5e treats them differently
+everywhere: author Dwarven Resilience against `save`, Reliable Talent against
+`check`, Rage's Strength advantage against both. `RollModal` calls
+`ridersFor(character, kind)` and passes the result to
 `rollFormula`/`rollDamage`/`rollD20Check`, which apply die-level riders as
 each die is rolled (the pushed breakdown die is the one that counted).
 Total-level riders are folded by `applyTotalRiders` — note it floors at 0, so

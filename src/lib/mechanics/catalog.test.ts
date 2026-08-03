@@ -91,8 +91,10 @@ describe("catalog integrity", () => {
     expect(mechanicsForTitle("Reckless Attack")?.riders?.[0].appliesTo).toEqual(
       ["attack"],
     );
+    // Danger Sense is Dexterity *saves* — reclassified when the save kind
+    // split off from checks.
     expect(mechanicsForTitle("Danger Sense")?.riders?.[0].appliesTo).toEqual([
-      "check",
+      "save",
     ]);
   });
 

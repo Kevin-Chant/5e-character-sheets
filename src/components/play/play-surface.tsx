@@ -377,7 +377,13 @@ function CheckLauncher({ character }: { character: Character }) {
         if (!check) return;
         openRoller({
           label: checkLabel(check),
-          spec: { kind: "check", modifier: checkModifier(character, check) },
+          spec: {
+            kind: "check",
+            modifier: checkModifier(character, check),
+            // Saves are their own roll kind — Bless's d4 lands on a called
+            // WIS save and stays off a Perception check.
+            ...(check.kind === "save" ? { save: true } : {}),
+          },
         });
       }}
     >
@@ -633,7 +639,7 @@ function ConcentrationCheckBanner() {
         onClick={() =>
           openRoller({
             label: `Concentration save (DC ${concentrationCheck.dc})`,
-            spec: { kind: "check", modifier: conSave },
+            spec: { kind: "check", modifier: conSave, save: true },
           })
         }
       >

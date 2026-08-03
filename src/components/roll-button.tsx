@@ -14,8 +14,11 @@ import { useEditMode } from "src/lib/hooks/use-edit-mode";
 interface RollButtonProps {
   // Shown as the roll dialog's heading, e.g. the attack or spell name.
   label: string;
-  // A d20 + flat modifier check (skills, saves, ability checks, initiative).
+  // A d20 + flat modifier check (skills, ability checks, initiative).
   check?: number;
+  // A saving throw's modifier — same dialog, but the save `RollKind`, so
+  // save-only riders apply. Mutually exclusive with `check`.
+  savingThrow?: number;
   // A single dice formula rolled on its own.
   formula?: CustomFormula;
   // Spend a hit die of this size: roll it, apply healing, expend the die.
@@ -40,6 +43,7 @@ interface RollButtonProps {
 export default function RollButton({
   label,
   check,
+  savingThrow,
   formula,
   hitDie,
   deathSave,
@@ -60,15 +64,17 @@ export default function RollButton({
   const spec: RollSpec | undefined =
     check !== undefined
       ? { kind: "check", modifier: check }
-      : formula
-        ? { kind: "formula", formula }
-        : hitDie
-          ? { kind: "hitDie", die: hitDie }
-          : deathSave
-            ? { kind: "deathSave" }
-            : isAttack
-              ? { kind: "attack", toHit, save, damage, spell, attack }
-              : undefined;
+      : savingThrow !== undefined
+        ? { kind: "check", modifier: savingThrow, save: true }
+        : formula
+          ? { kind: "formula", formula }
+          : hitDie
+            ? { kind: "hitDie", die: hitDie }
+            : deathSave
+              ? { kind: "deathSave" }
+              : isAttack
+                ? { kind: "attack", toHit, save, damage, spell, attack }
+                : undefined;
   if (!spec) return <></>;
 
   return (

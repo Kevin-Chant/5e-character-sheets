@@ -182,7 +182,9 @@ none of those shows no button. Cast conditions travel as names and come back
 as consent prompts and riders — see the roll-report section of
 [`play-surface.md`](./play-surface.md). On the bearer's side, an active
 condition's riders join the character's own in `CheckControls` (Bless's d4 is
-a `bonusDice` rider: rolled with the check, shown as its own result line, and
+a `bonusDice` rider on the `attack` and `save` kinds — saves are a `RollKind`
+of their own, so it folds in automatically on a save and never touches a
+skill check. It's rolled with the d20, shown as its own result line, and
 rolled by the app even in manual mode — only the d20 belongs to the physical
 roller).
 
@@ -227,7 +229,7 @@ never healing, and never a save-based spell (no to-hit roll → no toggle).
 | Surface        | Component                                | Roll                                          |
 | -------------- | ---------------------------------------- | --------------------------------------------- |
 | Ability checks | `stat-display.tsx`                       | `check` = ability modifier                    |
-| Saving throws  | `proficiency-display.tsx` (`rollLabel`)  | `check` = save modifier                       |
+| Saving throws  | `proficiency-display.tsx` (`rollIsSave`) | `check` + `save: true` = save modifier        |
 | Skills         | `proficiency-display.tsx` (`rollLabel`)  | `check` = skill modifier                      |
 | Initiative     | `single-value-display.tsx` (`rollCheck`) | `check` = init modifier                       |
 | Weapon attack  | `defence-and-equipment-panel.tsx`        | `attack` = to-hit + damage                    |

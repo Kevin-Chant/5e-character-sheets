@@ -99,7 +99,18 @@ export interface AbilityAction {
 
 // What kind of roll is happening, as a tag the roll dialog supplies. `check`
 // covers every non-attack d20 (ability checks, saves, initiative).
-export type RollKind = "check" | "attack" | "damage" | "healing" | "hitDie";
+// "check" is ability and skill checks (initiative included); "save" is saving
+// throws — split kinds because 5e treats them differently everywhere (Bless
+// boosts saves but not checks, Dwarven Resilience is saves only), and a rider
+// authored against a merged kind over-applied to whichever half it didn't
+// mean.
+export type RollKind =
+  | "check"
+  | "save"
+  | "attack"
+  | "damage"
+  | "healing"
+  | "hitDie";
 
 // The weapon properties a rider can key off. These are the 5e properties that
 // actually gate a feature ("melee weapon attack using Strength", "ranged
@@ -173,8 +184,9 @@ type RollRiderKind =
       rider: "bonusDice";
       count: number;
       die: StandardDie;
-      // Offered as a checkbox when the eligibility is situational (Bless is
-      // saves and attacks, not skills — the sheet can't tell those apart).
+      // Offered as a checkbox when the eligibility is situational beyond what
+      // the roll kinds express (Guidance boosts *one* ability check, then the
+      // condition ends).
       optional?: boolean;
       note?: string;
     }
