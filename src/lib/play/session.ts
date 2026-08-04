@@ -618,6 +618,21 @@ export interface SessionSelf {
   // The open character, if any — a DM often has none.
   characterUuid?: UUID;
   // This browser's durable DM key. See `Encounter.dmToken`.
+  //
+  // **Withheld once the seat has been reclaimed on this connection**, which is
+  // the guard against two tabs of one browser fighting over it forever. The
+  // token is per *browser* and the client id is per *tab*, so two tabs at the
+  // same table both recognise the seat as theirs and neither can tell the
+  // other from its own pre-refresh self: A takes it, B sees a holder that
+  // isn't B presenting B's token and takes it back, A does the same, and each
+  // bump publishes (`carriesNews` reads counters), so the two of them fill the
+  // realm with seat swaps for as long as both stay open.
+  //
+  // Spending the reclaim once ends it after two bumps: whoever moves second
+  // holds the seat, the other stops asking, and the ordinary reasons to
+  // reclaim — a refresh, a crash, a dropped socket — all begin a *new*
+  // connection and so get a fresh one. Taking it back deliberately is still
+  // one click on the session bar.
   dmToken?: string;
   // True for the first state after joining. See `mergeEncounter`.
   adopt?: boolean;
@@ -625,6 +640,9 @@ export interface SessionSelf {
 
 export interface StateReceipt {
   encounter: Encounter;
+  // The seat came back to us on this state. The caller stops offering its
+  // token afterwards — see `SessionSelf.dmToken`.
+  reclaimedSeat?: boolean;
   // Whether this has to go back out. Applying a peer's state silently is the
   // default — echoing it back is an endless exchange — so this is only true when
   // the merge produced something the peer doesn't know.
@@ -657,6 +675,7 @@ export function receiveState(
   // Walking back into a session you were the DM of: the token matches, so the
   // seat comes back without anyone pressing anything.
   const seated = reclaimDmSeat(merged, self.clientId, self.dmToken);
+  const reclaimedSeat = seated !== merged;
 
   const findMe = (encounter: Encounter) =>
     self.characterUuid
@@ -685,7 +704,7 @@ export function receiveState(
   // reply carries the counters the peer is behind on, their merge accepts
   // those lanes, and their next receive finds nothing to answer.
   const publish = carriesNews(seated, incoming);
-  return { encounter: seated, publish, ownVitals };
+  return { encounter: seated, publish, ownVitals, reclaimedSeat };
 }
 
 function sameVitals(
@@ -775,6 +794,25 @@ export function withoutClient(
 export interface PresenceName {
   name: string;
 }
+
+// How long a table waits before forgetting a client, as against the shared
+// 30s default.
+//
+// A table is played on phones, and a phone browser throttles a background
+// tab's timers to roughly one firing a minute — so the heartbeat a player
+// sends while looking at anything else is not a heartbeat, it's an occasional
+// twitch. At 30s every player who checks a message is forgotten and re-appears,
+// which flickers the DM's roster and (worse) the words next to each row. This
+// is the same "one dropped beat must not flap anyone out" rule the default was
+// chosen by, measured against the interval a phone actually grants rather than
+// the one we ask for.
+//
+// Not longer than this, though: past a minute or two a mobile tab is usually
+// frozen outright rather than throttled, and a client that has stopped beating
+// altogether is one the DM should be told about — "Away" has to arrive inside
+// a fight to be worth anything. The 25s gap to *quiet* is what carries the
+// earlier, softer version of the same news. See `play/liveness.ts`.
+export const TABLE_PRESENCE_TTL_MS = 90_000;
 
 export type PresentClient = PresenceEntry<PresenceName>;
 

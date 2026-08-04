@@ -35,6 +35,12 @@ import {
   RollVerdict,
 } from "src/lib/play/reports";
 import { CHECK_GROUPS, checkForValue, checkLabel } from "src/lib/play/checks";
+import { inviteLink } from "src/lib/play/session";
+import {
+  LIVENESS_LABEL,
+  LIVENESS_TITLE,
+  participantLiveness,
+} from "src/lib/play/liveness";
 import StepperInput from "src/components/stepper-input";
 import ConditionsControl from "./conditions-control";
 import ConcentrationCell from "./concentration-cell";
@@ -68,6 +74,7 @@ export default function DmBoard() {
     sessionCode,
     sessionStatus,
     present,
+    quietClients,
     assignSheetTo,
     setCombatantHidden,
     setCombatantSide,
@@ -222,6 +229,17 @@ export default function DmBoard() {
                 {inCombat && participant.id === nextUp?.id && (
                   <span className="dm-next-chip">next</span>
                 )}
+                {/* Is anybody behind this row? The one thing a roster of
+                    creatures couldn't say, and the thing a DM needs before
+                    calling on someone: a player whose phone dropped left a row
+                    identical to a player who simply hadn't acted yet. */}
+                <LivenessChip
+                  participant={participant}
+                  clientId={clientId}
+                  present={present}
+                  quietClients={quietClients}
+                  connected={sessionStatus === "connected"}
+                />
                 {/* Staging: the ambush the players haven't seen yet. Only for
                     hand-typed rows — a character-backed row is somebody's
                     seat at the table, not a surprise to spring. */}
@@ -986,9 +1004,53 @@ function ApplyAmount({
   );
 }
 
+// Who, if anyone, is holding this sheet right now.
+//
+// Deliberately silent for the rows it has nothing to say about — hand-typed
+// monsters, and sheets this browser holds itself — because a chip on every row
+// is a chip nobody reads. The three states it does show are the three a DM
+// actually acts on: call on them, wait a moment, or play their character for
+// the rest of the fight.
+function LivenessChip({
+  participant,
+  clientId,
+  present,
+  quietClients,
+  connected,
+}: {
+  participant: Participant;
+  clientId: string;
+  present: { clientId: string; name: string }[];
+  quietClients: string[];
+  connected: boolean;
+}) {
+  const state = participantLiveness(participant, {
+    clientId,
+    presentIds: present.map((c) => c.clientId),
+    quietIds: quietClients,
+    connected,
+  });
+  if (state === "none" || state === "self") return null;
+  return (
+    <span
+      className={classNames("dm-liveness", state)}
+      title={LIVENESS_TITLE[state]}
+    >
+      <span className="dm-liveness-dot" aria-hidden />
+      {LIVENESS_LABEL[state]}
+    </span>
+  );
+}
+
 // The code is the DM's first job — nobody is at the table until it's been
 // pasted into the group chat. Shown big at the empty table, the one moment
 // it's the whole point of the screen.
+//
+// **Copies the link, not the bare code** — the same thing the session bar
+// copies, for the same reason: a player who taps a link lands at the right
+// table having answered nothing, whereas a uuid on its own needs a sentence
+// explaining where to put it. The code stays on screen underneath for reading
+// out over a call.
 function InviteCode({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -996,13 +1058,13 @@ function InviteCode({ code }: { code: string }) {
       type="button"
       className="dm-invite"
       onClick={async () => {
-        await copyToClipboard(code);
+        await copyToClipboard(inviteLink(window.location.origin, code));
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
     >
       <span className="dm-invite-label">
-        {copied ? "Copied — send it to your players" : "Copy the invite code"}
+        {copied ? "Copied — send it to your players" : "Copy the invite link"}
       </span>
       <span className="dm-invite-code">
         <code>{code}</code>

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 // @ts-expect-error - autobahn-browser ships no type declarations
 import autobahn from "autobahn-browser";
 import { accept, Envelope, stamp } from "src/lib/realm/envelope";
@@ -53,6 +53,38 @@ const MESSAGES: Record<RealmFailure, string> = {
   closed: "The sharing server accepted the session but closed the connection.",
 };
 
+// --- Liveness ----------------------------------------------------------------
+//
+// **A socket can die without saying so, and on a phone that is the common
+// case.** Moving between wifi and mobile data, or a NAT dropping an idle
+// mapping, leaves a connection that never delivers a close frame: the browser
+// still reports it open, `onclose` never fires, and every layer above sits
+// there reading "Live" while nothing arrives in either direction. That is the
+// worst failure this app has, because it is indistinguishable from a quiet
+// table.
+//
+// Nothing local can detect it — the question is whether packets still make a
+// round trip — so the only honest test is to make one. Each client registers a
+// procedure named after itself and calls it: the request travels to the broker
+// and the invocation comes back, over the same socket, through the same code
+// path a real message uses. nightlife-rabbit doesn't exclude a caller from its
+// own registration (verified against a local sidecar: 4ms round trip), which is
+// what lets a client one at an empty table check its own connection.
+const PING_PROCEDURE = "net.dndcharactersheets.realm.ping.";
+// Often enough that a drop is noticed inside a turn, rarely enough to be
+// invisible: two tiny frames every twenty seconds.
+const PING_EVERY_MS = 20_000;
+// A round trip that hasn't landed in this long isn't slow, it's gone. Generous
+// for a phone on a bad connection, where a real answer can take seconds.
+const PING_TIMEOUT_MS = 8_000;
+
+// How long a message published into a dead socket is worth holding, and how
+// many. A roll report from ten seconds ago is still the roll everyone is
+// waiting on; one from five minutes ago is noise arriving at the wrong moment,
+// so the queue is deliberately short-lived and small rather than durable.
+const QUEUE_MAX_AGE_MS = 30_000;
+const QUEUE_MAX = 40;
+
 export interface UseRealmOptions<K extends string> {
   // This tab's identity, stamped on everything we publish and used to drop our
   // own echo on everything we receive.
@@ -64,8 +96,18 @@ export interface UseRealmOptions<K extends string> {
   // Called for each message that survives `accept`. Held in a ref internally,
   // so it always sees current state rather than what was captured at connect.
   onMessage: (message: Envelope & { kind: K }) => void;
-  // Called when a connection that *had* opened goes away, for whatever reason.
+  // Called when a connection that *had* opened goes away, for whatever reason —
+  // including a liveness probe concluding it had gone away without telling us.
   onClosed?: () => void;
+  // Which message kinds are worth holding when they're published into a socket
+  // that isn't there, and replaying on the next connection to the same realm.
+  //
+  // Deliberately the layer's decision, not this file's, because it turns on
+  // what a message *means*. A shared document's edit is worth replaying (it is
+  // the only copy of that change); an encounter broadcast is not (the next one
+  // supersedes it, and the merge converges anyway); a sync request is not (its
+  // id has expired). Absent means queue nothing, which is the old behaviour.
+  queueWhileOffline?: (kind: K) => boolean;
 }
 
 export function useRealm<K extends string>({
@@ -73,6 +115,7 @@ export function useRealm<K extends string>({
   topics,
   onMessage,
   onClosed,
+  queueWhileOffline,
 }: UseRealmOptions<K>) {
   const {
     settings: { liveEditHost },
@@ -93,18 +136,63 @@ export function useRealm<K extends string>({
   const topicsRef = useRef(topics);
   topicsRef.current = topics;
 
-  const publish = useCallback(
-    (message: { kind: K; clientId: string; toClientId?: string }) => {
+  // Messages published while there was nothing to publish into. Held here
+  // rather than dropped, and flushed when the same realm comes back.
+  const queued = useRef<
+    { at: number; realm: string; message: { kind: K; clientId: string } }[]
+  >([]);
+  const queuePolicy = useRef(queueWhileOffline);
+  queuePolicy.current = queueWhileOffline;
+  // The realm we are meant to be in, which outlives the socket — a queued
+  // message may only be replayed into the room it was meant for.
+  const wantedRealm = useRef<string | undefined>();
+
+  const send = useCallback(
+    (message: { kind: K; clientId: string; toClientId?: string }): boolean => {
       const session = sessionRef.current;
-      if (!session) return;
+      if (!session) return false;
       try {
         session.publish(topicsRef.current[message.kind], [stamp(message)]);
+        return true;
       } catch {
-        // A publish into a realm that has just closed isn't worth surfacing —
-        // `onclose` is about to move the UI to offline anyway.
+        return false;
       }
     },
     [],
+  );
+
+  const publish = useCallback(
+    (message: { kind: K; clientId: string; toClientId?: string }) => {
+      if (send(message)) return;
+      // It didn't leave. For most kinds that's the end of it — `onclose` is
+      // about to move the UI to offline, and the next state supersedes this
+      // one anyway. For the kinds a layer says are worth replaying, the
+      // alternative to holding it is losing it in silence, which is what a
+      // player experiences as "I rolled and the DM never saw it".
+      const realm = wantedRealm.current;
+      if (!realm || !queuePolicy.current?.(message.kind)) return;
+      queued.current = [
+        ...queued.current.slice(-(QUEUE_MAX - 1)),
+        { at: Date.now(), realm, message },
+      ];
+    },
+    [send],
+  );
+
+  // Replay what was held, oldest first, dropping anything stale or meant for
+  // another room. Called once a connection is up and subscribed.
+  const flushQueue = useCallback(
+    (realm: string) => {
+      const now = Date.now();
+      const pending = queued.current;
+      queued.current = [];
+      for (const entry of pending) {
+        if (entry.realm !== realm) continue;
+        if (now - entry.at > QUEUE_MAX_AGE_MS) continue;
+        send(entry.message);
+      }
+    },
+    [send],
   );
 
   // The character layer's `FULL_SYNC`: an owned document has one host who can
@@ -119,6 +207,62 @@ export function useRealm<K extends string>({
     if (!sessionRef.current) return Promise.resolve(undefined);
     return sessionRef.current.call(procedure, args);
   }, []);
+
+  // The liveness loop. Started when a connection opens, stopped by anything
+  // that takes one away.
+  const heartbeat = useRef<ReturnType<typeof setInterval> | undefined>();
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeat.current) clearInterval(heartbeat.current);
+    heartbeat.current = undefined;
+  }, []);
+
+  // One probe: call our own registration and insist on an answer.
+  const probe = useCallback(async (): Promise<boolean> => {
+    const session = sessionRef.current;
+    if (!session) return false;
+    try {
+      const answer = session.call(`${PING_PROCEDURE}${clientId}`, []);
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), PING_TIMEOUT_MS),
+      );
+      await Promise.race([answer, timeout]);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [clientId]);
+
+  // Declare a connection dead that never said so. Everything `onclose` would
+  // have done, done by hand — because `onclose` is exactly what isn't coming.
+  const declareDead = useCallback(() => {
+    stopHeartbeat();
+    try {
+      connectionRef.current?.close();
+    } catch {
+      // Closing a socket the OS has already forgotten can throw. It changes
+      // nothing: we are treating it as gone either way.
+    }
+    sessionRef.current = undefined;
+    connectionRef.current = undefined;
+    setRealm(undefined);
+    setStatus("offline");
+    handlers.current.onClosed?.();
+  }, [stopHeartbeat]);
+
+  const startHeartbeat = useCallback(() => {
+    stopHeartbeat();
+    heartbeat.current = setInterval(async () => {
+      if (!sessionRef.current) return;
+      if (await probe()) return;
+      // **Never on one failure.** A tab that was frozen and resumed fires its
+      // pending timers immediately, which fails a probe that was perfectly
+      // healthy; so does a single dropped frame on a bad connection. A second
+      // probe, taken fresh, is cheap and turns "we were asleep" into a pass.
+      if (!sessionRef.current) return;
+      if (await probe()) return;
+      declareDead();
+    }, PING_EVERY_MS);
+  }, [probe, declareDead, stopHeartbeat]);
 
   const fail = useCallback((reason: RealmFailure): RealmFailed => {
     setStatus("error");
@@ -143,6 +287,7 @@ export function useRealm<K extends string>({
     async (name: string, opts?: { create?: boolean }): Promise<RealmResult> => {
       // Supersede whatever was open: one realm per hook, and the old
       // connection's `onclose` is silenced by the identity check below.
+      stopHeartbeat();
       try {
         connectionRef.current?.close();
       } catch {
@@ -150,6 +295,10 @@ export function useRealm<K extends string>({
       }
       sessionRef.current = undefined;
       connectionRef.current = undefined;
+      // Recorded before the attempt, not after it succeeds: anything published
+      // while this is in flight belongs to this room, and the queue has to be
+      // able to say so.
+      wantedRealm.current = name;
       setStatus("connecting");
       setError(undefined);
 
@@ -193,8 +342,24 @@ export function useRealm<K extends string>({
               }),
             ),
           );
+          // Our own echo, for asking the socket whether it is still a socket.
+          // Registered per client id, so two tabs in one realm don't collide
+          // and a stale registration from a dead session can't answer for us.
+          try {
+            await session.register(`${PING_PROCEDURE}${clientId}`, () =>
+              Date.now(),
+            );
+          } catch {
+            // A broker that won't take the registration costs us the liveness
+            // check, not the session — every other path still works, and a
+            // probe that can never answer would be worse than none.
+          }
           setRealm(name);
           setStatus("connected");
+          startHeartbeat();
+          // Whatever was held while there was no socket, now that there is one
+          // and we are subscribed to hear the answers.
+          flushQueue(name);
           resolve({ ok: true });
         };
 
@@ -206,6 +371,7 @@ export function useRealm<K extends string>({
           // connection you still had went away", nothing else.
           const current = connectionRef.current === connection;
           if (current) {
+            stopHeartbeat();
             sessionRef.current = undefined;
             connectionRef.current = undefined;
             setRealm(undefined);
@@ -224,17 +390,26 @@ export function useRealm<K extends string>({
         connection.open();
       });
     },
-    [liveEditHost, clientId, fail],
+    [liveEditHost, clientId, fail, startHeartbeat, stopHeartbeat, flushQueue],
   );
 
   const close = useCallback(() => {
+    stopHeartbeat();
     connectionRef.current?.close();
     sessionRef.current = undefined;
     connectionRef.current = undefined;
+    // Leaving on purpose: nothing held is worth replaying into a room we chose
+    // to walk out of.
+    queued.current = [];
+    wantedRealm.current = undefined;
     setRealm(undefined);
     setStatus("offline");
     setError(undefined);
-  }, []);
+  }, [stopHeartbeat]);
+
+  // A hook that unmounts with a live interval keeps probing a socket nobody is
+  // listening to.
+  useEffect(() => stopHeartbeat, [stopHeartbeat]);
 
   return {
     status,

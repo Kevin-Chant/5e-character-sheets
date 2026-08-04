@@ -193,6 +193,11 @@ export class SimClient {
     this.connection = connectionReducer(this.connection, event);
   }
 
+  // Set while a peer's state is being applied — see `apply`.
+  private applyingRemote = false;
+  // Whether this connection has already taken the seat back automatically.
+  private seatReclaimSpent = false;
+
   private send(message: SimMessage) {
     this.broker?.publish(stamp(message));
   }
@@ -207,6 +212,10 @@ export class SimClient {
       // Edited by hand with no session open: this is prep now, whatever table
       // it came from — the provider clears the pairing key the same way.
       if (!this.broker) this.belongsTo = undefined;
+      // A real local edit, which ends any standing offer to adopt a late sync
+      // answer. The provider does this from `update`; `applyingRemote` is its
+      // guard for changes that came *from* a peer.
+      if (!this.applyingRemote) this.advance({ type: "local-change" });
       this.publishState();
     }
   }
@@ -269,6 +278,8 @@ export class SimClient {
     const belongsTo = this.belongsTo;
     broker.join(this);
     const requestId = `req-${this.clientId}-${++this.requestCounter}`;
+    // A new connection, and so a fresh reclaim.
+    this.seatReclaimSpent = false;
     this.advance({ type: "opened", code: broker.code, requestId });
     // **Silently**: entering a room is not an edit. Broadcasting the local
     // state here would let a joiner's unrelated solo history win the document
@@ -409,9 +420,13 @@ export class SimClient {
     const receipt = receiveState(this.encounter, incoming, {
       clientId: this.clientId,
       characterUuid: this.characterUuid,
-      dmToken: this.dmToken,
+      // Offered only while this connection's reclaim is unspent — the guard
+      // against two tabs of one browser trading the seat forever.
+      dmToken: this.seatReclaimSpent ? undefined : this.dmToken,
       adopt,
     });
+    if (receipt.reclaimedSeat) this.seatReclaimSpent = true;
+    this.applyingRemote = true;
     this.encounter = receipt.encounter;
     // A DM set our HP: it lands on the sheet, exactly as the provider
     // dispatches it onto the character.
@@ -420,5 +435,6 @@ export class SimClient {
       this.encounter = bumpRevision(this.encounter, this.clientId);
       this.publishState();
     }
+    this.applyingRemote = false;
   }
 }

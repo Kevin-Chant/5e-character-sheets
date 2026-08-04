@@ -67,6 +67,7 @@ import {
   receiveState,
   rememberSession,
   samePresenceName,
+  TABLE_PRESENCE_TTL_MS,
   withoutClient,
 } from "src/lib/play/session";
 import { usePresence } from "src/lib/realm/use-presence";
@@ -242,6 +243,11 @@ export interface EncounterContextData {
   // when the connection drops. This is what gives the DM someone to point at:
   // a sheetless player has no participant, so without it they're invisible.
   present: PresentClient[];
+  // Of those, the ones we haven't heard from lately — a phone with the screen
+  // off rather than a dropped connection. Kept apart from `present` because
+  // they are different answers: this one is "are they *with* us", and the DM
+  // needs both to read a roster (see `play/liveness.ts`).
+  quietClients: string[];
   // Point a sheet at one present client — a *targeted offer*. Marks the sheet
   // claimable too (assignment is a superset of offering); the sheet itself
   // only travels when the target accepts, through the ordinary claim flow.
@@ -324,6 +330,7 @@ export const NO_ENCOUNTER: EncounterContextData = {
   setSheetOffered: NOOP,
   claimables: [],
   present: [],
+  quietClients: [],
   assignSheetTo: NOOP,
   acceptAssignment: NOOP,
   declineAssignment: NOOP,
@@ -407,6 +414,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const presenceRef = useRef<
     | {
         saw: (clientId: string, payload: PresenceName) => void;
+        touch: (clientId: string) => void;
         left: (clientId: string) => void;
       }
     | undefined
@@ -435,9 +443,20 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   // Read lazily so a browser that never runs a game never writes the key.
   const dmTokenRef = useRef<string>("");
   if (!dmTokenRef.current) dmTokenRef.current = dmToken();
+  // Whether this connection still has its automatic seat reclaim to spend.
+  // One per connection — see `SessionSelf.dmToken` for the two-tab storm this
+  // ends. Reset when a connection is established, not when one is lost, so a
+  // reconnect gets its reclaim back and a second tab does not.
+  const seatReclaimRef = useRef(true);
   // Whether this browser is in a session right now. Read synchronously by
   // `update`, which is how an edit made offline can disown the stored session.
   const connectedRef = useRef(false);
+  // Set while a peer's state is being applied, so `update` can tell a change
+  // *we* made from one we were told about — see the `local-change` event.
+  const applyingRemoteRef = useRef(false);
+  // Through a ref because `update` is created before the connection machine's
+  // `advance` is — the same knot `broadcastRef` unties.
+  const advanceRef = useRef<(event: ConnectionEvent) => void>(() => {});
 
   // The name we announce. A player with a character announces its name; the
   // sheetless joiner types one into the lobby, which lands here.
@@ -474,6 +493,13 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
           removeLocalStorage(ENCOUNTER_SESSION_STORAGE_KEY);
         }
         if (!silent) broadcastRef.current?.(next);
+        // A real local edit. It ends any standing offer to adopt a late sync
+        // answer: what we hold is now something of ours rather than a stale
+        // copy of the room's, and replacing it wholesale would throw away the
+        // edit that just happened.
+        if (!silent && !applyingRemoteRef.current) {
+          advanceRef.current({ type: "local-change" });
+        }
         return next;
       });
     },
@@ -488,13 +514,17 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     (incoming: Encounter, adopt: boolean) => {
       // Every decision here is `receiveState`, which is pure and covered by the
       // multi-client simulator. This hook only knows how to store and send.
+      applyingRemoteRef.current = true;
       const receipt = receiveState(encounterRef.current, incoming, {
         clientId,
         characterUuid: characterRef.current?.uuid,
-        dmToken: dmTokenRef.current,
+        // Offered only while this connection's reclaim is unspent.
+        dmToken: seatReclaimRef.current ? dmTokenRef.current : undefined,
         adopt,
       });
+      if (receipt.reclaimedSeat) seatReclaimRef.current = false;
       update(() => receipt.encounter, !receipt.publish);
+      applyingRemoteRef.current = false;
       // The DM set our HP. It lands on the character itself — the participant
       // is only a projection of the sheet, so leaving the sheet untouched would
       // publish the old number right back on its next change. Only `currHp`:
@@ -546,6 +576,11 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     },
     onPresence: (fromClientId, name) =>
       presenceRef.current?.saw(fromClientId, { name }),
+    // Anything at all from a peer is proof they're still there — which is what
+    // keeps a player who is *using* the app (rolling, taking damage, ticking a
+    // condition) from being reported as dropped just because their phone
+    // throttled the heartbeat behind the lock screen.
+    onPeerHeard: (fromClientId) => presenceRef.current?.touch(fromClientId),
     // Queue a peer's rolled damage. Deduped by id (a re-send is a repeat, not
     // a second hit) and capped — a queue nobody is reading must not grow all
     // night.
@@ -616,9 +651,13 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       [session.announcePresence],
     ),
     same: samePresenceName,
+    // Longer than the shared default, because a table is played on phones —
+    // see `TABLE_PRESENCE_TTL_MS`.
+    ttlMs: TABLE_PRESENCE_TTL_MS,
   });
   presenceRef.current = presence;
   const present: PresentClient[] = presence.roster;
+  const quietClients = presence.quiet;
 
   // What the table says to each other, as opposed to what it agrees on: rolls,
   // rulings, asks and offers. Split out by lifetime — all of it is born from an
@@ -653,6 +692,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     connectionRef.current = connectionReducer(connectionRef.current, event);
     setConnection(connectionRef.current);
   }, []);
+  advanceRef.current = advance;
 
   // Both ways into a session, which differ in less than they used to: what the
   // table opens with, and whether the room's answer replaces our state or
@@ -678,6 +718,9 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       }
 
       const requestId = randomUUID();
+      // A new connection, and so a fresh reclaim: this is the refresh, the
+      // crash and the dropped socket, all of which should cost the DM nothing.
+      seatReclaimRef.current = true;
       advance({ type: "opened", code: result.code, requestId });
 
       // **Silently** — entering a room is not an edit. This update used to
@@ -744,16 +787,20 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     // one: a DM usually has some sheet open — an NPC they're voicing, a party
     // character they're checking — and labelling their rejoin row "as Guard
     // Captain" would be reading a coincidence as a choice.
+    //
+    // And only when there *is* one: entries merge, so writing the key as
+    // undefined would erase the sheet this browser is known to have played —
+    // which is exactly what a reconnect does, since the connection comes back
+    // before the character is reopened. Forgetting it there would mean the
+    // next reconnect had nothing to reopen.
     const seat = sessionMemoryFor(connectedCode)?.seat;
+    const sheet = characterRef.current;
     rememberSessionLocally({
       code: connectedCode,
       lastJoined: Date.now(),
-      ...(seat === "dm"
+      ...(seat === "dm" || !sheet
         ? {}
-        : {
-            playAsUuid: characterRef.current?.uuid,
-            playAsName: characterRef.current?.name,
-          }),
+        : { playAsUuid: sheet.uuid, playAsName: sheet.name }),
     });
   }, [connectedCode]);
   // Pending assignments and queued reports are facts about a connection, and
@@ -824,6 +871,22 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       ),
     );
   }, [connectedCode, characterUuidForSession, dispatch]);
+
+  // The same fact from the browser's side, kept true as it *changes*: opening
+  // a sheet after joining, or picking up one the DM offered, is what this
+  // browser is playing here from then on. Recorded because it's what a
+  // reconnect reopens — a rejoin that lands you at the table with no character
+  // is the right seat and the wrong evening.
+  useEffect(() => {
+    if (!connectedCode || !characterUuidForSession) return;
+    if (sessionMemoryFor(connectedCode)?.seat === "dm") return;
+    rememberSessionLocally({
+      code: connectedCode,
+      lastJoined: Date.now(),
+      playAsUuid: characterUuidForSession,
+      playAsName: characterRef.current?.name,
+    });
+  }, [connectedCode, characterUuidForSession]);
 
   // Keep a participant in step with the open character: created the first time
   // that character is opened, and renamed if the character is. Every other
@@ -956,6 +1019,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         update((current) => offerSheet(current, id, claimable)),
       claimables: claimableSheets(encounter, clientId),
       present,
+      quietClients,
       // Assigning is offering plus a nudge: the claimable flag is still what
       // consents to travel (checked at send time by the owner), so a ghost
       // target costs nothing — no reply, and the offer stands for pickup.
@@ -1051,6 +1115,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       dispatch,
       lastSession,
       present,
+      quietClients,
       pendingAssignmentId,
       concentrationCheck,
       displayName,

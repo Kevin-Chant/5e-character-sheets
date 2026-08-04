@@ -84,11 +84,43 @@ payload here is `{name, color, field}`:
 `teardownSession` differs by role and this asymmetry is deliberate: a **host**
 publishes `closeSession` (so joiners clear the now-dead character and alert)
 and then asks the server to close the realm; a **remote** just publishes
-`leave` so peers drop its chip. A joiner losing its connection _without asking
-to_ — the host closed the realm, or the network did — runs `endedRemotely`:
-reset the character, say so once. The transport's rule that a deliberate
-`close()` never fires `onClosed` (see `use-realm.tsx`) is what tells those
-apart without the old `intentionalDisconnect` ref.
+`leave` so peers drop its chip. The transport's rule that a deliberate
+`close()` never fires `onClosed` (see `use-realm.tsx`) is what tells a
+deliberate teardown from an unexpected one without the old
+`intentionalDisconnect` ref.
+
+### An unexpected close is not an ending
+
+A joiner losing its connection without asking to used to run `endedRemotely`
+immediately: reset the character, alert. **That was wrong, and wrong in the
+worst direction.** On a phone a dropped socket is a routine event — a wifi
+handover, a tunnel, a backgrounded tab, an idle NAT mapping — and the response
+to one was to destroy the borrowed sheet and tell the player their friend had
+closed the session. Reported from real use, more than once.
+
+`onClosed` now starts a **reconnect campaign** (`reconnect`, backing off over
+about thirty seconds), and the retry _is_ the diagnosis: there is no message
+that distinguishes "the host closed the realm" from "my connection dropped",
+but there is an experiment. A realm that answers was never gone. A realm that
+keeps reporting `absent` is one nobody is hosting. Only when the attempts run
+out does a joiner run `endedRemotely`; a host that can't get back keeps its own
+character and simply stops sharing.
+
+Two details that make the campaign correct rather than merely persistent:
+
+- **The host's `closeSession` still ends it instantly.** A real goodbye is a
+  message, not an absence, so only an _unannounced_ disappearance pays the
+  wait.
+- **Getting back in is not the same as being in step.** A joiner re-runs
+  `FULL_SYNC` on reconnect to collect what the host changed while it was away,
+  and a host re-registers that procedure, because a registration dies with the
+  session that made it. Edits the joiner made while offline are not lost
+  either: `dispatch` is the one kind this layer marks `queueWhileOffline`, so
+  they are replayed into the realm before the resync asks for the answer.
+
+`session-smoke`'s `dropout` scenario drives exactly this with a real network
+drop (`context.setOffline`), and asserts the two things the old behaviour got
+wrong: the sheet is still there, and nobody was told the session ended.
 
 ## Auto-bootstrap for shared Google Drive characters
 

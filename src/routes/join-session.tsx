@@ -7,6 +7,7 @@ import { useEncounter } from "src/lib/hooks/use-encounter";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { detectSessionKind } from "src/lib/realm/occupancy";
 import { isValidSessionCode, normalizeSessionCode } from "src/lib/play/session";
+import { playPathFor } from "src/lib/play/rejoin";
 import { sessionMemoryFor } from "src/lib/play/session-memory";
 
 // `/join/<code>` — the invite link, and the one destination for a pasted code.
@@ -46,7 +47,7 @@ export default function JoinSession() {
   const code = raw ? normalizeSessionCode(raw) : undefined;
   const alreadyHere = sessionStatus === "connected" && sessionCode === code;
   useEffect(() => {
-    if (alreadyHere) navigate("/play", { replace: true });
+    if (alreadyHere) navigate(playPathFor(code), { replace: true });
   }, [alreadyHere]);
 
   useEffect(() => {

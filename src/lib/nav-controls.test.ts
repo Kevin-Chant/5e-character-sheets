@@ -41,6 +41,13 @@ describe("what the nav offers, per surface", () => {
     expect(shown({ pathname: "/sheet/some-uuid" })).toEqual(shown());
   });
 
+  // Same surface, table in the URL — the session's `/sheet/<uuid>`.
+  it("treats /play/<code> as the board", () => {
+    expect(
+      shown({ pathname: "/play/3f8a91c2-1111-4222-8333-444455556666" }),
+    ).toEqual(shown({ pathname: "/play" }));
+  });
+
   it("gives a non-character route only the things that work there", () => {
     // The bug this replaces: /settings was identical to the sheet, edit lock
     // and all. It's an overlay now, but the rule it broke still holds for every
@@ -117,5 +124,7 @@ describe("the title names the page", () => {
     expect(navTitle("/sheet")).toBe("Character Select");
     expect(navTitle("/sheet/some-uuid")).toBe("Character Select");
     expect(navTitle("/play")).toBe("At the table");
+    expect(navTitle("/play/some-code", "Brakka")).toBe("Brakka");
+    expect(navTitle("/play/some-code")).toBe("At the table");
   });
 });

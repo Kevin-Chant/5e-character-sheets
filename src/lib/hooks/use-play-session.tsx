@@ -45,9 +45,14 @@ interface PlaySessionOptions {
   onSyncResponse: (encounter: Encounter, requestId: string) => void;
   // A peer left: drop what it owned.
   onLeave: (fromClientId: string) => void;
-  // A peer said who they are. Names only — liveness is best-effort (no
-  // heartbeats), which is fine for a dropdown and would be wrong for a lock.
+  // A peer said who they are. Names only — liveness is best-effort, which is
+  // fine for a dropdown and would be wrong for a lock.
   onPresence: (fromClientId: string, name: string) => void;
+  // A peer said *anything*. Every message is evidence of a live client, which
+  // matters most where the heartbeat is least reliable: a backgrounded phone
+  // has its timers throttled to about one a minute, while a publish caused by
+  // a tap goes out immediately.
+  onPeerHeard: (fromClientId: string) => void;
   // The DM pointed a sheet at us. Addressed, so the envelope has already
   // dropped the copies meant for other clients.
   onAssignSheet: (participantId: string, fromClientId: string) => void;
@@ -88,6 +93,7 @@ export function usePlaySession(options: PlaySessionOptions) {
     onMessage: (raw) => {
       const message = raw as SessionMessage;
       const on = handlers.current;
+      on.onPeerHeard(message.clientId);
       switch (message.kind) {
         case "state":
           // The one payload big enough to be worth checking: a peer on a
@@ -132,6 +138,24 @@ export function usePlaySession(options: PlaySessionOptions) {
       }
     },
     onClosed: () => setCode(undefined),
+    // What survives a blip, and what shouldn't.
+    //
+    // The encounter converges on its own: a `state` published into a dead
+    // socket is superseded by the next one, and replaying a stale copy would
+    // put an old fight back on the wire. Presence re-announces on its own
+    // beat; a `leave` is meaningless once we've already gone; a sync request
+    // and its answer are keyed to an id that has expired by then.
+    //
+    // Everything else is a *sentence somebody said* — a roll, a ruling, an
+    // ask, an offer, a claim — and none of it has any other copy. Losing one
+    // is the player who rolled to hit and got no answer, or the sheet pickup
+    // that silently did nothing. Those are worth a few seconds of holding.
+    queueWhileOffline: (kind) =>
+      kind !== "state" &&
+      kind !== "presence" &&
+      kind !== "leave" &&
+      kind !== "syncRequest" &&
+      kind !== "syncResponse",
   });
 
   const publish = realm.publish as (message: SessionMessage) => void;

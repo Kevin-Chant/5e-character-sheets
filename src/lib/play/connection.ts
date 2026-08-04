@@ -36,7 +36,16 @@ import { EMPTY_ENCOUNTER, Encounter } from "src/lib/play/encounter";
 // answer wins the adoption and ends the wait, so a busy table pays nothing for
 // this number and only an empty one pays it in full. That's what lets it be
 // generous enough to survive a slow broker round trip without anyone noticing.
-export const SYNC_WINDOW_MS = 750;
+//
+// It used to be 750ms, which is a number measured on a LAN. A phone on mobile
+// data can take longer than that to hear back, and the old cost of being late
+// was severe: the joiner concluded the room was empty, stopped adopting, and
+// then *merged* the answer when it arrived — where a long-lived local encounter
+// can win the revision race and push last week's fight over the live one. The
+// window is more generous now, and missing it is no longer fatal: adoption
+// stays available to the answer to *this* request however late it lands, until
+// a local edit makes our own state something worth keeping (see below).
+export const SYNC_WINDOW_MS = 1_500;
 
 export type SessionIntent =
   // Opening a table. A brand-new code, or reopening one that went quiet.
@@ -58,13 +67,26 @@ export type ConnectionState =
       // the room.
       adopting: boolean;
     }
-  | { phase: "live"; code: string };
+  // Connected and done waiting. `pendingRequestId` is the sync request whose
+  // answer never came inside the window — still adoptable if it turns up,
+  // because "the room was slow" and "the room is empty" only became
+  // distinguishable when the answer arrived, and we shouldn't have to have
+  // guessed right.
+  | {
+      phase: "live";
+      code: string;
+      pendingRequestId?: string;
+      adopting?: boolean;
+    };
 
 export type ConnectionEvent =
   | { type: "connect"; intent: SessionIntent }
   | { type: "opened"; code: string; requestId: string }
   | { type: "sync-response"; requestId: string }
   | { type: "sync-window-closed"; requestId: string }
+  // Somebody edited the encounter here. What we hold is no longer merely a
+  // stale copy of the room's, so a late answer must merge rather than replace.
+  | { type: "local-change" }
   | { type: "closed"; error?: string };
 
 export const OFFLINE: ConnectionState = { phase: "offline" };
@@ -87,6 +109,14 @@ export function connectionReducer(
     // is an ordinary merge, which is what stops two peers' replies fighting over
     // which one gets adopted.
     case "sync-response":
+      if (
+        state.phase === "live" &&
+        state.pendingRequestId === event.requestId
+      ) {
+        // The late answer, now consumed: a second one merges like any other
+        // state.
+        return { phase: "live", code: state.code };
+      }
       if (state.phase !== "syncing" || state.requestId !== event.requestId) {
         return state;
       }
@@ -98,6 +128,17 @@ export function connectionReducer(
       if (state.phase !== "syncing" || state.requestId !== event.requestId) {
         return state;
       }
+      // The waiting ends; the *offer* to adopt does not. Carried into `live`
+      // so an answer that arrives a second later still replaces a newcomer's
+      // unrelated history rather than racing it.
+      return {
+        phase: "live",
+        code: state.code,
+        pendingRequestId: state.requestId,
+        adopting: state.adopting,
+      };
+    case "local-change":
+      if (state.phase !== "live" || !state.pendingRequestId) return state;
       return { phase: "live", code: state.code };
     case "closed":
       return { phase: "offline", error: event.error };
@@ -111,8 +152,16 @@ export function adoptsResponse(
   state: ConnectionState,
   requestId: string,
 ): boolean {
+  if (state.phase === "syncing") {
+    return state.requestId === requestId && state.adopting;
+  }
+  // The late answer to the request we gave up on. Still ours to adopt, because
+  // nothing has happened here since that would be worth keeping — the first
+  // local edit clears this.
   return (
-    state.phase === "syncing" && state.requestId === requestId && state.adopting
+    state.phase === "live" &&
+    !!state.adopting &&
+    state.pendingRequestId === requestId
   );
 }
 

@@ -45,13 +45,57 @@ describe("joining", () => {
 
   // The bug this whole machine exists for: the flag used to stay armed until
   // *some* state arrived, and an empty room never sends any — so the next
-  // arrival's stale encounter was adopted over the fight in progress.
-  it("concludes the room is empty when nobody answers", () => {
+  // arrival's stale encounter was adopted over the fight in progress. What
+  // stays armed now is far narrower: the answer to *this* request, and nothing
+  // else. An ordinary broadcast from a peer is still unadoptable.
+  it("concludes the room is empty when nobody answers, and stops waiting", () => {
     const state = connectionReducer(joined(), {
       type: "sync-window-closed",
       requestId: "r1",
     });
-    expect(state).toEqual({ phase: "live", code: CODE });
+    expect(state.phase).toBe("live");
+    expect(adoptsResponse(state, "some-other-request")).toBe(false);
+  });
+
+  // A phone on mobile data can take longer to hear back than a laptop on the
+  // same wifi as the broker, and the old cost of being slow was a different
+  // *outcome*: the late answer merged, so a joiner's long-lived local encounter
+  // could win the revision race and push its own history over the room's. The
+  // answer to the request we sent is adoptable whenever it lands.
+  it("still adopts the answer to its own request when it arrives late", () => {
+    const state = connectionReducer(joined(), {
+      type: "sync-window-closed",
+      requestId: "r1",
+    });
+    expect(adoptsResponse(state, "r1")).toBe(true);
+    // And consuming it ends the offer, so a second peer's reply is a merge.
+    const after = connectionReducer(state, {
+      type: "sync-response",
+      requestId: "r1",
+    });
+    expect(adoptsResponse(after, "r1")).toBe(false);
+  });
+
+  // Unless something happened here in the meantime. Once this browser has
+  // edited the encounter, what it holds is its own rather than a stale copy of
+  // the room's, and replacing it wholesale would throw that edit away.
+  it("stops offering adoption once there is a local edit to lose", () => {
+    const state = connectionReducer(
+      connectionReducer(joined(), {
+        type: "sync-window-closed",
+        requestId: "r1",
+      }),
+      { type: "local-change" },
+    );
+    expect(adoptsResponse(state, "r1")).toBe(false);
+  });
+
+  // A host is the room; there is nothing to adopt, late or otherwise.
+  it("never offers a host adoption of a late answer", () => {
+    const state = connectionReducer(hosted(), {
+      type: "sync-window-closed",
+      requestId: "r1",
+    });
     expect(adoptsResponse(state, "r1")).toBe(false);
   });
 

@@ -1,0 +1,172 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { useRealm } from "src/lib/realm/use-realm";
+
+// The transport's two pieces of connection hardening, which are invisible
+// until the connection is bad and then are the whole experience:
+//
+//  - a socket that died without saying so, and
+//  - a message published into one.
+//
+// Both are otherwise unreachable from a test — they need a broker that
+// misbehaves in a specific way — so the autobahn connection is mocked and
+// driven by hand, the same way `use-sharing-session.test.ts` drives it.
+
+const mock = vi.hoisted(() => ({
+  holder: { connection: null as any },
+  published: [] as any[],
+  // What the liveness probe's self-call does. A dead socket is one where the
+  // call never answers.
+  callAnswers: true,
+}));
+
+vi.mock("autobahn-browser", () => {
+  class MockConnection {
+    onopen: ((session: unknown) => void) | undefined;
+    onclose: (() => boolean) | undefined;
+    session = {
+      subscribe: () => Promise.resolve({}),
+      register: () => Promise.resolve({}),
+      publish: (topic: string, args: unknown[]) => {
+        mock.published.push({ topic, message: (args as any[])[0] });
+      },
+      call: () =>
+        mock.callAnswers ? Promise.resolve(1) : new Promise(() => {}),
+    };
+    close = () => {};
+    open = () => {};
+    constructor() {
+      mock.holder.connection = this;
+    }
+  }
+  return { default: { Connection: MockConnection } };
+});
+
+type Kind = "edit" | "chatter";
+
+const TOPICS: Record<Kind, string> = {
+  edit: "test.edit",
+  chatter: "test.chatter",
+};
+
+const openRealm = async (
+  result: { current: ReturnType<typeof useRealm<Kind>> },
+  name = "testrealm",
+) => {
+  await act(async () => {
+    const connecting = result.current.connect(name);
+    const connection = mock.holder.connection;
+    connection.onopen(connection.session);
+    await connecting;
+  });
+};
+
+const setup = (over: Partial<Parameters<typeof useRealm<Kind>>[0]> = {}) => {
+  const onClosed = vi.fn();
+  const { result } = renderHook(() =>
+    useRealm<Kind>({
+      clientId: "me",
+      topics: TOPICS,
+      onMessage: () => {},
+      onClosed,
+      queueWhileOffline: (kind) => kind === "edit",
+      ...over,
+    }),
+  );
+  return { result, onClosed };
+};
+
+afterEach(() => {
+  mock.holder.connection = null;
+  mock.published = [];
+  mock.callAnswers = true;
+  vi.useRealTimers();
+});
+
+describe("publishing into a socket that isn't there", () => {
+  it("holds the kinds the layer says are worth holding, and replays them", async () => {
+    const { result } = setup();
+    await openRealm(result);
+
+    act(() => {
+      mock.holder.connection.onclose();
+    });
+    mock.published = [];
+
+    act(() => {
+      result.current.publish({ kind: "edit", clientId: "me" });
+      // Not worth replaying: superseded by whatever comes next.
+      result.current.publish({ kind: "chatter", clientId: "me" });
+    });
+    expect(mock.published).toHaveLength(0);
+
+    await openRealm(result);
+    expect(mock.published.map((p) => p.message.kind)).toEqual(["edit"]);
+  });
+
+  it("won't replay into a different room", async () => {
+    const { result } = setup();
+    await openRealm(result, "one");
+    act(() => {
+      mock.holder.connection.onclose();
+      result.current.publish({ kind: "edit", clientId: "me" });
+    });
+    mock.published = [];
+
+    await openRealm(result, "two");
+    expect(mock.published).toHaveLength(0);
+  });
+
+  // Leaving on purpose: nothing held is worth replaying into a room we chose
+  // to walk out of.
+  it("drops what it held when the session is closed deliberately", async () => {
+    const { result } = setup();
+    await openRealm(result);
+    act(() => {
+      mock.holder.connection.onclose();
+      result.current.publish({ kind: "edit", clientId: "me" });
+      result.current.close();
+    });
+    mock.published = [];
+
+    await openRealm(result);
+    expect(mock.published).toHaveLength(0);
+  });
+});
+
+describe("a socket that died without saying so", () => {
+  it("is noticed, and reported as the closure it is", async () => {
+    vi.useFakeTimers();
+    const { result, onClosed } = setup();
+    await openRealm(result);
+    expect(result.current.status).toBe("connected");
+
+    // The probe stops answering — the wifi handover case, where the browser
+    // still believes the connection is open and nothing ever arrives.
+    mock.callAnswers = false;
+    await act(async () => {
+      // The beat, then both probes timing out: never on one failure, because a
+      // resumed tab fires its pending timers immediately.
+      await vi.advanceTimersByTimeAsync(21_000);
+      await vi.advanceTimersByTimeAsync(9_000);
+      await vi.advanceTimersByTimeAsync(9_000);
+    });
+
+    expect(onClosed).toHaveBeenCalled();
+    expect(result.current.status).toBe("offline");
+  });
+
+  it("leaves a healthy connection alone", async () => {
+    vi.useFakeTimers();
+    const { result, onClosed } = setup();
+    await openRealm(result);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(80_000);
+    });
+
+    expect(onClosed).not.toHaveBeenCalled();
+    expect(result.current.status).toBe("connected");
+  });
+});

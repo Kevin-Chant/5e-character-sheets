@@ -9,6 +9,7 @@ import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { readLastDatastore } from "src/lib/last-datastore";
 import { useRest } from "src/lib/hooks/use-rest";
 import { calculateCustomFormula } from "src/lib/formula";
+import { AutoRejoin, useAutoRejoin } from "src/lib/hooks/use-auto-rejoin";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { useTableTalk } from "src/lib/hooks/use-table-talk";
@@ -58,6 +59,10 @@ const PLAY_EDIT_MODE = {
 export default function PlaySurface() {
   const { character } = useCharacter();
   const { datastore, setDatastore } = useDatastoreSelector();
+  // The table in the URL: reconnects a dropped session on its own, restores
+  // the sheet that was open, and writes the code into the address bar for a
+  // session that arrived by any other door. See `use-auto-rejoin`.
+  const rejoin = useAutoRejoin();
 
   // The nav's character drawer is gated on a selected datastore, and the
   // "no sheet" copy below points at it — but a joiner arrives here through
@@ -124,8 +129,14 @@ export default function PlaySurface() {
   // the rail is a view of a character, and there isn't one.
   const inSession = sessionStatus === "connected";
   // With neither a character nor a session there is nothing to play, so hand
-  // back to the picker rather than rendering an empty frame.
-  if (!character && !inSession) return <Navigate to="/sheet" replace />;
+  // back to the picker rather than rendering an empty frame. **Unless the URL
+  // names a table**: a cold page load at `/play/<code>` has neither for its
+  // first seconds by definition, and every reconnect attempt passes back
+  // through that state — so redirecting on it navigates away from the one URL
+  // that knows how to get back, and unmounts the retry loop on the way out.
+  if (!character && !inSession && !rejoin.atTable) {
+    return <Navigate to="/sheet" replace />;
+  }
 
   return (
     <EditModeContext.Provider value={PLAY_EDIT_MODE}>
@@ -135,7 +146,15 @@ export default function PlaySurface() {
             {/* Order matters: the fight comes first, then your turn within it.
               The economy under the rail reads as "and here's what you have left
               this turn", which is the question the rail has just raised. */}
-            <SessionBar />
+            {/* While a reconnect is under way the bar's "Start a session /
+              Join a session" is the wrong offer — this browser is already in
+              one and is getting back to it. The banner takes its place and
+              says so. */}
+            {!rejoin.rejoining && <SessionBar />}
+            {/* Reconnecting, and saying so. An unexplained board — the fight
+              frozen, nothing arriving — is the worst version of a dropped
+              phone: it looks like the app working. */}
+            <RejoinBanner rejoin={rejoin} />
             {/* A targeted offer from the DM. Consent stays two-sided: the sheet
               hasn't travelled yet, and accepting runs the same claim flow the
               pick-up buttons use. Declining just closes this — the offer
@@ -286,6 +305,49 @@ export default function PlaySurface() {
         </TurnFlowProvider>
       </RollerProvider>
     </EditModeContext.Provider>
+  );
+}
+
+// "Getting you back in." Shown whenever the URL names a table this browser
+// isn't currently connected to.
+//
+// The words matter more than they look. A player whose phone dropped the
+// socket sees a board that is still *there* — their HP, the order, last
+// round's conditions — and nothing to say it has stopped being true. The
+// banner is the difference between "the app is thinking" and "the app is
+// lying", and after the automatic tries are spent it stops claiming to be
+// working and offers the button instead.
+function RejoinBanner({ rejoin }: { rejoin: AutoRejoin }) {
+  const { sessionStatus } = useEncounter();
+  if (sessionStatus === "connected") return null;
+  if (!rejoin.atTable) return null;
+  if (!rejoin.rejoining && rejoin.attempts === 0) return null;
+  const givenUp = !rejoin.rejoining;
+  return (
+    <div className={classNames("rejoin-banner", { "gave-up": givenUp })}>
+      <span>
+        {givenUp
+          ? "Couldn't get back to your game. It may have ended, or your connection is still down."
+          : rejoin.attempts === 0
+            ? "Getting you back to your game…"
+            : `Getting you back to your game… (attempt ${rejoin.attempts + 1})`}
+        {!givenUp && (
+          /* The other half of the truth, and the half that used to be
+             missing: the board still works while this is happening, and
+             nothing done on it is reaching the table. A write that goes
+             nowhere and says nothing is worse than one that fails loudly. */
+          <span className="rejoin-banner-sub">
+            {" "}
+            Changes you make now stay on this device until you&apos;re back.
+          </span>
+        )}
+      </span>
+      {givenUp && (
+        <button type="button" className="btn-primary" onClick={rejoin.retry}>
+          Try again
+        </button>
+      )}
+    </div>
   );
 }
 

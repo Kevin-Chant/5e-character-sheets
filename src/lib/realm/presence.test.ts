@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   PresenceEntry,
   prunePresence,
+  quietPresences,
+  sameClients,
   withoutPresence,
   withPresence,
 } from "src/lib/realm/presence";
@@ -66,5 +68,33 @@ describe("pruning", () => {
 
   it("forgets a client it has never heard from", () => {
     expect(prunePresence(roster, new Map(), 50_000, 30_000)).toEqual([]);
+  });
+});
+
+// Quiet is not gone. A phone with the screen off has its timers throttled to
+// roughly one a minute, so a player who missed a beat is far more often
+// looking at something else than disconnected — and a DM reads those
+// differently.
+describe("quiet presences", () => {
+  const roster: PresenceEntry<Named>[] = [
+    { clientId: "a", name: "Nadia" },
+    { clientId: "b", name: "Theo" },
+  ];
+
+  it("lists only the clients past the quiet window", () => {
+    const lastSeen = new Map([
+      ["a", 10_000],
+      ["b", 48_000],
+    ]);
+    expect(quietPresences(roster, lastSeen, 50_000, 25_000)).toEqual(["a"]);
+  });
+
+  it("is comparable by content, so an unchanged beat re-renders nothing", () => {
+    const lastSeen = new Map([["a", 10_000]]);
+    const first = quietPresences(roster, lastSeen, 50_000, 25_000);
+    const second = quietPresences(roster, lastSeen, 51_000, 25_000);
+    expect(first).not.toBe(second);
+    expect(sameClients(first, second)).toBe(true);
+    expect(sameClients(first, [])).toBe(false);
   });
 });

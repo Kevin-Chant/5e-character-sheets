@@ -170,10 +170,20 @@ describe("arriving at a busy table", () => {
 });
 
 describe("an answer that arrives after the window closed", () => {
-  it("merges like any other state instead of being adopted", () => {
+  // Being slow used to change the *outcome*, not just the timing. A joiner
+  // whose answer missed the window stopped adopting, and the late reply then
+  // merged by revision — so a browser carrying a long solo history could win
+  // the document race and push its own roster over the fight it had just
+  // walked into. Whether that happened came down to a round trip against a
+  // 750ms timer, which is a coin flip on mobile data.
+  //
+  // The answer to *our own request* is now adoptable whenever it lands, so
+  // late and on time produce the same table.
+  it("is adopted anyway, so a slow connection joins the same fight as a fast one", () => {
     const broker = new Broker();
     const master = dm();
     master.host(broker, "dm-token");
+    master.edit((c) => addParticipant(c, { ...goblin, name: "Ogre" }));
     master.edit(startCombat);
 
     const carol = new SimClient({
@@ -187,72 +197,108 @@ describe("an answer that arrives after the window closed", () => {
     );
     for (let hp = 9; hp > 5; hp--) carol.setCharacterHp(hp);
 
-    // The room's answer is delayed past the sync window: Carol concludes the
-    // room is empty, then the answer lands late.
+    // The room's answer is delayed past the sync window.
     broker.crossing(() => carol.join(broker));
 
     expect(carol.phase).toBe("live");
-    // Adopted, the room's membership would have replaced hers and dropped the
-    // unowned prep goblin. Merged, the document race runs — and her week of
-    // edits outnumbers the room's, so her roster stands.
-    expect(carol.participantNames).toContain("Prep Goblin");
-  });
-});
-
-describe("presence", () => {
-  const table = () => {
-    const broker = new Broker();
-    const master = dm();
-    master.host(broker, "dm-token");
-    const carol = new SimClient({
-      clientId: "carol-tab",
-      characterUuid: CAROL,
-      name: "Carol",
-    });
-    carol.join(broker);
-    return { broker, master, carol };
-  };
-
-  it("introduces both sides on join", () => {
-    const { master, carol } = table();
-    expect(master.rosterNames).toContain("Carol");
-    // The answer to a sync request announces the answerer, so the newcomer
-    // learns who is already here without waiting for a heartbeat.
-    expect(carol.rosterNames).toContain("Dungeon Master");
+    // The room's fight, adopted — not Carol's solo prep laid over the top.
+    expect(carol.participantNames).toContain("Ogre");
+    expect(carol.participantNames).not.toContain("Prep Goblin");
+    expect(carol.encounter.round).toBe(1);
+    // Her own row and her own HP survive it, exactly as in the on-time case.
+    expect(carol.participantNames).toContain("Carol");
+    expect(
+      carol.encounter.participants.find((p) => p.characterUuid === CAROL)
+        ?.vitals?.currHp,
+    ).toBe(6);
+    // And the room was never clobbered by her arrival.
+    expect(master.participantNames).not.toContain("Prep Goblin");
+    expect(master.encounter.round).toBe(1);
   });
 
-  it("drops a peer who leaves", () => {
-    const { master, carol } = table();
-    carol.leave();
-    expect(master.rosterNames).not.toContain("Carol");
-  });
-
-  it("keeps the ghost of a crashed tab until the TTL takes it", () => {
-    // No leave message, so only the (time-based, `prunePresence`-tested)
-    // timeout removes them. The roster promising less than the truth here is
-    // the deliberate design — see `realm/presence.ts`.
-    const { master, carol } = table();
-    carol.crash();
-    expect(master.rosterNames).toContain("Carol");
-  });
-});
-
-describe("a tab from an older build", () => {
-  it("is dropped whole rather than merged wrongly", () => {
+  // The carve-out: once something has been done here, the late answer is no
+  // longer replacing a stale copy of the room — it would be throwing away an
+  // edit somebody made in the meantime.
+  it("merges instead once there is a local edit to lose", () => {
     const broker = new Broker();
     const master = dm();
     master.host(broker, "dm-token");
     master.edit(startCombat);
-    const before = master.encounter;
 
-    // Unversioned, revision high enough to win everything — the envelope
-    // drops it as stale before any merge sees it.
-    broker.publish({
-      kind: "state",
-      clientId: "old-tab",
-      encounter: { ...before, round: 9, revision: 99 },
+    const carol = new SimClient({
+      clientId: "zzz-carol-tab",
+      characterUuid: CAROL,
+      name: "Carol",
+    });
+    carol.bringSelf();
+    // Joins with the answer held back, then types a monster in before it
+    // lands — the reply is now late *and* overtaken.
+    broker.crossing(() => {
+      carol.join(broker);
+      carol.edit((c) =>
+        addParticipant(c, { id: "prep", name: "Prep Goblin", initiative: 5 }),
+      );
     });
 
-    expect(master.encounter).toBe(before);
+    expect(carol.participantNames).toContain("Prep Goblin");
+  });
+});
+
+describe("two tabs of one browser at the same table", () => {
+  // The seat is keyed on a token that is per *browser* and a client id that is
+  // per *tab*, so a DM with the app open twice has two clients that each
+  // recognise the seat as theirs and neither can tell the other from its own
+  // pre-refresh self. Left alone they take it back off each other forever, and
+  // every bump publishes — a realm full of seat swaps for as long as both tabs
+  // stay open. Spending the automatic reclaim once per connection ends it.
+  it("settle the seat instead of trading it forever", () => {
+    const broker = new Broker();
+    const first = dm("tab-one");
+    first.host(broker, "shared-token");
+    first.edit(startCombat);
+
+    // The same browser, a second tab, walking into the table it is already at.
+    const second = new SimClient({
+      clientId: "tab-two",
+      name: "Dungeon Master",
+      dmToken: "shared-token",
+      encounter: first.encounter,
+      belongsTo: broker.code,
+    });
+    const before = broker.traffic.length;
+    second.join(broker);
+
+    // Exactly one of them holds it, both agree who, and the exchange ended.
+    expect([first.isDm, second.isDm].filter(Boolean)).toHaveLength(1);
+    expect(first.encounter.dmClientId).toBe(second.encounter.dmClientId);
+    // The handshake itself is a handful of messages; a storm is dozens and
+    // never stops. The bound is what's being asserted, not the exact count.
+    expect(broker.traffic.length - before).toBeLessThan(12);
+    // And the fight they were both in survived being argued over.
+    expect(first.encounter.round).toBe(1);
+    expect(second.encounter.round).toBe(1);
+  });
+
+  // A reload is not a second tab, and must still cost the DM nothing: the old
+  // tab is gone, so there is nobody to fight with and the reclaim is spent on
+  // the only client that wants it.
+  it("still hand the seat back after a reload", () => {
+    const broker = new Broker();
+    const first = dm("tab-one");
+    first.host(broker, "shared-token");
+    const player = new SimClient({
+      clientId: "player-tab",
+      characterUuid: CAROL,
+      name: "Carol",
+    });
+    player.bringSelf();
+    player.join(broker);
+
+    first.crash();
+    const reopened = first.reopenAs("tab-one-again");
+    reopened.join(broker);
+
+    expect(reopened.isDm).toBe(true);
+    expect(player.encounter.dmClientId).toBe("tab-one-again");
   });
 });

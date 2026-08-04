@@ -101,6 +101,15 @@ const router = createBrowserRouter([
         path: "/play",
         element: <PlaySurface />,
       },
+      // The same surface with the table named in the URL — the session's
+      // equivalent of `/sheet/<uuid>`, and for a sharper reason: a phone
+      // browser drops a background tab out of memory without asking, and what
+      // comes back is a cold page load. A code in the address bar is what
+      // turns that into a reconnect instead of a hunt for the invite link.
+      {
+        path: "/play/:code",
+        element: <PlaySurface />,
+      },
       {
         path: "/auth",
         element: <GoogleAuthInitializer />,

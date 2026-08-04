@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   HEARTBEAT_MS,
+  PRESENCE_QUIET_MS,
   PRESENCE_TTL_MS,
   PresenceEntry,
   prunePresence,
+  quietPresences,
+  sameClients,
   withoutPresence,
   withPresence,
 } from "src/lib/realm/presence";
@@ -35,6 +38,7 @@ export interface UsePresenceOptions<P extends object> {
   same: (a: P, b: P) => boolean;
   heartbeatMs?: number;
   ttlMs?: number;
+  quietMs?: number;
 }
 
 export function usePresence<P extends object>({
@@ -44,11 +48,22 @@ export function usePresence<P extends object>({
   same,
   heartbeatMs = HEARTBEAT_MS,
   ttlMs = PRESENCE_TTL_MS,
+  quietMs = PRESENCE_QUIET_MS,
 }: UsePresenceOptions<P>) {
   const [roster, setRoster] = useState<PresenceEntry<P>[]>([]);
+  // On the roster, but not heard from lately. Kept as its own piece of state
+  // rather than derived at render time because "how long ago" only changes with
+  // the clock, and a consumer that recomputed it per render would show whatever
+  // the last unrelated re-render happened to catch.
+  const [quiet, setQuiet] = useState<string[]>([]);
   // Outside the roster deliberately: a peer's heartbeat updates this ten times
   // a minute and must not re-render anything looking at the list.
   const lastSeen = useRef(new Map<string, number>());
+  // The beat is registered once and reads the roster to prune it; a functional
+  // update can't be used for that, because it also has to write the quiet set
+  // from the same answer.
+  const rosterRef = useRef(roster);
+  rosterRef.current = roster;
 
   // Read through refs — the interval below is registered once and would
   // otherwise announce the name we had when it started.
@@ -57,19 +72,49 @@ export function usePresence<P extends object>({
 
   const saw = useCallback((clientId: string, incoming: P) => {
     lastSeen.current.set(clientId, Date.now());
+    setQuiet((existing) =>
+      existing.includes(clientId)
+        ? existing.filter((id) => id !== clientId)
+        : existing,
+    );
     setRoster((existing) =>
       withPresence(existing, clientId, incoming, current.current.same),
     );
   }, []);
 
+  // A peer said *something* — not necessarily who they are.
+  //
+  // A client publishing an encounter, a roll or a ruling is as alive as one
+  // sending a heartbeat, and on a throttled mobile tab it is often the only
+  // thing still getting out: the announce interval is capped to about a beat a
+  // minute in the background while a publish triggered by a tap goes straight
+  // away. So every inbound message refreshes the clock. Deliberately *not* an
+  // upsert — we have no payload here, and a client on the roster under a name
+  // must not be replaced by one without.
+  const touch = useCallback((clientId: string) => {
+    if (!lastSeen.current.has(clientId)) return;
+    lastSeen.current.set(clientId, Date.now());
+    setQuiet((existing) =>
+      existing.includes(clientId)
+        ? existing.filter((id) => id !== clientId)
+        : existing,
+    );
+  }, []);
+
   const left = useCallback((clientId: string) => {
     lastSeen.current.delete(clientId);
+    setQuiet((existing) =>
+      existing.includes(clientId)
+        ? existing.filter((id) => id !== clientId)
+        : existing,
+    );
     setRoster((existing) => withoutPresence(existing, clientId));
   }, []);
 
   const reset = useCallback(() => {
     lastSeen.current.clear();
     setRoster([]);
+    setQuiet((existing) => (existing.length === 0 ? existing : []));
   }, []);
 
   // Announce on connect and whenever what we'd announce changes. Peers upsert,
@@ -87,16 +132,30 @@ export function usePresence<P extends object>({
     }
     const beat = setInterval(() => {
       current.current.announce(current.current.payload);
-      setRoster((existing) =>
-        prunePresence(existing, lastSeen.current, Date.now(), ttlMs),
+      const now = Date.now();
+      const kept = prunePresence(
+        rosterRef.current,
+        lastSeen.current,
+        now,
+        ttlMs,
       );
+      setRoster(kept);
+      // Read off the *pruned* roster, so a client can never be listed as quiet
+      // and forgotten at the same time.
+      setQuiet((previous) => {
+        const next = quietPresences(kept, lastSeen.current, now, quietMs);
+        return sameClients(previous, next) ? previous : next;
+      });
     }, heartbeatMs);
     return () => clearInterval(beat);
-  }, [connected, heartbeatMs, ttlMs, reset]);
+  }, [connected, heartbeatMs, ttlMs, quietMs, reset]);
 
   return {
     roster,
+    // Present, but not heard from lately — see `PRESENCE_QUIET_MS`.
+    quiet,
     saw,
+    touch,
     left,
     reset,
   };

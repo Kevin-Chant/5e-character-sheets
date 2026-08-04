@@ -6,6 +6,7 @@ import SessionLobby, {
 import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useEncounter } from "src/lib/hooks/use-encounter";
+import { playPathFor } from "src/lib/play/rejoin";
 import {
   rememberSessionLocally,
   SessionMemory,
@@ -108,7 +109,12 @@ export default function SessionEntry({ mode, code }: SessionEntryProps) {
       code: result.code,
       lastJoined: Date.now(),
     });
-    navigate("/play");
+    // The table goes in the URL, not just into the session state: a phone
+    // that loses this tab to a background eviction comes back to a code it
+    // can reconnect from. `result.code` rather than the context's, which is a
+    // render behind — and which a host doesn't have until the transport mints
+    // it.
+    navigate(playPathFor(result.code));
   };
 
   return (

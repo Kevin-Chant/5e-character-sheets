@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import classNames from "classnames";
+import { useNavigate } from "react-router-dom";
 import { FaCopy, FaTowerBroadcast, FaXmark } from "react-icons/fa6";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { copyToClipboard } from "src/lib/browser";
@@ -16,6 +17,7 @@ import { inviteLink } from "src/lib/play/session";
 // privacy default holds by construction rather than by a flag, which is why this
 // bar can say so plainly.
 export default function SessionBar() {
+  const navigate = useNavigate();
   const {
     sessionCode,
     sessionStatus,
@@ -96,7 +98,18 @@ export default function SessionBar() {
             Claim DM seat
           </button>
         )}
-        <button type="button" className="session-btn" onClick={leaveSession}>
+        {/* Leaving takes the code out of the URL as well as out of the
+            session. They are one act now: a `/play/<code>` this browser knows
+            reconnects on its own, so a URL left pointing at the table would
+            put you straight back in the seat you just stood up from. */}
+        <button
+          type="button"
+          className="session-btn"
+          onClick={() => {
+            leaveSession();
+            navigate("/play", { replace: true });
+          }}
+        >
           Leave
         </button>
       </div>

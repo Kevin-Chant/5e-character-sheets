@@ -18,7 +18,9 @@
 //   --base <url>      dev server (default http://localhost:3000)
 //   --sidecar <url>   the live-edit sidecar to point every client at
 //                     (default http://localhost:9000 — never the cloud one)
-//   --only <name>     run one scenario: gameplay | editing | reload | dmboard | pickup | assign | initiative | damage | table | rejoin | dmreturn
+//   --only <name>     run one scenario: gameplay | editing | reload | dmboard |
+//                     pickup | assign | initiative | damage | table | rejoin |
+//                     dmreturn | dropout | tabledropout | invite
 //   --headed          show the browsers
 //   --slow <ms>       slow motion, for watching a failure happen
 //   --timeout <ms>    per-condition wait budget (default 15000)
@@ -82,6 +84,18 @@ const untilVisible = (page, selector) =>
 
 const untilPath = (page, path) =>
   until(page, `url ${path}`, (p) => window.location.pathname === p, path);
+
+// The board, wherever the code lands it. `/play/<code>` is the ordinary URL now
+// — the session goes in the address bar the way the open sheet does, so a phone
+// browser that evicts the tab comes back to something it can reconnect from —
+// and it is the surface, not the table, that these waits are asserting.
+const untilBoard = (page) =>
+  until(
+    page,
+    "url /play",
+    () => window.location.pathname.startsWith("/play"),
+    null,
+  );
 
 const untilText = (page, text) =>
   until(
@@ -203,7 +217,7 @@ async function startGame(client, bring = []) {
       .click();
   }
   await client.page.click(".lobby-actions .btn-primary");
-  await untilPath(client.page, "/play");
+  await untilBoard(client.page);
   await untilVisible(client.page, ".session-code code");
   return (await client.page.locator(".session-code code").textContent()).trim();
 }
@@ -229,7 +243,7 @@ async function joinGame(client, code, playAs, tableName) {
     await client.page.fill('[aria-label="Your name at the table"]', tableName);
   }
   await client.page.click(".lobby-actions .btn-primary");
-  await untilPath(client.page, "/play");
+  await untilBoard(client.page);
 }
 
 // --- Scenarios ---------------------------------------------------------------
@@ -365,9 +379,20 @@ const scenarios = {
     return [sharer, joiner];
   },
 
-  // The DM refreshes their tab. `clientId` is per-tab, so before the DM token
-  // this cost them the seat every time — and hosting recorded the code nowhere,
-  // so they couldn't even get back into their own game.
+  // The tab that died. On a phone this is the ordinary case rather than the
+  // edge one: Android drops a background browser tab out of memory the moment
+  // something else wants it, and what comes back is a cold page load — React
+  // state gone, socket gone, mid-fight.
+  //
+  // Everything needed to put it back was already in this browser (the
+  // encounter in localStorage, the durable DM token, what was played at this
+  // table); what was missing was any way to know *which table*, which is what
+  // `/play/<code>` supplies. Before it, a reloaded DM had no character open and
+  // no session, so `/play` bounced them to the picker, and the way back was the
+  // front door — by hand, mid-fight, on a phone.
+  //
+  // A reload is that eviction with the survivable parts intact, which is
+  // exactly what it is on the device.
   async reload(browser) {
     const dm = await openClient(browser, "martial-fighter", "dm");
     const player = await openClient(browser, "full-caster-wizard", "player");
@@ -376,35 +401,61 @@ const scenarios = {
     await joinGame(player, code, player.name);
     await untilRoster(dm.page, [dm.name, player.name]);
 
-    await dm.page.reload({ waitUntil: "domcontentloaded" });
-    // The DM has no character open and no session, so the Play button isn't in
-    // the nav and /play would bounce them. The front door is where the way back
-    // lives: a reload lands on it, and the table they run is the first thing on
-    // it.
-    await untilVisible(dm.page, "text=The game you're running");
-    check("the code survives the reload", true, true);
-    await dm.page.click("text=The game you're running");
-    await untilVisible(dm.page, "text=Rejoin the table");
-    await dm.page.click("text=Rejoin the table");
-    await untilPath(dm.page, "/play");
+    check(
+      "the table is in the URL",
+      new URL(player.page.url()).pathname,
+      `/play/${code}`,
+    );
 
+    // A live player is a live player, and the DM's roster says so — the row
+    // that used to be indistinguishable from one whose phone had dropped.
+    await untilVisible(dm.page, ".dm-liveness.live");
+    check("the DM can see somebody is behind the row", true, true);
+
+    // Nothing is clicked from here to the end of the player's half. That is
+    // the assertion.
+    await player.page.reload({ waitUntil: "domcontentloaded" });
+    await untilBoard(player.page);
+    await untilVisible(player.page, ".session-live");
+    check("a killed tab reconnects on its own", true, true);
+    await untilRoster(player.page, [dm.name, player.name]);
+    check(
+      "onto the fight it left, not an empty one",
+      await roster(player.page),
+      [dm.name, player.name].sort(),
+    );
+    // And with the sheet it was playing: a rejoin that seats you with no
+    // character is the right table on the wrong evening.
+    await untilVisible(player.page, ".play-vitals");
+    await untilRoster(dm.page, [dm.name, player.name]);
+    check(
+      "and the table never lost the row",
+      await roster(dm.page),
+      [dm.name, player.name].sort(),
+    );
+
+    // The DM's tab is the worse loss — `clientId` is per-tab, so before the DM
+    // token this cost them the seat every time. The token is what brings it
+    // back; the URL is what gets them back to the realm to use it.
+    await dm.page.reload({ waitUntil: "domcontentloaded" });
+    await untilBoard(dm.page);
     await untilVisible(dm.page, ".session-code code");
     // Waited for, not sampled: the seat comes back off the *first state* a peer
     // sends, which lands a round trip after the code does. Reading it the
     // instant the code renders was checking the wrong moment, and had been
     // failing for it.
     await untilVisible(dm.page, "text=Release DM seat");
-    check("the DM seat comes back on its own", true, true);
+    check("the DM's tab comes back to their own seat", true, true);
     await untilRoster(dm.page, [dm.name, player.name]);
     check(
-      "the roster comes back too",
+      "with the roster it left",
       await roster(dm.page),
       [dm.name, player.name].sort(),
     );
     await until(player.page, "the player to still see a DM", () =>
       document.body.innerText.includes("Someone else is running combat"),
     );
-    check("the player never saw the seat go empty", true, true);
+    check("and the player never saw the seat go empty", true, true);
 
     return [dm, player];
   },
@@ -819,7 +870,15 @@ const scenarios = {
       await healer.page.locator("text=Your DM asks for a").count(),
       0,
     );
+    // The prompt opens the ordinary roll dialog rather than rolling inline —
+    // which is what brings Bless's d4, the condition notes and the real-dice
+    // mode along with the answer. So answering is two acts: take the ask, then
+    // roll it. (This check spent a while asserting the inline version, which
+    // had stopped existing.)
     await player.page.click(".assign-prompt .btn-primary");
+    await untilVisible(player.page, '[aria-label="Roll"]');
+    await player.page.click('[aria-label="Roll"]');
+    await player.page.click('[aria-label="Close"]');
     await untilText(player.page, "You sent");
     await untilText(dm.page, "Perception");
     check("the answer reaches the seat", true, true);
@@ -925,7 +984,7 @@ const scenarios = {
     await dm.page.click("text=The game you're running");
     await untilVisible(dm.page, "text=Rejoin the table");
     await dm.page.click("text=Rejoin the table");
-    await untilPath(dm.page, "/play");
+    await untilBoard(dm.page);
     await untilVisible(dm.page, "text=Release DM seat");
     check("a table with nobody in it still hands the seat back", true, true);
     await untilRoster(dm.page, [dm.name]);
@@ -963,6 +1022,126 @@ const scenarios = {
     return [dm, player];
   },
 
+  // The connection that goes away and comes back — a lift, a tunnel, a wifi
+  // handover. Driven with a real network drop (`context.setOffline`) rather
+  // than a simulated close, so it exercises what the browser actually does.
+  //
+  // This is the reported bug, twice over. On the sharing layer a dropped
+  // socket used to *end the session*: the joiner's borrowed sheet was wiped
+  // and they were told, wrongly, that their friend had closed it. On the play
+  // layer nothing ended, but nothing recovered either — the board sat there
+  // looking live while nothing arrived.
+  async dropout(browser) {
+    const sharer = await openClient(browser, "multiclass", "sharer");
+    const joiner = await openClient(browser, "empty-level-1", "joiner");
+
+    // --- Layer B: a shared sheet -------------------------------------------
+    await sharer.page.click("text=Open a sheet and share it");
+    await untilPath(sharer.page, "/sheet");
+    await sharer.page.getByText(sharer.name, { exact: false }).first().click();
+    await untilText(sharer.page, "Start live session");
+    await sharer.page.click("text=Start live session");
+    await untilText(sharer.page, "End live session");
+
+    await untilVisible(
+      joiner.page,
+      '[aria-label="Session code or invite link"]',
+    );
+    await joiner.page.fill(
+      '[aria-label="Session code or invite link"]',
+      sharer.character.uuid,
+    );
+    await joiner.page.click('.home-join button[type="submit"]');
+    await untilPath(joiner.page, "/sheet");
+    await untilText(joiner.page, sharer.name);
+
+    // Any alert is a failure here: the only thing that should say "the session
+    // has ended" is the host ending it.
+    let alerted = "";
+    joiner.page.on("dialog", (dialog) => {
+      alerted = dialog.message();
+      dialog.accept();
+    });
+
+    await joiner.page.context().setOffline(true);
+    // The host works on regardless — this is the edit the joiner has to catch
+    // up on, and catching up is the difference between a reconnect and a
+    // reconnection that quietly shows you a stale sheet.
+    await sharer.page.locator('.modal-content [aria-label="Close"]').click();
+    await sharer.page
+      .locator(".character-info-header .display-value")
+      .first()
+      .click();
+    const renameInput = sharer.page.locator(".modal-content input").first();
+    await renameInput.fill("Wren Who Waited");
+    await sharer.page.click('.modal-content button:has-text("Save")');
+
+    check(
+      "a dropped joiner keeps the sheet they were editing",
+      await joiner.page.locator(".character-info-header").count(),
+      1,
+    );
+    check("and is not told the session ended", alerted, "");
+
+    await joiner.page.context().setOffline(false);
+    // Nothing is clicked. The reconnect finds the realm still there, and the
+    // resync brings back what was missed.
+    await untilText(joiner.page, "Wren Who Waited");
+    check("coming back re-syncs what the host changed meanwhile", true, true);
+
+    // And the session is genuinely live again, not merely showing old text.
+    await joiner.page
+      .locator(".character-info-header .display-value")
+      .first()
+      .click();
+    const joinerInput = joiner.page.locator(".modal-content input").first();
+    await joinerInput.fill("Wren Reconnected");
+    await joiner.page.click('.modal-content button:has-text("Save")');
+    await untilText(sharer.page, "Wren Reconnected");
+    check("and edits flow again in both directions", true, true);
+
+    return [sharer, joiner];
+  },
+
+  // The same drop, at a table. Layer C had no false ending to fix — it had no
+  // recovery at all.
+  async tabledropout(browser) {
+    const dm = await openClient(browser, "martial-fighter", "dm");
+    const player = await openClient(browser, "full-caster-wizard", "player");
+
+    const code = await startGame(dm, [dm.name]);
+    await joinGame(player, code, player.name);
+    await untilRoster(dm.page, [dm.name, player.name]);
+
+    await player.page.context().setOffline(true);
+    // The fight moves on without them, which is what the rejoin has to find.
+    await dm.page.click("text=Start combat");
+    await until(
+      dm.page,
+      "the DM to be in round 1",
+      () => document.querySelector(".round-counter-value")?.textContent === "1",
+    );
+
+    await player.page.context().setOffline(false);
+    // Nothing is clicked here either.
+    await untilVisible(player.page, ".session-live");
+    check("a dropped player is put back at the table", true, true);
+    await until(
+      player.page,
+      "the player to catch up to round 1",
+      () => document.querySelector(".round-counter-value")?.textContent === "1",
+    );
+    check("into the round that started while they were away", true, true);
+    await untilRoster(dm.page, [dm.name, player.name]);
+    check(
+      "and the DM's roster never lost them",
+      await roster(dm.page),
+      [dm.name, player.name].sort(),
+    );
+
+    return [dm, player];
+  },
+
   // The invite link, end to end — and the escape hatch behind it. A DM hands
   // out one URL; what makes that URL worth pinning in a group chat is that the
   // same code can be reopened rather than reminted when the realm behind it is
@@ -983,7 +1162,7 @@ const scenarios = {
       .locator(".lobby-characters label", { hasText: player.name })
       .click();
     await player.page.click(".lobby-actions .btn-primary");
-    await untilPath(player.page, "/play");
+    await untilBoard(player.page);
     await untilRoster(dm.page, [dm.name, player.name]);
     check(
       "joining by link seats you like any other joiner",
@@ -1026,7 +1205,7 @@ const scenarios = {
     await dm.page.click("text=Open this table again");
     await untilVisible(dm.page, ".lobby");
     await dm.page.click(".lobby-actions .btn-primary");
-    await untilPath(dm.page, "/play");
+    await untilBoard(dm.page);
     await untilVisible(dm.page, ".session-code code");
     const reopened = (
       await dm.page.locator(".session-code code").textContent()
@@ -1037,7 +1216,7 @@ const scenarios = {
     await player.page.goto(staleLink, { waitUntil: "domcontentloaded" });
     await untilVisible(player.page, ".lobby");
     await player.page.click(".lobby-actions .btn-primary");
-    await untilPath(player.page, "/play");
+    await untilBoard(player.page);
     await untilRoster(dm.page, [dm.name, player.name]);
     check(
       "and seats the player at the reopened table",

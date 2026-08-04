@@ -308,7 +308,8 @@ export default function Root() {
 
   // Still needed locally: this one control's icon and label depend on which of
   // the two character surfaces you're looking at, not just on whether it shows.
-  const onPlaySurface = location.pathname === "/play";
+  const onPlaySurface =
+    location.pathname === "/play" || location.pathname.startsWith("/play/");
   const pageTitle = navTitle(location.pathname, character?.name);
 
   // Not for a sheet you joined remotely or borrowed from a DM — sharing is the

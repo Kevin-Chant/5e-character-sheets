@@ -986,6 +986,72 @@
   color: var(--text-muted);
 }
 
+/* Is anybody behind this row? A dot and one word — the DM is reading eight
+   rows at a glance, so this has to be legible peripherally and silent when it
+   has nothing to say (rows with nobody behind them render no chip at all).
+   Colour carries the same three states as the word, never instead of it. */
+.dm-liveness {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.dm-liveness-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.dm-liveness.live {
+  color: var(--success);
+}
+
+.dm-liveness.quiet {
+  color: var(--text-muted);
+}
+
+.dm-liveness.quiet .dm-liveness-dot {
+  /* Hollow: connected, but not answering right now. */
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.dm-liveness.gone {
+  color: var(--danger);
+}
+
+/* Getting back into a table the URL still names. Reads as status rather than
+   as a question — there is nothing to answer until the automatic tries run
+   out, at which point the button appears. */
+.rejoin-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.rejoin-banner-sub {
+  opacity: 0.85;
+}
+
+.rejoin-banner.gave-up {
+  border-style: solid;
+  border-color: var(--danger);
+  color: var(--text);
+}
+
 .dm-row-init {
   min-width: 2rem;
   display: flex;

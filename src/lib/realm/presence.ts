@@ -20,6 +20,38 @@
 export const HEARTBEAT_MS = 10_000;
 export const PRESENCE_TTL_MS = 30_000;
 
+// Heard from inside this window: the peer is *live*. Past it they are **quiet**,
+// which is deliberately not the same answer as gone.
+//
+// A phone whose browser is in the background has its timers throttled to
+// roughly one a minute, so a missed beat from a player at a table is far more
+// often "their screen went off" than "their connection dropped" — and those
+// want different words in front of a DM. One timeout can't say both: short
+// enough to notice a drop is short enough to flap on every backgrounded phone,
+// and long enough not to flap is long enough that a dead tab lingers. So there
+// are two, and the gap between them is where a live-but-asleep client sits.
+export const PRESENCE_QUIET_MS = 25_000;
+
+// Everyone on the roster we haven't heard from inside `quietMs`. Sorted so the
+// result can be compared by content — the caller keeps the previous array when
+// nothing moved, which is what stops a beat re-rendering the DM's roster ten
+// times a minute.
+export function quietPresences<P extends object>(
+  roster: PresenceEntry<P>[],
+  lastSeen: Map<string, number>,
+  now: number,
+  quietMs: number = PRESENCE_QUIET_MS,
+): string[] {
+  return roster
+    .filter((c) => now - (lastSeen.get(c.clientId) ?? 0) > quietMs)
+    .map((c) => c.clientId)
+    .sort();
+}
+
+export function sameClients(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
 // An entry is whatever the layer announces, plus who said it. Flattened rather
 // than nested so a consumer reads `entry.name`, which is what both layers'
 // rosters already looked like.

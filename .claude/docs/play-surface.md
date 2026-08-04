@@ -687,6 +687,38 @@ Workflow pieces the mission ("multiple combats, DM-orchestrated") forced:
 Roster edits are gated by `canRun` once a seat is held — an unclaimed seat
 still means everybody, so layer B keeps working with no DM.
 
+### Is anybody behind this row? (`play/liveness.ts`)
+
+A roster of creatures could not say which of them were _people who were still
+there_. A player whose phone dropped out left a row identical to a player who
+simply hadn't acted yet — same name, same HP — so the table waited on a turn
+that was never coming and the only way to find out was to ask out loud.
+
+Nothing in the encounter can answer it, and shouldn't: liveness is not a fact a
+document converges on (see `realm/presence.ts`). It's the crossing of the row's
+`ownerClientId`, which _is_ in the document, with the presence roster, which is
+not. `participantLiveness` returns `none` (a stat block), `self` (a sheet this
+browser holds), `live`, `quiet` or `gone`, and only the last three draw a chip
+— a chip on every row is a chip nobody reads.
+
+**`quiet` is the interesting one, and it exists because of phones.** A
+backgrounded mobile tab has its timers throttled to roughly one firing a
+minute, so a missed heartbeat from a player is far more often "their screen is
+off" than "they dropped". One timeout can't say both — short enough to notice a
+drop is short enough to flap on every backgrounded phone — so there are two:
+`PRESENCE_QUIET_MS` (25s, the word changes) and, for this layer only,
+`TABLE_PRESENCE_TTL_MS` (3 min, they're forgotten). Two more things hold the
+reading up on a bad connection:
+
+- **Every inbound message refreshes the clock** (`onPeerHeard` → `touch`), not
+  just the heartbeat. A client publishing a roll or an encounter is as alive as
+  one saying so, and on a throttled tab a tap-triggered publish gets out when
+  the interval doesn't. `touch` deliberately isn't an upsert — there's no name
+  in it, and a named roster entry must not be replaced by an anonymous one.
+- **The quiet set is state, not a render-time derivation**, recomputed on the
+  beat, so it changes with the clock rather than with whatever unrelated
+  re-render happened to land.
+
 ### DM HP oversight: `vitalsRev`
 
 The hard part of "the DM can set your HP" is that it collides with **you are
@@ -1037,8 +1069,78 @@ the code box. Two things fall out of that which were awkward as router state:
   inside the lobby used to have to ferry a half-answered lobby through an OAuth
   popup as router state. Now it's `state={{ returnTo: location.pathname }}`.
 
-`session-entry.tsx` is the shared half — lobby, then connect, then `/play` —
-and the routes differ only in which question the lobby leads with.
+`session-entry.tsx` is the shared half — lobby, then connect, then
+`/play/<code>` — and the routes differ only in which question the lobby leads
+with.
+
+### The table is in the URL: `/play/<code>`
+
+The session's `/sheet/<uuid>`, and for a sharper reason. **A phone browser
+evicts a background tab out of memory whenever something else wants it** — a
+call, a camera, a map — and what comes back is a cold page load: React state
+gone, socket gone, mid-fight. Everything needed to put it back was already in
+the browser (the encounter in localStorage, the DM token, the per-code memory);
+the one thing missing was _which table_. `/play` names a surface, not a game.
+
+`play/rejoin.ts` is the pure decision and `hooks/use-auto-rejoin.tsx` the
+wiring. Three answers:
+
+- **Rejoin** — this browser knows the code (per-code memory, or it was
+  `lastSession`), so reconnect without asking. Joins first whatever the seat is,
+  because a DM's realm is usually still up and joining reclaims the seat from
+  the `dmToken` anyway; only an `absent` realm falls back to `hostSession(code)`,
+  which is the same reopen-this-code path the invite link uses.
+- **Lobby** — a code this browser has never seen is an invitation, not a
+  resumption, so it redirects to `/join/<code>` where the questions live (and
+  where the probe can still discover it's a shared _sheet_).
+- **Wait** — connected, or an attempt in flight.
+
+Retries back off (`REJOIN_BACKOFF_MS`, capped at `MAX_REJOIN_ATTEMPTS`) and
+reset immediately on `visibilitychange`, `online` and `pageshow` — `pageshow`
+being the Android case specifically, since a _frozen_ tab was never hidden.
+Three things are easy to get wrong here and are each pinned by a comment:
+
+- **The redirect guard is `atTable`, not `rejoining`.** Every attempt passes
+  through `connecting`, and the play surface's "no character and no session →
+  `/sheet`" redirect fires in that gap, navigating away from the one URL that
+  knows the way back — and unmounting the retry loop with it.
+- **The session actions are read through a ref.** The scheduled attempt runs
+  half a second after the effect that scheduled it, and settings are read from
+  localStorage in a _mount effect_ — so a closure captured on the first render
+  of a cold load carries the built-in default host, which is the **cloud**
+  sidecar. Observed: a local table reconnecting to production and failing with
+  `no_such_realm`, which reads exactly like the table having closed.
+- **Leaving clears the code from the URL**, because otherwise the rejoin puts
+  you straight back into the seat you just stood up from.
+
+The sheet comes back too: the per-code memory records what this browser played
+at that table (kept current as it changes, and never written as `undefined` —
+entries merge, and the reconnect lands _before_ the character is reopened), so
+a rejoin is the table and the character, not a seat with nobody in it. A DM's
+memory deliberately records no sheet.
+
+`session-smoke`'s `reload` scenario is the hand-check: a player's tab and then
+the DM's are reloaded mid-table and nothing is clicked afterwards.
+`tabledropout` is the other half — a real network drop via `context.setOffline`
+— and asserts that a player who was away for the start of combat comes back
+into round 1 without touching anything.
+
+### Two tabs, one seat
+
+`dmToken` is per browser and `clientId` is per tab, so a DM with the app open
+twice has two clients that each recognise the seat as theirs, and neither can
+tell the other from its own pre-refresh self. Left alone they take it back off
+each other forever, every bump publishing — in the simulator this recurses
+until the stack blows, which is what a realm full of seat swaps looks like from
+the inside.
+
+The fix is that the **automatic** reclaim is spent once per connection:
+`receiveState` reports `reclaimedSeat`, and the provider stops offering its
+token afterwards. Two bumps and it settles, whoever moved second holding the
+seat. Every legitimate reason to reclaim — a refresh, a crash, a dropped socket
+— starts a _new_ connection and so gets a fresh one, and taking the seat back
+deliberately is still one click on the session bar. Pinned by "two tabs of one
+browser at the same table" in `session-lifecycle.test.ts`.
 
 ### Three lobbies, not two
 

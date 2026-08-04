@@ -8,6 +8,7 @@ import {
   SharingSessionsContextProvider,
   useRemoteSharingSession,
 } from "./use-sharing-session";
+import { PROTOCOL_VERSION } from "src/lib/realm/envelope";
 
 // Capture the mock autobahn connection the transport constructs, so the test
 // can drive its onopen/onclose lifecycle by hand.
@@ -17,7 +18,20 @@ vi.mock("autobahn-browser", () => {
   class MockConnection {
     onopen: ((session: unknown) => void) | undefined;
     onclose: (() => boolean) | undefined;
-    session = { subscribe: () => {}, publish: () => {}, call: () => {} };
+    // Subscriptions are captured so a test can deliver a peer's message —
+    // which is now the only way to say "the host ended it on purpose", as
+    // against "the socket went away", which is a different story with a
+    // different ending.
+    handlers: ((args: unknown[]) => void)[] = [];
+    session = {
+      subscribe: (_topic: string, handler: (args: unknown[]) => void) => {
+        this.handlers.push(handler);
+        return Promise.resolve({});
+      },
+      publish: () => {},
+      register: () => Promise.resolve({}),
+      call: () => Promise.resolve(undefined),
+    };
     close = () => {};
     open = () => {};
     constructor() {
@@ -26,6 +40,14 @@ vi.mock("autobahn-browser", () => {
   }
   return { default: { Connection: MockConnection } };
 });
+
+// Deliver a message as a peer would. Every subscription gets it; the envelope
+// check drops the ones it isn't for.
+const deliver = (connection: any, message: Record<string, unknown>) => {
+  for (const handler of connection.handlers) {
+    handler([{ ...message, v: PROTOCOL_VERSION }]);
+  }
+};
 
 const UUID_A = "11111111-1111-1111-1111-111111111111" as UUID;
 
@@ -59,7 +81,11 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  it("clears the character and alerts when a joined session is closed by the host", async () => {
+  // The socket going away is not the host saying goodbye, and treating it as
+  // one is the bug this pins. On a phone a dropped connection is a routine
+  // event — a wifi handover, a tunnel, a backgrounded tab — and it used to cost
+  // the joiner the borrowed sheet plus an alert blaming their friend.
+  it("does not end the session when the socket merely drops", async () => {
     const dispatch = vi.fn();
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
 
@@ -68,12 +94,32 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
     });
     await act(async () => {
       const join = result.current.joinSession(UUID_A).catch(() => {});
-      // Realm opened (we joined)…
       const connection = mock.holder.connection;
       connection.onopen(connection.session);
       await join;
-      // …then the host tore it down.
+      // Gone, with nothing said about why.
       connection.onclose();
+    });
+
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  // The host's explicit goodbye still ends it at once — no retry, because
+  // there is nothing to retry into and we've been told so.
+  it("clears the character and alerts when the host closes the session", async () => {
+    const dispatch = vi.fn();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useRemoteSharingSession(dispatch), {
+      wrapper,
+    });
+    await act(async () => {
+      const join = result.current.joinSession(UUID_A).catch(() => {});
+      const connection = mock.holder.connection;
+      connection.onopen(connection.session);
+      await join;
+      deliver(connection, { kind: "closeSession", clientId: "the-host" });
     });
 
     expect(dispatch).toHaveBeenCalledWith(

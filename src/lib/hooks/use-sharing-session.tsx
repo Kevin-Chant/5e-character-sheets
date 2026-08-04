@@ -6,7 +6,11 @@ import React, {
   useState,
 } from "react";
 import { UUID } from "crypto";
-import { Action, resetCharacter } from "../hooks/reducers/actions";
+import {
+  Action,
+  loadPersistedCharacter,
+  resetCharacter,
+} from "../hooks/reducers/actions";
 import { Character, Dispatch } from "../types";
 import { randomUUID } from "../browser";
 import { useSettings } from "./use-settings";
@@ -152,6 +156,10 @@ interface SharingSessionsContextData {
   // save gate is in `CharacterContext`, and this is the context above it.
   markBorrowed: (uuid: UUID) => void;
   isBorrowed: (uuid: UUID) => boolean;
+  // The socket went away without anyone asking it to, and we're trying to get
+  // it back. Distinct from "no session": the session is still what this tab is
+  // in, and the sheet on screen is still the shared one — see `reconnect`.
+  reconnecting: boolean;
   // The plumbing the two role hooks below stand on. Not for components.
   bind: (bindings: SessionBindings) => void;
   hostSession: () => Promise<void>;
@@ -164,6 +172,7 @@ export const SharingSessionsContext =
   React.createContext<SharingSessionsContextData>({
     clientId: "",
     getRole: () => undefined,
+    reconnecting: false,
     broadcast: () => {},
     defaultIdentity: { name: "", color: "" },
     setDefaultIdentity: () => {},
@@ -245,22 +254,130 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   // from a heartbeat.
   const knownPeersRef = useRef(new Set<string>());
   const announceNowRef = useRef<() => void>(() => {});
+  // Trying to get a dropped connection back. See `reconnect`.
+  const [reconnecting, setReconnecting] = useState(false);
+  const reconnectingRef = useRef(false);
 
-  // A joiner losing its connection *without asking to* means the session ended
-  // under it — the host closed the realm, or the network did. Either way the
-  // character on screen is the host's and now unreachable.
+  // A joiner's session is genuinely over: the host said so (`closeSession`),
+  // or we tried to get back in for long enough that "the network hiccupped" is
+  // no longer a credible story. The character on screen is the host's and now
+  // unreachable, so it goes.
+  //
+  // **This used to fire on the first dropped socket**, which on a phone is a
+  // routine event — a wifi handover, a tunnel, a backgrounded tab — and it cost
+  // the player their borrowed sheet and told them, wrongly, that their friend
+  // had ended the session. Everything about it is unchanged except when it
+  // runs: only after `reconnect` has exhausted its attempts, or on the host's
+  // explicit goodbye.
   const endedRemotely = useCallback(() => {
     activeRef.current = undefined;
     setActive(undefined);
+    setReconnecting(false);
     setMySelection(null);
     knownPeersRef.current.clear();
     bindingsRef.current.dispatch(resetCharacter(), false, true);
     window.alert("The sharing session has ended.");
   }, []);
 
+  // Getting back into a session that went away without saying goodbye.
+  //
+  // The trigger is `onClosed`, which now also covers a socket that died
+  // silently (the liveness probe in `useRealm`). Those two together are the
+  // ordinary phone experience, and the old behaviour — end the session, wipe
+  // the borrowed sheet, alert — was wrong for both.
+  //
+  // **The retry is also the diagnosis.** There is no message that distinguishes
+  // "the host closed the realm" from "my connection dropped", but there is an
+  // experiment: try to rejoin. A realm that answers was never gone and this was
+  // our own network; a realm that keeps reporting `absent` for half a minute is
+  // one nobody is hosting. The host's deliberate `closeSession` still short-
+  // circuits all of this, so a real goodbye is instant and only an *unannounced*
+  // disappearance pays the wait.
+  const RECONNECT_BACKOFF_MS = [500, 1_500, 3_000, 5_000, 8_000, 12_000];
+  const realmRef = useRef<{
+    connect: (
+      name: string,
+      opts?: { create?: boolean },
+    ) => Promise<{ ok: boolean }>;
+    register: (procedure: string, handler: () => unknown) => unknown;
+    call: (procedure: string, args?: unknown[]) => Promise<unknown>;
+  }>();
+
+  const reconnect = useCallback(async () => {
+    const was = activeRef.current;
+    if (!was || reconnectingRef.current) return;
+    reconnectingRef.current = true;
+    setReconnecting(true);
+    for (const delay of RECONNECT_BACKOFF_MS) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      // Superseded: the tab deliberately left, hosted something else, or
+      // joined elsewhere while we were waiting. Whatever it did wins.
+      if (activeRef.current !== was) break;
+      const result = await realmRef.current?.connect(
+        realmForCharacter(was.uuid),
+        // A host recreates the room it owns; a joiner must not, or a table
+        // whose host is gone would be silently replaced by an empty realm
+        // serving nothing.
+        { create: was.role === "host" },
+      );
+      if (!result?.ok) continue;
+      if (was.role === "host") {
+        // Registrations die with the session that made them, so the thing
+        // joiners depend on has to be put back.
+        realmRef.current?.register(SessionEvent.FULL_SYNC, () => {
+          const open = bindingsRef.current.getCharacter();
+          return open?.uuid === activeRef.current?.uuid ? open : undefined;
+        });
+      } else {
+        // Whatever the host changed while we were away. Our own queued edits
+        // were flushed by `connect` before this call went out, so what comes
+        // back already includes them.
+        try {
+          const fresh = (await realmRef.current?.call(
+            SessionEvent.FULL_SYNC,
+          )) as Character | undefined;
+          if (fresh && fresh.uuid === was.uuid) {
+            bindingsRef.current.dispatch(
+              loadPersistedCharacter(fresh),
+              false,
+              true,
+            );
+          }
+        } catch {
+          // The host is back but didn't answer. The connection is what
+          // mattered; the next edit either way keeps us in step.
+        }
+      }
+      knownPeersRef.current.clear();
+      announceNowRef.current();
+      reconnectingRef.current = false;
+      setReconnecting(false);
+      return;
+    }
+    reconnectingRef.current = false;
+    setReconnecting(false);
+    // Out of tries. For a joiner that is the end of the session — the realm
+    // isn't answering and the sheet on screen belongs to someone we can't
+    // reach. A host keeps their own character; there is nothing to lose but
+    // the sharing.
+    if (activeRef.current !== was) return;
+    if (was.role === "remote") {
+      endedRemotely();
+    } else {
+      activeRef.current = undefined;
+      setActive(undefined);
+      knownPeersRef.current.clear();
+    }
+  }, [endedRemotely]);
+
   const realm = useRealm<SharingMessage["kind"]>({
     clientId: clientIdRef.current,
     topics: TOPIC_FOR,
+    // An edit is the one message here worth holding through a blip: it is the
+    // only copy of that change, and the layer has no revision convergence to
+    // rediscover it with. Presence re-announces itself on the next beat, and
+    // `closeSession` published into a dead socket is a goodbye nobody needs.
+    queueWhileOffline: (kind) => kind === "dispatch",
     onMessage: (raw) => {
       const message = raw as SharingMessage;
       switch (message.kind) {
@@ -298,19 +415,20 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     },
     // Only a connection we *still had* going away lands here — a deliberate
     // `close()` (teardown, superseding) does its own cleanup inline.
+    // The connection we still had went away, and nobody asked it to. That is
+    // a network event far more often than it is a decision, so it starts a
+    // reconnect rather than ending anything — for the host too, whose realm
+    // has to be back for the joiners retrying into it to find anything.
     onClosed: () => {
-      const was = activeRef.current;
-      if (!was) return;
-      if (was.role === "remote") {
-        endedRemotely();
-        return;
-      }
-      activeRef.current = undefined;
-      setActive(undefined);
-      setMySelection(null);
-      knownPeersRef.current.clear();
+      if (!activeRef.current) return;
+      void reconnect();
     },
   });
+  realmRef.current = {
+    connect: realm.connect,
+    register: realm.register,
+    call: realm.call,
+  };
 
   const publish = realm.publish as (message: SharingMessage) => void;
 
@@ -480,6 +598,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     () => ({
       clientId: clientIdRef.current,
       getRole: (uuid) => (active?.uuid === uuid ? active.role : undefined),
+      reconnecting,
       defaultIdentity,
       setDefaultIdentity,
       resetDefaultIdentity,
@@ -523,6 +642,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     }),
     [
       active,
+      reconnecting,
       presence.roster,
       defaultIdentity,
       setDefaultIdentity,
