@@ -24,6 +24,39 @@
   margin-bottom: 1rem;
 }
 
+/* "Couldn't load" and "you're in the other Google account" — both are
+   explanations standing in for a list, so they share a shape: an icon, the
+   sentence, and the one action that resolves it. */
+.character-picker-error,
+.drive-account-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--surface-raised, transparent);
+}
+
+.character-picker-error p,
+.drive-account-notice p {
+  margin: 0;
+  flex: 1;
+}
+
+.character-picker-error button {
+  flex-shrink: 0;
+}
+
+.drive-account-notice-icon {
+  flex-shrink: 0;
+}
+
+.drive-account-notice > div {
+  flex: 1;
+}
+
 /* Character card: built on .option-card, but it's a <button>, so reset the
    default button chrome and left-align its contents. */
 .character-card {

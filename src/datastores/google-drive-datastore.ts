@@ -3,16 +3,20 @@ import { defaultCharacter } from "src/lib/data/default-data";
 import {
   createFile,
   deleteFile,
+  fileViewLink,
   getFileAppProperties,
   getFileContents,
   listAppDataFiles,
+  listFilePermissions,
   listSharedCharacterFiles,
   patchFileAppProperties,
   pickSharedCharacters,
+  removeFilePermission,
   renameFile,
   SHARED_MARKER_KEY,
   SHARED_UUID_KEY,
   shareFileByEmail,
+  trashFile,
   updateFile,
 } from "src/lib/google-drive";
 import {
@@ -26,7 +30,7 @@ import {
   shareEmailMessage,
 } from "src/lib/drive-import-link";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
-import { Character, Datastore, ImportHint } from "src/lib/types";
+import { Character, Datastore, ImportHint, ShareGrant } from "src/lib/types";
 import { randomUUID } from "src/lib/browser";
 
 interface KnownFile {
@@ -55,9 +59,8 @@ let importedIndexFileId: string | undefined;
 const sharedFileName = (character: Character) =>
   `${character.name || "Unnamed character"}.5echar`;
 
-const readImportedIndex = async (): Promise<ImportedIndex> => {
-  if (!importedIndexFileId) return {};
-  const contents = await getFileContents(importedIndexFileId);
+const parseImportedIndex = async (fileId: string): Promise<ImportedIndex> => {
+  const contents = await getFileContents(fileId);
   if (!contents) return {};
   try {
     return JSON.parse(contents);
@@ -74,40 +77,70 @@ const writeImportedIndex = async () => {
   await updateFile(importedIndexFileId, JSON.stringify(importedIndex));
 };
 
-const populateKnownFiles = async () => {
+// Everything this account holds, in one sweep: the three listings plus the
+// counts that fall out of them. Kept separate from the module caches so it can
+// also answer for a Drive account that isn't the *active* datastore — Settings
+// is reachable from a localStorage session, where those caches are empty or,
+// worse, still hold the store the user walked away from.
+interface DriveDiscovery {
+  files: Record<UUID, KnownFile>;
+  index: ImportedIndex;
+  indexFileId?: string;
+  counts: DriveCharacterCounts;
+}
+
+const discoverDriveFiles = async (): Promise<DriveDiscovery> => {
   const [appDataFiles, sharedFiles] = await Promise.all([
     listAppDataFiles(),
     listSharedCharacterFiles(),
   ]);
-  const next: Record<UUID, KnownFile> = {};
+  const files: Record<UUID, KnownFile> = {};
+  let indexFileId: string | undefined;
   for (const file of appDataFiles) {
     // The index is bookkeeping, not a character.
     if (file.name === IMPORTED_INDEX_NAME) {
-      importedIndexFileId = file.id ?? undefined;
+      indexFileId = file.id ?? undefined;
       continue;
     }
     if (file.name && file.id) {
-      next[file.name as UUID] = { fileId: file.id, shared: false };
+      files[file.name as UUID] = { fileId: file.id, shared: false };
     }
   }
+  const privateCount = Object.keys(files).length;
   // Shared documents win over a stale appData copy with the same uuid.
   for (const file of sharedFiles) {
     const uuid = file.appProperties?.[SHARED_UUID_KEY] as UUID | undefined;
     if (uuid && file.id) {
-      next[uuid] = { fileId: file.id, shared: true, name: file.name };
+      files[uuid] = { fileId: file.id, shared: true, name: file.name };
     }
   }
   // Imported (shared-with-me) documents the query can't surface for us.
-  importedIndex = await readImportedIndex();
-  for (const [uuid, entry] of Object.entries(importedIndex) as [
+  const index = indexFileId ? await parseImportedIndex(indexFileId) : {};
+  let importedCount = 0;
+  for (const [uuid, entry] of Object.entries(index) as [
     UUID,
     ImportedIndex[UUID],
   ][]) {
-    if (!next[uuid]) {
-      next[uuid] = { fileId: entry.fileId, shared: true, name: entry.name };
+    // A document we own answers the shared query too, so importing a link to
+    // your own file would otherwise count it twice.
+    if (!files[uuid]) {
+      files[uuid] = { fileId: entry.fileId, shared: true, name: entry.name };
+      importedCount++;
     }
   }
-  knownFiles = next;
+  return {
+    files,
+    index,
+    indexFileId,
+    counts: { privateCount, sharedCount: sharedFiles.length, importedCount },
+  };
+};
+
+const populateKnownFiles = async () => {
+  const discovery = await discoverDriveFiles();
+  knownFiles = discovery.files;
+  importedIndex = discovery.index;
+  importedIndexFileId = discovery.indexFileId;
 };
 
 const readThroughCache = async (uuid: UUID): Promise<Character | undefined> => {
@@ -234,6 +267,27 @@ const shareCharacter = async (uuid: UUID, email: string) => {
   await shareFileByEmail(known.fileId, email, shareEmailMessage(name, link));
 };
 
+const listShares = async (uuid: UUID): Promise<ShareGrant[]> => {
+  const known = knownFiles[uuid];
+  if (!known?.shared) return [];
+  const permissions = await listFilePermissions(known.fileId);
+  return permissions.map((permission) => ({
+    id: permission.id,
+    email: permission.emailAddress,
+    name: permission.displayName,
+    role: permission.role,
+    isOwner: permission.role === "owner",
+  }));
+};
+
+const revokeShare = async (uuid: UUID, grantId: string) => {
+  const known = knownFiles[uuid];
+  if (!known?.shared) {
+    throw new Error("This character isn't a shared document.");
+  }
+  await removeFilePermission(known.fileId, grantId);
+};
+
 // Lets the user pick character documents shared with them (via the Google
 // Picker) and adds them to this datastore. They're backed by the original
 // owner's Drive file — edits and live sessions go through that single source of
@@ -291,6 +345,47 @@ const importSharedCharacter = async (
   return imported;
 };
 
+// How many characters this Google account is holding, split by the three shapes
+// a Drive character can take.
+export interface DriveCharacterCounts {
+  // Hidden in appDataFolder; nobody else can see these.
+  privateCount: number;
+  // Promoted to first-class My Drive documents — shareable, and yours.
+  sharedCount: number;
+  // Someone else's document, imported via the Picker.
+  importedCount: number;
+}
+
+export const countDriveCharacters = async (): Promise<DriveCharacterCounts> =>
+  (await discoverDriveFiles()).counts;
+
+// Every character in the account, contents and all, for a backup file. Reads
+// the files fresh rather than the module cache for the same reason the counts
+// do — and because a backup that quietly omitted whatever hadn't been opened
+// yet would be worse than no backup at all.
+export const loadAllDriveCharacters = async (): Promise<Character[]> => {
+  const { files } = await discoverDriveFiles();
+  const loaded = await Promise.all(
+    Object.values(files).map(async ({ fileId }) => {
+      const contents = await getFileContents(fileId);
+      if (!contents) return undefined;
+      try {
+        const result = hydrateCharacter(JSON.parse(contents));
+        return result.ok ? result.character : undefined;
+      } catch (err) {
+        console.error(
+          "Drive file",
+          fileId,
+          "could not be read for export",
+          err,
+        );
+        return undefined;
+      }
+    }),
+  );
+  return loaded.filter((character): character is Character => !!character);
+};
+
 const GoogleDriveDatastore: Datastore = {
   name: "Google Drive (cloud-synced) sheet",
   savedSheetsCopy: "Characters saved in Google Drive:",
@@ -330,7 +425,16 @@ const GoogleDriveDatastore: Datastore = {
         importedIndex[uuid] = entry;
         throw err;
       }
+    } else if (known.shared) {
+      // A promoted document is a file the user can see in Drive, so "delete"
+      // should mean what it means there: recoverable from the trash for 30
+      // days. `files.delete` is permanent, which is a harsh reading of one
+      // click on the only copy of a character.
+      await trashFile(known.fileId);
     } else {
+      // Private appData files have no trash the user could reach, so trashing
+      // one would be equally unrecoverable while still costing them quota.
+      //
       // Propagate a failed Drive delete instead of swallowing it: clearing the
       // caches anyway made the delete *look* done, and the character then
       // resurrected on the next reload. The caller restores its list entry.
@@ -356,6 +460,14 @@ const GoogleDriveDatastore: Datastore = {
   },
   promoteCharacter,
   shareCharacter,
+  listShares,
+  revokeShare,
+  getDocumentLink: (uuid: UUID) => {
+    const known = knownFiles[uuid];
+    // Only promoted documents are files the user can visit; a private appData
+    // file has no page in the Drive UI at all.
+    return known?.shared ? fileViewLink(known.fileId) : undefined;
+  },
   getImportLink: (uuid: UUID) => {
     const known = knownFiles[uuid];
     if (!known?.shared) return undefined;

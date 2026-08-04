@@ -191,6 +191,12 @@ function onTokenResponse(resp: google.accounts.oauth2.TokenResponse) {
     return;
   }
   persistToken(resp);
+  // GIS and gapi are separate clients: issuing a token doesn't hand it to
+  // gapi, and every Drive call reads it from there. This used to be done only
+  // by `restoreToken` on a later pass, so a freshly granted token reached gapi
+  // by luck of ordering. Switching accounts has no such later pass — the whole
+  // point is to use the *new* token immediately.
+  window.gapi.client.setToken({ access_token: resp.access_token });
   scheduleProactiveRefresh();
   setStatus("ready");
   resolve?.(true);
@@ -237,7 +243,9 @@ async function loadGoogleLibraries(): Promise<void> {
   }
 }
 
-function requestToken(prompt: "" | "consent"): Promise<boolean> {
+function requestToken(
+  prompt: "" | "consent" | "select_account",
+): Promise<boolean> {
   if (!tokenClient) return Promise.resolve(false);
   // One request at a time; a concurrent caller shares the in-flight answer.
   if (inflightTokenRequest) return inflightTokenRequest;
@@ -295,6 +303,23 @@ export async function requestDriveToken(): Promise<boolean> {
   const hasSession = !!window.gapi.client.getToken() || hasStoredGrant();
   if (hasSession && (await requestToken(""))) return true;
   return requestToken("consent");
+}
+
+// Deliberately ask Google which account to use. Signing out and back in isn't
+// the same thing: the silent-first path in `requestDriveToken` exists precisely
+// to avoid a chooser, so a user with two Google accounts would be handed the
+// same one back and conclude their characters were gone. This is the only way
+// to reach the other account, so it has to be its own entry point.
+export async function switchDriveAccount(): Promise<boolean> {
+  try {
+    await loadGoogleLibraries();
+  } catch (err) {
+    console.error("Failed to load the Google Drive libraries", err);
+    return false;
+  }
+  // The current token is left alone until a new one arrives: a cancelled
+  // chooser should be a no-op, not a sign-out.
+  return requestToken("select_account");
 }
 
 // ---------------------------------------------------------------------------

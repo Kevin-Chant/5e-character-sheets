@@ -42,8 +42,9 @@ import Tooltip from "src/components/tooltip";
 import ShareModal from "src/components/share-modal";
 import NavOverflowMenu from "src/components/nav-overflow-menu";
 import PresenceRoster from "src/components/presence-roster";
+import ShareRoleBadge from "src/components/share-role-badge";
 import { requestDriveToken } from "src/lib/google-auth";
-import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
+import { parseCharacterFile } from "src/lib/character-bundle";
 import { navControls, navTitle } from "src/lib/nav-controls";
 
 function Sidebar({ close }: { close: () => void }) {
@@ -122,6 +123,10 @@ function Sidebar({ close }: { close: () => void }) {
                           title="Still saving to storage — the sheet is safe to open"
                         />
                       )}
+                      <ShareRoleBadge
+                        uuid={characterEntry.uuid}
+                        className="margin-small"
+                      />
                       {characterEntry.name}
                     </p>
                   </Link>
@@ -169,7 +174,7 @@ export default function Root() {
     canUndo,
     canRedo,
   } = useCharacter();
-  const { saving } = useDatastore();
+  const { saving, save, stageCharacter } = useDatastore();
   const { editMode, toggleMode } = useEditMode();
   const { rollMode, setRollMode } = useRollMode();
   const { settings } = useSettings();
@@ -210,21 +215,39 @@ export default function Root() {
     reader.onload = (readerEvent) => {
       try {
         const content = readerEvent.target?.result;
-        if (typeof content === "string") {
-          const result = hydrateCharacter(JSON.parse(content));
-          if (!result.ok) {
-            console.error("Failed to load character data", result.errors);
-            setImportErrorMessage(
-              "This file isn't a valid character sheet. Check the console for details.",
-            );
-            return;
-          }
-          dispatch(loadPersistedCharacter(result.character), false);
-          setImportErrorMessage("");
-          setModalOpen(false);
-        } else {
+        if (typeof content !== "string") {
           setImportErrorMessage("Failed to import, invalid file chosen");
+          return;
         }
+        // One file or a whole backup — the same dialog reads both, so
+        // restoring an account isn't a second import flow to discover.
+        const { characters, errors } = parseCharacterFile(JSON.parse(content));
+        if (characters.length === 0) {
+          console.error("Failed to load character data", errors);
+          setImportErrorMessage(
+            "This file isn't a valid character sheet. Check the console for details.",
+          );
+          return;
+        }
+        // A multi-character file is a restore, so its sheets are written to
+        // storage rather than merely opened — otherwise nineteen of twenty
+        // would vanish the moment you opened the one on screen. Staging first
+        // puts them in the list immediately, badged unsynced until each write
+        // lands.
+        if (characters.length > 1) {
+          characters.forEach((imported) => {
+            stageCharacter(imported);
+            void save(imported);
+          });
+        }
+        dispatch(loadPersistedCharacter(characters[0]), false);
+        setImportErrorMessage(
+          errors.length > 0
+            ? `Imported ${characters.length}; skipped ${errors.length} that couldn't be read.`
+            : "",
+        );
+        if (errors.length > 0) console.error("Skipped entries", errors);
+        setModalOpen(false);
       } catch (e) {
         setImportErrorMessage(
           "Failed to import, unexpected error. Check the console for more details",
@@ -232,7 +255,7 @@ export default function Root() {
         console.error(e);
       }
     };
-  }, [fileSelected, dispatch]);
+  }, [fileSelected, dispatch, save, stageCharacter]);
 
   // A save stuck on an expired Google session isn't a connection problem, and
   // pretending it is costs the user their unsaved edits: the fix is one
@@ -478,7 +501,7 @@ export default function Root() {
           <input
             type="file"
             onChange={handleFileChange}
-            accept=".5echarsheet"
+            accept=".5echarsheet,.5echarbundle"
           />
           <p style={{ color: "red" }}>{importErrorMessage}</p>
           <button

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import { Character, ImportHint } from "src/lib/types";
 import { UUID } from "crypto";
 import { useDatastoreSelector } from "./use-datastore-selector";
@@ -23,6 +23,16 @@ interface DatastoreContextData {
   debounceWait: number;
   characterLoading: boolean;
   setCharacterLoading: (newValue: boolean) => void;
+  // True when the backend couldn't be read at all (offline, expired Drive
+  // session). Distinct from an empty list: "you have no characters" and "we
+  // couldn't find out" look identical on screen but mean opposite things, and
+  // only one of them should be offering you a Create button.
+  loadError: boolean;
+  // Re-run the backend's init and re-read its list. The list is otherwise
+  // fetched exactly once per datastore selection, which leaves no way back
+  // from a failed load, and no way to pick up an account switch — the Drive
+  // datastore object is the same object either side of one.
+  refresh: () => void;
 }
 
 export const DatastoreContext = React.createContext<DatastoreContextData>({
@@ -44,6 +54,8 @@ export const DatastoreContext = React.createContext<DatastoreContextData>({
   debounceWait: 1000,
   characterLoading: false,
   setCharacterLoading: missingProvider("setCharacterLoading"),
+  loadError: false,
+  refresh: missingProvider("refresh"),
 });
 
 export function DatastoreContextProvider(props: React.PropsWithChildren) {
@@ -54,6 +66,10 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     Record<UUID, Character>
   >({});
   const [unsynced, setUnsynced] = useState<Set<UUID>>(new Set());
+  const [loadError, setLoadError] = useState(false);
+  // Bumping this re-runs the fetch effect for the *same* datastore object.
+  const [reloadKey, setReloadKey] = useState(0);
+  const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
 
   const markUnsynced = (uuid: UUID) =>
     setUnsynced((prev) => {
@@ -163,6 +179,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     setLocalCharacters({});
     // Staged-but-unconfirmed markers belonged to the outgoing store's list.
     setUnsynced(new Set());
+    setLoadError(false);
     if (!datastore) {
       // Cleared selection (e.g. joining a remote session): nothing to fetch,
       // and any in-flight spinner must come down with the list it belonged to.
@@ -191,16 +208,18 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
       })
       .catch((error) => {
         // A failed init (expired Drive token, offline) must not strand the
-        // spinner: an empty list with the create affordance is recoverable,
-        // a permanent "Loading..." is not.
+        // spinner. It must also not be mistaken for an empty account: the
+        // flag is what lets the picker say "couldn't load" and offer a retry
+        // instead of inviting a new character into a store it can't read.
         if (cancelled) return;
         console.error("Failed to initialize datastore", error);
+        setLoadError(true);
         setCharacterLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [datastore]);
+  }, [datastore, reloadKey]);
 
   // Memoized so consumers only re-render on real state changes; the callbacks
   // above close over `datastore` (a dep) and use functional setState, so the
@@ -219,8 +238,18 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
       stageCharacter,
       unsynced,
       debounceWait: datastore?.debounceWait || 1000,
+      loadError,
+      refresh,
     }),
-    [saving, characterLoading, localCharacters, unsynced, datastore],
+    [
+      saving,
+      characterLoading,
+      localCharacters,
+      unsynced,
+      datastore,
+      loadError,
+      refresh,
+    ],
   );
 
   return (

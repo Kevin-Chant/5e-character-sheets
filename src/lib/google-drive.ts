@@ -42,6 +42,10 @@ export async function listAppDataFiles() {
   try {
     return await listAllPages({
       spaces: "appDataFolder",
+      // appDataFolder has no user-visible trash, so nothing here is ever
+      // trashed on purpose — but a trashed file keeps listing without this,
+      // which would resurrect anything that got there by another route.
+      q: "trashed=false",
       pageSize: 100,
       fields: "nextPageToken, files(id, name)",
     });
@@ -62,6 +66,40 @@ export async function listSharedCharacterFiles() {
   } catch (err: any) {
     console.error(err);
     return [];
+  }
+}
+
+export interface DriveAccount {
+  displayName?: string;
+  emailAddress?: string;
+  photoLink?: string;
+  // Bytes. `limit` is absent on unlimited (pooled) accounts.
+  usage?: number;
+  limit?: number;
+}
+
+// Who we're signed in as, plus their Drive quota. `about.get` is reachable
+// under `drive.appdata`/`drive.file` — it needs *a* Drive scope, not a broad
+// one — so this costs no extra consent, which is why the email is read from
+// here rather than from the `userinfo` scopes.
+export async function getDriveAccount(): Promise<DriveAccount | undefined> {
+  try {
+    const res = await withDriveAuthRetry(() =>
+      window.gapi.client.drive.about.get({
+        fields: "user(displayName,emailAddress,photoLink),storageQuota",
+      }),
+    );
+    const { user, storageQuota } = res.result;
+    return {
+      displayName: user?.displayName,
+      emailAddress: user?.emailAddress,
+      photoLink: user?.photoLink,
+      usage: storageQuota?.usage ? Number(storageQuota.usage) : undefined,
+      limit: storageQuota?.limit ? Number(storageQuota.limit) : undefined,
+    };
+  } catch (err) {
+    console.error("Could not read the Google Drive account", err);
+    return undefined;
   }
 }
 
@@ -231,6 +269,68 @@ export async function shareFileByEmail(
 export async function deleteFile(fileId: string) {
   return withDriveAuthRetry(() =>
     window.gapi.client.drive.files.delete({ fileId }),
+  );
+}
+
+// Moves a file to the Drive trash instead of destroying it. For a promoted
+// (My Drive) character this is what "delete" means everywhere else in Drive —
+// recoverable for 30 days from a UI the user already knows. `files.delete` is
+// permanent and bypasses the trash entirely, which is the wrong default for
+// the only copy of a character somebody has been playing for a year.
+//
+// Not used for appDataFolder files: that folder's trash isn't reachable from
+// the Drive UI, so trashing one would be exactly as unrecoverable while also
+// still consuming quota.
+export async function trashFile(fileId: string) {
+  return withDriveAuthRetry(() =>
+    window.gapi.client.drive.files.update({
+      fileId,
+      resource: { trashed: true },
+    }),
+  );
+}
+
+// The Drive UI page for a file. A plain string, not a request — `webViewLink`
+// would be a round-trip for a URL whose shape is fixed.
+export function fileViewLink(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/view`;
+}
+
+export interface FilePermission {
+  id: string;
+  role: string;
+  type: string;
+  emailAddress?: string;
+  displayName?: string;
+}
+
+// Who currently has access to a shared document. Sharing was one-way before
+// this — you could grant access and never see, or take back, what you'd
+// granted.
+export async function listFilePermissions(
+  fileId: string,
+): Promise<FilePermission[]> {
+  const res = await withDriveAuthRetry(() =>
+    window.gapi.client.drive.permissions.list({
+      fileId,
+      fields: "permissions(id,role,type,emailAddress,displayName)",
+    }),
+  );
+  return (res.result.permissions ?? []).map((permission) => ({
+    id: permission.id ?? "",
+    role: permission.role ?? "",
+    type: permission.type ?? "",
+    emailAddress: permission.emailAddress,
+    displayName: permission.displayName,
+  }));
+}
+
+export async function removeFilePermission(
+  fileId: string,
+  permissionId: string,
+) {
+  return withDriveAuthRetry(() =>
+    window.gapi.client.drive.permissions.delete({ fileId, permissionId }),
   );
 }
 

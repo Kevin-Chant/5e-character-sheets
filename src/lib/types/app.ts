@@ -31,6 +31,14 @@ export interface Datastore {
   getShareRole?: (uuid: UUID) => "owner" | "recipient" | undefined;
   promoteCharacter?: (uuid: UUID) => Promise<void>;
   shareCharacter?: (uuid: UUID, email: string) => Promise<void>;
+  // Who currently has access to a shared character, and how to take it back.
+  // Sharing was one-way without these: you could grant access, and afterwards
+  // neither see what you'd granted nor undo it.
+  listShares?: (uuid: UUID) => Promise<ShareGrant[]>;
+  revokeShare?: (uuid: UUID, grantId: string) => Promise<void>;
+  // The backend's own page for this character's document, for the "where does
+  // this actually live" question a file-backed store invites.
+  getDocumentLink?: (uuid: UUID) => string | undefined;
   // The link that walks a recipient through adding this shared document. It's
   // the same link the share email carries, exposed so it can be re-sent by
   // hand — Drive's notification is the kind of mail that lands in spam, and
@@ -50,6 +58,18 @@ export interface Datastore {
   // `hint` names the file an import link was for, so the store can skip the
   // picker for something already imported and narrow it otherwise.
   importSharedCharacter?: (hint?: ImportHint) => Promise<Character | undefined>;
+}
+
+// One person's access to a shared character. Backend-neutral on purpose: the
+// Drive permission id is opaque to the UI, which only ever hands it back.
+export interface ShareGrant {
+  id: string;
+  email?: string;
+  name?: string;
+  // Drive's role vocabulary ("owner", "writer", "reader"). Shown as-is.
+  role: string;
+  // The owner's own grant can't be removed, and offering to would be a lie.
+  isOwner: boolean;
 }
 
 // The file an import link points at. Both halves are advisory: the id can name

@@ -344,6 +344,20 @@ p {
   margin: 0;
   font-weight: 600;
 }
+/* The signed-in account, inline in the section's prose. Monospaced so an
+   address reads as an exact value you can check character-for-character —
+   which is the whole reason it's shown. */
+.settings-account-email {
+  font-family: monospace;
+  font-weight: 600;
+  word-break: break-all;
+}
+.settings-count-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
 
 /* Checkbox/label pairs in settings: keep the box snug against its label rather
    than spread apart by the parent .row/.column's even spacing. */
