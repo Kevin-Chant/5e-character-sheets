@@ -39,6 +39,13 @@ string` — a `Enum | string` union gives autocomplete while accepting anything.
    - Bump `CURRENT_SCHEMA_VERSION` in `migrations/version.ts` by one.
    - `migrate-character.test.ts` round-trips the default character and a truncated
      save through `validateCharacterData`; it'll catch a missed migration.
+   - **Catalog wiring is not a migration.** A pool/action-host authored for
+     content that already exists on people's sheets (a subclass gaining pools, a
+     race gaining innate-spell hosts) needs no migration at all:
+     `reconcile-content.ts` re-runs the idempotent `sync*` helpers on every
+     load, inside `hydrateCharacter`, so old sheets converge on the catalog
+     automatically. Riders never need either — they resolve at roll time by
+     title. Reserve migrations for changes to the _shape_ of stored data.
 
 8. **Fixtures** (optional) — `src/lib/fixtures/*.json` are old-shaped saves run
    through `hydrateCharacter` by `fixtures.test.ts`; the migration keeps them

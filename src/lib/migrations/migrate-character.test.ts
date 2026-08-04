@@ -4,6 +4,7 @@ import { randomUUID } from "src/lib/browser";
 import { validateCharacterData } from "src/lib/fields";
 import { CURRENT_SCHEMA_VERSION, migrateCharacter } from "./migrate-character";
 import { hydrateCharacter } from "./hydrate-character";
+import { reconcileCharacterContent } from "./reconcile-content";
 
 describe("migrateCharacter", () => {
   it("upgrades a pre-versioning (v0) character to a schema-valid current one", () => {
@@ -263,8 +264,13 @@ describe("v12 — inspiration becomes a boolean", () => {
 });
 
 describe("hydrateCharacter", () => {
-  it("accepts the default character without reporting a migration", () => {
-    const result = hydrateCharacter(structuredClone(defaultCharacter));
+  it("accepts a fully current character without reporting a migration", () => {
+    // Pre-reconciled: hydrate also backfills catalog-derived pools, and the
+    // default template is missing some (its race's innate spells), which would
+    // legitimately report as a change.
+    const current = structuredClone(defaultCharacter);
+    reconcileCharacterContent(current);
+    const result = hydrateCharacter(current);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.migrated).toBe(false);
   });

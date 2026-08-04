@@ -4,11 +4,20 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { UUID } from "crypto";
 import LocalDatastore from "./local-datastore";
 import { defaultCharacter } from "src/lib/data/default-data";
+import { reconcileCharacterContent } from "src/lib/migrations/reconcile-content";
 import { Character } from "src/lib/types";
 
-// The datastore migrates/validates on read, so tests use full valid characters.
+// The datastore migrates/validates/reconciles on read, so tests use full valid
+// characters with their catalog-derived pools already present — otherwise the
+// load path (correctly) backfills them and the round-trip isn't identity.
 function makeCharacter(uuid: string, name: string): Character {
-  return { ...structuredClone(defaultCharacter), uuid: uuid as UUID, name };
+  const character = {
+    ...structuredClone(defaultCharacter),
+    uuid: uuid as UUID,
+    name,
+  };
+  reconcileCharacterContent(character);
+  return character;
 }
 
 describe("LocalDatastore", () => {
