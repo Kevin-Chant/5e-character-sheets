@@ -19,6 +19,9 @@ const mock = vi.hoisted(() => ({
   // What the liveness probe's self-call does. A dead socket is one where the
   // call never answers.
   callAnswers: true,
+  // Whether the broker accepts our ping registration. A broker holding a stale
+  // registration under our name refuses with `procedure_already_exists`.
+  registerAccepted: true,
 }));
 
 vi.mock("autobahn-browser", () => {
@@ -27,7 +30,10 @@ vi.mock("autobahn-browser", () => {
     onclose: (() => boolean) | undefined;
     session = {
       subscribe: () => Promise.resolve({}),
-      register: () => Promise.resolve({}),
+      register: () =>
+        mock.registerAccepted
+          ? Promise.resolve({})
+          : Promise.reject(new Error("wamp.error.procedure_already_exists")),
       publish: (topic: string, args: unknown[]) => {
         mock.published.push({ topic, message: (args as any[])[0] });
       },
@@ -81,6 +87,7 @@ afterEach(() => {
   mock.holder.connection = null;
   mock.published = [];
   mock.callAnswers = true;
+  mock.registerAccepted = true;
   vi.useRealTimers();
 });
 
@@ -155,6 +162,29 @@ describe("a socket that died without saying so", () => {
 
     expect(onClosed).toHaveBeenCalled();
     expect(result.current.status).toBe("offline");
+  });
+
+  // A registration the broker refused means every probe would fail — instantly
+  // on a broker with no such procedure, by timeout on one holding a stale
+  // registration from our own dead predecessor. Either way the probe is
+  // reporting on the registration, not the socket, so it must not run: a
+  // heartbeat here declared a healthy connection dead twenty seconds after
+  // every reconnect, forever.
+  it("keeps a connection whose probe couldn't register, instead of probing a name it doesn't hold", async () => {
+    vi.useFakeTimers();
+    mock.registerAccepted = false;
+    // The stale-registration shape: a call under our name never answers.
+    mock.callAnswers = false;
+    const { result, onClosed } = setup();
+    await openRealm(result);
+    expect(result.current.status).toBe("connected");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(80_000);
+    });
+
+    expect(onClosed).not.toHaveBeenCalled();
+    expect(result.current.status).toBe("connected");
   });
 
   it("leaves a healthy connection alone", async () => {

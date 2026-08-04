@@ -345,18 +345,25 @@ export function useRealm<K extends string>({
           // Our own echo, for asking the socket whether it is still a socket.
           // Registered per client id, so two tabs in one realm don't collide
           // and a stale registration from a dead session can't answer for us.
+          let probeRegistered = false;
           try {
             await session.register(`${PING_PROCEDURE}${clientId}`, () =>
               Date.now(),
             );
+            probeRegistered = true;
           } catch {
             // A broker that won't take the registration costs us the liveness
             // check, not the session — every other path still works, and a
-            // probe that can never answer would be worse than none.
+            // probe that can never answer would be worse than none. Which is
+            // why the heartbeat below only starts when the registration took:
+            // probing a name we don't hold either fails instantly or, worse,
+            // reaches a stale registration on a dead session and times out —
+            // and either way declares *this* healthy connection dead twenty
+            // seconds after it opened, forever, on every reconnect.
           }
           setRealm(name);
           setStatus("connected");
-          startHeartbeat();
+          if (probeRegistered) startHeartbeat();
           // Whatever was held while there was no socket, now that there is one
           // and we are subscribed to hear the answers.
           flushQueue(name);

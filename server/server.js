@@ -1,5 +1,41 @@
 import { createRouter } from "nightlife-rabbit";
+// The internal module, not the public surface — nightlife-rabbit exports no way
+// to reach Realm, and the bug is on its prototype.
+import Realm from "nightlife-rabbit/lib/realm.js";
 import { createServer } from "http";
+
+// **Replace nightlife-rabbit's broken session cleanup.** The stock
+// `Realm.cleanup` tries to unregister *every* procedure in the realm on behalf
+// of the departing session, and `unregister` throws for a procedure someone
+// else owns — which aborts the cleanup mid-loop *and* skips the chained
+// `removeSession` (the router calls `cleanup(session).removeSession(session)`).
+// So the first disconnect from any realm holding registrations from two
+// sessions leaks the leaver's procedures, subscriptions, and session entry.
+//
+// That was latent while only a host registered anything (`FULL_SYNC`). Since
+// every client began registering a liveness-ping procedure named after itself,
+// it became a reconnect death loop: the leaked ping registration makes the same
+// client's re-register collide, its probe then calls the stale registration on
+// the dead session, times out twice, and declares a healthy connection dead —
+// every ~36 seconds, forever.
+//
+// Same shape as the original, minus the bug: drop exactly the procedures this
+// session owns, always clean its subscriptions, never throw.
+Realm.prototype.cleanup = function (session) {
+  for (const uri of Object.keys(this.procedures)) {
+    if (this.procedures[uri].callee === session) {
+      delete this.procedures[uri];
+    }
+  }
+  for (const key of Object.keys(this.topics)) {
+    const topic = this.topics[key];
+    topic.removeSession(session);
+    if (topic.sessions.length === 0) {
+      delete this.topics[key];
+    }
+  }
+  return this;
+};
 
 let router;
 
