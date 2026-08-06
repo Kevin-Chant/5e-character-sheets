@@ -199,14 +199,31 @@ export function useRealm<K extends string>({
   // be *asked*, which is a genuinely different question from the party
   // session's "does anyone here know the state". Exposed rather than wrapped
   // because only one layer has a registrant.
-  const register = useCallback((procedure: string, handler: () => unknown) => {
-    return sessionRef.current?.register(procedure, handler);
-  }, []);
+  //
+  // Always a promise, and one the caller must handle: a broker rejects a
+  // procedure name another session already holds (`procedure_already_exists`),
+  // which is exactly what a second tab hosting the same character hits. A
+  // caller that ignores the rejection believes it is serving a procedure it
+  // never got — the ping registration above documents where that road ends.
+  const register = useCallback(
+    (procedure: string, handler: () => unknown): Promise<unknown> => {
+      const session = sessionRef.current;
+      if (!session)
+        return Promise.reject(new Error("Not connected to a realm."));
+      return Promise.resolve(session.register(procedure, handler));
+    },
+    [],
+  );
 
   const call = useCallback((procedure: string, args: unknown[] = []) => {
     if (!sessionRef.current) return Promise.resolve(undefined);
     return sessionRef.current.call(procedure, args);
   }, []);
+
+  // Monotonic id per connect attempt, bumped by `connect` and `close`. The
+  // supersession story for *opened* connections is the identity check in
+  // `onclose`; this is the same story for attempts still in flight.
+  const generation = useRef(0);
 
   // The liveness loop. Started when a connection opens, stopped by anything
   // that takes one away.
@@ -220,15 +237,18 @@ export function useRealm<K extends string>({
   const probe = useCallback(async (): Promise<boolean> => {
     const session = sessionRef.current;
     if (!session) return false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const answer = session.call(`${PING_PROCEDURE}${clientId}`, []);
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), PING_TIMEOUT_MS),
-      );
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timeout")), PING_TIMEOUT_MS);
+      });
       await Promise.race([answer, timeout]);
       return true;
     } catch {
       return false;
+    } finally {
+      clearTimeout(timer);
     }
   }, [clientId]);
 
@@ -287,6 +307,12 @@ export function useRealm<K extends string>({
     async (name: string, opts?: { create?: boolean }): Promise<RealmResult> => {
       // Supersede whatever was open: one realm per hook, and the old
       // connection's `onclose` is silenced by the identity check below.
+      //
+      // An attempt that hasn't *opened* yet has no connection in the ref to
+      // close, so superseding it takes the generation counter: its `onopen`
+      // finds itself stale and closes itself instead of stealing the session
+      // refs back from the connection that replaced it.
+      const gen = ++generation.current;
       stopHeartbeat();
       try {
         connectionRef.current?.close();
@@ -321,27 +347,66 @@ export function useRealm<K extends string>({
 
       return new Promise<RealmResult>((resolve) => {
         connection.onopen = async (session: any) => {
+          // Superseded while opening: a newer connect() or close() has moved
+          // on. Bow out without touching the refs or the status — they belong
+          // to the replacement now. Resolved as a failure without `fail()`,
+          // which would clobber the replacement's status for a caller that no
+          // longer cares.
+          if (gen !== generation.current) {
+            try {
+              connection.close();
+            } catch {
+              // Already closing — all we wanted.
+            }
+            resolve({ ok: false, reason: "closed", message: MESSAGES.closed });
+            return;
+          }
           opened = true;
           sessionRef.current = session;
           connectionRef.current = connection;
-          // **Await the subscriptions before resolving.** `subscribe` is a
-          // round trip to the broker, and anything the caller publishes the
-          // moment this resolves — a sync request, say — would otherwise get an
-          // answer this client isn't listening for yet, which looks exactly
-          // like joining an empty room. It's a race, so it fails
-          // intermittently and only when a peer is actually there.
-          await Promise.all(
-            kindsRef.current.map((kind) =>
-              session.subscribe(topicsRef.current[kind], (args: any[]) => {
-                const result = accept(args?.[0], {
-                  clientId,
-                  kinds: kindsRef.current,
-                });
-                if (!result.ok) return;
-                handlers.current.onMessage(result.message);
-              }),
-            ),
-          );
+          try {
+            // **Await the subscriptions before resolving.** `subscribe` is a
+            // round trip to the broker, and anything the caller publishes the
+            // moment this resolves — a sync request, say — would otherwise get
+            // an answer this client isn't listening for yet, which looks
+            // exactly like joining an empty room. It's a race, so it fails
+            // intermittently and only when a peer is actually there.
+            await Promise.all(
+              kindsRef.current.map((kind) =>
+                session.subscribe(topicsRef.current[kind], (args: any[]) => {
+                  const result = accept(args?.[0], {
+                    clientId,
+                    kinds: kindsRef.current,
+                  });
+                  if (!result.ok) return;
+                  handlers.current.onMessage(result.message);
+                }),
+              ),
+            );
+          } catch {
+            // The socket went away mid-subscribe (or the broker refused one).
+            // A half-subscribed session is worse than none — it looks
+            // connected and misses messages — so this attempt fails outright.
+            // The caller hears it; the shared status is only touched if the
+            // attempt still owns it.
+            try {
+              connection.close();
+            } catch {
+              // Already closing — all we wanted.
+            }
+            if (gen === generation.current) {
+              sessionRef.current = undefined;
+              connectionRef.current = undefined;
+              resolve(fail("closed"));
+            } else {
+              resolve({
+                ok: false,
+                reason: "closed",
+                message: MESSAGES.closed,
+              });
+            }
+            return;
+          }
           // Our own echo, for asking the socket whether it is still a socket.
           // Registered per client id, so two tabs in one realm don't collide
           // and a stale registration from a dead session can't answer for us.
@@ -360,6 +425,13 @@ export function useRealm<K extends string>({
             // reaches a stale registration on a dead session and times out —
             // and either way declares *this* healthy connection dead twenty
             // seconds after it opened, forever, on every reconnect.
+          }
+          // Superseded while the round trips above were in flight: the
+          // replacement's connect() closed this socket and owns the refs and
+          // status now. Report the failure to this attempt's caller only.
+          if (gen !== generation.current) {
+            resolve({ ok: false, reason: "closed", message: MESSAGES.closed });
+            return;
           }
           setRealm(name);
           setStatus("connected");
@@ -384,7 +456,14 @@ export function useRealm<K extends string>({
             setRealm(undefined);
           }
           if (!opened) {
-            resolve(fail(opts?.create ? "closed" : "absent"));
+            const reason: RealmFailure = opts?.create ? "closed" : "absent";
+            // A stale attempt reports its failure to its caller only — the
+            // shared status now describes the connection that replaced it.
+            resolve(
+              gen === generation.current
+                ? fail(reason)
+                : { ok: false, reason, message: MESSAGES[reason] },
+            );
           } else if (current) {
             setStatus("offline");
             handlers.current.onClosed?.();
@@ -401,6 +480,9 @@ export function useRealm<K extends string>({
   );
 
   const close = useCallback(() => {
+    // Invalidate any attempt still in flight — its `onopen` must not resurrect
+    // a session after the caller chose to have none.
+    generation.current++;
     stopHeartbeat();
     connectionRef.current?.close();
     sessionRef.current = undefined;

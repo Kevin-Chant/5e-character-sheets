@@ -363,9 +363,19 @@ export function useTableTalkState({
       },
       reportsEnabled,
       reports,
-      dismissExchange: (exchangeId) =>
-        setReports((current) => withoutExchange(current, exchangeId)),
-      clearReports: () => setReports([]),
+      // Dismissing an exchange retires its ruling and our answer with it —
+      // `verdicts`/`sentChecks` are keyed by exchange and were the one queue
+      // here that only ever grew until the connection dropped.
+      dismissExchange: (exchangeId) => {
+        setReports((current) => withoutExchange(current, exchangeId));
+        setVerdicts(({ [exchangeId]: _, ...rest }) => rest);
+        setSentChecks(({ [exchangeId]: _, ...rest }) => rest);
+      },
+      clearReports: () => {
+        setReports([]);
+        setVerdicts({});
+        setSentChecks({});
+      },
       ruleOnAttack: (exchangeId, toClientId, outcome) => {
         setVerdicts((current) => ({ ...current, [exchangeId]: outcome }));
         senders.current?.sendRollVerdict({ exchangeId, toClientId, outcome });

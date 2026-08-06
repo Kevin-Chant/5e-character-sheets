@@ -200,3 +200,49 @@ describe("a socket that died without saying so", () => {
     expect(result.current.status).toBe("connected");
   });
 });
+
+describe("an attempt superseded while still opening", () => {
+  // A connect() has nothing in the ref to close until its `onopen` fires, so
+  // superseding it is the generation counter's job: a slow first attempt that
+  // opens *after* its replacement must bow out, not steal the session back.
+  it("does not let a slow first attempt steal the session from its replacement", async () => {
+    const { result } = setup();
+
+    let first: any;
+    let firstResult: Promise<{ ok: boolean }>;
+    await act(async () => {
+      firstResult = result.current.connect("one");
+      first = mock.holder.connection;
+      // Before "one" ever opens, the caller moves on.
+      const second = result.current.connect("two");
+      mock.holder.connection.onopen(mock.holder.connection.session);
+      await second;
+    });
+    expect(result.current.realm).toBe("two");
+
+    // The stragglers' turn: "one" finally opens. Its caller hears failure,
+    // and the session stays the replacement's.
+    await act(async () => {
+      first.onopen(first.session);
+      expect((await firstResult).ok).toBe(false);
+    });
+    expect(result.current.realm).toBe("two");
+    expect(result.current.status).toBe("connected");
+  });
+
+  it("does not let an attempt in flight survive a deliberate close", async () => {
+    const { result } = setup();
+
+    let attempt: Promise<{ ok: boolean }>;
+    let connection: any;
+    await act(async () => {
+      attempt = result.current.connect("one");
+      connection = mock.holder.connection;
+      result.current.close();
+      connection.onopen(connection.session);
+      expect((await attempt).ok).toBe(false);
+    });
+    expect(result.current.status).toBe("offline");
+    expect(result.current.connected()).toBe(false);
+  });
+});

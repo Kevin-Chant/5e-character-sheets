@@ -20,7 +20,6 @@ import {
   TOPIC_FOR,
   rememberSession,
   withoutClient,
-  withParticipants,
   extractSessionCode,
   inviteLink,
 } from "src/lib/play/session";
@@ -330,26 +329,6 @@ describe("mergeEncounter", () => {
 });
 
 describe("roster changes", () => {
-  it("adds a newcomer's participants without duplicating known ones", () => {
-    const base = party();
-    const newcomer = addParticipant(EMPTY_ENCOUNTER, {
-      id: "self:carol",
-      name: "Carol",
-      characterUuid: "33333333-3333-3333-3333-333333333333" as UUID,
-      ownerClientId: "client-c",
-      initiative: 3,
-    });
-    const merged = withParticipants(base, newcomer.participants);
-    expect(merged.participants.map((p) => p.name)).toEqual([
-      "Alice",
-      "Bob",
-      "Goblin",
-      "Carol",
-    ]);
-    // Re-merging the same roster is a no-op, including object identity.
-    expect(withParticipants(merged, newcomer.participants)).toBe(merged);
-  });
-
   // A player closing their laptop takes their character out of the order. The
   // monsters they typed in stay: the fight still contains them, and somebody
   // else is tracking them now.
@@ -385,6 +364,48 @@ describe("roster changes", () => {
   it("releases the seat even for a client that owned no participants", () => {
     const held = { ...party(), dmClientId: "client-z" };
     expect(withoutClient(held, "client-z").dmClientId).toBeUndefined();
+  });
+
+  // The clear has to move the seat's own lane, not just the document revision.
+  // Otherwise a peer that missed the LEAVE while briefly offline — and edited
+  // enough meanwhile to win the document race on its way back — ties the seat
+  // lane with its stale copy and reseats a DM who already left, for everyone.
+  it("clears the seat on its own lane, so a stale-but-ahead copy can't reseat the leaver", () => {
+    const held = { ...party(), dmClientId: "client-b", seatRev: 3 };
+    const cleared = withoutClient(held, "client-b");
+    expect(cleared.seatRev).toBe(4);
+
+    // The peer that never heard the LEAVE: same seat, same seatRev, but far
+    // enough ahead on the document lane to become the merge's base.
+    let stale: Encounter = held;
+    stale = bumpRevision(stale, "client-c");
+    stale = bumpRevision(stale, "client-c");
+    const merged = mergeEncounter(
+      bumpRevision(cleared, "client-a"),
+      stale,
+      ALICE_CHAR,
+      "client-a",
+    );
+    expect(merged.dmClientId).toBeUndefined();
+  });
+
+  // Same rule for the ownership revert: a borrowed sheet going back to the DM
+  // moves `ownerClientId`, which is the identity lane's field.
+  it("reverts a borrowed sheet on the identity lane", () => {
+    const withOffer = {
+      ...party(),
+      dmClientId: "client-a",
+    };
+    const offered = {
+      ...withOffer,
+      participants: withOffer.participants.map((p) =>
+        p.id === "self:bob" ? { ...p, claimable: true, identityRev: 2 } : p,
+      ),
+    };
+    const after = withoutClient(offered, "client-b");
+    const bob = after.participants.find((p) => p.id === "self:bob");
+    expect(bob?.ownerClientId).toBe("client-a");
+    expect(bob?.identityRev).toBe(3);
   });
 });
 

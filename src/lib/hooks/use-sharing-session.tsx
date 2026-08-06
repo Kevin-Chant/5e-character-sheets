@@ -300,8 +300,9 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       name: string,
       opts?: { create?: boolean },
     ) => Promise<{ ok: boolean }>;
-    register: (procedure: string, handler: () => unknown) => unknown;
+    register: (procedure: string, handler: () => unknown) => Promise<unknown>;
     call: (procedure: string, args?: unknown[]) => Promise<unknown>;
+    close: () => void;
   }>();
 
   const reconnect = useCallback(async () => {
@@ -324,11 +325,22 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       if (!result?.ok) continue;
       if (was.role === "host") {
         // Registrations die with the session that made them, so the thing
-        // joiners depend on has to be put back.
-        realmRef.current?.register(SessionEvent.FULL_SYNC, () => {
-          const open = bindingsRef.current.getCharacter();
-          return open?.uuid === activeRef.current?.uuid ? open : undefined;
-        });
+        // joiners depend on has to be put back. **And checked**: the broker
+        // rejects a name another session still holds — its cleanup of our old
+        // registration can lag the reconnect, and a sibling tab may hold it
+        // outright. A host that isn't serving `FULL_SYNC` isn't back, whatever
+        // its socket says, so a rejection spends this attempt and the ladder
+        // continues into the window where the stale registration has been
+        // freed.
+        try {
+          await realmRef.current?.register(SessionEvent.FULL_SYNC, () => {
+            const open = bindingsRef.current.getCharacter();
+            return open?.uuid === activeRef.current?.uuid ? open : undefined;
+          });
+        } catch {
+          realmRef.current?.close();
+          continue;
+        }
       } else {
         // Whatever the host changed while we were away. Our own queued edits
         // were flushed by `connect` before this call went out, so what comes
@@ -442,6 +454,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     connect: realm.connect,
     register: realm.register,
     call: realm.call,
+    close: realm.close,
   };
 
   const publish = realm.publish as (message: SharingMessage) => void;
@@ -532,13 +545,27 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     // shared character is the open one. The old layer served whatever sheet
     // happened to be open, which handed a joiner the wrong character the
     // moment the host switched; no answer is the honest failure.
-    realm.register(SessionEvent.FULL_SYNC, () => {
-      const open = bindingsRef.current.getCharacter();
-      return open?.uuid === activeRef.current?.uuid ? open : undefined;
-    });
+    //
+    // The registration is awaited and its failure ends the attempt: the broker
+    // rejects a procedure another session already holds, which is what a
+    // second tab hosting the same character hits. Pressing on regardless made
+    // that tab a zombie host — connected, presence-visible, and unable to
+    // answer the one call joiners bootstrap through. Staying solo is honest
+    // (and cheap: sibling tabs converge over tab-sync either way).
+    try {
+      await realm.register(SessionEvent.FULL_SYNC, () => {
+        const open = bindingsRef.current.getCharacter();
+        return open?.uuid === activeRef.current?.uuid ? open : undefined;
+      });
+    } catch {
+      realm.close();
+      throw new Error(
+        "This character is already being shared from another tab or window.",
+      );
+    }
     activeRef.current = { uuid, role: "host" };
     setActive(activeRef.current);
-  }, [realm.connect, realm.register, quietClose]);
+  }, [realm.connect, realm.register, realm.close, quietClose]);
 
   // Joiner: connect to a friend's realm. The sheet itself is pulled separately
   // (`fetchRemoteCharacter`) so the Drive bootstrap can decide what to do with

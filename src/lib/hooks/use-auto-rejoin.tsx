@@ -89,21 +89,34 @@ export function useAutoRejoin(): AutoRejoin {
   // failed in a lift should not then sit out a minute of backoff on the
   // pavement. Both events reset the schedule rather than connecting directly,
   // so there is still exactly one place that connects.
+  //
+  // **But a wake never revives a search that gave up.** The cap exists so a
+  // table that has genuinely ended stops being knocked on — and a phone in a
+  // pocket fires these events all night (screen wakes, wifi handovers, the OS
+  // thawing the tab), each of which used to restart the ladder from the fast
+  // end. Past the cap, trying again is the button's job: a decision, not a
+  // reflex.
+  const attemptsRef = useRef(attempts);
+  attemptsRef.current = attempts;
+  const wakeRetry = useCallback(() => {
+    if (attemptsRef.current >= MAX_REJOIN_ATTEMPTS) return;
+    setAttempts(0);
+  }, []);
   useEffect(() => {
     const wake = () => {
-      if (document.visibilityState === "visible") retry();
+      if (document.visibilityState === "visible") wakeRetry();
     };
     document.addEventListener("visibilitychange", wake);
-    window.addEventListener("online", retry);
+    window.addEventListener("online", wakeRetry);
     // Restoring a frozen page fires this and *not* visibilitychange, which is
     // precisely the Android case: the tab was never hidden, it was suspended.
-    window.addEventListener("pageshow", retry);
+    window.addEventListener("pageshow", wakeRetry);
     return () => {
       document.removeEventListener("visibilitychange", wake);
-      window.removeEventListener("online", retry);
-      window.removeEventListener("pageshow", retry);
+      window.removeEventListener("online", wakeRetry);
+      window.removeEventListener("pageshow", wakeRetry);
     };
-  }, [retry]);
+  }, [wakeRetry]);
 
   const plan = planRejoin({
     urlCode,

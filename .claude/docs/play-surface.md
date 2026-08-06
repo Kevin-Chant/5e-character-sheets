@@ -594,6 +594,12 @@ stays an exception by construction rather than by discipline:
   accepting runs the ordinary claim flow below. That shape keeps consent
   two-sided (a sheet never hijacks a screen), reuses the claim machinery
   end-to-end, and makes a ghost target harmless — no reply, the offer stands.
+  The owner answers each offer **at most once** (a synchronous ref in
+  `onClaimSheet`, because two claims in one round-trip window both read the
+  pre-claim state and both used to be sent the sheet — after which two
+  browsers fought over one participant row). Re-offering or re-assigning the
+  sheet is what re-arms it, which is also the DM's answer to a claimant who
+  vanished before opening.
 - **Presence is what the DM points at** (`PRESENCE` topic; pure roster helpers
   `withPresence`/`withoutPresence` in `session.ts`). Each client announces
   `{clientId, displayName}` on connect, on a heartbeat and in reply to every
@@ -1098,6 +1104,10 @@ wiring. Three answers:
 Retries back off (`REJOIN_BACKOFF_MS`, capped at `MAX_REJOIN_ATTEMPTS`) and
 reset immediately on `visibilitychange`, `online` and `pageshow` — `pageshow`
 being the Android case specifically, since a _frozen_ tab was never hidden.
+A wake never revives a search that already gave up, though: a phone in a
+pocket fires these events all night, and each used to restart the ladder
+against a table that had genuinely ended. Past the cap, only the manual
+button retries.
 Three things are easy to get wrong here and are each pinned by a comment:
 
 - **The redirect guard is `atTable`, not `rejoining`.** Every attempt passes

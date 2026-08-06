@@ -722,23 +722,6 @@ function sameVitals(
   );
 }
 
-// Merge a newcomer's participants into the state we already have, without
-// letting their empty encounter clobber a fight in progress. Used when a client
-// joins: they announce themselves, we reply with the state, and their own
-// participant has to survive the reply that overwrites them.
-export function withParticipants(
-  encounter: Encounter,
-  incoming: Participant[],
-): Encounter {
-  const known = new Set(encounter.participants.map((p) => p.id));
-  const additions = incoming.filter((p) => !known.has(p.id));
-  if (additions.length === 0) return encounter;
-  return {
-    ...encounter,
-    participants: [...encounter.participants, ...additions],
-  };
-}
-
 // Drop everyone a departing client owned. Their own character's participant
 // goes; anything they typed in by hand (monsters, absent allies) stays, because
 // the fight still contains it and someone else is now tracking it.
@@ -750,13 +733,28 @@ export function withoutClient(
   // leaving owned it only for the evening — the DM brought it, so it reverts
   // to the DM's client as a static, still-offered projection, ready for the
   // next pickup. Everything the leaver actually owned goes with them.
+  //
+  // The revert moves `ownerClientId`, which is the identity lane's field, so
+  // the lane's counter moves with it — the take-it-whole rule at the top of
+  // this file, and not a formality: a peer who missed the LEAVE while briefly
+  // disconnected, and edited enough to win the document race on its way back,
+  // would otherwise tie this lane and hand the sheet back to a client that
+  // already left. Every connected client runs this on the same LEAVE from the
+  // same state, so they all land on the same counter and the tie is between
+  // identical values.
   const dm = encounter.dmClientId;
   let changed = false;
   const participants = encounter.participants.flatMap((p) => {
     if (p.ownerClientId !== clientId || !p.characterUuid) return [p];
     changed = true;
     if (p.claimable && dm && dm !== clientId) {
-      return [{ ...p, ownerClientId: dm }];
+      return [
+        {
+          ...p,
+          ownerClientId: dm,
+          identityRev: (p.identityRev ?? 0) + 1,
+        },
+      ];
     }
     return [];
   });
@@ -764,6 +762,9 @@ export function withoutClient(
   // the controls aren't locked to a client that has left the realm, while
   // `dmToken` stays so the same browser reclaims on the way back in. Giving it
   // up for good is `releaseDmSeat`, which is a decision, not a disconnection.
+  // `seatRev` moves with the clear for the same reason `identityRev` does
+  // above — an un-bumped clear re-loses to a stale copy that still shows the
+  // departed DM seated.
   const heldSeat = encounter.dmClientId === clientId;
   if (!changed && !heldSeat) {
     return encounter;
@@ -776,7 +777,9 @@ export function withoutClient(
     ...encounter,
     participants,
     turnIndex,
-    dmClientId: heldSeat ? undefined : encounter.dmClientId,
+    ...(heldSeat
+      ? { dmClientId: undefined, seatRev: (encounter.seatRev ?? 0) + 1 }
+      : {}),
   };
 }
 

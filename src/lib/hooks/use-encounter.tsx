@@ -408,6 +408,9 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const sendSheetRef = useRef<
     (toClientId: string, participantId: string, character: unknown) => void
   >(() => {});
+  // Offers this client has already answered — see `onClaimSheet`. Re-armed by
+  // re-offering, cleared with the connection.
+  const answeredClaimsRef = useRef(new Set<string>());
   const talkRef = useRef<TableTalk | undefined>();
   // Through a ref for the same reason `talkRef` is: the transport's handlers
   // are registered at creation, and the roster is built on top of the transport.
@@ -601,6 +604,15 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     // Someone asked to play an offered sheet. Only its owner answers, and only
     // if the offer stands — the claimable flag is the consent, checked at send
     // time rather than trusted from the asker.
+    //
+    // Answered at most once per offer, tracked in a ref because the check has
+    // to be synchronous: two claims landing in the same round-trip window both
+    // read the pre-claim encounter state, and both used to be sent the sheet —
+    // after which both browsers fought over the same participant row. The
+    // encounter itself can't carry the guard, because withdrawing the offer
+    // here would race the claimant's own ownership write on the identity lane.
+    // Re-offering the sheet (`setSheetOffered`) is what re-arms it — the DM's
+    // answer to a claimant who vanished before opening.
     onClaimSheet: (participantId, fromClientId) => {
       const current = encounterRef.current;
       const offered = current.participants.find(
@@ -611,10 +623,12 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
           p.characterUuid,
       );
       if (!offered) return;
+      if (answeredClaimsRef.current.has(participantId)) return;
       const sheet = storedCharactersRef.current.find(
         (c) => c.uuid === offered.characterUuid,
       );
       if (!sheet) return;
+      answeredClaimsRef.current.add(participantId);
       sendSheetRef.current(fromClientId, participantId, sheet);
     },
     // A sheet arrived for us — everyone in the realm sees it, and the envelope
@@ -813,6 +827,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     setPendingAssignmentId(undefined);
     setCustomName(undefined);
     setInitiativeCalled(false);
+    answeredClaimsRef.current.clear();
     talk.reset();
   }, [disconnected]);
 
@@ -832,6 +847,13 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const prevHpRef = useRef<{ uuid?: UUID; currHp?: number; tempHp?: number }>(
     {},
   );
+  // The prompt names a spell the open character was holding when the damage
+  // landed. Closing that character, or switching to another, makes it a
+  // sentence about somebody else's sheet — it goes with the character it
+  // described.
+  useEffect(() => {
+    setConcentrationCheck(undefined);
+  }, [character?.uuid]);
   useEffect(() => {
     const prev = prevHpRef.current;
     prevHpRef.current = {
@@ -1015,8 +1037,13 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         setLastSession(undefined);
         session.leave();
       },
-      setSheetOffered: (id, claimable) =>
-        update((current) => offerSheet(current, id, claimable)),
+      setSheetOffered: (id, claimable) => {
+        // Re-offering re-arms the one-answer-per-offer guard in
+        // `onClaimSheet`, so a sheet whose claimant never opened it can be
+        // offered again.
+        if (claimable) answeredClaimsRef.current.delete(id);
+        update((current) => offerSheet(current, id, claimable));
+      },
       claimables: claimableSheets(encounter, clientId),
       present,
       quietClients,
@@ -1024,6 +1051,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       // consents to travel (checked at send time by the owner), so a ghost
       // target costs nothing — no reply, and the offer stands for pickup.
       assignSheetTo: (participantId, toClientId) => {
+        answeredClaimsRef.current.delete(participantId);
         update((current) => offerSheet(current, participantId, true));
         session.assignSheet(toClientId, participantId);
       },

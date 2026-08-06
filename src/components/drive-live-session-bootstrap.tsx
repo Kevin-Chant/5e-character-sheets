@@ -92,6 +92,17 @@ export default function DriveLiveSessionBootstrap() {
       if (cancelled) return;
       try {
         await joinSession(uuid);
+        // The join can resolve *after* this effect was torn down (character
+        // switched mid-flight) — at which point it has just claimed the
+        // one-session-at-a-time slot for a character no longer on screen.
+        // The cleanup below already ran and found nothing to disconnect, so
+        // this is the only hand left holding the orphan. `getRole` scopes the
+        // check to our uuid: a session the user opened meanwhile answers
+        // `undefined` here and is left alone.
+        if (cancelled) {
+          if (getRole(uuid) === "remote") disconnect();
+          return;
+        }
         await applyJoined();
       } catch {
         // Owner isn't online yet (realm not open) — retry quietly.

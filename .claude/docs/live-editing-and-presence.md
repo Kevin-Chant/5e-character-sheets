@@ -38,7 +38,15 @@ API stays uuid-keyed (`getRole(uuid)`, `broadcast(uuid, …)`); a uuid that isn'
 the active session's answers "no session", which is also the guard that stops
 an edit to some other open sheet travelling into the shared one's realm.
 `FULL_SYNC` now serves the character only while it is both open _and_ the
-shared one — no answer is the honest failure otherwise.
+shared one — no answer is the honest failure otherwise. The registration is
+**awaited, and its failure ends the hosting attempt**: the broker rejects a
+procedure another session already holds, which is what a second tab hosting
+the same character hits. Pressing on regardless made that tab a zombie host —
+connected and presence-visible, but unable to answer the one call joiners
+bootstrap through, forever. Failing means staying honestly solo (sibling tabs
+converge over `tab-sync.ts` anyway); on a host _reconnect_ the same rejection
+spends that ladder attempt instead, buying time for the broker to free the
+dead session's registration.
 
 Because the character (and its `dispatch`) live in `CharacterContext`, which
 mounts _below_ this provider, the role hooks (`useHostSharingSession`,
