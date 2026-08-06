@@ -19,6 +19,7 @@ import { missingProvider } from "src/lib/missing-provider";
 import { isDriveAuthError } from "src/lib/google-auth";
 import { writeLastCharacter } from "src/lib/last-character";
 import { readLastDatastore } from "src/lib/last-datastore";
+import { publishTabEdit, subscribeTabEdits } from "src/lib/tab-sync";
 
 // One reversible edit: the action applied and the action that undoes it.
 type HistoryEntry = { action: Action; inverse: Action };
@@ -260,12 +261,69 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       }
       editSeq.current++;
       dispatch(action);
-      setUnsavedChanges(isDirty);
+      // Dirty only ever *rises* here: a non-dirty dispatch landing while edits
+      // are unsaved (a cross-tab apply, a remote echo) must not clear the flag
+      // — only a completed save may, or closing the character context, which
+      // retires the flag with the sheet it described.
+      if (
+        action.type === "load_character" ||
+        action.type === "reset_character"
+      ) {
+        setUnsavedChanges(false);
+      } else if (isDirty) {
+        setUnsavedChanges(true);
+      }
       if (characterRef.current && !suppressBroadcast) {
         broadcast(characterRef.current.uuid, action, isDirty);
+        // The same edit, for this browser's other tabs. Only genuine edits
+        // travel: loads and resets are tab-local navigation, and the uuid here
+        // is the pre-dispatch character's, which a load has already left.
+        if (
+          action.type !== "load_character" &&
+          action.type !== "reset_character"
+        ) {
+          publishTabEdit({
+            uuid: characterRef.current.uuid,
+            action,
+            dirtyAction: isDirty,
+            origin: "local",
+          });
+        }
       }
     },
     [broadcast],
+  );
+
+  // Edits arriving from this browser's other tabs. Applied like a remote edit
+  // (no re-publish, no undo entry) and **not dirty** — the tab the edit was
+  // made in owns the write to storage, and marking it dirty here would race
+  // two tabs' autosaves against each other over the same file. The next local
+  // edit in this tab saves the whole character, sibling edits included.
+  //
+  // A `"local"`-origin message is forwarded into this tab's sharing session,
+  // if one is open for that character: that's what lets an edit made in a
+  // session-less sibling tab still reach remote peers. `"remote"`-origin
+  // messages are applied and go no further — see `tab-sync.ts` for the loop
+  // argument.
+  const dispatchAndBroadcastRef = useRef(dispatchAndBroadcast);
+  dispatchAndBroadcastRef.current = dispatchAndBroadcast;
+  const broadcastRef = useRef(broadcast);
+  broadcastRef.current = broadcast;
+  useEffect(
+    () =>
+      subscribeTabEdits((message) => {
+        const open = characterRef.current;
+        if (!open || open.uuid !== message.uuid) return;
+        dispatchAndBroadcastRef.current(message.action, false, true, false);
+        if (message.origin === "local") {
+          broadcastRef.current(
+            message.uuid,
+            message.action,
+            message.dirtyAction,
+          );
+        }
+      }),
+    [],
   );
 
   // Undo/redo replay a recorded action (broadcasting to peers) without

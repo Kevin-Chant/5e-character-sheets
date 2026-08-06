@@ -18,6 +18,7 @@ import { useRealm } from "src/lib/realm/use-realm";
 import { usePresence } from "src/lib/realm/use-presence";
 import { PresenceEntry } from "src/lib/realm/presence";
 import { realmForCharacter } from "src/lib/session-codes";
+import { publishTabEdit } from "src/lib/tab-sync";
 
 // Character co-editing: one shared sheet, several browsers, over a realm named
 // for the character's uuid.
@@ -381,9 +382,22 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     onMessage: (raw) => {
       const message = raw as SharingMessage;
       switch (message.kind) {
-        case "dispatch":
+        case "dispatch": {
           applyRemoteEdit(bindingsRef.current.dispatch, message);
+          // A peer's edit is news to this browser's other tabs too. Tagged
+          // `"remote"` so no sibling forwards it back into the realm it just
+          // came from — see `tab-sync.ts`.
+          const uuid = activeRef.current?.uuid;
+          if (uuid) {
+            publishTabEdit({
+              uuid,
+              action: message.action,
+              dirtyAction: message.dirtyAction,
+              origin: "remote",
+            });
+          }
           return;
+        }
         case "closeSession":
           // The host is closing the realm on purpose. Beat the socket's own
           // death to the cleanup so the alert says "ended", once.

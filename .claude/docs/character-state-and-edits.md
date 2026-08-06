@@ -14,7 +14,9 @@ deliberately tiny: it `structuredClone`s the character and hands off to
 `setFieldValue(path, clone, value)` (`src/lib/fields.ts`), which walks the
 dotted path (`"attacks.0.formula"`) and writes the leaf. The only other actions
 are `load_character` (replace wholesale) and `reset_character` (clear to
-`undefined`).
+`undefined`). Loads and `replace_character` deep-copy their payload too — it is
+routinely an entry in a datastore cache, and a shallow copy would leave every
+nested object shared with that cache.
 
 The load-bearing decision here: **an `update_*` action carries the field's
 _entire_ new value, not a delta.** That single property is what makes two
@@ -38,19 +40,38 @@ three concerns on top of the raw reducer dispatch, gated by flags:
 
 - **Dirty tracking** — sets `unsavedChanges`, which drives debounced autosave,
   the tab-title dot, and the before-unload guard. `load_character` is never
-  dirty (opening a saved sheet must not mark it unsaved).
+  dirty (opening a saved sheet must not mark it unsaved). The flag only ever
+  _rises_ on a dispatch: a non-dirty action landing while edits are unsaved (a
+  cross-tab apply, a remote echo) must not clear it — only a completed save
+  does, or a load/reset closing the character it described.
 - **Undo history** — records `{action, inverse}` onto a per-tab `past` stack for
   genuine local edits only. Remote echoes and undo/redo replays are excluded via
   the `suppressBroadcast` / `record` flags.
 - **Broadcast** — publishes the action to any open sharing session for this
-  character.
+  character, and to this browser's _other tabs_ over a `BroadcastChannel`
+  (`src/lib/tab-sync.ts`).
 
 The flag surface (`dirtyAction`, `suppressBroadcast`, `record`) exists so the
-three edit _sources_ reuse one path without feeding each other loops: a **local
+four edit _sources_ reuse one path without feeding each other loops: a **local
 edit** does all three; an **undo/redo** replays and broadcasts but doesn't
 re-record; a **remote edit** is applied with `suppressBroadcast` so it isn't
-re-published back to the sender. Undo/redo history is intentionally per-tab and
-local — it undoes _your_ edits, not a peer's.
+re-published back to the sender; a **sibling-tab edit** is applied the same way
+and not marked dirty (the originating tab owns the write to storage, so two
+tabs' autosaves don't race over one file). Undo/redo history is intentionally
+per-tab and local — it undoes _your_ edits, not a peer's.
+
+## Cross-tab sync rides the same replay, over a `BroadcastChannel`
+
+`src/lib/tab-sync.ts` is a module-singleton channel carrying the same dispatch
+messages the WAMP layer carries, so two tabs of one browser with the same
+character open converge instantly whatever the storage backend — there is no
+other cross-tab path (both datastores cache and never re-read). The loop rule
+is the message's `origin` tag: a `"local"` edit is applied by every sibling and
+_forwarded_ into a sibling's open sharing session (an edit made in the tab
+without the session still reaches remote peers); a `"remote"` edit — one that
+arrived over WAMP, republished to siblings in `use-sharing-session.tsx` — is
+applied and goes no further. Duplicate delivery is routine (two tabs can share
+both the channel and a realm) and harmless, because actions carry whole values.
 
 ## Whole-character writes don't block their UI
 
