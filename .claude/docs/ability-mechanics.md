@@ -382,6 +382,15 @@ Two-pass contract in `resolve.ts`, and the reason for it:
   dispatches — so every mechanic syncs and undoes exactly like a manual edit.
   Effects in one action compose against each other (Font of Magic's
   expend+restore touch the same pool coherently).
+- **Real dice go through the same interpreter.** Under the roll-mode toggle
+  (see [`rolling.md`](./rolling.md)) `ActionRow` doesn't resolve on click:
+  `manualRollAsks(effects, ctx)` lists the dice-deciding amounts in resolver
+  order, the row collects a typed total per ask ("Total rolled, modifiers
+  included"), and only then runs `resolveEffects` with `ctx.manualTotals` —
+  which consumes the entered totals in place of rolling, floors them at 0,
+  and still emits the display rolls (reported to the table with `manual`).
+  Nothing is spent until the last total lands, and changing a level/amount
+  pick cancels a half-finished entry.
 
 `AmountExpr` covers the shapes 5e actually uses: `fixed` formula (+
 `plusLevelOf`/`levelMultiplier` for class-level references, since catalog data

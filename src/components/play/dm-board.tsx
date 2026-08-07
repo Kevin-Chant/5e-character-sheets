@@ -30,6 +30,7 @@ import {
   exchanges,
   ExchangeStage,
   formatFaces,
+  impliedModifier,
   ReportedDamage,
   RollReport,
   RollVerdict,
@@ -742,9 +743,25 @@ function CheckRuling({
 // resistance, save DCs and once-per-turn riders from memory.
 function RollDetail({ roll }: { roll: RollReport }) {
   const faces = formatFaces(roll);
+  const modifier = impliedModifier(roll);
   return (
     <span className="dm-stage-detail text-muted">
       {faces && <span>{faces}</span>}
+      {/* The add-ons, called out: the flat modifier the total implies, then
+          each bonus die by source — so "18" reads as "d20 14, +3, +1 Bless"
+          rather than a number the seat has to take whole. */}
+      {modifier !== undefined && (
+        <span>
+          {modifier > 0 ? "+" : ""}
+          {modifier} modifier
+        </span>
+      )}
+      {roll.bonuses?.map((b) => (
+        <span key={b.source}>
+          +{b.total} — {b.source}
+          {b.dice?.length ? ` (${b.dice.join(", ")})` : ""}
+        </span>
+      ))}
       {roll.critical && <span className="dm-stage-chip crit">crit</span>}
       {roll.fumble && <span className="dm-stage-chip">nat 1</span>}
       {roll.crit && <span className="dm-stage-chip crit">critical damage</span>}

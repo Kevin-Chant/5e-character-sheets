@@ -61,6 +61,14 @@ export interface ReportedDamage {
   source?: string;
 }
 
+// One named add-on rolled alongside a d20 — a rider's bonus die, with the
+// faces behind it so "+5 — Bless (d4: 4, 1)" reads as the dice it was.
+export interface ReportedBonus {
+  source: string;
+  total: number;
+  dice?: number[];
+}
+
 export interface RollReport {
   reportId: string;
   // Shared by every roll of one act. See the note above.
@@ -96,6 +104,12 @@ export interface RollReport {
   mode?: CheckMode;
   critical?: boolean;
   fumble?: boolean;
+  // Bonus dice riding the d20 (Bless's d4), itemised by source — the add-on
+  // the seat can't reconstruct from the total. Flat modifiers deliberately
+  // aren't carried: whatever separates the total from the kept face and these
+  // bonuses *is* the modifier (see `impliedModifier`), so the parts always
+  // add up to the total shown.
+  bonuses?: ReportedBonus[];
 
   // --- damage / healing detail ---
   parts?: ReportedDamage[];
@@ -276,4 +290,15 @@ export function formatFaces(report: RollReport): string | undefined {
         : "";
   if (report.faces.length === 1) return `d20 ${report.faces[0]}`;
   return `d20 ${prefix}${report.faces.join(", ")} → ${report.kept}`;
+}
+
+// The flat modifier a d20 report implies: whatever separates the total from
+// the kept face and the itemised bonus dice. Derived rather than carried, so
+// the parts always add up to the total shown. Undefined when there's no d20
+// detail or nothing was added.
+export function impliedModifier(report: RollReport): number | undefined {
+  if (report.kept === undefined) return undefined;
+  const bonuses = (report.bonuses ?? []).reduce((sum, b) => sum + b.total, 0);
+  const mod = report.total - report.kept - bonuses;
+  return mod === 0 ? undefined : mod;
 }

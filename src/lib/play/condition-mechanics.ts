@@ -40,8 +40,9 @@ export interface ConditionMechanics {
   riders?: FeatureRider[];
   // What it does to rolls aimed *at* the bearer (Hex's d6, Faerie Fire's
   // advantage). Consumed by the dialog when the roll's chosen target bears
-  // the condition — which is why marks only work at a table: the condition
-  // lives on an encounter row, and solo there is no row to bear it.
+  // the condition — which lives on an encounter row: placed over the wire at
+  // a table, or by hand from the condition adder's "Spells & effects" group
+  // (which is the whole solo path).
   against?: TargetedRider[];
   // One line for banners and the DM board: what accepting this means.
   summary?: string;
@@ -449,6 +450,18 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
         appliesTo: ["attack"],
         rider: { rider: "bonus", value: 1 },
       },
+      {
+        // No damageType: the type is chosen at cast and the wire only
+        // carries the condition's name — same shape as Absorb Elements.
+        appliesTo: ["damage"],
+        rider: {
+          rider: "extraDamage",
+          amount: [1, StandardDie.d4, DieOperation.roll],
+          declareAt: "on-hit",
+          optional: true,
+          note: "the enchanted weapon only; the damage type chosen at cast",
+        },
+      },
     ],
   },
   "Encased in Ice": {
@@ -550,6 +563,19 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   },
   "Flame Arrows": {
     summary: "Touched ammunition deals an extra 1d6 fire damage on a hit.",
+    riders: [
+      {
+        appliesTo: ["damage"],
+        rider: {
+          rider: "extraDamage",
+          amount: [1, StandardDie.d6, DieOperation.roll],
+          damageType: DamageType.Fire,
+          declareAt: "on-hit",
+          optional: true,
+          note: "ranged attacks using the touched ammunition",
+        },
+      },
+    ],
   },
   "Flame Blade": {
     summary:
@@ -1378,6 +1404,23 @@ export function ridersAgainst(
       .map((r) => ({ source: c.name, rider: r.rider }));
   });
 }
+
+// Catalog entries whose mechanics are actually wired to rolls — riders on
+// the bearer (Zephyr Strike's d8, Divine Favor's d4) or marks paid by
+// attackers (Hex, Hunter's Mark). Offered by the manual condition adder so a
+// buff can land on a row *by hand*: the consent pipeline that normally
+// delivers these only runs at a table with a separate DM client, which left
+// solo play — and a caster who runs their own table — with no way to make an
+// active spell reach their own attack rolls.
+export const WIRED_CONDITION_NAMES: string[] = Object.entries(
+  CONDITION_MECHANICS,
+)
+  .filter(
+    ([, entry]) =>
+      (entry.riders?.length ?? 0) > 0 || (entry.against?.length ?? 0) > 0,
+  )
+  .map(([name]) => name)
+  .sort((a, b) => a.localeCompare(b));
 
 // The one-line meaning of a condition, for banners and the seat's queue.
 export function conditionSummary(name: ConditionName): string | undefined {

@@ -189,7 +189,16 @@ the panels are only layout:
 - `conditions-control.tsx` — chips plus the adder. The duration lives **on the
   chip**, not in the adder, so adding is one act and "for how long" is a
   separate thought answered on the thing it describes. That's also what makes a
-  running duration correctable at all.
+  running duration correctable at all. The adder offers two groups: the
+  fourteen standard conditions, and **"Spells & effects"** — the
+  `CONDITION_MECHANICS` entries whose riders are actually wired
+  (`WIRED_CONDITION_NAMES`: Zephyr Strike's d8, Divine Favor's d4, Hex). The
+  second group exists because the consent pipeline that normally delivers
+  these (`sendReport` → offer → apply) only runs at a table with a separate
+  DM client — solo, or as the caster-DM, "I cast Zephyr Strike" had no way
+  onto your own row and its rider no way into your rolls. A hand-placed
+  effect on someone _else's_ row stamps `from` with your own participant id,
+  so caster-only marks (Hex, Hunter's Mark) still pay out on provenance.
 - `concentration-cell.tsx` — the input, the drop button, and the optional
   Kept/Broke swap when a check is pending.
 
@@ -829,7 +838,10 @@ rail's self-roll button) and prompts every player. The prompt follows the
 roll-mode toggle (see `rolling.md`): app mode is one click with the sheet's
 own modifier; real-dice mode asks for the d20's face and adds the modifier
 itself, the same ask as every other manual d20. Either writes the
-row directly; "Not now" dismisses. The prompt clears when combat starts or
+row directly — and either also reports itself to the seat (a `roll`-stage
+report labelled "Initiative", faces and typed-or-rolled flag included), as
+does the rail's self-roll die button: the roster's number alone couldn't say
+what the d20 showed or what was added to it. "Not now" dismisses. The prompt clears when combat starts or
 the connection drops. In real-dice mode the rail's self-roll die button
 also disappears — the stepper beside it is the entry.
 
@@ -872,7 +884,11 @@ to rule on them. The order is now **target first, then dice**:
   `critical`/`fumble`, damage itemised by type _and by rider source_
   (resistance is a ruling, and a second Sneak Attack in one round should be
   visible), the save `dc`, and `manual` — whether the number was generated or
-  typed from real dice. All of that used to stay on the roller's screen.
+  typed from real dice. Bonus dice riding a d20 (Bless's d4) cross itemised by
+  source (`bonuses`), and the flat modifier is _derived_ on the board
+  (`impliedModifier`: total − kept − bonuses, so the parts always add up) —
+  the seat reads "d20 14, +3 modifier, +4 — Bless (4)" rather than a bare
+  total. All of that used to stay on the roller's screen.
 - **Re-rolls are numbered, never blocked** (`attempt`). Click Roll having
   forgotten your advantage and you just roll again; the card says
   "re-rolled ×1 — was 8". A roll made _before_ a target is named is **held and
@@ -982,9 +998,10 @@ to rule on them. The order is now **target first, then dice**:
   ride the same channel as advisory `advantage`-notes, so "your attack has
   disadvantage" appears on exactly the roll it concerns. The same target read surfaces
   `CONDITION_TARGET_EFFECTS` advisory notes — attacking someone Prone or
-  Restrained is the advantage a table most often forgets. Marks are a table
-  feature by construction: the condition lives on an encounter row, so solo
-  there is no row to bear it.
+  Restrained is the advantage a table most often forgets. Marks live on
+  encounter rows; at a table they arrive over the wire, and solo they can be
+  placed by hand from the condition adder's "Spells & effects" group onto any
+  local row (a hand-typed goblin bears a Hunter's Mark just fine).
 
 **What deliberately does not cross the wire.** Two boundaries hold by design,
 not omission — changing either is a product decision, not a gap fix:

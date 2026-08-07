@@ -16,6 +16,8 @@ import { calculateCustomFormula } from "src/lib/formula";
 import { getOptionalInitializer } from "src/lib/rules";
 import { rollD20Check } from "src/lib/roll";
 import { useRollMode } from "src/lib/hooks/use-roll-mode";
+import { useTableTalk } from "src/lib/hooks/use-table-talk";
+import { randomUUID } from "src/lib/browser";
 import StepperInput from "src/components/stepper-input";
 
 // The order, the round, and the button that moves the fight along.
@@ -56,6 +58,7 @@ export default function InitiativeRail({
     sessionStatus,
   } = useEncounter();
   const { rollMode } = useRollMode();
+  const { sendReport } = useTableTalk();
   // Shared with the player's "End turn": both move the same fight, and the
   // receipt below reports whichever boundary happened last.
   const { receipt, beginCombat, advance, stopCombat } = useTurnFlow();
@@ -193,12 +196,22 @@ export default function InitiativeRail({
                         className="icon-btn roll-btn"
                         aria-label="Roll initiative"
                         title={`Roll initiative (${initiativeModifier >= 0 ? "+" : ""}${initiativeModifier})`}
-                        onClick={() =>
-                          setCombatantInitiative(
-                            participant.id,
-                            rollD20Check(initiativeModifier).total,
-                          )
-                        }
+                        onClick={() => {
+                          const rolled = rollD20Check(initiativeModifier);
+                          setCombatantInitiative(participant.id, rolled.total);
+                          // The number lands on the roster either way; this is
+                          // the roll behind it reaching the seat with its
+                          // modifier visible (a no-op away from a table).
+                          sendReport({
+                            exchangeId: randomUUID(),
+                            stage: "roll",
+                            attempt: 1,
+                            label: "Initiative",
+                            total: rolled.total,
+                            faces: rolled.dice,
+                            kept: rolled.kept,
+                          });
+                        }}
                       >
                         <FaDiceD20 />
                       </button>

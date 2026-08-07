@@ -1,6 +1,10 @@
 import classNames from "classnames";
 import { FaXmark } from "react-icons/fa6";
 import { useEncounter } from "src/lib/hooks/use-encounter";
+import {
+  conditionSummary,
+  WIRED_CONDITION_NAMES,
+} from "src/lib/play/condition-mechanics";
 import { CONDITION_NAMES } from "src/lib/play/conditions";
 import { ActiveCondition, Participant } from "src/lib/play/encounter";
 import RevealNumber from "./reveal-number";
@@ -26,9 +30,17 @@ export default function ConditionsControl({
 }: {
   participant: Participant;
 }) {
-  const { giveCondition } = useEncounter();
+  const { giveCondition, self } = useEncounter();
   const held = new Set(participant.conditions.map((c) => c.name));
   const available = CONDITION_NAMES.filter((name) => !held.has(name));
+  // The wired spell/effect buffs and marks, offered by hand because the
+  // consent pipeline that normally delivers them needs a table with a
+  // separate DM — solo, "I cast Zephyr Strike" had no way onto your own row,
+  // and its rider no way into your rolls.
+  const standard: readonly string[] = CONDITION_NAMES;
+  const effects = WIRED_CONDITION_NAMES.filter(
+    (name) => !held.has(name) && !standard.includes(name),
+  );
 
   return (
     <>
@@ -39,7 +51,7 @@ export default function ConditionsControl({
           condition={condition}
         />
       ))}
-      {available.length > 0 && (
+      {available.length + effects.length > 0 && (
         <select
           className="condition-adder"
           aria-label={`Give ${participant.name} a condition`}
@@ -48,16 +60,36 @@ export default function ConditionsControl({
             if (!e.target.value) return;
             // Indefinite, which is what most of them are — a duration is the
             // exception, so it's opt-in on the chip rather than a field you
-            // have to clear.
-            giveCondition(participant.id, { name: e.target.value });
+            // have to clear. A hand-placed spell effect on someone *else's*
+            // row carries who placed it, because caster-only marks (Hex,
+            // Hunter's Mark) pay out on provenance.
+            const stampFrom =
+              effects.includes(e.target.value) &&
+              self &&
+              self.id !== participant.id;
+            giveCondition(participant.id, {
+              name: e.target.value,
+              ...(stampFrom ? { from: self.id } : {}),
+            });
           }}
         >
           <option value="">+ condition</option>
-          {available.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
+          <optgroup label="Conditions">
+            {available.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </optgroup>
+          {effects.length > 0 && (
+            <optgroup label="Spells &amp; effects">
+              {effects.map((name) => (
+                <option key={name} value={name} title={conditionSummary(name)}>
+                  {name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       )}
     </>

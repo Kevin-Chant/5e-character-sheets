@@ -3,6 +3,7 @@ import {
   conditionRiders,
   conditionSummary,
   ridersAgainst,
+  WIRED_CONDITION_NAMES,
 } from "src/lib/play/condition-mechanics";
 
 describe("condition mechanics", () => {
@@ -84,6 +85,32 @@ describe("condition mechanics", () => {
       const [rider] = ridersAgainst([{ name }], "pc:anyone", "attack");
       expect(rider.source).toBe(name);
       expect(rider.rider.rider).toBe("advantage");
+    }
+  });
+});
+
+describe("wired condition names", () => {
+  it("offers the buffs and marks with real mechanics, not prose-only entries", () => {
+    for (const name of [
+      "Zephyr Strike",
+      "Divine Favor",
+      "Elemental Weapon",
+      "Flame Arrows",
+      "Hex",
+      "Hunter's Mark",
+      "Bless",
+    ]) {
+      expect(WIRED_CONDITION_NAMES).toContain(name);
+    }
+    // Summary-only entries have nothing to wire into a roll.
+    expect(WIRED_CONDITION_NAMES).not.toContain("Aid");
+    expect(WIRED_CONDITION_NAMES).not.toContain("Hideous Laughter");
+  });
+
+  it("gives Elemental Weapon and Flame Arrows their damage dice", () => {
+    for (const name of ["Elemental Weapon", "Flame Arrows"]) {
+      const riders = conditionRiders([name], "damage");
+      expect(riders.some((r) => r.rider.rider === "extraDamage")).toBe(true);
     }
   });
 });

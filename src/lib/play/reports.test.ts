@@ -3,6 +3,7 @@ import {
   beatsAc,
   exchanges,
   formatFaces,
+  impliedModifier,
   REPORT_CAP,
   RollReport,
   withoutExchange,
@@ -153,5 +154,33 @@ describe("formatFaces", () => {
 
   it("says nothing about a typed total", () => {
     expect(formatFaces(report({ manual: true }))).toBeUndefined();
+  });
+});
+
+describe("impliedModifier", () => {
+  it("derives the flat modifier from total, kept face and bonuses", () => {
+    expect(impliedModifier(report({ total: 17, faces: [14], kept: 14 }))).toBe(
+      3,
+    );
+    expect(
+      impliedModifier(
+        report({
+          total: 21,
+          faces: [14],
+          kept: 14,
+          bonuses: [{ source: "Bless", total: 4, dice: [4] }],
+        }),
+      ),
+    ).toBe(3);
+    expect(impliedModifier(report({ total: 12, faces: [14], kept: 14 }))).toBe(
+      -2,
+    );
+  });
+
+  it("says nothing without d20 detail, or when nothing was added", () => {
+    expect(impliedModifier(report({ total: 9 }))).toBeUndefined();
+    expect(
+      impliedModifier(report({ total: 14, faces: [14], kept: 14 })),
+    ).toBeUndefined();
   });
 });

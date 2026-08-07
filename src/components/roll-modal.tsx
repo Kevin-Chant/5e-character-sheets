@@ -682,7 +682,7 @@ function VerdictLine({ exchangeId }: { exchangeId: string }) {
 // The manual half of every roll surface: real dice were rolled off-screen, and
 // this is where the result comes in. One input and a submit, because the player
 // is mid-turn with dice in one hand.
-function ManualRollInput({
+export function ManualRollInput({
   prompt,
   buttonLabel = "Enter",
   min = 1,
@@ -852,7 +852,14 @@ function CheckControls({
   onRolled?: (
     rolled: Pick<
       OutgoingRoll,
-      "total" | "faces" | "kept" | "mode" | "critical" | "fumble" | "manual"
+      | "total"
+      | "faces"
+      | "kept"
+      | "mode"
+      | "critical"
+      | "fumble"
+      | "manual"
+      | "bonuses"
     >,
   ) => void;
 }) {
@@ -912,6 +919,20 @@ function CheckControls({
   const bonusSum = (
     bonus: { source: string; die: StandardDie; rolled: number[] }[],
   ) => bonus.reduce((sum, b) => sum + b.rolled.reduce((s, v) => s + v, 0), 0);
+  // The same bonus dice, in wire shape — itemised by source so the seat reads
+  // "+5 — Bless (4, 1)" instead of an unexplained total.
+  const reportedBonuses = (
+    bonus: { source: string; die: StandardDie; rolled: number[] }[],
+  ) =>
+    bonus.length
+      ? {
+          bonuses: bonus.map((b) => ({
+            source: b.source,
+            total: b.rolled.reduce((s, v) => s + v, 0),
+            dice: b.rolled,
+          })),
+        }
+      : {};
   // Flat `bonus` riders fold into the modifier rather than the total — a d20
   // check's total can legitimately be negative, so `applyTotalRiders` (which
   // floors at 0) is the wrong tool here. Ones the weapon settles apply on their
@@ -944,6 +965,7 @@ function CheckControls({
       faces: rolled.dice,
       kept: rolled.kept,
       mode,
+      ...reportedBonuses(bonus),
       ...(isAttack
         ? { critical: rolled.kept >= threshold, fumble: rolled.kept === 1 }
         : {}),
@@ -1021,6 +1043,7 @@ function CheckControls({
               faces: [face],
               kept: face,
               manual: true,
+              ...reportedBonuses(bonus),
               ...(isAttack
                 ? { critical: face >= threshold, fumble: face === 1 }
                 : {}),

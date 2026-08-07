@@ -281,6 +281,23 @@ export function rollHitDie(character: Character, die: StandardDie): HitDieRoll {
   return { die, total, dice, healed };
 }
 
+// A hit die a physical roller resolved off-screen: the entered total (die +
+// CON, modifiers included) is the authority for the dice, but still goes
+// through the same minimum-total riders (Durable) and missing-HP clamp the
+// app roll does.
+export function manualHitDieRoll(
+  character: Character,
+  die: StandardDie,
+  total: number,
+): HitDieRoll {
+  const healing = hitDieHealing(character, total);
+  const healed = Math.min(
+    healing,
+    Math.max(0, maxHpValue(character) - character.currHp),
+  );
+  return { die, total, dice: [], healed };
+}
+
 // The writes for a rolled hit die: raise current HP and mark the die spent.
 export function applyHitDieRoll(
   character: Character,

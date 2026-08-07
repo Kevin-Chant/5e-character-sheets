@@ -26,6 +26,7 @@ import {
   checkModifier,
 } from "src/lib/play/checks";
 import { rollD20Check } from "src/lib/roll";
+import { randomUUID } from "src/lib/browser";
 import { usePlayTurn } from "src/lib/play/use-turn";
 import { TurnFlowProvider } from "src/lib/play/use-turn-flow";
 import { Character } from "src/lib/types";
@@ -372,11 +373,25 @@ function InitiativeCallPrompt({
   dismiss: () => void;
 }) {
   const { rollMode } = useRollMode();
+  const { sendReport } = useTableTalk();
   const [raw, setRaw] = useState("");
   const modifier = initiativeModifierFor(character);
   const parsed = Number(raw);
   const valid =
     raw.trim() !== "" && Number.isFinite(parsed) && parsed >= 1 && parsed <= 20;
+  // The answer the DM asked for, sent back as the roll it was — the row's
+  // number alone can't say what the d20 showed or what was added to it.
+  const reportInitiative = (face: number, total: number, manual?: true) =>
+    sendReport({
+      exchangeId: randomUUID(),
+      stage: "roll",
+      attempt: 1,
+      label: "Initiative",
+      total,
+      faces: [face],
+      kept: face,
+      ...(manual ? { manual } : {}),
+    });
   return (
     <div className="assign-prompt">
       <span>
@@ -388,7 +403,9 @@ function InitiativeCallPrompt({
           onSubmit={(e) => {
             e.preventDefault();
             if (!valid) return;
-            setCombatantInitiative(selfId, Math.floor(parsed) + modifier);
+            const face = Math.floor(parsed);
+            setCombatantInitiative(selfId, face + modifier);
+            reportInitiative(face, face + modifier, true);
             dismiss();
           }}
         >
@@ -410,7 +427,9 @@ function InitiativeCallPrompt({
           type="button"
           className="btn-primary"
           onClick={() => {
-            setCombatantInitiative(selfId, rollD20Check(modifier).total);
+            const rolled = rollD20Check(modifier);
+            setCombatantInitiative(selfId, rolled.total);
+            reportInitiative(rolled.kept, rolled.total);
             dismiss();
           }}
         >

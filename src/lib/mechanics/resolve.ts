@@ -3,6 +3,7 @@ import {
   DieOperation,
   FIELD,
   LeveledSpellLevel,
+  Operation,
 } from "src/lib/data/data-definitions";
 import { calculateCustomFormula } from "src/lib/formula";
 import { UpdateAction } from "src/lib/hooks/reducers/actions";
@@ -15,7 +16,7 @@ import {
   remainingHitDice,
   totalSpellSlots,
 } from "src/lib/rules";
-import { Character, LimitedUseAbility } from "src/lib/types";
+import { Character, CustomFormula, LimitedUseAbility } from "src/lib/types";
 import { AbilityAction, AmountExpr, Effect } from "./types";
 
 // The write-side interpreter: turns effect data into ordinary whole-value
@@ -38,6 +39,11 @@ export interface EffectContext {
   abilityIndex?: number;
   chosenLevel?: LeveledSpellLevel;
   chosenAmount?: number;
+  // A physical roller's entered totals, in `manualRollAsks` order — each is
+  // consumed in place of rolling wherever an amount's dice would otherwise
+  // decide the number. The entered total is the authority (modifiers
+  // included), so nothing is added around it.
+  manualTotals?: number[];
 }
 
 export interface ResolvedEffects {
@@ -166,12 +172,22 @@ function classLevelPart(
   );
 }
 
+// Whether resolving this amount would roll dice — and so needs a typed-in
+// total when the table is on real dice.
+function amountRollsDice(expr: AmountExpr, ctx: EffectContext): boolean {
+  if ("chosenAmountDice" in expr) return (ctx.chosenAmount ?? 0) > 0;
+  if ("fixed" in expr) return formulaHasDice(expr.fixed);
+  return false;
+}
+
 // Resolve an amount at execution time, rolling any dice.
 function rollAmount(
   expr: AmountExpr,
   ctx: EffectContext,
   dice: number[],
 ): number | undefined {
+  if (ctx.manualTotals && amountRollsDice(expr, ctx))
+    return Math.max(0, ctx.manualTotals.shift() ?? 0);
   if ("chosenAmountDice" in expr) {
     if (!ctx.chosenAmount) return 0;
     return rollFormula(
@@ -184,6 +200,49 @@ function rollAmount(
   return (
     rollFormula(expr.fixed, ctx.character, dice) + classLevelPart(expr, ctx)
   );
+}
+
+// One entry the physical roller owes before these effects can resolve: what
+// to call it and what to roll. `resolveEffects` consumes `ctx.manualTotals`
+// in exactly this order.
+export interface ManualRollAsk {
+  label: string;
+  // The whole number the entered total must cover — for a `fixed` amount with
+  // a class-level addend, the addend is folded in so the prompt shows it.
+  formula: CustomFormula;
+}
+
+export function manualRollAsks(
+  effects: Effect[],
+  ctx: EffectContext,
+): ManualRollAsk[] {
+  const asks: ManualRollAsk[] = [];
+  for (const effect of effects) {
+    if (!("amount" in effect) || !amountRollsDice(effect.amount, ctx)) continue;
+    const label =
+      effect.effect === "heal"
+        ? "Healing"
+        : effect.effect === "gainTempHp"
+          ? "Temporary HP"
+          : effect.effect === "roll"
+            ? effect.label
+            : "Amount";
+    asks.push({ label, formula: askFormula(effect.amount, ctx) });
+  }
+  return asks;
+}
+
+function askFormula(expr: AmountExpr, ctx: EffectContext): CustomFormula {
+  if ("chosenAmountDice" in expr)
+    return [
+      Math.max(1, ctx.chosenAmount ?? 1),
+      expr.chosenAmountDice,
+      DieOperation.roll,
+    ];
+  if (!("fixed" in expr)) return 0;
+  const part = classLevelPart(expr, ctx);
+  if (part === 0) return expr.fixed;
+  return { operation: Operation.addition, operands: [expr.fixed, part] };
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +342,12 @@ export function resolveEffects(
   const currentExpended = (index: number, fallback: number) =>
     expendedByIndex.get(index) ?? fallback;
 
+  // Whether dice decided this amount — rolled here, or typed in from real
+  // dice (which leaves `dice` empty but still deserves its display roll and
+  // its report to the table).
+  const diceDecided = (expr: AmountExpr, dice: number[]) =>
+    dice.length > 0 || (!!ctx.manualTotals && amountRollsDice(expr, ctx));
+
   for (const effect of effects) {
     const blocked = effectBlocked(effect, ctx);
     if (blocked)
@@ -295,7 +360,7 @@ export function resolveEffects(
           maxHpValue(character),
           character.currHp + Math.max(0, amount),
         );
-        if (dice.length > 0)
+        if (diceDecided(effect.amount, dice))
           out.rolls.push({ label: "Healing", total: amount, dice });
         out.updates.push(updateAt(charPath(FIELD.currHp), healed));
         break;
@@ -303,7 +368,7 @@ export function resolveEffects(
       case "gainTempHp": {
         const dice: number[] = [];
         const amount = rollAmount(effect.amount, ctx, dice) ?? 0;
-        if (dice.length > 0)
+        if (diceDecided(effect.amount, dice))
           out.rolls.push({ label: "Temporary HP", total: amount, dice });
         // Temp HP don't stack — only an improvement applies.
         if (amount > character.tempHp)

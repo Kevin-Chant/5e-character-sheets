@@ -8,10 +8,13 @@ import {
 import {
   abilityRemainingUses,
   actionBlocked,
+  manualRollAsks,
   resolveEffects,
   slotLevelOptions,
   EffectContext,
 } from "src/lib/mechanics/resolve";
+import { formatCustomFormula } from "src/lib/formula";
+import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import { AbilityAction, ACTION_COST_LABELS } from "src/lib/mechanics/types";
 import { useTableTalk } from "src/lib/hooks/use-table-talk";
 import { useEncounter } from "src/lib/hooks/use-encounter";
@@ -19,7 +22,11 @@ import { isFoe } from "src/lib/play/encounter";
 import { randomUUID } from "src/lib/browser";
 import { LimitedUseAbility } from "src/lib/types";
 import { ordinal } from "src/lib/utils";
-import { TargetMultiPicker, TargetPicker } from "../roll-modal";
+import {
+  ManualRollInput,
+  TargetMultiPicker,
+  TargetPicker,
+} from "../roll-modal";
 import StepperInput from "../stepper-input";
 
 // Play-mode action rows for limited-use abilities the mechanics catalog knows
@@ -68,9 +75,13 @@ export function ActionRow({
   const { character, dispatch } = useLoadedCharacter();
   const { sendReport, reportsEnabled } = useTableTalk();
   const { encounter, self } = useEncounter();
+  const { rollMode } = useRollMode();
   const [level, setLevel] = useState<LeveledSpellLevel>(1);
   const [amount, setAmount] = useState(1);
   const [outcome, setOutcome] = useState<string | null>(null);
+  // Real-dice mode: the totals typed in so far, in ask order; null when no
+  // entry is underway.
+  const [manualTotals, setManualTotals] = useState<number[] | null>(null);
   const [targetId, setTargetId] = useState("");
   const [targetIds, setTargetIds] = useState<string[]>([]);
 
@@ -125,10 +136,27 @@ export function ActionRow({
   const restatesAbility =
     action.name.trim().toLowerCase() === abilityName.toLowerCase();
 
+  // The dice this action rolls, as manual-entry asks — non-empty only when
+  // the table is on real dice and the action actually rolls something. Every
+  // other action fires on the click either way.
+  const asks = rollMode === "manual" ? manualRollAsks(action.effects, ctx) : [];
+
   const perform = (e: React.MouseEvent) => {
     e.preventDefault();
     if (blocked) return;
-    const { updates, reminders, rolls } = resolveEffects(action.effects, ctx);
+    if (asks.length > 0) {
+      // Real dice: nothing is spent or reported until the totals come in.
+      setManualTotals((current) => (current === null ? [] : null));
+      return;
+    }
+    fire();
+  };
+
+  const fire = (entered?: number[]) => {
+    const { updates, reminders, rolls } = resolveEffects(action.effects, {
+      ...ctx,
+      ...(entered ? { manualTotals: [...entered] } : {}),
+    });
     updates.forEach((update) => dispatch(update));
     const parts = [
       ...rolls.map(
@@ -183,6 +211,7 @@ export function ActionRow({
         attempt: 1,
         label: r.label === "Healing" ? source : `${source} — ${r.label}`,
         total: r.total,
+        ...(entered ? { manual: true } : {}),
         ...(applies ? address : {}),
       }),
     );
@@ -220,9 +249,10 @@ export function ActionRow({
           <select
             aria-label={`${action.name} slot level`}
             value={chosenLevel}
-            onChange={(e) =>
-              setLevel(Number(e.target.value) as LeveledSpellLevel)
-            }
+            onChange={(e) => {
+              setLevel(Number(e.target.value) as LeveledSpellLevel);
+              setManualTotals(null);
+            }}
           >
             {levels.map((lvl) => (
               <option key={lvl} value={lvl}>
@@ -247,7 +277,10 @@ export function ActionRow({
               min={1}
               max={abilityRemainingUses(ability, character)}
               ariaLabel={`${action.name} amount`}
-              onChange={setAmount}
+              onChange={(next) => {
+                setAmount(next);
+                setManualTotals(null);
+              }}
             />
           </label>
         )}
@@ -275,6 +308,34 @@ export function ActionRow({
           {ACTION_COST_LABELS[action.cost]}
         </span>
       </div>
+      {/* Real dice: the click above opened this instead of rolling — one ask
+          at a time, in the order the resolver consumes them, and nothing is
+          spent until the last total lands. Clicking the action again cancels. */}
+      {manualTotals !== null && manualTotals.length < asks.length && (
+        <div className="column ability-action-manual">
+          <p className="muted font-small">
+            {asks[manualTotals.length].label} —{" "}
+            {formatCustomFormula(
+              asks[manualTotals.length].formula,
+              character,
+              false,
+            )}
+          </p>
+          <ManualRollInput
+            prompt="Total rolled, modifiers included"
+            min={0}
+            onCommit={(total) => {
+              const next = [...manualTotals, total];
+              if (next.length >= asks.length) {
+                setManualTotals(null);
+                fire(next);
+              } else {
+                setManualTotals(next);
+              }
+            }}
+          />
+        </div>
+      )}
       {outcome && <p className="muted ability-action-outcome">{outcome}</p>}
     </div>
   );

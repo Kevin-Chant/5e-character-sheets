@@ -70,7 +70,12 @@ each surface offering both affordances at once:
   checkbox that changed nothing would lie; a crit carried over from the to-hit
   face gets the same treatment, a reminder line naming the table's crit flavor
   rather than a toggle. The rail's self-roll button follows the switch too
-  (with real dice the stepper beside it _is_ the entry).
+  (with real dice the stepper beside it _is_ the entry). The switch also
+  reaches the two roll surfaces that don't open this dialog: a catalog
+  action's dice (`ActionRow` — a superiority die, Second Wind's d10) collect
+  typed totals via `manualRollAsks`/`ctx.manualTotals` before anything is
+  spent, and the rest panel's hit-dice tray asks for each clicked die's total
+  (`manualHitDieRoll`), both riding the same `ManualRollInput` primitive.
 
 The mode is **persisted to localStorage** (`STORAGE_KEY` in
 `use-roll-mode.tsx`): a physical roller is one for the whole campaign, and a

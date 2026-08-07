@@ -12,6 +12,7 @@ import {
   actionBlocked,
   effectBlocked,
   EffectContext,
+  manualRollAsks,
   resolveEffects,
   slotLevelOptions,
   staticAmount,
@@ -458,5 +459,111 @@ describe("catalog actions end to end", () => {
     expect(slotLevelOptions(convert, wizard)).toEqual([
       1, 2, 3, 4, 5, 6, 7, 8, 9,
     ]);
+  });
+});
+
+describe("manual roll entry", () => {
+  const superiority: Effect = {
+    effect: "roll",
+    label: "Superiority die",
+    amount: { fixed: [1, StandardDie.d8, DieOperation.roll] },
+  };
+
+  it("lists the dice-deciding effects, in resolver order", () => {
+    const c = classed(OfficialClass.Fighter, 5);
+    const asks = manualRollAsks(
+      [
+        { effect: "spendUses", amount: { fixed: 1 } },
+        {
+          effect: "heal",
+          amount: {
+            fixed: [1, StandardDie.d10, DieOperation.roll],
+            plusLevelOf: OfficialClass.Fighter,
+          },
+        },
+        superiority,
+        { effect: "remind", note: "Apply the maneuver." },
+      ],
+      ctxFor(c, pool(0)),
+    );
+    expect(asks.map((a) => a.label)).toEqual(["Healing", "Superiority die"]);
+  });
+
+  it("asks nothing when no effect rolls dice", () => {
+    const c = classed(OfficialClass.Fighter, 5);
+    expect(
+      manualRollAsks(
+        [
+          { effect: "spendUses", amount: { fixed: 1 } },
+          { effect: "heal", amount: { fixed: 5 } },
+        ],
+        ctxFor(c, pool(0)),
+      ),
+    ).toEqual([]);
+  });
+
+  it("an entered total replaces the whole roll, modifiers included", () => {
+    // 1d10 + fighter level: the prompt shows the addend, so the entered 14
+    // is the number — nothing gets added around it.
+    const c = classed(OfficialClass.Fighter, 5); // 30 of 50 HP
+    const { updates, rolls } = resolveEffects(
+      [
+        {
+          effect: "heal",
+          amount: {
+            fixed: [1, StandardDie.d10, DieOperation.roll],
+            plusLevelOf: OfficialClass.Fighter,
+          },
+        },
+      ],
+      ctxFor(c, undefined, { manualTotals: [14] }),
+    );
+    expect(updateFor(updates, "update_currHp")).toBe(44);
+    expect(rolls).toEqual([{ label: "Healing", total: 14, dice: [] }]);
+  });
+
+  it("totals land on the dice effects and leave flat amounts alone", () => {
+    const c = classed(OfficialClass.Fighter, 5);
+    const ability = pool(0);
+    const { updates, rolls } = resolveEffects(
+      [{ effect: "spendUses", amount: { fixed: 1 } }, superiority],
+      ctxFor(c, ability, { manualTotals: [7] }),
+    );
+    expect(updateFor(updates, "update_limitedUseAbilities", "0.expended")).toBe(
+      1,
+    );
+    expect(rolls).toEqual([{ label: "Superiority die", total: 7, dice: [] }]);
+  });
+
+  it("a chosen-dice amount asks with the chosen count and takes the total", () => {
+    // Healing Light's shape: spend N, heal N d6.
+    const c = classed(OfficialClass.Warlock, 3);
+    const ctx = ctxFor(c, pool(0), { chosenAmount: 3 });
+    const asks = manualRollAsks(
+      [
+        { effect: "spendUses", amount: { chosenAmount: true } },
+        { effect: "heal", amount: { chosenAmountDice: StandardDie.d6 } },
+      ],
+      ctx,
+    );
+    expect(asks).toHaveLength(1);
+    expect(asks[0].formula).toEqual([3, StandardDie.d6, DieOperation.roll]);
+    const { updates } = resolveEffects(
+      [
+        { effect: "spendUses", amount: { chosenAmount: true } },
+        { effect: "heal", amount: { chosenAmountDice: StandardDie.d6 } },
+      ],
+      { ...ctx, manualTotals: [11] },
+    );
+    expect(updateFor(updates, "update_currHp")).toBe(41);
+  });
+
+  it("floors an entered total at zero", () => {
+    const c = classed(OfficialClass.Fighter, 1);
+    const { rolls } = resolveEffects(
+      [superiority],
+      ctxFor(c, undefined, { manualTotals: [-4] }),
+    );
+    expect(rolls).toEqual([{ label: "Superiority die", total: 0, dice: [] }]);
   });
 });
