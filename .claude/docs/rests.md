@@ -113,6 +113,21 @@ each other the way level-up's choices do, so steps would misrepresent it:
    nothing automatically doesn't open with a "Stays spent" list that reads as a
    failure report.
 
+### Opening on a rest the table called
+
+`RestDialog` takes an optional `RestPreset {kind, spansDawn?}` (from
+`src/lib/rest.ts`, handed in through `openRest(preset)` on the `RestProvider`).
+It skips phase 1 and opens on that rest's workspace with `spansDawn` already
+applied to the plan — because both of those are facts the **DM** narrates, and
+the fork exists to ask exactly the two questions they've just answered. "Back"
+still returns to the fork.
+
+The only sender is the DM's rest call over a party session
+(`REST_CALL` → `RestCallPrompt`, see
+[`play-surface.md`](./play-surface.md)). Nothing about it writes: the prompt
+opens the panel, the player still presses **Take rest**. The bed button passes
+no preset and asks both questions itself.
+
 Two details worth keeping:
 
 - The ledger's `omit` prop drops the `hp` entry while the tray is showing. The
@@ -134,4 +149,7 @@ carried by **marker and ink weight only**.
 variants, budgets/allocation, both rest kinds, `applyRestPlan`).
 `src/components/rest/rest-dialog.test.tsx` covers the flow — the fork's copy,
 that previewing dispatches nothing, that committing is exactly one
-`replace_character`, and that a die roll writes HP + expended dice.
+`replace_character`, that a die roll writes HP + expended dice, and that a
+called rest opens past the fork, takes nothing until asked, and carries the
+table's daybreak call into the plan. The wire leg is a `session-smoke` check in
+the `table` scenario (both players prompted, HP untouched until Take rest).

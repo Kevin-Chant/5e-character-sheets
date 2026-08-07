@@ -8,6 +8,7 @@ import {
   newSessionCode,
   normalizeSessionCode,
   realmForSession,
+  RestCall,
   RollCall,
   SessionMessage,
   TOPIC_FOR,
@@ -65,6 +66,9 @@ interface PlaySessionOptions {
   onRollVerdict: (verdict: RollVerdict, fromClientId: string) => void;
   // The DM asked for a d20 — everyone, or one addressed client.
   onRollCall: (call: RollCall, fromClientId: string) => void;
+  // The DM called a rest. Every player raises its own prompt, and the rest
+  // itself runs on their own sheet.
+  onRestCall: (call: RestCall, fromClientId: string) => void;
   // Approved healing looking for its recipient — each client checks whether
   // the target participant is its own open character.
   onHealingOffer: (offer: HealingOffer, fromClientId: string) => void;
@@ -127,6 +131,8 @@ export function usePlaySession(options: PlaySessionOptions) {
           return on.onRollVerdict(message.verdict, message.clientId);
         case "rollCall":
           return on.onRollCall(message.call, message.clientId);
+        case "restCall":
+          return on.onRestCall(message.call, message.clientId);
         case "healingOffer":
           return on.onHealingOffer(message.offer, message.clientId);
         case "conditionOffer":
@@ -256,6 +262,10 @@ export function usePlaySession(options: PlaySessionOptions) {
     ),
     sendRollCall: useCallback(
       (call: RollCall) => publish({ kind: "rollCall", clientId, call }),
+      [publish, clientId],
+    ),
+    sendRestCall: useCallback(
+      (call: RestCall) => publish({ kind: "restCall", clientId, call }),
       [publish, clientId],
     ),
     sendHealingOffer: useCallback(

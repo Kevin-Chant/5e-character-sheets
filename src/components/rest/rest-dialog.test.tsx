@@ -7,6 +7,7 @@ import { defaultCharacter } from "src/lib/data/default-data";
 import { SettingsContextProvider } from "src/lib/hooks/use-settings";
 import { writeLocalStorage } from "src/lib/local-storage";
 import { Character } from "src/lib/types";
+import { RestPreset } from "src/lib/rest";
 import RestDialog from "./rest-dialog";
 
 // The rest panel reads the character from context and the rest variants from
@@ -50,10 +51,10 @@ const hurtFighter = (): Character => {
   return c;
 };
 
-const renderDialog = () =>
+const renderDialog = (preset?: RestPreset) =>
   render(
     <SettingsContextProvider>
-      <RestDialog onClose={vi.fn()} />
+      <RestDialog preset={preset} onClose={vi.fn()} />
     </SettingsContextProvider>,
   );
 
@@ -136,6 +137,71 @@ describe("RestDialog — taking a rest", () => {
     await user.click(screen.getByText("Take rest"));
     expect(screen.getByText("Long rest taken")).toBeTruthy();
     expect(screen.getByText("What changed")).toBeTruthy();
+  });
+});
+
+// The DM called this rest, so the two questions the table already answered
+// are answered here — and *only* those two. Nothing is taken until the player
+// presses Take rest, because a long rest is a dozen fields on their sheet.
+describe("RestDialog — a rest the table called", () => {
+  it("opens on the called rest, having taken nothing", async () => {
+    renderDialog({ kind: "long" });
+    expect(screen.getByText("Long rest")).toBeTruthy();
+    // Past the fork: the other card isn't on the table any more.
+    expect(screen.queryByText("Short rest")).toBeNull();
+    expect(screen.getByText("Take rest")).toBeTruthy();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("lets the player go back and disagree about which rest it was", async () => {
+    const user = userEvent.setup();
+    renderDialog({ kind: "long" });
+    await user.click(screen.getByText("Back"));
+    expect(screen.getByText("Short rest")).toBeTruthy();
+    expect(screen.getByText("Long rest")).toBeTruthy();
+  });
+
+  it("carries the table's daybreak call into the plan", async () => {
+    character = {
+      ...hurtFighter(),
+      limitedUseAbilities: [
+        {
+          info: { title: "Sunlit Blade", titleFormulas: [] },
+          maxUses: 1,
+          recharge: "Dawn",
+          expended: 1,
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    renderDialog({ kind: "long", spansDawn: true });
+    await user.click(screen.getByText("Take rest"));
+
+    const [action] = dispatch.mock.calls[0];
+    expect(action.type).toBe("replace_character");
+    expect(action.payload.limitedUseAbilities[0].expended).toBe(0);
+  });
+
+  // Without the DM's call the same pool is the player's to decide, and the
+  // planner defers it rather than guessing the fiction.
+  it("leaves a dawn pool spent when the rest didn't span dawn", async () => {
+    character = {
+      ...hurtFighter(),
+      limitedUseAbilities: [
+        {
+          info: { title: "Sunlit Blade", titleFormulas: [] },
+          maxUses: 1,
+          recharge: "Dawn",
+          expended: 1,
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    renderDialog({ kind: "long" });
+    await user.click(screen.getByText("Take rest"));
+
+    const [action] = dispatch.mock.calls[0];
+    expect(action.payload.limitedUseAbilities[0].expended).toBe(1);
   });
 });
 

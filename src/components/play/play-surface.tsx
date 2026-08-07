@@ -190,6 +190,7 @@ export default function PlaySurface() {
               />
             )}
             <RollCallPrompt />
+            <RestCallPrompt />
             <IncomingHealingBanner />
             <IncomingConditionBanners />
             <ConcentrationCheckBanner />
@@ -535,6 +536,47 @@ function RollCallPrompt() {
   );
 }
 
+// "Your DM calls a long rest." The invitation, not the rest — pressing it
+// opens this player's own rest panel with the table's two answers already
+// filled in, and everything from there (which hit dice to spend, what to
+// prepare) is theirs as it always was.
+//
+// It has to be an invitation rather than a write for a reason beyond consent:
+// a long rest is a dozen fields, follow-ups the player drives, and a single
+// undoable `replace_character`. Applying that from the wire would be the one
+// remote action on this table that rewrites a sheet nobody touched — and a
+// player mid-thought about a spell they were holding would find it gone.
+function RestCallPrompt() {
+  const { isDm } = useEncounter();
+  const { restCall, dismissRestCall } = useTableTalk();
+  const { character } = useCharacter();
+  const { openRest } = useRest();
+  if (!restCall || isDm || !character) return null;
+
+  const label = restCall.kind === "long" ? "long rest" : "short rest";
+  return (
+    <div className="assign-prompt">
+      <span>
+        Your DM calls a <strong>{label}</strong>
+        {restCall.spansDawn && <> — it spans dawn</>}.
+      </span>
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={() => {
+          openRest({ kind: restCall.kind, spansDawn: restCall.spansDawn });
+          dismissRestCall();
+        }}
+      >
+        Take it
+      </button>
+      <button type="button" onClick={dismissRestCall}>
+        Not now
+      </button>
+    </div>
+  );
+}
+
 // "8 healing incoming from Maelina." The last leg of a healing report: the DM
 // approved it, and applying it is the recipient's own write on their own
 // sheet — consent all the way down.
@@ -673,7 +715,11 @@ function ConcentrationCheckBanner() {
 function RestShortcut() {
   const { openRest } = useRest();
   return (
-    <button type="button" className="play-sheet-link" onClick={openRest}>
+    <button
+      type="button"
+      className="play-sheet-link"
+      onClick={() => openRest()}
+    >
       <FaCampground />
       <span>Rest</span>
     </button>

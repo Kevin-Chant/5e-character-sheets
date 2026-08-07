@@ -34,7 +34,6 @@ import {
   RollReport,
   RollVerdict,
 } from "src/lib/play/reports";
-import { CHECK_GROUPS, checkForValue, checkLabel } from "src/lib/play/checks";
 import { inviteLink } from "src/lib/play/session";
 import {
   LIVENESS_LABEL,
@@ -44,6 +43,7 @@ import {
 import StepperInput from "src/components/stepper-input";
 import ConditionsControl from "./conditions-control";
 import ConcentrationCell from "./concentration-cell";
+import { RestCallForm, RollCallForm } from "./table-calls";
 import { HpTotal, VitalsEntry } from "./vitals-entry";
 
 // The DM's side of the play surface.
@@ -91,6 +91,7 @@ export default function DmBoard() {
     verdicts,
     offerHealing,
     callForRoll,
+    callForRest,
   } = useTableTalk();
 
   // Concentration checks this board has noticed and the table hasn't answered:
@@ -411,6 +412,14 @@ export default function DmBoard() {
         <RollCallForm present={present} callForRoll={callForRoll} />
       )}
 
+      {/* "You make camp for the night." The other thing a DM says to the whole
+          table at once, and the only one that was still going out by voice —
+          followed by four players each finding the bed button and each being
+          asked, separately, a question the DM had already answered. */}
+      {sessionStatus === "connected" && (
+        <RestCallForm callForRest={callForRest} />
+      )}
+
       {/* Table visibility, the DM's call, grouped in one place: how much
           health the players see, and whether death saves are the table's
           drama or private. On the encounter so it reaches every client — and
@@ -442,68 +451,6 @@ export default function DmBoard() {
         </label>
       </div>
     </div>
-  );
-}
-
-// The DM's side of a roll call: pick the d20, pick who rolls (the whole
-// table by default), ask. The prompt lands like the initiative call and the
-// answers come back as reports.
-function RollCallForm({
-  present,
-  callForRoll,
-}: {
-  present: { clientId: string; name: string }[];
-  callForRoll: (
-    check: NonNullable<ReturnType<typeof checkForValue>>,
-    toClientId?: string,
-  ) => void;
-}) {
-  const [checkValue, setCheckValue] = useState("");
-  const [audience, setAudience] = useState("");
-  return (
-    <form
-      className="dm-roll-call"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const check = checkForValue(checkValue);
-        if (!check) return;
-        callForRoll(check, audience || undefined);
-        setCheckValue("");
-      }}
-    >
-      <span className="text-muted">Ask for a roll</span>
-      <select
-        aria-label="Which check or save to ask for"
-        value={checkValue}
-        onChange={(e) => setCheckValue(e.target.value)}
-      >
-        <option value="">Check or save…</option>
-        {CHECK_GROUPS.map(({ group, options }) => (
-          <optgroup key={group} label={group}>
-            {options.map(({ value, check }) => (
-              <option key={value} value={value}>
-                {checkLabel(check)}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-      <select
-        aria-label="Who should roll"
-        value={audience}
-        onChange={(e) => setAudience(e.target.value)}
-      >
-        <option value="">Everyone</option>
-        {present.map((client) => (
-          <option key={client.clientId} value={client.clientId}>
-            {client.name}
-          </option>
-        ))}
-      </select>
-      <button type="submit" disabled={!checkValue}>
-        Ask
-      </button>
-    </form>
   );
 }
 

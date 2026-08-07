@@ -9,6 +9,7 @@ import {
   RestFollowUp,
   RestKind,
   RestPlan,
+  RestPreset,
 } from "src/lib/rest";
 import { hasTriggerFor } from "src/lib/play/triggers";
 import HitDiceTray from "./hit-dice-tray";
@@ -22,14 +23,26 @@ import { FaXmark } from "react-icons/fa6";
 // parts of the rest — hit dice, prepared spells — happen against the rested
 // sheet. That order is forced by the rules: under slow natural healing the dice
 // a long rest hands back are spendable in the same rest.
-export default function RestDialog({ onClose }: { onClose: () => void }) {
+export default function RestDialog({
+  preset,
+  onClose,
+}: {
+  preset?: RestPreset;
+  onClose: () => void;
+}) {
   const { character, dispatch } = useCharacter();
   const { settings } = useSettings();
-  const [kind, setKind] = useState<RestKind>();
+  // A called rest opens on its own workspace: the DM already said which rest
+  // this is, so making the player pick it again out of two cards would be
+  // asking a question that has been answered. "Back" still returns to the
+  // fork, because a player who wasn't there for the short rest is entitled to
+  // disagree with it.
+  const [kind, setKind] = useState<RestKind | undefined>(preset?.kind);
   // Whether this rest passes daybreak — the player's call, defaulting to no so
   // an "at dawn" item is never quietly recharged. Only offered when something
-  // on the sheet actually listens for dawn.
-  const [spansDawn, setSpansDawn] = useState(false);
+  // on the sheet actually listens for dawn, and pre-answered when the table
+  // called the rest: daybreak is the DM's to narrate.
+  const [spansDawn, setSpansDawn] = useState(!!preset?.spansDawn);
   // The plan as it stood at commit time. Kept rather than re-derived, because
   // after the rest the sheet no longer shows what was missing — and that's
   // exactly what the receipt has to report.

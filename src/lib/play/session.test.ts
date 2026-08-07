@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UUID } from "crypto";
+import { SkillName } from "src/lib/data/data-definitions";
 import {
   addParticipant,
   advanceTurn,
@@ -16,6 +17,8 @@ import {
   newSessionCode,
   normalizeSessionCode,
   realmForSession,
+  RollCall,
+  rollCallReaches,
   REMEMBERED_SESSIONS,
   TOPIC_FOR,
   rememberSession,
@@ -556,6 +559,35 @@ describe("conditionOffersFor", () => {
         "Ellora",
       ),
     ).toEqual([]);
+  });
+});
+
+describe("who a roll call reaches", () => {
+  const call = (extra: Partial<RollCall> = {}): RollCall => ({
+    callId: "c1",
+    check: { kind: "skill", skill: SkillName.Perception },
+    ...extra,
+  });
+
+  it("reaches the room when nobody is named", () => {
+    expect(rollCallReaches(call(), "anyone")).toBe(true);
+  });
+
+  it("reaches only the named clients", () => {
+    const asked = call({ toClientIds: ["a", "b"] });
+    expect(rollCallReaches(asked, "a")).toBe(true);
+    expect(rollCallReaches(asked, "b")).toBe(true);
+    expect(rollCallReaches(asked, "c")).toBe(false);
+  });
+
+  // The single-recipient compat field an older build reads. Ours prefers the
+  // list, so a call carrying both agrees with itself either way round.
+  it("still honours a lone toClientId", () => {
+    expect(rollCallReaches(call({ toClientId: "a" }), "a")).toBe(true);
+    expect(rollCallReaches(call({ toClientId: "a" }), "b")).toBe(false);
+    expect(
+      rollCallReaches(call({ toClientIds: ["a"], toClientId: "a" }), "a"),
+    ).toBe(true);
   });
 });
 

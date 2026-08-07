@@ -848,21 +848,18 @@ const scenarios = {
     // answer comes back to the seat.
     await until(
       dm.page,
-      "the audience picker to know both players",
+      "the audience chips to know both players",
       () =>
-        document.querySelectorAll('[aria-label="Who should roll"] option')
-          .length >= 3,
+        // "Everyone" plus one chip per present player.
+        document.querySelectorAll(".dm-audience .dm-audience-chip").length >= 3,
     );
-    await dm.page.selectOption(
-      '[aria-label="Which check or save to ask for"]',
-      "skill:Perception",
-    );
-    const audience = await dm.page
-      .locator('[aria-label="Who should roll"] option', {
-        hasText: player.name,
-      })
-      .getAttribute("value");
-    await dm.page.selectOption('[aria-label="Who should roll"]', audience);
+    // Typed, not selected: the check picker filters a closed list, so four
+    // keystrokes and a click are the whole interaction.
+    await dm.page.fill('[aria-label="Which check or save to ask for"]', "perc");
+    await dm.page.click(".dm-check-option");
+    await dm.page
+      .locator(".dm-audience-chip", { hasText: player.name })
+      .click();
     await dm.page.click('.dm-roll-call button[type="submit"]');
     await untilText(player.page, "Your DM asks for a");
     check(
@@ -884,6 +881,18 @@ const scenarios = {
     check("the answer reaches the seat", true, true);
     await dm.page.click("text=Clear all");
 
+    // The same ask addressed to two players at once — the chips are additive,
+    // so "you two scout ahead" is one call and not two.
+    await dm.page.fill('[aria-label="Which check or save to ask for"]', "stea");
+    await dm.page.click(".dm-check-option");
+    await dm.page
+      .locator(".dm-audience-chip", { hasText: healer.name })
+      .click();
+    await dm.page.click('.dm-roll-call button[type="submit"]');
+    await untilText(player.page, "Stealth");
+    await untilText(healer.page, "Stealth");
+    check("an ask can name several players", true, true);
+
     // Healing, routed through the DM: the healer reports it, the DM approves,
     // and the *recipient* applies it to their own sheet.
     await setHp(player.page, 20);
@@ -903,6 +912,30 @@ const scenarios = {
     await player.page.click(`text=Apply +${healed}`);
     await untilHp(player.page, Math.min(49, 20 + healed));
     check("applying writes the recipient's own sheet", true, true);
+
+    // "You make camp." Unlike the roll call there is nobody to address it to,
+    // so both players are prompted — and the prompt is an invitation: the rest
+    // isn't taken until the player takes it, on their own sheet.
+    await dm.page.selectOption('[aria-label="Which rest to call"]', "long");
+    await dm.page.click('.dm-rest-call button[type="submit"]');
+    await untilText(player.page, "Your DM calls a");
+    await untilText(healer.page, "Your DM calls a");
+    check("a called rest reaches the whole table", true, true);
+    check(
+      "and nothing is taken until the player takes it",
+      Number.parseInt(
+        await player.page.locator(HP_TOTAL).first().textContent(),
+        10,
+      ),
+      Math.min(49, 20 + healed),
+    );
+    await player.page.click(".assign-prompt .btn-primary");
+    await untilText(player.page, "Take rest");
+    await player.page.click("text=Take rest");
+    await untilText(player.page, "Long rest taken");
+    await player.page.click("text=Done");
+    await untilHp(player.page, 49);
+    check("taking it rests the player's own sheet", true, true);
 
     // Death saves: on the wire once someone is down, DM always sees them,
     // the party by default until the DM hides them.

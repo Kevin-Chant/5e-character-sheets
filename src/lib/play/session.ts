@@ -9,6 +9,7 @@ import {
 } from "src/lib/play/encounter";
 import { RollCallCheck } from "src/lib/play/checks";
 import { RollReport, RollVerdict } from "src/lib/play/reports";
+import type { RestKind } from "src/lib/rest";
 import { PlaySessionRef } from "src/lib/types";
 import { PresenceEntry } from "src/lib/realm/presence";
 
@@ -84,6 +85,13 @@ export const PlaySessionEvent = {
   // the initiative call, but for any d20 the game asks for. The answer comes
   // back on REPORT like every other roll.
   ROLL_CALL: BASE_APPNAME + ".encounter.rollcall",
+  // "Alright, you make camp for the night." The DM calling the table to a
+  // rest, broadcast like the initiative call. Carries the two facts only the
+  // table can settle — which rest, and whether it spans dawn — and nothing
+  // else: the rest itself is run on each player's own sheet, where the hit
+  // dice and the prepared spells are. See REST_CALL's prompt in the play
+  // surface for why this is an invitation rather than a write.
+  REST_CALL: BASE_APPNAME + ".encounter.restcall",
   // "8 healing incoming from Brakka." Sent by the DM *after* approving a
   // healing report; the recipient applies it to their own sheet (or ignores
   // it) — their vitals, their write, same authority rule as everywhere else.
@@ -100,7 +108,40 @@ export const PlaySessionEvent = {
 export interface RollCall {
   callId: string;
   check: RollCallCheck;
+  // Who was asked. Both absent means the whole table — "alright everyone, roll
+  // a DEX save" — which is the common case and so the cheap one to encode.
+  //
+  // `toClientIds` is the real field; `toClientId` is kept **written, not
+  // read**, and only when there is exactly one recipient. A peer on the same
+  // protocol version but an older build reads that one and addresses the ask
+  // correctly; without it, a call to one player would reach that build as a
+  // call to everybody. A multi-recipient ask degrades to the whole table
+  // there, which is a wider audience rather than a wrong one — the failure
+  // this shape is chosen to avoid.
+  toClientIds?: string[];
   toClientId?: string;
+}
+
+// Was this ask addressed to me? Absent audience means the room.
+export function rollCallReaches(call: RollCall, clientId: string): boolean {
+  if (call.toClientIds?.length) return call.toClientIds.includes(clientId);
+  if (call.toClientId) return call.toClientId === clientId;
+  return true;
+}
+
+// The DM called a rest. Always the whole table — a rest is something the
+// party does together, so unlike `RollCall` there is nobody to address it to.
+//
+// What crosses is the table's half of the decision and only that half: the
+// kind of rest, and whether it spans daybreak (which is a fact about the
+// fiction the DM narrates, not about the sheet). Everything the *player*
+// decides — which hit dice to spend, what to prepare, which "at dawn" item
+// they'd rather leave spent — stays on their own sheet, because the rest
+// panel is where those choices already live and none of them are the DM's.
+export interface RestCall {
+  callId: string;
+  kind: RestKind;
+  spansDawn?: boolean;
 }
 
 // Approved healing on its way to the recipient, who applies or ignores it.
@@ -297,6 +338,7 @@ export type SessionMessage =
   | { kind: "rollReport"; clientId: string; report: RollReport }
   | { kind: "rollVerdict"; clientId: string; verdict: RollVerdict }
   | { kind: "rollCall"; clientId: string; call: RollCall }
+  | { kind: "restCall"; clientId: string; call: RestCall }
   | { kind: "healingOffer"; clientId: string; offer: HealingOffer }
   | { kind: "conditionOffer"; clientId: string; offer: ConditionOffer }
   | {
@@ -330,6 +372,7 @@ export const TOPIC_FOR: Record<SessionMessage["kind"], string> = {
   rollReport: PlaySessionEvent.REPORT,
   rollVerdict: PlaySessionEvent.VERDICT,
   rollCall: PlaySessionEvent.ROLL_CALL,
+  restCall: PlaySessionEvent.REST_CALL,
   healingOffer: PlaySessionEvent.HEAL,
   conditionOffer: PlaySessionEvent.CONDITION,
   assignSheet: PlaySessionEvent.ASSIGN,

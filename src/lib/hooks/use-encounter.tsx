@@ -636,6 +636,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     onRollReport: (report) => talkRef.current?.onRollReport(report),
     onRollVerdict: (verdict) => talkRef.current?.onRollVerdict(verdict),
     onRollCall: (call) => talkRef.current?.onRollCall(call),
+    onRestCall: (call) => talkRef.current?.onRestCall(call),
     onHealingOffer: (offer) => talkRef.current?.onHealingOffer(offer),
     onConditionOffer: (offer) => talkRef.current?.onConditionOffer(offer),
     // The DM pointed a sheet at us. Nothing has travelled yet — this only

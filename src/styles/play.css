@@ -1653,6 +1653,91 @@
   font-size: 0.85rem;
 }
 
+/* The check picker: a text box that filters a closed list, sized so it doesn't
+   crowd the audience chips beside it on a narrow board. */
+.dm-check-picker {
+  position: relative;
+  flex: 1 1 9rem;
+  min-width: 8rem;
+  max-width: 14rem;
+}
+.dm-check-input {
+  width: 100%;
+}
+.dm-check-list {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+.dm-check-group {
+  display: block;
+  padding: 0.3rem 0.5rem 0.15rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+.dm-check-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  font-weight: 400;
+  border: none;
+  background: none;
+  padding: 0.35rem 0.5rem;
+  border-radius: calc(var(--radius) - 2px);
+}
+/* Keyboard and pointer share one highlight — the arrow keys move `is-active`
+   and hovering sets it, so there is never a second, competing cursor. */
+.dm-check-option.is-active {
+  background: var(--surface-2);
+}
+
+/* Who was asked, as chips: several players at once, and legible without
+   opening anything. "Everyone" is a chip rather than an empty state so the
+   default is something you can see and click back to. */
+.dm-audience {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.dm-audience-chip {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+.dm-audience-chip.is-picked {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* "Call a rest" — its sibling, and the same shape for the same reason: a
+   sentence the DM says to the room, laid out as one line of controls. */
+.dm-rest-call {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+}
+
 /* The player's ad-hoc check picker in the play header. */
 .check-launcher {
   max-width: 11rem;

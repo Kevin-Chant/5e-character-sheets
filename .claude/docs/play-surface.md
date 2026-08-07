@@ -1010,9 +1010,9 @@ not omission — changing either is a product decision, not a gap fix:
   modifier computed from the sheet), and Kept/Lost buttons. Nothing drops
   concentration except the buttons.
 
-## Roll calls, healing routing, and death saves
+## Roll calls, rest calls, healing routing, and death saves
 
-Three more loops on the same report-never-write pattern:
+Four more loops on the same report-never-write pattern:
 
 - **Ad-hoc checks and roll calls.** `src/lib/play/checks.ts` models any save /
   ability check / skill as data (`RollCallCheck`), with `checkModifier`
@@ -1020,9 +1020,24 @@ Three more loops on the same report-never-write pattern:
   because the bonus formulas need the engine, which `rules.ts` can't import).
   Player side: a `CheckLauncher` select in the play header opens the ordinary
   roll dialog — advantage, condition notes and real-dice mode included. DM
-  side: the board's "Ask for a roll" form sends `ROLL_CALL {check,
-toClientId?}` — everyone, or one present client, same routing as sheet
-  assignment. The prompt (`RollCallPrompt`) is one button that opens the
+  side: the board's "Ask for a roll" form (`components/play/table-calls.tsx`,
+  alongside the rest call — both are sentences said to the room rather than
+  edits to the roster) sends `ROLL_CALL {check, toClientIds?}` — **an absent
+  audience means the whole table**, which is the common case and so the cheap
+  one to encode. Addressing is read through `rollCallReaches`, never by
+  comparing a field inline. The list replaced a single `toClientId`, which is
+  still _written_ (never read) when there's exactly one recipient, so a peer on
+  the same protocol version but an older build addresses that call correctly
+  instead of showing it to everybody; a multi-recipient ask degrades there to
+  the whole table, a wider audience rather than a wrong one. Two form details
+  are load-bearing: the check picker is a **closed typeahead** (thirty-one
+  grouped options — "Perception" is four keystrokes, and a value only exists by
+  being picked, so free text disables Ask rather than becoming an ask), and the
+  audience is **chips, not a `<select multiple>`**, which needs a modifier key
+  no phone has and hides the answer behind a scroll box. Chips prune against
+  the live roster, because an ask aimed only at someone who left would reach
+  nobody and read at the table as the app swallowing it.
+  The prompt (`RollCallPrompt`) is one button that opens the
   ordinary roll dialog **aimed at the call's own exchange id**
   (`openRoller({id: callId, attemptBase})`), so the answer is a `check`-stage
   `RollReport` under the ask and carries everything the dialog knows — Bless's
@@ -1037,6 +1052,24 @@ toClientId?}` — everyone, or one present client, same routing as sheet
   bargain as the attack dialog: never block the re-roll, always show it. Any check rolled through the dialog
   while at a table reports itself the same way, which is what picking up a d20
   in front of your DM has always meant.
+- **Rest calls open a panel, they don't take a rest.** The "Call a rest" form
+  (its sibling in `table-calls.tsx`) sends `REST_CALL {callId, kind,
+spansDawn?}` — never addressed,
+  because a rest is something the whole party does, so there is nobody to
+  address it to. It carries **exactly the two facts the table settles**: which
+  rest, and whether it spanned daybreak. Both are the DM's to narrate and no
+  sheet can work them out; everything else a rest involves (which hit dice to
+  spend, what to re-prepare, which "at dawn" item to leave spent) stays with
+  each player, which is why this is not a "rest the party" button. The prompt
+  (`RestCallPrompt`) opens that player's own rest panel with those two
+  answers filled in (`RestPreset`, passed through `openRest(preset)`), landing
+  past the fork on the called rest's workspace — the fork's job is to ask the
+  two questions the DM has already answered. "Back" still returns to it,
+  because a player is entitled to disagree about what the table just did.
+  Applying the rest from the wire was the tempting version and the wrong one:
+  a long rest is a dozen fields, follow-ups the player drives, and one
+  undoable `replace_character` — it would be the only remote action at this
+  table that rewrites a sheet nobody touched.
 - **Healing routes through the DM, then the recipient.** The roll dialog's
   healing result rides the same exchange with `stage: "healing"`. On the DM
   queue, approving splits by ownership: a

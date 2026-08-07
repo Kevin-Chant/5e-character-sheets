@@ -102,7 +102,7 @@ export default function DefenceAndEquipmentPanel() {
           <button
             type="button"
             className="icon-btn rest-btn"
-            onClick={openRest}
+            onClick={() => openRest()}
             title="Take a short or long rest"
             aria-label="Take a short or long rest"
           >

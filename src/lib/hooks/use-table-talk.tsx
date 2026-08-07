@@ -10,8 +10,11 @@ import {
   ConditionOffer,
   conditionOffersFor,
   HealingOffer,
+  RestCall,
   RollCall,
+  rollCallReaches,
 } from "src/lib/play/session";
+import { RestKind } from "src/lib/rest";
 import {
   OutgoingRoll,
   RollReport,
@@ -76,11 +79,21 @@ export interface TableTalkData {
   rememberTarget: (targetId?: string) => void;
 
   // --- Roll calls ---
-  // "Give me a Perception check" — to everyone, or one present client.
-  callForRoll: (check: RollCallCheck, toClientId?: string) => void;
+  // "Give me a Perception check" — to everyone (no ids), or to the named
+  // present clients. The two-rogues-scout-ahead case is ordinary, and asking
+  // the whole table for it tells the other four something they shouldn't know.
+  callForRoll: (check: RollCallCheck, toClientIds?: string[]) => void;
   // A call addressed to (or including) this client, awaiting an answer.
   rollCall?: RollCall;
   dismissRollCall: () => void;
+
+  // --- Rest calls ---
+  // "You make camp for the night" — the DM calling the whole table to a rest,
+  // with the parts of the decision that are the table's to make.
+  callForRest: (kind: RestKind, spansDawn?: boolean) => void;
+  // A rest the DM has called, not yet taken or waved off on this client.
+  restCall?: RestCall;
+  dismissRestCall: () => void;
   // The check answers *this* client has sent, by exchange id. The broker drops
   // self-echoes, so a sender's own rolls never come back through `reports` —
   // this is how the roll-call prompt knows what it already answered (and where
@@ -129,6 +142,8 @@ export const NO_TABLE_TALK: TableTalkData = {
   rememberTarget: NOOP,
   callForRoll: NOOP,
   dismissRollCall: NOOP,
+  callForRest: NOOP,
+  dismissRestCall: NOOP,
   sentChecks: {},
   offerHealing: NOOP,
   applyIncomingHealing: NOOP,
@@ -148,6 +163,7 @@ export interface TableTalkSenders {
   sendRollReport: (report: RollReport) => void;
   sendRollVerdict: (verdict: RollVerdict) => void;
   sendRollCall: (call: RollCall) => void;
+  sendRestCall: (call: RestCall) => void;
   sendHealingOffer: (offer: HealingOffer) => void;
   sendConditionOffer: (offer: ConditionOffer) => void;
 }
@@ -182,6 +198,7 @@ export interface TableTalk {
   onRollReport: (report: RollReport) => void;
   onRollVerdict: (verdict: RollVerdict) => void;
   onRollCall: (call: RollCall) => void;
+  onRestCall: (call: RestCall) => void;
   onHealingOffer: (offer: HealingOffer) => void;
   onConditionOffer: (offer: ConditionOffer) => void;
   // Everything above describes a connection; a new one starts empty.
@@ -211,6 +228,8 @@ export function useTableTalkState({
   const [lastTargetId, setLastTargetId] = useState<string | undefined>();
   // The DM asked this client (or everyone) for a d20, unanswered.
   const [rollCall, setRollCall] = useState<RollCall | undefined>();
+  // The DM called the table to a rest, not yet taken or waved off here.
+  const [restCall, setRestCall] = useState<RestCall | undefined>();
   // Our own answers, by exchange — see `TableTalkData.sentChecks`.
   const [sentChecks, setSentChecks] = useState<
     Record<string, { total: number; attempt: number }>
@@ -244,6 +263,7 @@ export function useTableTalkState({
     setVerdicts({});
     setLastTargetId(undefined);
     setRollCall(undefined);
+    setRestCall(undefined);
     setSentChecks({});
     setIncomingHealing(undefined);
     setIncomingConditions([]);
@@ -271,11 +291,16 @@ export function useTableTalkState({
   // question at a time.
   const onRollCall = useCallback(
     (call: RollCall) => {
-      if (call.toClientId && call.toClientId !== clientId) return;
+      if (!rollCallReaches(call, clientId)) return;
       setRollCall(call);
     },
     [clientId],
   );
+  // A rest call is never addressed — it lands on the whole table, and the
+  // latest one wins for the same reason a roll call's does: a DM who said
+  // "short rest" and then "actually, make it a long one" has changed the ask,
+  // not added a second one.
+  const onRestCall = useCallback((call: RestCall) => setRestCall(call), []);
 
   // A roll only has somewhere to go when there's a table, someone running it,
   // and it isn't us. Derived once so both the gate in `sendReport` and the roll
@@ -384,17 +409,34 @@ export function useTableTalkState({
       lastTargetId,
       rememberTarget: setLastTargetId,
 
-      callForRoll: (check, toClientId) =>
+      callForRoll: (check, toClientIds) =>
         senders.current?.sendRollCall({
           callId: randomUUID(),
           check,
-          toClientId,
+          ...(toClientIds?.length
+            ? {
+                toClientIds,
+                // Written for older builds only — see `RollCall`.
+                ...(toClientIds.length === 1
+                  ? { toClientId: toClientIds[0] }
+                  : {}),
+              }
+            : {}),
         }),
       rollCall,
       // Deliberately doesn't clear on answering — the prompt keeps showing what
       // was sent until the player dismisses it (or the next call replaces it).
       dismissRollCall: () => setRollCall(undefined),
       sentChecks,
+
+      callForRest: (kind, spansDawn) =>
+        senders.current?.sendRestCall({
+          callId: randomUUID(),
+          kind,
+          ...(spansDawn ? { spansDawn: true } : {}),
+        }),
+      restCall,
+      dismissRestCall: () => setRestCall(undefined),
 
       offerHealing: (targetId, amount, fromName, label) => {
         if (!(amount > 0)) return;
@@ -455,6 +497,7 @@ export function useTableTalkState({
       verdicts,
       lastTargetId,
       rollCall,
+      restCall,
       sentChecks,
       incomingHealing,
       incomingConditions,
@@ -474,6 +517,7 @@ export function useTableTalkState({
     onRollReport,
     onRollVerdict,
     onRollCall,
+    onRestCall,
     onHealingOffer,
     onConditionOffer,
     reset,

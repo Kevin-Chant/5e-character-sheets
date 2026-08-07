@@ -424,6 +424,15 @@ export interface PlanRestOptions {
   spansDawn?: boolean;
 }
 
+// What the table already settled before a player's rest panel opened — the
+// two facts that belong to whoever narrates the world rather than to a sheet.
+// Carried by the DM's rest call (`RestCall` in `play/session.ts`) and used to
+// pre-answer the fork, leaving the player only their own choices.
+export interface RestPreset {
+  kind: RestKind;
+  spansDawn?: boolean;
+}
+
 export function planRest(
   character: Character,
   kind: RestKind,
