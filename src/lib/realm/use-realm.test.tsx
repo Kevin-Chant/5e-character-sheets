@@ -22,6 +22,9 @@ const mock = vi.hoisted(() => ({
   // Whether the broker accepts our ping registration. A broker holding a stale
   // registration under our name refuses with `procedure_already_exists`.
   registerAccepted: true,
+  // Whether an acknowledged publish gets its PUBLISHED confirmation. A zombie
+  // socket is one that accepts the publish and never confirms it.
+  ackAnswers: true,
 }));
 
 vi.mock("autobahn-browser", () => {
@@ -34,8 +37,17 @@ vi.mock("autobahn-browser", () => {
         mock.registerAccepted
           ? Promise.resolve({})
           : Promise.reject(new Error("wamp.error.procedure_already_exists")),
-      publish: (topic: string, args: unknown[]) => {
+      publish: (
+        topic: string,
+        args: unknown[],
+        _kwargs?: unknown,
+        options?: { acknowledge?: boolean },
+      ) => {
         mock.published.push({ topic, message: (args as any[])[0] });
+        if (options?.acknowledge) {
+          return mock.ackAnswers ? Promise.resolve({}) : new Promise(() => {});
+        }
+        return undefined;
       },
       call: () =>
         mock.callAnswers ? Promise.resolve(1) : new Promise(() => {}),
@@ -88,6 +100,7 @@ afterEach(() => {
   mock.published = [];
   mock.callAnswers = true;
   mock.registerAccepted = true;
+  mock.ackAnswers = true;
   vi.useRealTimers();
 });
 
@@ -122,6 +135,53 @@ describe("publishing into a socket that isn't there", () => {
     mock.published = [];
 
     await openRealm(result, "two");
+    expect(mock.published).toHaveLength(0);
+  });
+
+  // The zombie window: a socket that died without a close frame accepts the
+  // publish without error, and everything "sent" through it used to be simply
+  // lost. The broker's PUBLISHED confirmation is the only proof of delivery,
+  // so a replayable message that never gets one is held for the reconnect.
+  it("holds a publish the broker never confirmed, and replays it on reconnect", async () => {
+    vi.useFakeTimers();
+    const { result } = setup();
+    await openRealm(result);
+
+    mock.ackAnswers = false;
+    act(() => {
+      result.current.publish({ kind: "edit", clientId: "me" });
+    });
+    // Sent, but into the void: the confirmation clock runs out.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_000);
+    });
+    act(() => {
+      mock.holder.connection.onclose();
+    });
+    mock.published = [];
+    mock.ackAnswers = true;
+
+    await openRealm(result);
+    expect(mock.published.map((p) => p.message.kind)).toEqual(["edit"]);
+  });
+
+  it("does not hold a publish the broker confirmed", async () => {
+    vi.useFakeTimers();
+    const { result } = setup();
+    await openRealm(result);
+
+    act(() => {
+      result.current.publish({ kind: "edit", clientId: "me" });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_000);
+    });
+    act(() => {
+      mock.holder.connection.onclose();
+    });
+    mock.published = [];
+
+    await openRealm(result);
     expect(mock.published).toHaveLength(0);
   });
 

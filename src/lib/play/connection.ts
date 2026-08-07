@@ -103,7 +103,17 @@ export function connectionReducer(
         phase: "syncing",
         code: event.code,
         requestId: event.requestId,
-        adopting: state.phase === "connecting" && state.intent.kind === "join",
+        // A joiner adopts — its local history is unrelated to the room's. So
+        // does a host *reopening* a code, and for the same reason: an answer
+        // means the table is live without them (their own drop, a second
+        // device), and their stored copy — possibly high-revision solo prep —
+        // must not win the document race against a fight in progress. The
+        // empty-room case costs a reopening DM nothing: no answer, no
+        // adoption, their prep stands. Only a *fresh* host never adopts —
+        // a brand-new code has no room to defer to.
+        adopting:
+          state.phase === "connecting" &&
+          (state.intent.kind === "join" || state.intent.reopening),
       };
     // Somebody answered. Whatever it was, the waiting is over — a second answer
     // is an ordinary merge, which is what stops two peers' replies fighting over

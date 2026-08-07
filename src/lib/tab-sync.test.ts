@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { UUID } from "crypto";
 import {
   publishTabEdit,
+  publishTabEncounter,
   subscribeTabEdits,
+  subscribeTabEncounters,
   TAB_SYNC_CHANNEL,
   TabEditMessage,
+  TabEncounterMessage,
 } from "./tab-sync";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import { FIELD } from "src/lib/data/data-definitions";
@@ -103,6 +106,34 @@ describe("tab-sync", () => {
     await flushed;
     expect(received).toHaveLength(1);
     unsubscribe();
+  });
+
+  it("carries the encounter on its own kind, invisible to the edit subscriber", async () => {
+    const peer = otherTab();
+    openChannels.push(peer);
+    const edits: TabEditMessage[] = [];
+    const stopEdits = subscribeTabEdits((message) => edits.push(message));
+    const received: TabEncounterMessage[] = [];
+    const seen = new Promise<void>((resolve) => {
+      const stop = subscribeTabEncounters((message) => {
+        received.push(message);
+        stop();
+        resolve();
+      });
+    });
+    const arrivedAtPeer = nextMessage(peer);
+    publishTabEncounter({
+      encounter: { round: 2, turnIndex: 1, participants: [] },
+      code: "1f0d2c3b-4a59-4687-9c01-2d3e4f5a6b7c",
+    });
+    // Round-trip our own publish through the peer, back to a subscriber here.
+    peer.postMessage(await arrivedAtPeer);
+    await seen;
+    expect(received).toHaveLength(1);
+    expect(received[0].code).toBe("1f0d2c3b-4a59-4687-9c01-2d3e4f5a6b7c");
+    expect((received[0].encounter as { round: number }).round).toBe(2);
+    expect(edits).toHaveLength(0);
+    stopEdits();
   });
 
   it("stops delivering after unsubscribe", async () => {

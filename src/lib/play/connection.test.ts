@@ -90,8 +90,8 @@ describe("joining", () => {
     expect(adoptsResponse(state, "r1")).toBe(false);
   });
 
-  // A host is the room; there is nothing to adopt, late or otherwise.
-  it("never offers a host adoption of a late answer", () => {
+  // A fresh host is the room; there is nothing to adopt, late or otherwise.
+  it("never offers a fresh host adoption of a late answer", () => {
     const state = connectionReducer(hosted(), {
       type: "sync-window-closed",
       requestId: "r1",
@@ -121,14 +121,34 @@ describe("joining", () => {
 });
 
 describe("hosting", () => {
-  // A host *is* the room: its state is the one with a history, so an answer
-  // from a peer merges by revision rather than replacing it.
-  it("never adopts", () => {
+  // A fresh host *is* the room: a brand-new code has no room to defer to, so
+  // an answer from a peer merges by revision rather than replacing anything.
+  it("never adopts on a fresh code", () => {
     expect(adoptsResponse(hosted(), "r1")).toBe(false);
   });
 
   it("still asks — reopening a code can find a fight already in it", () => {
     expect(hosted().phase).toBe("syncing");
+  });
+
+  // A *reopening* host adopts the way a joiner does, and for the same reason:
+  // an answer means the table is live without them — their own drop, or a
+  // second device — and their stored copy can be high-revision solo prep that
+  // would win the document race and roll back a fight in progress. The
+  // empty-room reopen (the ordinary Thursday) costs nothing: no answer, no
+  // adoption, prep stands.
+  it("adopts the room's answer when reopening a code it finds occupied", () => {
+    expect(adoptsResponse(hosted("r1", true), "r1")).toBe(true);
+  });
+
+  it("stops a reopening host adopting once a local edit would be lost", () => {
+    const state = run(
+      { type: "connect", intent: { kind: "host", reopening: true } },
+      { type: "opened", code: CODE, requestId: "r1" },
+      { type: "sync-window-closed", requestId: "r1" },
+      { type: "local-change" },
+    );
+    expect(adoptsResponse(state, "r1")).toBe(false);
   });
 });
 

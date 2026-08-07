@@ -85,6 +85,20 @@ const PING_TIMEOUT_MS = 8_000;
 const QUEUE_MAX_AGE_MS = 30_000;
 const QUEUE_MAX = 40;
 
+// How long a replayable publish waits for the broker's PUBLISHED confirmation
+// before assuming it died with the socket. The same patience as the liveness
+// probe, for the same reason: a phone's real answer can take seconds.
+//
+// The confirmation exists because of the zombie window — a socket that died
+// without a close frame accepts publishes without error for the up-to-36s it
+// takes the probe to notice, and everything "sent" in that window was simply
+// lost. Only the kinds a layer marks replayable pay for the acknowledgement;
+// an unconfirmed message is queued for the reconnect replay, and a
+// confirmation that arrives *after* the timeout pulls it back out — a late ack
+// means it was delivered, and replaying a delivered edit after newer ones
+// could roll a field back.
+const ACK_TIMEOUT_MS = 8_000;
+
 export interface UseRealmOptions<K extends string> {
   // This tab's identity, stamped on everything we publish and used to drop our
   // own echo on everything we receive.
@@ -136,8 +150,8 @@ export function useRealm<K extends string>({
   const topicsRef = useRef(topics);
   topicsRef.current = topics;
 
-  // Messages published while there was nothing to publish into. Held here
-  // rather than dropped, and flushed when the same realm comes back.
+  // Messages that didn't provably reach the broker. Held here rather than
+  // dropped, and flushed when the same realm comes back.
   const queued = useRef<
     { at: number; realm: string; message: { kind: K; clientId: string } }[]
   >([]);
@@ -147,40 +161,83 @@ export function useRealm<K extends string>({
   // message may only be replayed into the room it was meant for.
   const wantedRealm = useRef<string | undefined>();
 
-  const send = useCallback(
-    (message: { kind: K; clientId: string; toClientId?: string }): boolean => {
-      const session = sessionRef.current;
-      if (!session) return false;
-      try {
-        session.publish(topicsRef.current[message.kind], [stamp(message)]);
-        return true;
-      } catch {
-        return false;
-      }
+  const enqueue = useCallback(
+    (realm: string, message: { kind: K; clientId: string }, at?: number) => {
+      // `at` survives a failed replay — restamping would let one message cycle
+      // through reconnects forever, which the age cap exists to end.
+      const entry = { at: at ?? Date.now(), realm, message };
+      queued.current = [...queued.current.slice(-(QUEUE_MAX - 1)), entry];
+      return entry;
     },
     [],
   );
+  const unqueue = useCallback((entry: { at: number }) => {
+    queued.current = queued.current.filter((held) => held !== entry);
+  }, []);
 
   const publish = useCallback(
-    (message: { kind: K; clientId: string; toClientId?: string }) => {
-      if (send(message)) return;
-      // It didn't leave. For most kinds that's the end of it — `onclose` is
-      // about to move the UI to offline, and the next state supersedes this
-      // one anyway. For the kinds a layer says are worth replaying, the
+    (
+      message: { kind: K; clientId: string; toClientId?: string },
+      heldSince?: number,
+    ) => {
+      const realm = wantedRealm.current;
+      const replayable = !!realm && !!queuePolicy.current?.(message.kind);
+      const session = sessionRef.current;
+      // No socket at all. For most kinds that's the end of it — `onclose` has
+      // moved the UI to offline, and the next state supersedes this one
+      // anyway. For the kinds a layer says are worth replaying, the
       // alternative to holding it is losing it in silence, which is what a
       // player experiences as "I rolled and the DM never saw it".
-      const realm = wantedRealm.current;
-      if (!realm || !queuePolicy.current?.(message.kind)) return;
-      queued.current = [
-        ...queued.current.slice(-(QUEUE_MAX - 1)),
-        { at: Date.now(), realm, message },
-      ];
+      if (!session) {
+        if (replayable) enqueue(realm!, message, heldSince);
+        return;
+      }
+      try {
+        if (!replayable) {
+          session.publish(topicsRef.current[message.kind], [stamp(message)]);
+          return;
+        }
+        // A replayable kind asks the broker to say it arrived, because a
+        // zombie socket accepts publishes without error — see ACK_TIMEOUT_MS.
+        const ack = session.publish(
+          topicsRef.current[message.kind],
+          [stamp(message)],
+          {},
+          { acknowledge: true },
+        );
+        // Both deferred holds re-check the wanted realm: a deliberate close()
+        // in the meantime means nothing is worth replaying any more, and its
+        // queue-clearing already ran.
+        let held: { at: number } | undefined;
+        const timer = setTimeout(() => {
+          if (wantedRealm.current !== realm) return;
+          held = enqueue(realm!, message, heldSince);
+        }, ACK_TIMEOUT_MS);
+        Promise.resolve(ack).then(
+          () => {
+            clearTimeout(timer);
+            // Confirmed late: it was delivered after all, and replaying a
+            // delivered edit after newer ones could roll a field back.
+            if (held) unqueue(held);
+          },
+          () => {
+            clearTimeout(timer);
+            if (!held && wantedRealm.current === realm) {
+              enqueue(realm!, message, heldSince);
+            }
+          },
+        );
+      } catch {
+        if (replayable) enqueue(realm!, message, heldSince);
+      }
     },
-    [send],
+    [enqueue, unqueue],
   );
 
   // Replay what was held, oldest first, dropping anything stale or meant for
-  // another room. Called once a connection is up and subscribed.
+  // another room. Called once a connection is up and subscribed. Routed back
+  // through `publish`, so a replay that dies unconfirmed is held again — the
+  // age cap is what stops that cycling forever.
   const flushQueue = useCallback(
     (realm: string) => {
       const now = Date.now();
@@ -189,10 +246,10 @@ export function useRealm<K extends string>({
       for (const entry of pending) {
         if (entry.realm !== realm) continue;
         if (now - entry.at > QUEUE_MAX_AGE_MS) continue;
-        send(entry.message);
+        publish(entry.message, entry.at);
       }
     },
-    [send],
+    [publish],
   );
 
   // The character layer's `FULL_SYNC`: an owned document has one host who can

@@ -86,6 +86,8 @@ import {
   rememberSessionLocally,
   sessionMemoryFor,
 } from "src/lib/play/session-memory";
+import { publishTabEncounter, subscribeTabEncounters } from "src/lib/tab-sync";
+import { isEncounter } from "src/lib/play/session";
 import {
   TableTalk,
   TableTalkContext,
@@ -454,6 +456,8 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   // Whether this browser is in a session right now. Read synchronously by
   // `update`, which is how an edit made offline can disown the stored session.
   const connectedRef = useRef(false);
+  // And which table, for tagging what crosses to sibling tabs.
+  const connectedCodeRef = useRef<string | undefined>();
   // Set while a peer's state is being applied, so `update` can tell a change
   // *we* made from one we were told about — see the `local-change` event.
   const applyingRemoteRef = useRef(false);
@@ -490,6 +494,19 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         if (changed === current) return current;
         const next = silent ? changed : bumpRevision(changed, clientId);
         writeLocalStorage(ENCOUNTER_STORAGE_KEY, next);
+        // Every tab of this browser shows the same fight, live — the storage
+        // write above is only read at mount, so without this a second tab
+        // froze at whatever the encounter looked like when it opened, and its
+        // next write clobbered everything since. Published on every *change*
+        // (silent applies included: a peer's state is news to the sibling tab
+        // too); the receiving side merges rather than replaces, and an
+        // unchanged merge returns identically and lands right back on the
+        // `changed === current` early-return above — which is what terminates
+        // the bounce.
+        publishTabEncounter({
+          encounter: next,
+          code: connectedRef.current ? connectedCodeRef.current : undefined,
+        });
         // Edited by hand with no session open: this is prep now, whatever table
         // it came from, and prep is the one thing hosting must not throw away.
         if (!silent && !connectedRef.current) {
@@ -548,6 +565,31 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       }
     },
     [clientId, update, dispatch],
+  );
+
+  // The sibling tabs' copies of the fight, merged like any peer's. Everything
+  // a WAMP state does on arrival — the lane merge, the own-vitals push onto
+  // the open sheet, deciding whether the result is news — applies unchanged,
+  // which is why this routes through `applyRemoteState` rather than replacing
+  // state: two tabs are just two clients who happen to share a localStorage.
+  // Never adopted — adoption answers a sync request, and no request was made.
+  const applyRemoteStateRef = useRef(applyRemoteState);
+  applyRemoteStateRef.current = applyRemoteState;
+  useEffect(
+    () =>
+      subscribeTabEncounters((message) => {
+        if (!isEncounter(message.encounter)) return;
+        // A tab at a different table keeps its own fight.
+        if (
+          message.code &&
+          connectedRef.current &&
+          message.code !== connectedCodeRef.current
+        ) {
+          return;
+        }
+        applyRemoteStateRef.current(message.encounter, false);
+      }),
+    [],
   );
 
   const session = usePlaySession({
@@ -780,6 +822,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const connectedCode =
     session.status === "connected" ? session.code : undefined;
   connectedRef.current = !!connectedCode;
+  connectedCodeRef.current = connectedCode;
   // Remembered for this browser whether hosted or joined, and only once the
   // connection succeeded.
   const [lastSession, setLastSession] = useState<string | undefined>(() =>
@@ -941,8 +984,44 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   // Publish the projection the rest of the party sees. `setVitals` returns the
   // same object when nothing moved, and `update` skips an unchanged result, so
   // this doesn't turn every render into a broadcast.
+  //
+  // **Opening a sheet at a live table adopts the table's HP first.** The DM's
+  // oversight write lands on the participant row whether or not the sheet is
+  // open — but it only reaches the sheet itself through `applyRemoteState`,
+  // which needs an open character. A sheet that was closed when the write
+  // arrived used to reopen holding its old number and immediately publish it
+  // back, silently reverting the DM's correction. So the first run for a
+  // newly-opened character goes the other way: row → sheet, as an ordinary
+  // dirty, undoable edit, and the next render publishes the reconciled sheet.
+  // Only while connected — the room's copy is the table's live truth, which is
+  // exactly what an offline row (last week's fight, a sheet since rested in
+  // Drive) is not, so solo the sheet stays the document of record. Only
+  // `currHp`/`tempHp`: max HP and AC derive from the sheet's own formulas.
+  const adoptedVitalsForRef = useRef<UUID | undefined>();
   useEffect(() => {
     if (!character || !uuid) return;
+    if (adoptedVitalsForRef.current !== uuid) {
+      adoptedVitalsForRef.current = uuid;
+      const vitals = connectedRef.current
+        ? encounterRef.current.participants.find(
+            (p) => p.characterUuid === uuid,
+          )?.vitals
+        : undefined;
+      if (vitals) {
+        let adopted = false;
+        if (vitals.currHp !== character.currHp) {
+          dispatch(updateAt(charPath(FIELD.currHp), vitals.currHp));
+          adopted = true;
+        }
+        if (vitals.tempHp !== undefined && vitals.tempHp !== character.tempHp) {
+          dispatch(updateAt(charPath(FIELD.tempHp), vitals.tempHp));
+          adopted = true;
+        }
+        // The adoption re-renders with the reconciled sheet; publishing the
+        // pre-adoption one now would broadcast the very number being replaced.
+        if (adopted) return;
+      }
+    }
     update((current) => {
       const mine = current.participants.find((p) => p.characterUuid === uuid);
       if (!mine) return current;

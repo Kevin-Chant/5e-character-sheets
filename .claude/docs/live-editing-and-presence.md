@@ -125,6 +125,14 @@ Two details that make the campaign correct rather than merely persistent:
   session that made it. Edits the joiner made while offline are not lost
   either: `dispatch` is the one kind this layer marks `queueWhileOffline`, so
   they are replayed into the realm before the resync asks for the answer.
+  That replay covers the **zombie window** too: a replayable publish asks the
+  broker to acknowledge (`PUBLISHED`), and one unconfirmed after
+  `ACK_TIMEOUT_MS` is held for the same replay — a socket that died without a
+  close frame accepts publishes without error for the tens of seconds the
+  liveness probe needs to notice, and everything "sent" in that window used to
+  be simply lost. A late confirmation pulls the message back out of the queue,
+  because replaying a _delivered_ edit after newer ones could roll a field
+  back.
 
 `session-smoke`'s `dropout` scenario drives exactly this with a real network
 drop (`context.setOffline`), and asserts the two things the old behaviour got

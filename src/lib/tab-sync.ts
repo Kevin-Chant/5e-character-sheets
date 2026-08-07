@@ -39,6 +39,24 @@ export interface TabEditMessage {
   origin: "local" | "remote";
 }
 
+// The encounter's ride on the same channel. Unlike character edits — replayed
+// as actions — the encounter travels whole and the receiver *merges* it
+// (`receiveState`), because the lane counters make a whole-document merge
+// converge and an action stream doesn't exist for it. The bounce terminates by
+// identity: a merge that changes nothing returns the same object, and an
+// unchanged update doesn't republish.
+//
+// `code` is the table the sender is connected to, if any. A receiver connected
+// to a *different* table ignores the message — two tabs at two tables already
+// contend for the one stored encounter, and cross-feeding them would make that
+// worse. A disconnected receiver takes anything: the encounter is this
+// browser's one encounter, and the connected tab holds its freshest copy.
+export interface TabEncounterMessage {
+  kind: "encounter";
+  encounter: unknown;
+  code?: string;
+}
+
 // Lazy singleton. `BroadcastChannel` is missing in jsdom (component tests), so
 // absence degrades to "no cross-tab sync" rather than a crash — the same
 // posture the app takes toward a missing sidecar.
@@ -58,6 +76,12 @@ export function publishTabEdit(message: Omit<TabEditMessage, "kind">): void {
   getChannel()?.postMessage({ kind: "dispatch", ...message });
 }
 
+export function publishTabEncounter(
+  message: Omit<TabEncounterMessage, "kind">,
+): void {
+  getChannel()?.postMessage({ kind: "encounter", ...message });
+}
+
 // Returns the unsubscribe. Messages are shape-checked just enough to drop a
 // stray post from an old app version rather than dispatch garbage.
 export function subscribeTabEdits(
@@ -69,6 +93,23 @@ export function subscribeTabEdits(
     const message = event.data as TabEditMessage | undefined;
     if (!message || message.kind !== "dispatch") return;
     if (!message.uuid || !message.action?.type) return;
+    handler(message);
+  };
+  target.addEventListener("message", onMessage);
+  return () => target.removeEventListener("message", onMessage);
+}
+
+// The encounter's structural validation (`isEncounter`) stays with the
+// consumer — this layer doesn't import the play model.
+export function subscribeTabEncounters(
+  handler: (message: TabEncounterMessage) => void,
+): () => void {
+  const target = getChannel();
+  if (!target) return () => {};
+  const onMessage = (event: MessageEvent) => {
+    const message = event.data as TabEncounterMessage | undefined;
+    if (!message || message.kind !== "encounter") return;
+    if (!message.encounter) return;
     handler(message);
   };
   target.addEventListener("message", onMessage);

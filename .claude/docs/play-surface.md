@@ -238,7 +238,21 @@ on a **new** code starts from `EMPTY_ENCOUNTER` when the stored one belongs to a
 session; reopening a code keeps what it has, because that _is_ walking back into
 the fight you left. The carve-out is prep: an encounter a DM built with no
 session open is theirs, so any local change made while disconnected clears the
-key, and hosting then keeps the six goblins they just lined up.
+key, and hosting then keeps the six goblins they just lined up. A **reopening
+host also adopts** the room's sync answer the way a joiner does (see
+`connection.ts`): an answer means the table is live without them, and their
+stored copy — possibly high-revision solo prep — must not win the document
+race against a fight in progress. The empty-room reopen costs nothing: no
+answer, no adoption, prep stands.
+
+Two tabs of one browser share the stored encounter but each hold their own
+React state, so the fight also crosses between them live over the
+`BroadcastChannel` (`tab-sync.ts`): every changed `update` publishes the whole
+encounter, tagged with the sender's table code, and the receiver **merges** it
+through the ordinary `applyRemoteState` path — a sibling tab is just a peer
+who happens to share a localStorage. A tab connected to a _different_ table
+ignores it; the bounce terminates because an unchanged merge returns
+identically and doesn't republish.
 
 The provider sits **above the routes** in `index.tsx`, not inside the play
 surface, because the roll dialog reads conditions on the sheet too and the
@@ -741,6 +755,16 @@ sheet, so leaving the sheet untouched would publish the old HP right back on
 its next change. Only `currHp` crosses over; max HP and AC derive from the
 sheet's own formulas. The player's next edit bumps the rev again and wins —
 oversight is not custody.
+
+That `ownVitals` push needs an **open** character, which is the gap the
+open-time adoption closes: a sheet that was closed when the DM's write arrived
+used to reopen holding its old number and immediately publish it back,
+silently reverting the correction. So the vitals-publish effect's first run
+for a newly-opened character goes row → sheet (`currHp`/`tempHp`, as an
+ordinary dirty, undoable edit) — but **only while connected**: at a live table
+the room's copy is the current truth, while an offline row is exactly what it
+isn't (last week's fight, a sheet since rested in Drive), so solo the sheet
+stays the document of record.
 
 Two guards, both sim-tested: a **joiner keeps its own vitals regardless of
 revs** and jumps its rev past the incoming one, because a room can hold last
