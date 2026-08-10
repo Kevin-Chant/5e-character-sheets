@@ -53,9 +53,23 @@ Three things make holding several real:
    `useSyncExternalStore` wrappers for the party-session layer, which genuinely
    wants exactly one (a browser sits at one table).
 2. **Every `dispatch` message carries the uuid it edits**, so `applyRemoteEdit`
-   routes instead of guessing. The check the outbound `broadcast`, tab-sync's
-   inbound handler and the reconnect `FULL_SYNC` all had, the inbound WAMP path
-   never did — because the message had nothing to check against.
+   routes instead of guessing. The check the outbound `broadcast` and tab-sync's
+   inbound handler both had, the inbound WAMP path never did — because the
+   message had nothing to check against. Two things follow from a routing key
+   arriving over the wire, and both are checks the first pass missed:
+   - **The uuid is checked against the session's own**, so a realm may only
+     carry edits for the character it is named for. Nothing this app publishes
+     can produce a mismatch and the v4 envelope drops uuid-less older clients,
+     so it can only be a hand-rolled message — but the broker is
+     unauthenticated, and a trusted routing key is a write primitive for any
+     uuid a peer can name.
+   - **The reconnect `FULL_SYNC` asks the second question too.** Checking the
+     host's answer against the session (which it always did) says the host
+     replied about the right character; it does not say we are still looking at
+     it. A joiner holding a background session — join a friend's sheet, then
+     open one of your own — had its own sheet replaced by theirs on the first
+     dropped socket, dirty flag cleared on the way past. It now drops instead;
+     reopening re-joins and pulls a fresh sync.
 3. **A session whose sheet isn't open still works.** `loadStored`/`saveStored`
    are bound up from `CharacterContext`: a host folds an arriving edit into the
    stored copy through the same pure reducer and writes it back, on a
@@ -66,6 +80,17 @@ Three things make holding several real:
    owns that document and folding a peer's edit into our copy is the fork the
    save gate exists to prevent. Nothing is lost — reopening re-joins and pulls
    `FULL_SYNC`.
+
+   Two details the background writer earns by being the path nobody is
+   watching. The open-sheet check is made **on both sides of the storage
+   read**, because a Drive round-trip is long enough to open the sheet during,
+   and a fold written against the copy we read a moment ago would then be
+   beaten by the open sheet's next autosave. And a **failed fold is held, not
+   logged**: the edit is the only copy of that change, the peer who made it was
+   told it landed, and the host would otherwise go on serving the stale copy as
+   authoritative. `backgroundSaveErrors` surfaces that in the nav (with the
+   sign-in click when it's an expired Drive session) and `retryBackgroundSaves`
+   replays what was held.
 
 The public API was uuid-keyed throughout all of this (`getRole(uuid)`,
 `broadcast(uuid, …)`, `getParticipants(uuid)`), which is why the change was

@@ -41,6 +41,10 @@ export default function DriveLiveSessionBootstrap() {
   // Latest unsavedChanges, readable synchronously inside the async join flow.
   const unsavedRef = useRef(unsavedChanges);
   unsavedRef.current = unsavedChanges;
+  // Which sheet is open *now* — for the deferred confirm below, which can
+  // outlive the character it was raised for.
+  const openUuidRef = useRef(uuid);
+  openUuidRef.current = uuid;
 
   useEffect(() => {
     if (!uuid || !autoEnabled || !shareRole) return;
@@ -68,7 +72,16 @@ export default function DriveLiveSessionBootstrap() {
         console.error("Joined character failed validation", result.errors);
         return;
       }
-      const load = () => dispatch(loadPersistedCharacter(result.character));
+      // **Re-checked at the moment it runs, not at the moment it was offered.**
+      // The prompt below waits on a human, and the sheet can change underneath
+      // it — pick another character while "Rejoin live session?" is up and a
+      // confirm would load the host's copy over whatever is now on screen. The
+      // `cancelled` guard covers the effect being torn down, which is a
+      // different question from what the user is looking at right now.
+      const load = () => {
+        if (cancelled || openUuidRef.current !== uuid) return;
+        dispatch(loadPersistedCharacter(result.character));
+      };
       // Joining replaces the in-memory character with the host's copy. If we
       // made solo edits while the owner was offline, confirm before discarding
       // them; otherwise join silently.

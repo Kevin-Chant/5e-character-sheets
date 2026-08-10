@@ -22,7 +22,8 @@ import {
 } from "src/lib/realm/presence-store";
 import { PresenceEntry } from "src/lib/realm/presence";
 import { realmForCharacter } from "src/lib/session-codes";
-import { publishTabEdit } from "src/lib/tab-sync";
+import { publishTabEdit, subscribeTabEdits } from "src/lib/tab-sync";
+import { isDriveAuthError } from "src/lib/google-auth";
 import reducer from "./reducers/reducer";
 
 // Character co-editing: one shared sheet, several browsers, over a realm named
@@ -40,14 +41,14 @@ import reducer from "./reducers/reducer";
 //   sheet; a joiner plays a copy it must never save (a divergent fork), which
 //   is the role check in `CharacterContext`'s lazy-save.
 //
-// **One sharing session at a time.** The old provider kept a uuid-keyed map of
-// connections, but the support was illusory: incoming edits were dispatched
-// into whatever character was *open*, and `FULL_SYNC` served the open
-// character whatever realm asked — so a session only ever worked while its
-// character stayed on screen. One-at-a-time is the same capability stated
-// honestly, and it lets `broadcast` check the uuid instead of trusting the
-// caller. The public API stays uuid-keyed; a uuid that isn't the active
-// session's answers "no session".
+// **One session per character, several at once** — see the `Session` map
+// below. The rule that falls out of it, and the one every path here has to keep
+// asking: *a session is not the sheet on screen*. Nothing ends a session when
+// you open a different character, so every message, every reconnect and every
+// save has to name the character it is for and check it, rather than reaching
+// for whatever `CharacterContext` happens to be holding. Every place that got
+// this wrong caused the same bug — one character's data written into another —
+// and the checks are marked as such where they appear.
 
 const BASE_APPNAME = "net.dndcharactersheets";
 
@@ -191,6 +192,19 @@ interface SharingSessionsContextData {
   // it back. Distinct from "no session": the session is still what this tab is
   // in, and the sheet on screen is still the shared one — see `reconnect`.
   reconnecting: boolean;
+  // Characters whose *background* fold-and-save failed — a peer edited a sheet
+  // this browser is hosting but not looking at, and the write didn't land.
+  //
+  // The foreground save has an indicator that distinguishes an expired Drive
+  // session from a generic failure and offers the click that fixes it; the
+  // background path had a `console.error`. That is the path that runs when
+  // nobody is looking, and its silence is total: the edit is gone, the peer saw
+  // it accepted, and the host keeps serving the stale copy as authoritative.
+  backgroundSaveErrors: { uuid: UUID; kind: "auth" | "error" }[];
+  // Try the failed folds again (after a re-consent, or when the network is
+  // back). Peer edits are held for exactly this, so a retry is a real second
+  // chance rather than a UI reset.
+  retryBackgroundSaves: () => void;
   // The plumbing the two role hooks below stand on. Not for components.
   bind: (bindings: SessionBindings) => void;
   hostSession: () => Promise<void>;
@@ -204,6 +218,8 @@ export const SharingSessionsContext =
     clientId: "",
     getRole: () => undefined,
     reconnecting: false,
+    backgroundSaveErrors: [],
+    retryBackgroundSaves: () => {},
     broadcast: () => {},
     defaultIdentity: { name: "", color: "" },
     setDefaultIdentity: () => {},
@@ -322,6 +338,18 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   // to notice. Chaining on the previous promise makes the reads and writes for
   // one character strictly ordered; different characters still run in parallel.
   const backgroundWrites = useRef(new Map<UUID, Promise<void>>());
+  // Edits whose fold-and-save failed, by character, oldest first. Held rather
+  // than logged: they are the only copy of those changes, the peer who made
+  // them has already been told they landed, and a Drive token expires on a
+  // timer nobody chose. Capped, because a sheet nobody can write to should cost
+  // a bounded amount of memory.
+  const MAX_HELD_EDITS = 100;
+  const failedEdits = useRef(
+    new Map<UUID, { action: Action; dirtyAction?: boolean }[]>(),
+  );
+  const [backgroundErrors, setBackgroundErrors] = useState<
+    Record<UUID, "auth" | "error">
+  >({});
   const applyBackgroundEdit = useCallback(
     (uuid: UUID, message: { action: Action; dirtyAction?: boolean }) => {
       const previous = backgroundWrites.current.get(uuid) ?? Promise.resolve();
@@ -331,27 +359,67 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
           // from here, and the ordinary dispatch path owns writing it. Checked
           // *inside* the chain rather than before it, because the sheet can be
           // opened between an edit arriving and its turn coming round.
-          const open = bindingsRef.current.getCharacter();
-          if (open?.uuid === uuid) {
+          if (bindingsRef.current.getCharacter()?.uuid === uuid) {
             applyRemoteEdit(bindingsRef.current.dispatch, message, uuid);
             return;
           }
           const stored = await bindingsRef.current.loadStored(uuid);
+          // **Checked again on the far side of the load.** Reading storage is a
+          // round trip (a Drive one, at that), and the sheet can be opened
+          // during it — at which point the copy we just read is already behind
+          // the one on screen, and writing our fold would be beaten by the open
+          // sheet's next autosave anyway. Losing that race silently is how a
+          // peer's edit disappears from a sheet its author is watching.
+          if (bindingsRef.current.getCharacter()?.uuid === uuid) {
+            applyRemoteEdit(bindingsRef.current.dispatch, message, uuid);
+            return;
+          }
           if (!stored) return;
           const updated = reducer(stored, message.action);
           if (!updated) return;
           await bindingsRef.current.saveStored(updated);
+          // A write that lands retires whatever the last one failed with.
+          failedEdits.current.delete(uuid);
+          setBackgroundErrors((prev) => {
+            if (!(uuid in prev)) return prev;
+            const rest = { ...prev };
+            delete rest[uuid];
+            return rest;
+          });
         })
         .catch((error) => {
           // A failed background write must not poison the chain for every
           // later edit to the same sheet — the next one reads storage fresh
-          // and is the better copy anyway.
+          // and is the better copy anyway. The edit itself is kept, and the
+          // failure is said out loud (see `backgroundSaveErrors`).
           console.error("Background edit failed for", uuid, error);
+          const held = failedEdits.current.get(uuid) ?? [];
+          failedEdits.current.set(uuid, [
+            ...held.slice(-(MAX_HELD_EDITS - 1)),
+            message,
+          ]);
+          setBackgroundErrors((prev) => ({
+            ...prev,
+            [uuid]: isDriveAuthError(error) ? "auth" : "error",
+          }));
         });
       backgroundWrites.current.set(uuid, next);
     },
     [],
   );
+
+  // Replay the held edits, in order, per character. Clearing the flag up front
+  // is deliberate: a retry that fails again sets it back from the same code
+  // path as the original failure, and the button shouldn't stay armed for a
+  // sheet whose edits are now in flight.
+  const retryBackgroundSaves = useCallback(() => {
+    const held = failedEdits.current;
+    failedEdits.current = new Map();
+    setBackgroundErrors({});
+    for (const [uuid, edits] of held) {
+      for (const edit of edits) applyBackgroundEdit(uuid, edit);
+    }
+  }, [applyBackgroundEdit]);
 
   // Late-bound so the transport's handlers, which are built before these
   // exist, can reach the current ones. The same knot the encounter provider
@@ -474,6 +542,19 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   handleMessageRef.current = (session, message) => {
     switch (message.kind) {
       case "dispatch": {
+        // **A realm may only edit its own character.** The uuid on the message
+        // is the routing key, and a routing key taken on trust is a routing key
+        // that can point anywhere: a peer in this room naming some other uuid
+        // would have its edit applied to whatever sheet that is — the one on
+        // screen, or a stored copy folded and written to disk — with no session
+        // for that character anywhere in the story. Nothing this app publishes
+        // can produce a mismatch (`broadcast` looks the session up *by* the
+        // uuid it stamps), and the v4 envelope drops uuid-less older clients,
+        // so this can only be a hand-rolled message or a future bug. Both are
+        // reasons to check rather than reasons not to: the broker is
+        // unauthenticated, and the sharing code is a uuid anyone we've ever
+        // shared a sheet with already holds.
+        if (message.uuid !== session.uuid) return;
         // Applied only to the character it names — never to whatever happens
         // to be on screen, which is the whole bug this layer was carrying. The
         // open sheet goes through the reducer in `CharacterContext`; any other
@@ -593,11 +674,28 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
         // Whatever the host changed while we were away. Our own queued edits
         // were flushed by `connect` before this call went out, so what comes
         // back already includes them.
+        //
+        // **Only into the sheet this session is for.** Two checks, because they
+        // answer different questions: `fresh.uuid` is whether the host answered
+        // with the character we asked about, and the open sheet's uuid is
+        // whether we are still *looking* at it. A session outlives the sheet
+        // that opened it — join a friend's character, then open one of your
+        // own, and this dispatch would have replaced your sheet with theirs on
+        // the first wifi handover, clearing the dirty flag on the way past. The
+        // sibling paths (`applyRemoteEdit`, `endedRemotely`) all ask the second
+        // question; this one asked only the first. Dropping is right rather
+        // than merely safe: reopening the sheet re-joins and pulls a fresh
+        // `FULL_SYNC` anyway.
         try {
           const fresh = (await session.realm.call(SessionEvent.FULL_SYNC)) as
             | Character
             | undefined;
-          if (fresh && fresh.uuid === session.uuid) {
+          const open = bindingsRef.current.getCharacter();
+          if (
+            fresh &&
+            fresh.uuid === session.uuid &&
+            open?.uuid === fresh.uuid
+          ) {
             bindingsRef.current.dispatch(
               loadPersistedCharacter(fresh),
               false,
@@ -677,6 +775,52 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       }
     }
   });
+
+  // Publish a local edit to everyone else in that character's realm. A uuid
+  // with no session is a no-op, which is the guard that keeps an edit to some
+  // *other* open sheet out of a realm it has nothing to do with — and the
+  // message carries the uuid so the receiving side can make the same check
+  // rather than assuming.
+  const broadcast = useCallback(
+    (uuid: UUID, action: Action, dirtyAction?: boolean) => {
+      const session = sessionsRef.current.get(uuid);
+      if (!session) return;
+      // The transport's publish is typed for the envelope's own fields; the
+      // layer's message shape is the layer's business.
+      (session.realm.publish as (m: SharingMessage) => void)({
+        kind: "dispatch",
+        clientId: clientIdRef.current,
+        uuid,
+        action,
+        dirtyAction,
+      });
+    },
+    [],
+  );
+
+  // An edit made in a sibling tab, forwarded into whichever of our realms it
+  // belongs to.
+  //
+  // **This lives here rather than in `CharacterContext` because the sessions
+  // do.** The forward used to hang off the open character — the only session a
+  // browser could hold was the open sheet's, so "is this the character on
+  // screen" and "do we have a realm for it" were the same question. They aren't
+  // any more: a host with sheet A shared and sheet B on screen would take a
+  // sibling tab's edit to A, apply nothing (wrong character), and forward
+  // nothing (no open match) — so A's joiners went quietly stale until somebody
+  // reconnected. The session map is the thing that actually knows, so it is the
+  // thing that answers.
+  //
+  // `"remote"`-origin messages are not forwarded: they arrived over a realm
+  // already, and sending them back is the loop `tab-sync.ts` exists to avoid.
+  useEffect(
+    () =>
+      subscribeTabEdits((message) => {
+        if (message.origin !== "local") return;
+        broadcast(message.uuid, message.action, message.dirtyAction);
+      }),
+    [broadcast],
+  );
 
   // Every socket goes when the provider does.
   useEffect(() => {
@@ -879,24 +1023,11 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
         borrowedRef.current.add(uuid);
       },
       isBorrowed: (uuid) => borrowedRef.current.has(uuid),
-      // Publish a local edit to everyone else in that character's realm. A uuid
-      // with no session is a no-op, which is the guard that keeps an edit to
-      // some *other* open sheet out of a realm it has nothing to do with — and
-      // the message carries the uuid so the receiving side can make the same
-      // check rather than assuming.
-      broadcast: (uuid, action, dirtyAction) => {
-        const session = sessions.get(uuid);
-        if (!session) return;
-        // The transport's publish is typed for the envelope's own fields; the
-        // layer's message shape is the layer's business.
-        (session.realm.publish as (m: SharingMessage) => void)({
-          kind: "dispatch",
-          clientId: clientIdRef.current,
-          uuid,
-          action,
-          dirtyAction,
-        });
-      },
+      broadcast,
+      backgroundSaveErrors: Object.entries(backgroundErrors).map(
+        ([uuid, kind]) => ({ uuid: uuid as UUID, kind }),
+      ),
+      retryBackgroundSaves,
       teardownSession,
       bind: (bindings) => {
         if (bindings.dispatch) bindingsRef.current.dispatch = bindings.dispatch;
@@ -914,6 +1045,9 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     }),
     [
       sessions,
+      broadcast,
+      backgroundErrors,
+      retryBackgroundSaves,
       defaultIdentity,
       setDefaultIdentity,
       resetDefaultIdentity,

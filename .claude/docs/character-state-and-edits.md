@@ -60,6 +60,21 @@ and not marked dirty (the originating tab owns the write to storage, so two
 tabs' autosaves don't race over one file). Undo/redo history is intentionally
 per-tab and local — it undoes _your_ edits, not a peer's.
 
+**A `load_character` for a _different_ uuid flushes the outgoing sheet first**
+(`flushOutgoing`). Autosave is debounced and its flush reads whichever character
+is current when the timer fires, so switching sheets inside that window — or
+with autosave off — simply dropped the edits you had just made. With sessions
+that outlive the sheet that opened them it is also a shared rollback: peers got
+those edits over the realm, but the stored copy is what `FULL_SYNC` serves and
+what arriving edits are folded into, so the next joiner adopts a sheet that has
+silently gone backwards. Deliberately **not** on `reset_character`, and not when
+the same uuid is reloaded: a reset is how a just-_deleted_ character leaves the
+screen (a write would resurrect it) and how a datastore swap closes the sheet
+(a write would land in the backend the user walked away from — the exact
+cross-backend write that reset exists to prevent), and a same-uuid reload is the
+Drive bootstrap adopting the host's copy over solo edits the user has just been
+asked about and chosen to discard.
+
 ## Cross-tab sync rides the same replay, over a `BroadcastChannel`
 
 `src/lib/tab-sync.ts` is a module-singleton channel carrying the same dispatch
@@ -67,10 +82,18 @@ messages the WAMP layer carries, so two tabs of one browser with the same
 character open converge instantly whatever the storage backend — there is no
 other cross-tab path (both datastores cache and never re-read). The loop rule
 is the message's `origin` tag: a `"local"` edit is applied by every sibling and
-_forwarded_ into a sibling's open sharing session (an edit made in the tab
-without the session still reaches remote peers); a `"remote"` edit — one that
-arrived over WAMP, republished to siblings in `use-sharing-session.tsx` — is
-applied and goes no further. Duplicate delivery is routine (two tabs can share
+_forwarded_ into any sharing session that sibling holds for it (an edit made in
+the tab without the session still reaches remote peers); a `"remote"` edit — one
+that arrived over WAMP, republished to siblings in `use-sharing-session.tsx` —
+is applied and goes no further.
+
+The two halves live in different places on purpose. **Applying** is
+`CharacterContext`'s job and is gated on the open character, which is the only
+one it has. **Forwarding** belongs to `SharingSessionsContext`, because the
+sessions do: it used to hang off the open sheet as well, back when the only
+session a browser could hold _was_ the open sheet's, and once several sessions
+became real that gate silently stopped relaying — a host with a second sheet on
+screen kept serving its joiners a copy that no longer moved. Duplicate delivery is routine (two tabs can share
 both the channel and a realm) and harmless, because actions carry whole values.
 
 ## Whole-character writes don't block their UI

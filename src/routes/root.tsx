@@ -43,6 +43,7 @@ import ShareModal from "src/components/share-modal";
 import NavOverflowMenu from "src/components/nav-overflow-menu";
 import PresenceRoster from "src/components/presence-roster";
 import ShareRoleBadge from "src/components/share-role-badge";
+import BackgroundSaveWarning from "src/components/background-save-warning";
 import { requestDriveToken } from "src/lib/google-auth";
 import { parseCharacterFile } from "src/lib/character-bundle";
 import { navControls, navTitle } from "src/lib/nav-controls";
@@ -517,6 +518,9 @@ export default function Root() {
       {shareModalOpen && (
         <ShareModal onClose={() => setShareModalOpen(false)} />
       )}
+      {/* About a character that is, by definition, not the one on screen — so
+          it belongs here rather than inside the sheet. */}
+      <BackgroundSaveWarning />
       <div className="flex">
         {showSidebar && <Sidebar close={() => setShowSidebar(false)} />}
         <div id="detail">

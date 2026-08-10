@@ -181,3 +181,80 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
     expect(alertSpy).toHaveBeenCalled();
   });
 });
+
+// A joiner that gets its socket back re-runs `FULL_SYNC` to collect what it
+// missed — and then has to decide where to put the answer. "The realm asked for
+// it, so it goes on screen" is the assumption that predates several sessions
+// per browser, and it is the same one that scrambled sheets everywhere else it
+// survived: join a friend's character, open one of your own, and the first wifi
+// handover would replace yours with theirs.
+describe("a joiner's reconnect", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    mock.holder.connection = null;
+    vi.restoreAllMocks();
+  });
+
+  // Drop the socket without a goodbye, then let the reconnect ladder's first
+  // rung fire and hand it a connection that answers `FULL_SYNC` with the host's
+  // copy of UUID_A.
+  const reconnectWith = async (
+    result: { current: { joinSession: (uuid: UUID) => Promise<void> } },
+    hostCopy: Character,
+  ) => {
+    await act(async () => {
+      const join = result.current.joinSession(UUID_A).catch(() => {});
+      const connection = mock.holder.connection;
+      connection.onopen(connection.session);
+      await join;
+      connection.onclose();
+    });
+    await act(async () => {
+      // Past the first backoff delay, into the retry's own connect.
+      await vi.advanceTimersByTimeAsync(600);
+      const fresh = mock.holder.connection;
+      fresh.session.call = () => Promise.resolve(hostCopy);
+      fresh.onopen(fresh.session);
+      await vi.advanceTimersByTimeAsync(10);
+    });
+  };
+
+  it("does not pull a background session's sheet over the open one", async () => {
+    vi.useFakeTimers();
+    const dispatch = vi.fn();
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    const { result } = renderHook(
+      () => useJoinerWithOpenSheet(dispatch, UUID_B),
+      { wrapper },
+    );
+
+    await reconnectWith(result, { uuid: UUID_A, name: "Theirs" } as Character);
+
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "load_character" }),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("still resyncs the sheet it is looking at", async () => {
+    vi.useFakeTimers();
+    const dispatch = vi.fn();
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    const { result } = renderHook(
+      () => useJoinerWithOpenSheet(dispatch, UUID_A),
+      { wrapper },
+    );
+
+    await reconnectWith(result, { uuid: UUID_A, name: "Theirs" } as Character);
+
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "load_character",
+        payload: expect.objectContaining({ uuid: UUID_A }),
+      }),
+      false,
+      true,
+    );
+  });
+});

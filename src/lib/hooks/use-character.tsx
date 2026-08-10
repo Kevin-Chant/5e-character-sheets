@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { UUID } from "crypto";
 import {
   Action,
   invertAction,
@@ -98,7 +99,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   // landed while its write was in flight — the reducer clones the character,
   // so object identity can't answer that.
   const editSeq = useRef(0);
-  const { save, load, stageCharacter } = useDatastore();
+  const { save, stageCharacter } = useDatastore();
   const { datastore } = useDatastoreSelector();
   const { settings } = useSettings();
   const getCharacter = useCallback<() => Character | undefined>(() => {
@@ -110,9 +111,28 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   // character this tab isn't looking at: it folds arriving edits into the saved
   // sheet and serves it to joiners. Both go straight to the datastore, on
   // purpose — this context holds one character, and these are about the others.
+  //
+  // **The read goes to the raw backend, not `useDatastore`'s `load`.** That
+  // wrapper clears `characterLoading` as a side effect, which is right for a
+  // character the user asked for and wrong for one a peer edited in the
+  // background: a joiner's `FULL_SYNC` or a folded edit landing mid-list-fetch
+  // would put the picker's spinner down and flash "No characters yet" over a
+  // store that was still loading, and could convince `sheet-container`'s
+  // stale-uuid branch to navigate away from a deep link that was about to
+  // resolve. Reading a stored sheet is not a statement about the list.
+  //
+  // The *write* deliberately stays `save`: its side effects — the reactive list
+  // entry, clearing the unsynced badge, the `saving` flag — are all true of a
+  // background fold, which really is this app writing to storage.
   const storage = useMemo(
-    () => ({ loadStored: load, saveStored: save }),
-    [load, save],
+    () =>
+      datastore
+        ? {
+            loadStored: (uuid: UUID) => datastore.loadFromDatastore(uuid),
+            saveStored: save,
+          }
+        : undefined,
+    [datastore, save],
   );
   const { startSession, endSession } = useHostSharingSession(
     dispatch,
@@ -228,6 +248,46 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     });
   }, [character?.uuid, character?.name, datastore]);
 
+  // Whether the sheet on screen has edits that haven't reached storage, read
+  // synchronously from inside the dispatcher below.
+  const unsavedRef = useRef(unsavedChanges);
+  unsavedRef.current = unsavedChanges;
+  const persistableRef = useRef((_uuid: UUID) => false as boolean);
+  persistableRef.current = (uuid: UUID) =>
+    getRole(uuid) !== "remote" && !isBorrowed(uuid);
+  const saveRef = useRef(save);
+  saveRef.current = save;
+
+  // Write the *outgoing* character before another one takes its place.
+  //
+  // Autosave is debounced and keyed on the character, and its flush reads
+  // whichever sheet is current when the timer fires — so switching sheets
+  // inside the debounce window (or with autosave off) simply dropped the edits
+  // you had just made. That was always a quiet data loss; with sessions that
+  // outlive the sheet it is also a *shared* one, and worse for being invisible.
+  // Those edits went out over the realm the moment they were made, so peers
+  // have them, but the stored copy — which is now what `FULL_SYNC` serves and
+  // what arriving edits are folded into — does not. The next joiner to
+  // reconnect adopts a copy of the sheet that has silently rolled back.
+  //
+  // **Only on `load_character`, never on `reset_character`.** A reset means the
+  // sheet is going away, and the three things that close one are all reasons
+  // *not* to write it: the character was just deleted (a save would resurrect
+  // it), the datastore was just swapped (the save would land in the backend the
+  // user walked away from — the very cross-backend write the swap-reset exists
+  // to prevent), or the user asked for the picker. Switching sheets is the case
+  // where the outgoing character still exists, in the store it came from, and
+  // is the one thing on screen that just changed.
+  const flushOutgoing = useCallback(() => {
+    const outgoing = characterRef.current;
+    if (!outgoing || !unsavedRef.current) return;
+    if (!persistableRef.current(outgoing.uuid)) return;
+    saveRef.current(outgoing).catch((error) => {
+      console.error("Failed to save the character being closed", error);
+      setSaveError(isDriveAuthError(error) ? "auth" : "error");
+    });
+  }, []);
+
   // Stable via characterRef, so undo/redo (and the keydown effect below) don't
   // have to rebind on every character change.
   const dispatchAndBroadcast = useCallback(
@@ -261,6 +321,16 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
           setPast((p) => [...p.slice(-(MAX_HISTORY - 1)), entry!]);
           setFuture([]);
         }
+      }
+      // A *different* sheet is about to take this one's place — see
+      // `flushOutgoing`. Loading the same uuid is a re-adoption, not a switch
+      // (the Drive bootstrap pulling the host's copy over our solo edits), and
+      // there the user has just been asked and has said to discard them.
+      if (
+        action.type === "load_character" &&
+        action.payload.uuid !== characterRef.current?.uuid
+      ) {
+        flushOutgoing();
       }
       // A new character context has no history to carry over.
       if (
@@ -307,7 +377,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
         });
       }
     },
-    [broadcast],
+    [broadcast, flushOutgoing],
   );
 
   // Edits arriving from this browser's other tabs. Applied like a remote edit
@@ -316,28 +386,19 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   // two tabs' autosaves against each other over the same file. The next local
   // edit in this tab saves the whole character, sibling edits included.
   //
-  // A `"local"`-origin message is forwarded into this tab's sharing session,
-  // if one is open for that character: that's what lets an edit made in a
-  // session-less sibling tab still reach remote peers. `"remote"`-origin
-  // messages are applied and go no further — see `tab-sync.ts` for the loop
-  // argument.
+  // Forwarding a sibling's edit into a live realm is **not** done here: that
+  // belongs to the sessions provider, which knows about the realms this browser
+  // holds for characters it isn't looking at (this context, by construction,
+  // only knows about the one it is). This subscriber's whole job is the sheet on
+  // screen.
   const dispatchAndBroadcastRef = useRef(dispatchAndBroadcast);
   dispatchAndBroadcastRef.current = dispatchAndBroadcast;
-  const broadcastRef = useRef(broadcast);
-  broadcastRef.current = broadcast;
   useEffect(
     () =>
       subscribeTabEdits((message) => {
         const open = characterRef.current;
         if (!open || open.uuid !== message.uuid) return;
         dispatchAndBroadcastRef.current(message.action, false, true, false);
-        if (message.origin === "local") {
-          broadcastRef.current(
-            message.uuid,
-            message.action,
-            message.dirtyAction,
-          );
-        }
       }),
     [],
   );
