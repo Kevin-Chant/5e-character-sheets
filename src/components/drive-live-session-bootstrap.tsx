@@ -61,7 +61,7 @@ export default function DriveLiveSessionBootstrap() {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const applyJoined = async () => {
-      const hostCharacter = await getCharacter();
+      const hostCharacter = await getCharacter(uuid);
       if (cancelled || !hostCharacter) return;
       const result = hydrateCharacter(hostCharacter);
       if (!result.ok) {
@@ -81,7 +81,7 @@ export default function DriveLiveSessionBootstrap() {
           cancelText: "Keep editing solo",
           type: "warning",
           onConfirm: load,
-          onCancel: () => disconnect(),
+          onCancel: () => disconnect(uuid),
         });
       } else {
         load();
@@ -100,7 +100,7 @@ export default function DriveLiveSessionBootstrap() {
         // check to our uuid: a session the user opened meanwhile answers
         // `undefined` here and is left alone.
         if (cancelled) {
-          if (getRole(uuid) === "remote") disconnect();
+          if (getRole(uuid) === "remote") disconnect(uuid);
           return;
         }
         await applyJoined();
@@ -115,7 +115,7 @@ export default function DriveLiveSessionBootstrap() {
       cancelled = true;
       if (timer) clearTimeout(timer);
       // Leave the owner's session when switching away or unmounting.
-      if (getRole(uuid) === "remote") disconnect();
+      if (getRole(uuid) === "remote") disconnect(uuid);
     };
     // getRole/dispatch/session helpers are stable enough; re-running only on the
     // character or the auto-session toggle is intended (exhaustive-deps is off).

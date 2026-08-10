@@ -7,7 +7,9 @@ import type { UUID } from "crypto";
 import {
   SharingSessionsContextProvider,
   useRemoteSharingSession,
+  useSharingSessions,
 } from "./use-sharing-session";
+import type { Character } from "src/lib/types";
 import { PROTOCOL_VERSION } from "src/lib/realm/envelope";
 
 // Capture the mock autobahn connection the transport constructs, so the test
@@ -50,6 +52,24 @@ const deliver = (connection: any, message: Record<string, unknown>) => {
 };
 
 const UUID_A = "11111111-1111-1111-1111-111111111111" as UUID;
+const UUID_B = "22222222-2222-2222-2222-222222222222" as UUID;
+
+// The provider holds one session per character now, so "is this the sheet on
+// screen" is a real question it has to ask — with several rooms open, a room
+// ending in the background must not clear the character the user is looking at.
+// Binding a character is what lets a test say which sheet is open; the real app
+// binds it from `CharacterContext`.
+const useJoinerWithOpenSheet = (
+  dispatch: (...args: unknown[]) => void,
+  openUuid: UUID | undefined,
+) => {
+  const sessions = useSharingSessions();
+  sessions.bind({
+    getCharacter: () =>
+      openUuid ? ({ uuid: openUuid } as Character) : undefined,
+  });
+  return useRemoteSharingSession(dispatch as never);
+};
 
 // The join flow lives in the provider now (one transport for the layer), so
 // the hook is rendered under the real one rather than making its own sockets.
@@ -111,9 +131,10 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
     const dispatch = vi.fn();
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
 
-    const { result } = renderHook(() => useRemoteSharingSession(dispatch), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => useJoinerWithOpenSheet(dispatch, UUID_A),
+      { wrapper },
+    );
     await act(async () => {
       const join = result.current.joinSession(UUID_A).catch(() => {});
       const connection = mock.holder.connection;
@@ -127,6 +148,36 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
       false,
       true,
     );
+    expect(alertSpy).toHaveBeenCalled();
+  });
+
+  // The other half of that, and the reason the check exists at all. Holding one
+  // session, "the host closed it" and "the sheet on screen is dead" were the
+  // same fact. Holding several they aren't: a DM's other room can end while you
+  // are looking at a different character, and resetting then would take a sheet
+  // nobody said anything about.
+  it("leaves a different open sheet alone when a background session ends", async () => {
+    const dispatch = vi.fn();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+
+    const { result } = renderHook(
+      () => useJoinerWithOpenSheet(dispatch, UUID_B),
+      { wrapper },
+    );
+    await act(async () => {
+      const join = result.current.joinSession(UUID_A).catch(() => {});
+      const connection = mock.holder.connection;
+      connection.onopen(connection.session);
+      await join;
+      deliver(connection, { kind: "closeSession", clientId: "the-host" });
+    });
+
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "reset_character" }),
+      expect.anything(),
+      expect.anything(),
+    );
+    // Still told — the session they joined really did end.
     expect(alertSpy).toHaveBeenCalled();
   });
 });

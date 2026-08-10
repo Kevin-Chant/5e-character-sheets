@@ -30,7 +30,7 @@ export default function RemoteConnectionInitializer() {
     }
 
     await joinSession(uuidInputValue);
-    const character = await getCharacter();
+    const character = await getCharacter(uuidInputValue);
     if (!character) {
       window.alert("Failed to join session!");
       return;

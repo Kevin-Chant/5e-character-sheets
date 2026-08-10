@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -97,7 +98,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   // landed while its write was in flight — the reducer clones the character,
   // so object identity can't answer that.
   const editSeq = useRef(0);
-  const { save, stageCharacter } = useDatastore();
+  const { save, load, stageCharacter } = useDatastore();
   const { datastore } = useDatastoreSelector();
   const { settings } = useSettings();
   const getCharacter = useCallback<() => Character | undefined>(() => {
@@ -105,9 +106,18 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   }, [character]);
 
   const { broadcast, getRole, isBorrowed } = useSharingSessions();
+  // The stored-copy pair lets the sharing layer keep a session alive for a
+  // character this tab isn't looking at: it folds arriving edits into the saved
+  // sheet and serves it to joiners. Both go straight to the datastore, on
+  // purpose — this context holds one character, and these are about the others.
+  const storage = useMemo(
+    () => ({ loadStored: load, saveStored: save }),
+    [load, save],
+  );
   const { startSession, endSession } = useHostSharingSession(
     dispatch,
     getCharacter,
+    storage,
   );
 
   // Persist the current character now. A character we joined remotely is owned

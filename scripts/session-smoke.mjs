@@ -20,6 +20,7 @@
 //                     (default http://localhost:9000 — never the cloud one)
 //   --only <name>     run one scenario: gameplay | editing | reload | dmboard |
 //                     pickup | assign | initiative | damage | table | rejoin |
+//                     multisession |
 //                     dmreturn | dropout | tabledropout | invite
 //   --headed          show the browsers
 //   --slow <ms>       slow motion, for watching a failure happen
@@ -392,6 +393,115 @@ const scenarios = {
       joinerAlert.includes("ended"),
       true,
     );
+
+    return [sharer, joiner];
+  },
+
+  // **The DM with the party's sheets.** The scenario the whole multi-session
+  // rework is for, and the shape of the bug that started it.
+  //
+  // A DM owns every player's shared sheet, so they hold several live sessions
+  // and click between the sheets all evening. The layer used to hold exactly
+  // one session, and nothing ended it when the open character changed — so a
+  // host looking at sheet B still held sheet A's realm, and A's arriving edits
+  // were dispatched into B and autosaved there. Sheets got scrambled into each
+  // other; a `load_character` broadcast on top of that put one player's whole
+  // character on everyone's screen.
+  //
+  // Three things have to hold, and only the first one is about not corrupting:
+  //   1. an edit to the shared sheet never touches the sheet on screen,
+  //   2. it lands on the shared sheet's stored copy anyway, and
+  //   3. switching away doesn't end the session — the joiner keeps editing.
+  async multisession(browser) {
+    // One browser, two characters: the DM's own sheet and the one they share.
+    const sharer = await openClient(browser, "multiclass", "sharer", [
+      "empty-level-1",
+    ]);
+    const joiner = await openClient(browser, "martial-fighter", "joiner");
+
+    await sharer.page.click("text=Open a sheet and share it");
+    await untilPath(sharer.page, "/sheet");
+    await sharer.page.getByText(sharer.name, { exact: false }).first().click();
+    await untilText(sharer.page, "Start live session");
+    await sharer.page.click("text=Start live session");
+    await untilText(sharer.page, "End live session");
+    await sharer.page.locator('.modal-content [aria-label="Close"]').click();
+
+    await untilVisible(
+      joiner.page,
+      '[aria-label="Session code or invite link"]',
+    );
+    await joiner.page.fill(
+      '[aria-label="Session code or invite link"]',
+      sharer.character.uuid,
+    );
+    await joiner.page.click('.home-join button[type="submit"]');
+    await untilPath(joiner.page, "/sheet");
+    await untilText(joiner.page, sharer.name);
+
+    // The DM clicks over to their *other* sheet, the way they would to check a
+    // second player's AC. The shared session is still open behind it.
+    await sharer.page.click('[title="Characters"]');
+    await sharer.page
+      .locator(".character-list a", { hasText: "Freshly Rolled" })
+      .first()
+      .click();
+    await until(
+      sharer.page,
+      "the DM's other sheet to be open",
+      (shared) => !document.body.innerText.includes(shared),
+      sharer.name,
+    );
+    const openedInstead = await sharer.page
+      .locator(".character-info-header .display-value")
+      .first()
+      .textContent();
+
+    // The joiner edits the sheet they were handed.
+    await joiner.page
+      .locator(".character-info-header .display-value")
+      .first()
+      .click();
+    await joiner.page
+      .locator(".modal-content input")
+      .first()
+      .fill("Edited While Away");
+    await joiner.page.click('.modal-content button:has-text("Save")');
+    await untilText(joiner.page, "Edited While Away");
+    check(
+      "the joiner can still edit — switching away didn't end it",
+      true,
+      true,
+    );
+
+    // 1. The sheet the DM is *looking at* is untouched. This is the bug.
+    await until(
+      sharer.page,
+      "the DM's open sheet to stay itself",
+      (was) =>
+        document
+          .querySelector(".character-info-header .display-value")
+          ?.textContent?.trim() === was,
+      openedInstead.trim(),
+    );
+    check(
+      "an edit to the shared sheet never lands on the open one",
+      await sharer.page
+        .locator(".character-info-header .display-value")
+        .first()
+        .textContent(),
+      openedInstead,
+    );
+
+    // 2. It landed on the shared sheet's stored copy — which is what makes
+    //    holding the session worth anything. Click back and it's there.
+    await sharer.page.click('[title="Characters"]');
+    await sharer.page
+      .locator(".character-list a", { hasText: "Edited While Away" })
+      .first()
+      .click();
+    await untilText(sharer.page, "Edited While Away");
+    check("and is folded into the shared sheet's stored copy", true, true);
 
     return [sharer, joiner];
   },

@@ -28,17 +28,54 @@ joins; a **remote** (joiner) calls `FULL_SYNC` on connect to pull initial
 state, then streams edits. The host owns persistence — a joined character is
 never saved locally by the joiner.
 
-**The provider holds at most one sharing session.** The old uuid-keyed
-connection map was an illusion of more: incoming edits were dispatched into
-whatever character was _open_, and `FULL_SYNC` served the open character
-whatever realm asked — so a session only ever worked while its character stayed
-on screen, and a host who switched sheets served the wrong character to the
-next joiner. One-at-a-time is the same capability stated honestly. The public
-API stays uuid-keyed (`getRole(uuid)`, `broadcast(uuid, …)`); a uuid that isn't
-the active session's answers "no session", which is also the guard that stops
-an edit to some other open sheet travelling into the shared one's realm.
-`FULL_SYNC` now serves the character only while it is both open _and_ the
-shared one — no answer is the honest failure otherwise. The registration is
+**The provider holds one sharing session per character**, in a
+`Map<uuid, Session>`. It held exactly one for a while, and that was an honest
+description of what the layer could do rather than a design: a session's edits
+were dispatched into whatever character was _open_ and `FULL_SYNC` served the
+open character whatever realm asked, so a session only worked while its
+character stayed on screen.
+
+**What made one-at-a-time stop being merely limited and start being dangerous**
+is that nothing ends a session when you open a different character. A DM who
+owns the party's shared sheets clicks between them all evening; the browser
+kept holding the first sheet's realm, and that sheet's arriving edits landed on
+whichever one was now on screen — and were autosaved there, because the save
+gate only skips sheets joined _remotely_. Sheets got scrambled into each other.
+A broadcast `load_character` on top of that (navigation used to travel, stamped
+with the _pre-dispatch_ uuid) put one player's whole character on everyone's
+screen.
+
+Three things make holding several real:
+
+1. **The transport and the roster are plain factories** — `realm/realm.ts` and
+   `realm/presence-store.ts` — not hooks, because a hook can only ever hold one
+   of a thing. `use-realm.tsx` and `use-presence.tsx` remain as thin
+   `useSyncExternalStore` wrappers for the party-session layer, which genuinely
+   wants exactly one (a browser sits at one table).
+2. **Every `dispatch` message carries the uuid it edits**, so `applyRemoteEdit`
+   routes instead of guessing. The check the outbound `broadcast`, tab-sync's
+   inbound handler and the reconnect `FULL_SYNC` all had, the inbound WAMP path
+   never did — because the message had nothing to check against.
+3. **A session whose sheet isn't open still works.** `loadStored`/`saveStored`
+   are bound up from `CharacterContext`: a host folds an arriving edit into the
+   stored copy through the same pure reducer and writes it back, on a
+   **per-uuid write queue** — each apply is read-modify-write against storage,
+   so two edits in one tick would otherwise both read the same copy and the
+   second would erase the first, silently, to a file nobody has open to notice.
+   A _joined_ session whose sheet is closed writes nothing on purpose: the host
+   owns that document and folding a peer's edit into our copy is the fork the
+   save gate exists to prevent. Nothing is lost — reopening re-joins and pulls
+   `FULL_SYNC`.
+
+The public API was uuid-keyed throughout all of this (`getRole(uuid)`,
+`broadcast(uuid, …)`, `getParticipants(uuid)`), which is why the change was
+mostly deleting `active?.uuid === uuid` comparisons. `fetchRemoteCharacter` and
+`disconnectRemote` gained the uuid they had been doing without.
+
+`FULL_SYNC` serves the open sheet when it is this session's, and that
+character's stored copy otherwise — a host holding several sessions is
+routinely serving a sheet it is not looking at. The answer is checked against
+the uuid that was asked for on the way back in, too. The registration is
 **awaited, and its failure ends the hosting attempt**: the broker rejects a
 procedure another session already holds, which is what a second tab hosting
 the same character hits. Pressing on regardless made that tab a zombie host —
@@ -50,7 +87,8 @@ dead session's registration.
 
 Because the character (and its `dispatch`) live in `CharacterContext`, which
 mounts _below_ this provider, the role hooks (`useHostSharingSession`,
-`useRemoteSharingSession`) hand `dispatch`/`getCharacter` up through
+`useRemoteSharingSession`) hand `dispatch`/`getCharacter` — and the
+`loadStored`/`saveStored` pair the background writer runs on — up through
 `bind(...)` refs each render — the same knot the encounter provider ties with
 its transport handlers.
 

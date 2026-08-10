@@ -1,7 +1,8 @@
 import React, {
   useCallback,
   useContext,
-  useMemo,
+  useEffect,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -14,11 +15,15 @@ import {
 import { Character, Dispatch } from "../types";
 import { randomUUID } from "../browser";
 import { useSettings } from "./use-settings";
-import { useRealm } from "src/lib/realm/use-realm";
-import { usePresence } from "src/lib/realm/use-presence";
+import { createRealm, RealmInstance } from "src/lib/realm/realm";
+import {
+  createPresenceStore,
+  PresenceStore,
+} from "src/lib/realm/presence-store";
 import { PresenceEntry } from "src/lib/realm/presence";
 import { realmForCharacter } from "src/lib/session-codes";
 import { publishTabEdit } from "src/lib/tab-sync";
+import reducer from "./reducers/reducer";
 
 // Character co-editing: one shared sheet, several browsers, over a realm named
 // for the character's uuid.
@@ -141,6 +146,17 @@ function loadIdentity(): Identity {
 interface SessionBindings {
   dispatch?: Dispatch;
   getCharacter?: () => Character | undefined;
+  // The stored copy of *any* character, read and written without opening it.
+  //
+  // A session is per character, but `CharacterContext` holds exactly one — so
+  // for every session whose sheet isn't on screen there was no dispatch target
+  // and nothing to serve. That is what made "one session at a time" the honest
+  // description of a uuid-keyed API. These two are the way out: the reducer is
+  // pure, so an edit for a closed sheet can be folded into its stored copy and
+  // written back, and a joiner asking for a sheet we aren't looking at can be
+  // answered from the same place.
+  loadStored?: (uuid: UUID) => Promise<Character | undefined>;
+  saveStored?: (character: Character) => Promise<void>;
 }
 
 interface SharingSessionsContextData {
@@ -179,8 +195,8 @@ interface SharingSessionsContextData {
   bind: (bindings: SessionBindings) => void;
   hostSession: () => Promise<void>;
   joinCharacterSession: (uuid: UUID) => Promise<void>;
-  fetchRemoteCharacter: () => Promise<Character | undefined>;
-  disconnectRemote: () => void;
+  fetchRemoteCharacter: (uuid: UUID) => Promise<Character | undefined>;
+  disconnectRemote: (uuid: UUID) => void;
 }
 
 export const SharingSessionsContext =
@@ -206,6 +222,40 @@ export const SharingSessionsContext =
     fetchRemoteCharacter: async () => undefined,
     disconnectRemote: () => {},
   });
+
+// One live session per shared character — the map the old `active` field was a
+// single slot of.
+//
+// The public API was always uuid-keyed; what it lacked was anything to key
+// *into*. A browser could hold one socket, so every uuid but one answered "no
+// session", and the character layer described that honestly as
+// "one sharing session at a time". Then a DM who owns the party's sheets opens
+// a second one, and the honest limit turns into a hazard: the session outlives
+// the sheet that opened it, and the edits it carries land on whatever is on
+// screen. Holding several is the fix that removes the mismatch rather than
+// guarding it.
+interface Session {
+  uuid: UUID;
+  role: SessionRole;
+  realm: RealmInstance<SharingMessage["kind"]>;
+  presence: PresenceStore<SharingPresence>;
+  // Peers we've heard from, to tell a newcomer's first announcement from a
+  // heartbeat. Per session: the same tab can be in several rooms, and a peer
+  // in one of them is a stranger to the others.
+  knownPeers: Set<string>;
+  // The field this tab has open *in this session's sheet*.
+  selection: string | null;
+  // Trying to get a dropped connection back — see `reconnect`. `running`
+  // guards the campaign against being started twice for one session.
+  reconnecting: boolean;
+  reconnectRunning: boolean;
+  // The last payload actually announced, and whether the transport was up at
+  // the previous sync. Together they keep the announce effect below from
+  // turning every re-render into a publish.
+  announced?: SharingPresence;
+  wasConnected: boolean;
+  teardown: () => void;
+}
 
 export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   // The persisted default identity, plus optional per-session overrides keyed by
@@ -239,43 +289,163 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   const {
     settings: { liveEditHost },
   } = useSettings();
+  const liveEditHostRef = useRef(liveEditHost);
+  liveEditHostRef.current = liveEditHost;
 
-  // The session, singular. `undefined` is "not sharing anything".
-  const [active, setActive] = useState<
-    { uuid: UUID; role: SessionRole } | undefined
-  >();
-  const activeRef = useRef(active);
-  activeRef.current = active;
+  // The sessions, plural. A ref rather than state because every path that
+  // touches it — a message handler, a reconnect ladder, an async connect — runs
+  // outside React and needs to read the current map synchronously. `bump` is
+  // what turns a change into a render.
+  const sessionsRef = useRef(new Map<UUID, Session>());
+  // `tick` is not decoration: it is the only thing in `providerData`'s dep list
+  // that actually moves. The map's identity never changes and neither does the
+  // reducer's dispatch, so memoizing on those hands consumers a context value
+  // that is `===` forever — the roster stays correct and nothing ever re-reads
+  // it, which looks exactly like presence being broken.
+  const [tick, forceRender] = useReducer((n: number) => n + 1, 0);
+  const bump = useCallback(() => forceRender(), []);
 
   // Handed up from CharacterContext (which mounts below us) via `bind`.
   const bindingsRef = useRef<Required<SessionBindings>>({
     dispatch: () => {},
     getCharacter: () => undefined,
+    loadStored: async () => undefined,
+    saveStored: async () => {},
   });
 
-  // The field this tab has open, which travels with presence.
-  const [mySelection, setMySelection] = useState<string | null>(null);
+  // Edits that arrived for a character this browser isn't looking at.
+  //
+  // **Serialized per uuid, and that is the whole reason this is a queue rather
+  // than a function.** Each apply is read-modify-write against storage, so two
+  // edits landing in the same tick would both read the same stored copy and the
+  // second would write over the first — silently, and to a file nobody has open
+  // to notice. Chaining on the previous promise makes the reads and writes for
+  // one character strictly ordered; different characters still run in parallel.
+  const backgroundWrites = useRef(new Map<UUID, Promise<void>>());
+  const applyBackgroundEdit = useCallback(
+    (uuid: UUID, message: { action: Action; dirtyAction?: boolean }) => {
+      const previous = backgroundWrites.current.get(uuid) ?? Promise.resolve();
+      const next = previous
+        .then(async () => {
+          // Opened while we were queued: the in-memory copy is the authority
+          // from here, and the ordinary dispatch path owns writing it. Checked
+          // *inside* the chain rather than before it, because the sheet can be
+          // opened between an edit arriving and its turn coming round.
+          const open = bindingsRef.current.getCharacter();
+          if (open?.uuid === uuid) {
+            applyRemoteEdit(bindingsRef.current.dispatch, message, uuid);
+            return;
+          }
+          const stored = await bindingsRef.current.loadStored(uuid);
+          if (!stored) return;
+          const updated = reducer(stored, message.action);
+          if (!updated) return;
+          await bindingsRef.current.saveStored(updated);
+        })
+        .catch((error) => {
+          // A failed background write must not poison the chain for every
+          // later edit to the same sheet — the next one reads storage fresh
+          // and is the better copy anyway.
+          console.error("Background edit failed for", uuid, error);
+        });
+      backgroundWrites.current.set(uuid, next);
+    },
+    [],
+  );
 
-  // Bridge into the message handler, which is registered before the presence
-  // hook (built on the transport) exists.
-  const presenceRef = useRef<
-    | {
-        saw: (clientId: string, payload: SharingPresence) => void;
-        left: (clientId: string) => void;
+  // Late-bound so the transport's handlers, which are built before these
+  // exist, can reach the current ones. The same knot the encounter provider
+  // ties with its own transport.
+  const handleMessageRef = useRef<
+    (session: Session, m: SharingMessage) => void
+  >(() => {});
+  const reconnectRef = useRef<(session: Session) => Promise<void>>(
+    async () => {},
+  );
+  const applyBackgroundEditRef = useRef<
+    (uuid: UUID, message: { action: Action; dirtyAction?: boolean }) => void
+  >(() => {});
+
+  // Forget a session and give back everything it held. Idempotent: the map
+  // check means a session already replaced by a newer one for the same uuid
+  // tears itself down without evicting its replacement.
+  const dropSession = useCallback(
+    (session: Session) => {
+      if (sessionsRef.current.get(session.uuid) === session) {
+        sessionsRef.current.delete(session.uuid);
       }
-    | undefined
-  >();
-  // Peers we've already heard from, to tell a newcomer's first announcement
-  // from a heartbeat.
-  const knownPeersRef = useRef(new Set<string>());
-  const announceNowRef = useRef<() => void>(() => {});
-  // Trying to get a dropped connection back. See `reconnect`.
-  const [reconnecting, setReconnecting] = useState(false);
-  const reconnectingRef = useRef(false);
+      session.teardown();
+      bump();
+    },
+    [bump],
+  );
 
-  // A joiner's session is genuinely over: the host said so (`closeSession`),
-  // or we tried to get back in for long enough that "the network hiccupped" is
-  // no longer a credible story. The character on screen is the host's and now
+  const makeSession = useCallback(
+    (uuid: UUID, role: SessionRole): Session => {
+      const session: Session = {
+        uuid,
+        role,
+        knownPeers: new Set<string>(),
+        selection: null,
+        reconnecting: false,
+        reconnectRunning: false,
+        wasConnected: false,
+        teardown: () => {},
+      } as unknown as Session;
+
+      session.realm = createRealm<SharingMessage["kind"]>({
+        clientId: clientIdRef.current,
+        liveEditHost: liveEditHostRef.current,
+        topics: TOPIC_FOR,
+        // An edit is the one message here worth holding through a blip: it is
+        // the only copy of that change, and the layer has no revision
+        // convergence to rediscover it with. Presence re-announces itself on
+        // the next beat, and `closeSession` published into a dead socket is a
+        // goodbye nobody needs.
+        queueWhileOffline: (kind) => kind === "dispatch",
+        onMessage: (raw) =>
+          handleMessageRef.current(session, raw as SharingMessage),
+        // Only a connection we *still had* going away lands here — a deliberate
+        // `close()` (teardown, superseding) does its own cleanup inline. That
+        // is a network event far more often than it is a decision, so it starts
+        // a reconnect rather than ending anything — for the host too, whose
+        // realm has to be back for the joiners retrying into it to find
+        // anything. A session already dropped is not ours to revive.
+        onClosed: () => {
+          if (sessionsRef.current.get(uuid) !== session) return;
+          void reconnectRef.current(session);
+        },
+      });
+
+      session.presence = createPresenceStore<SharingPresence>({
+        payload: { name: "", color: "", field: null },
+        announce: (p) =>
+          session.realm.publish({
+            kind: "presence",
+            clientId: clientIdRef.current,
+            ...p,
+          }),
+        same: samePresence,
+      });
+
+      const offRealm = session.realm.subscribe(bump);
+      const offPresence = session.presence.subscribe(bump);
+      session.teardown = () => {
+        offRealm();
+        offPresence();
+        session.presence.setConnected(false);
+        session.presence.dispose();
+        session.realm.close();
+        session.realm.dispose();
+      };
+      return session;
+    },
+    [bump],
+  );
+
+  // A joiner's session is genuinely over: the host said so (`closeSession`), or
+  // we tried to get back in for long enough that "the network hiccupped" is no
+  // longer a credible story. The character on screen is the host's and now
   // unreachable, so it goes.
   //
   // **This used to fire on the first dropped socket**, which on a phone is a
@@ -284,20 +454,87 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   // had ended the session. Everything about it is unchanged except when it
   // runs: only after `reconnect` has exhausted its attempts, or on the host's
   // explicit goodbye.
-  const endedRemotely = useCallback(() => {
-    activeRef.current = undefined;
-    setActive(undefined);
-    setReconnecting(false);
-    setMySelection(null);
-    knownPeersRef.current.clear();
-    bindingsRef.current.dispatch(resetCharacter(), false, true);
-    window.alert("The sharing session has ended.");
-  }, []);
+  //
+  // **Only resets the sheet if it is the one on screen.** With a single session
+  // that was true by construction; holding several, a room ending in the
+  // background must not clear the character the user is actually looking at.
+  const endedRemotely = useCallback(
+    (session: Session) => {
+      dropSession(session);
+      if (bindingsRef.current.getCharacter()?.uuid === session.uuid) {
+        bindingsRef.current.dispatch(resetCharacter(), false, true);
+      }
+      window.alert("The sharing session has ended.");
+    },
+    [dropSession],
+  );
+
+  applyBackgroundEditRef.current = applyBackgroundEdit;
+
+  handleMessageRef.current = (session, message) => {
+    switch (message.kind) {
+      case "dispatch": {
+        // Applied only to the character it names — never to whatever happens
+        // to be on screen, which is the whole bug this layer was carrying. The
+        // open sheet goes through the reducer in `CharacterContext`; any other
+        // is folded into its stored copy and written back, in order.
+        const open = bindingsRef.current.getCharacter();
+        if (open?.uuid === message.uuid) {
+          applyRemoteEdit(bindingsRef.current.dispatch, message, open.uuid);
+        } else if (session.role === "host") {
+          applyBackgroundEditRef.current(message.uuid, message);
+        }
+        // The third case — a *joined* session whose sheet isn't open — writes
+        // nothing, deliberately. The host owns that document; folding a peer's
+        // edit into our copy of it is the fork the save gate exists to prevent
+        // (`getRole(uuid) === "remote"` in `CharacterContext`). Nothing is lost
+        // by dropping it: reopening the sheet re-joins and pulls `FULL_SYNC`,
+        // which is the host's current copy including this edit.
+        // A peer's edit is news to this browser's other tabs too. Tagged
+        // `"remote"` so no sibling forwards it back into the realm it just came
+        // from — see `tab-sync.ts`.
+        publishTabEdit({
+          uuid: message.uuid,
+          action: message.action,
+          dirtyAction: message.dirtyAction,
+          origin: "remote",
+        });
+        return;
+      }
+      case "closeSession":
+        // The host is closing the realm on purpose. Beat the socket's own death
+        // to the cleanup so the alert says "ended", once.
+        if (session.role === "remote") {
+          session.realm.close();
+          endedRemotely(session);
+        }
+        return;
+      case "presence": {
+        const from = message.clientId;
+        const isNew = !session.knownPeers.has(from);
+        session.knownPeers.add(from);
+        session.presence.saw(from, {
+          name: message.name,
+          color: message.color,
+          field: message.field ?? null,
+        });
+        // A newcomer's first announcement is also their "hello": answer it
+        // directly so they see our chip and field highlight now, not on our
+        // next heartbeat. Terminates — the answer isn't new to them twice.
+        if (isNew) session.presence.announceNow();
+        return;
+      }
+      case "leave":
+        session.knownPeers.delete(message.clientId);
+        session.presence.left(message.clientId);
+        return;
+    }
+  };
 
   // Getting back into a session that went away without saying goodbye.
   //
   // The trigger is `onClosed`, which now also covers a socket that died
-  // silently (the liveness probe in `useRealm`). Those two together are the
+  // silently (the liveness probe in `realm.ts`). Those two together are the
   // ordinary phone experience, and the old behaviour — end the session, wipe
   // the borrowed sheet, alert — was wrong for both.
   //
@@ -309,35 +546,33 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
   // circuits all of this, so a real goodbye is instant and only an *unannounced*
   // disappearance pays the wait.
   const RECONNECT_BACKOFF_MS = [500, 1_500, 3_000, 5_000, 8_000, 12_000];
-  const realmRef = useRef<{
-    connect: (
-      name: string,
-      opts?: { create?: boolean },
-    ) => Promise<{ ok: boolean }>;
-    register: (procedure: string, handler: () => unknown) => Promise<unknown>;
-    call: (procedure: string, args?: unknown[]) => Promise<unknown>;
-    close: () => void;
-  }>();
-
-  const reconnect = useCallback(async () => {
-    const was = activeRef.current;
-    if (!was || reconnectingRef.current) return;
-    reconnectingRef.current = true;
-    setReconnecting(true);
+  reconnectRef.current = async (session: Session) => {
+    if (session.reconnectRunning) return;
+    // Superseded or torn down while we were being called.
+    if (sessionsRef.current.get(session.uuid) !== session) return;
+    session.reconnectRunning = true;
+    session.reconnecting = true;
+    bump();
+    const stillOurs = () => sessionsRef.current.get(session.uuid) === session;
+    const finish = () => {
+      session.reconnectRunning = false;
+      session.reconnecting = false;
+      bump();
+    };
     for (const delay of RECONNECT_BACKOFF_MS) {
       await new Promise((resolve) => setTimeout(resolve, delay));
-      // Superseded: the tab deliberately left, hosted something else, or
-      // joined elsewhere while we were waiting. Whatever it did wins.
-      if (activeRef.current !== was) break;
-      const result = await realmRef.current?.connect(
-        realmForCharacter(was.uuid),
+      // Superseded: the tab deliberately left, hosted something else, or joined
+      // elsewhere while we were waiting. Whatever it did wins.
+      if (!stillOurs()) return finish();
+      const result = await session.realm.connect(
+        realmForCharacter(session.uuid),
         // A host recreates the room it owns; a joiner must not, or a table
         // whose host is gone would be silently replaced by an empty realm
         // serving nothing.
-        { create: was.role === "host" },
+        { create: session.role === "host" },
       );
-      if (!result?.ok) continue;
-      if (was.role === "host") {
+      if (!result.ok) continue;
+      if (session.role === "host") {
         // Registrations die with the session that made them, so the thing
         // joiners depend on has to be put back. **And checked**: the broker
         // rejects a name another session still holds — its cleanup of our old
@@ -347,12 +582,11 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
         // continues into the window where the stale registration has been
         // freed.
         try {
-          await realmRef.current?.register(SessionEvent.FULL_SYNC, () => {
-            const open = bindingsRef.current.getCharacter();
-            return open?.uuid === activeRef.current?.uuid ? open : undefined;
-          });
+          await session.realm.register(SessionEvent.FULL_SYNC, () =>
+            serveSyncRef.current(session),
+          );
         } catch {
-          realmRef.current?.close();
+          session.realm.close();
           continue;
         }
       } else {
@@ -360,10 +594,10 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
         // were flushed by `connect` before this call went out, so what comes
         // back already includes them.
         try {
-          const fresh = (await realmRef.current?.call(
-            SessionEvent.FULL_SYNC,
-          )) as Character | undefined;
-          if (fresh && fresh.uuid === was.uuid) {
+          const fresh = (await session.realm.call(SessionEvent.FULL_SYNC)) as
+            | Character
+            | undefined;
+          if (fresh && fresh.uuid === session.uuid) {
             bindingsRef.current.dispatch(
               loadPersistedCharacter(fresh),
               false,
@@ -375,145 +609,83 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
           // mattered; the next edit either way keeps us in step.
         }
       }
-      knownPeersRef.current.clear();
-      announceNowRef.current();
-      reconnectingRef.current = false;
-      setReconnecting(false);
-      return;
+      session.knownPeers.clear();
+      session.announced = undefined;
+      return finish();
     }
-    reconnectingRef.current = false;
-    setReconnecting(false);
     // Out of tries. For a joiner that is the end of the session — the realm
     // isn't answering and the sheet on screen belongs to someone we can't
     // reach. A host keeps their own character; there is nothing to lose but
     // the sharing.
-    if (activeRef.current !== was) return;
-    if (was.role === "remote") {
-      endedRemotely();
+    finish();
+    if (!stillOurs()) return;
+    if (session.role === "remote") {
+      endedRemotely(session);
     } else {
-      activeRef.current = undefined;
-      setActive(undefined);
-      knownPeersRef.current.clear();
+      dropSession(session);
     }
-  }, [endedRemotely]);
-
-  const realm = useRealm<SharingMessage["kind"]>({
-    clientId: clientIdRef.current,
-    topics: TOPIC_FOR,
-    // An edit is the one message here worth holding through a blip: it is the
-    // only copy of that change, and the layer has no revision convergence to
-    // rediscover it with. Presence re-announces itself on the next beat, and
-    // `closeSession` published into a dead socket is a goodbye nobody needs.
-    queueWhileOffline: (kind) => kind === "dispatch",
-    onMessage: (raw) => {
-      const message = raw as SharingMessage;
-      switch (message.kind) {
-        case "dispatch": {
-          // Applied only to the character it names. Until this layer can write
-          // to a sheet that isn't open, an edit for a session whose character
-          // has been navigated away from has nowhere to land — so it is
-          // dropped rather than applied to the wrong sheet. That is a lost
-          // edit, which is bad; the alternative was a silently corrupted
-          // *other* character, which is worse. Step three of the multi-session
-          // work gives it somewhere to land.
-          const open = bindingsRef.current.getCharacter?.();
-          if (!open || open.uuid !== message.uuid) return;
-          applyRemoteEdit(bindingsRef.current.dispatch, message, open.uuid);
-          // A peer's edit is news to this browser's other tabs too. Tagged
-          // `"remote"` so no sibling forwards it back into the realm it just
-          // came from — see `tab-sync.ts`. Keyed off the message rather than
-          // the active session for the same reason the guard above exists.
-          publishTabEdit({
-            uuid: message.uuid,
-            action: message.action,
-            dirtyAction: message.dirtyAction,
-            origin: "remote",
-          });
-          return;
-        }
-        case "closeSession":
-          // The host is closing the realm on purpose. Beat the socket's own
-          // death to the cleanup so the alert says "ended", once.
-          if (activeRef.current?.role === "remote") {
-            realm.close();
-            endedRemotely();
-          }
-          return;
-        case "presence": {
-          const from = message.clientId;
-          const isNew = !knownPeersRef.current.has(from);
-          knownPeersRef.current.add(from);
-          presenceRef.current?.saw(from, {
-            name: message.name,
-            color: message.color,
-            field: message.field ?? null,
-          });
-          // A newcomer's first announcement is also their "hello": answer it
-          // directly so they see our chip and field highlight now, not on our
-          // next heartbeat. Terminates — the answer isn't new to them twice.
-          if (isNew) announceNowRef.current();
-          return;
-        }
-        case "leave":
-          knownPeersRef.current.delete(message.clientId);
-          presenceRef.current?.left(message.clientId);
-          return;
-      }
-    },
-    // Only a connection we *still had* going away lands here — a deliberate
-    // `close()` (teardown, superseding) does its own cleanup inline.
-    // The connection we still had went away, and nobody asked it to. That is
-    // a network event far more often than it is a decision, so it starts a
-    // reconnect rather than ending anything — for the host too, whose realm
-    // has to be back for the joiners retrying into it to find anything.
-    onClosed: () => {
-      if (!activeRef.current) return;
-      void reconnect();
-    },
-  });
-  realmRef.current = {
-    connect: realm.connect,
-    register: realm.register,
-    call: realm.call,
-    close: realm.close,
   };
 
-  const publish = realm.publish as (message: SharingMessage) => void;
-
-  // What we announce: the active session's identity plus the open field.
-  const activeUuid = active?.uuid;
-  const identity = useMemo(
-    () =>
-      activeUuid
-        ? (sessionIdentities[activeUuid] ?? defaultIdentity)
-        : defaultIdentity,
-    [activeUuid, sessionIdentities, defaultIdentity],
-  );
-  const payload = useMemo<SharingPresence>(
-    () => ({ name: identity.name, color: identity.color, field: mySelection }),
-    [identity.name, identity.color, mySelection],
-  );
-  const payloadRef = useRef(payload);
-  payloadRef.current = payload;
-
-  const announce = useCallback(
-    (p: SharingPresence) =>
-      publish({ kind: "presence", clientId: clientIdRef.current, ...p }),
-    [publish],
-  );
-  announceNowRef.current = () => announce(payloadRef.current);
-
-  // The roster, heartbeats and pruning come with the shared hook — this layer
-  // is where they were born, and now it gets them back from the same place the
-  // play layer does. Renaming or opening a field changes `payload`, which
-  // re-announces by itself.
-  const presence = usePresence<SharingPresence>({
-    connected: realm.status === "connected",
-    payload,
-    announce,
-    same: samePresence,
+  // What a joiner gets. The uuid check is structural rather than a comparison
+  // now: the handler belongs to one session, and that session is named for one
+  // character.
+  //
+  // **And it answers for a sheet that isn't open.** The old handler served the
+  // open character and `undefined` for anything else, which was honest when a
+  // browser could hold one session — the sheet was either on screen or not
+  // being shared. Holding several, a host is routinely serving a character it
+  // is not looking at, so "the open one" is the wrong question. The right one
+  // is "the copy we would persist": the open sheet when it is open, the stored
+  // one otherwise, which the background writer above keeps current.
+  const serveSyncRef = useRef(async (session: Session) => {
+    const open = bindingsRef.current.getCharacter();
+    if (open?.uuid === session.uuid) return open;
+    // Behind the same per-uuid chain as the writes, so a sync can never read a
+    // stored copy halfway through having an edit folded into it.
+    await backgroundWrites.current.get(session.uuid);
+    return bindingsRef.current.loadStored(session.uuid);
   });
-  presenceRef.current = { saw: presence.saw, left: presence.left };
+
+  // Keep every session's roster in step with its own transport, and say who we
+  // are whenever that changes. `setConnected` is idempotent and the payload is
+  // compared against the last one announced, so running this on every render
+  // costs a few object compares and never a stray publish.
+  useEffect(() => {
+    for (const session of sessionsRef.current.values()) {
+      const connected = session.realm.getSnapshot().status === "connected";
+      session.presence.setConnected(connected);
+      const identity = getIdentity(session.uuid);
+      const payload: SharingPresence = {
+        name: identity.name,
+        color: identity.color,
+        field: session.selection,
+      };
+      session.presence.update({ payload });
+      const justConnected = connected && !session.wasConnected;
+      session.wasConnected = connected;
+      if (!connected) {
+        session.announced = undefined;
+        continue;
+      }
+      if (
+        justConnected ||
+        !session.announced ||
+        !samePresence(session.announced, payload)
+      ) {
+        session.announced = payload;
+        session.presence.announceNow();
+      }
+    }
+  });
+
+  // Every socket goes when the provider does.
+  useEffect(() => {
+    const sessions = sessionsRef.current;
+    return () => {
+      for (const session of sessions.values()) session.teardown();
+      sessions.clear();
+    };
+  }, []);
 
   const setDefaultIdentity = useCallback((next: Identity) => {
     setDefaultIdentityState(next);
@@ -539,85 +711,101 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
     setSessionIdentities((prev) => ({ ...prev, [uuid]: next }));
   }, []);
 
-  // Drop the session without ceremony — used when a new one supersedes it.
-  const quietClose = useCallback(() => {
-    if (!activeRef.current) return;
-    activeRef.current = undefined;
-    setActive(undefined);
-    setMySelection(null);
-    knownPeersRef.current.clear();
-    realm.close();
-  }, [realm.close]);
-
   // Host: open the realm named for the character and serve it. Throws readable
   // messages — the sharing button renders them inline.
   const hostSession = useCallback(async (): Promise<void> => {
     const character = bindingsRef.current.getCharacter();
     if (!character) throw new Error("No character was found to share.");
     const uuid = character.uuid;
-    const current = activeRef.current;
-    if (current?.uuid === uuid && current.role === "host") return;
-    quietClose();
-    const result = await realm.connect(realmForCharacter(uuid), {
+    const existing = sessionsRef.current.get(uuid);
+    if (existing?.role === "host") return;
+    // Joined this character and now hosting it: the old membership goes first.
+    if (existing) dropSession(existing);
+
+    const session = makeSession(uuid, "host");
+    sessionsRef.current.set(uuid, session);
+    bump();
+    const result = await session.realm.connect(realmForCharacter(uuid), {
       create: true,
     });
-    if (!result.ok) throw new Error(result.message);
-    // Serve the current character to anyone who joins — but only while the
-    // shared character is the open one. The old layer served whatever sheet
-    // happened to be open, which handed a joiner the wrong character the
-    // moment the host switched; no answer is the honest failure.
-    //
+    if (!result.ok) {
+      dropSession(session);
+      throw new Error(result.message);
+    }
     // The registration is awaited and its failure ends the attempt: the broker
-    // rejects a procedure another session already holds, which is what a
-    // second tab hosting the same character hits. Pressing on regardless made
-    // that tab a zombie host — connected, presence-visible, and unable to
-    // answer the one call joiners bootstrap through. Staying solo is honest
-    // (and cheap: sibling tabs converge over tab-sync either way).
+    // rejects a procedure another session already holds, which is what a second
+    // tab hosting the same character hits. Pressing on regardless made that tab
+    // a zombie host — connected, presence-visible, and unable to answer the one
+    // call joiners bootstrap through. Staying solo is honest (and cheap:
+    // sibling tabs converge over tab-sync either way).
     try {
-      await realm.register(SessionEvent.FULL_SYNC, () => {
-        const open = bindingsRef.current.getCharacter();
-        return open?.uuid === activeRef.current?.uuid ? open : undefined;
-      });
+      await session.realm.register(SessionEvent.FULL_SYNC, () =>
+        serveSyncRef.current(session),
+      );
     } catch {
-      realm.close();
+      dropSession(session);
       throw new Error(
         "This character is already being shared from another tab or window.",
       );
     }
-    activeRef.current = { uuid, role: "host" };
-    setActive(activeRef.current);
-  }, [realm.connect, realm.register, realm.close, quietClose]);
+    bump();
+  }, [dropSession, makeSession, bump]);
 
   // Joiner: connect to a friend's realm. The sheet itself is pulled separately
   // (`fetchRemoteCharacter`) so the Drive bootstrap can decide what to do with
   // it — confirm over unsaved work, or load it silently.
   const joinCharacterSession = useCallback(
     async (uuid: UUID): Promise<void> => {
-      const current = activeRef.current;
-      if (current?.uuid === uuid && current.role === "remote") return;
-      quietClose();
-      const result = await realm.connect(realmForCharacter(uuid), {
+      const existing = sessionsRef.current.get(uuid);
+      if (existing?.role === "remote") return;
+      if (existing) dropSession(existing);
+
+      const session = makeSession(uuid, "remote");
+      sessionsRef.current.set(uuid, session);
+      bump();
+      const result = await session.realm.connect(realmForCharacter(uuid), {
         create: false,
       });
-      if (!result.ok) throw new Error(result.message);
-      activeRef.current = { uuid, role: "remote" };
-      setActive(activeRef.current);
+      if (!result.ok) {
+        // A failed join must leave no trace: `getRole` answering "remote" for a
+        // room we never got into is what the Drive bootstrap reads as "already
+        // handled", and it would never retry.
+        dropSession(session);
+        throw new Error(result.message);
+      }
+      bump();
     },
-    [realm.connect, quietClose],
+    [dropSession, makeSession, bump],
   );
 
+  // The host's current copy of one shared character. **Checked against the uuid
+  // we asked for**, the same guard the reconnect path has always had: a realm is
+  // named for a character, but a host that has moved on can still answer with
+  // something else, and loading that blind is how a browser ends up holding a
+  // sheet nobody handed it.
   const fetchRemoteCharacter = useCallback(
-    () => realm.call(SessionEvent.FULL_SYNC) as Promise<Character | undefined>,
-    [realm.call],
+    async (uuid: UUID): Promise<Character | undefined> => {
+      const session = sessionsRef.current.get(uuid);
+      if (session?.role !== "remote") return undefined;
+      const fresh = (await session.realm.call(SessionEvent.FULL_SYNC)) as
+        | Character
+        | undefined;
+      return fresh && fresh.uuid === uuid ? fresh : undefined;
+    },
+    [],
   );
 
   // A joiner bowing out on purpose — "keep editing solo". No alert, no
   // character reset: the copy on screen is exactly what they chose to keep.
-  const disconnectRemote = useCallback(() => {
-    if (activeRef.current?.role !== "remote") return;
-    publish({ kind: "leave", clientId: clientIdRef.current });
-    quietClose();
-  }, [publish, quietClose]);
+  const disconnectRemote = useCallback(
+    (uuid: UUID) => {
+      const session = sessionsRef.current.get(uuid);
+      if (session?.role !== "remote") return;
+      session.realm.publish({ kind: "leave", clientId: clientIdRef.current });
+      dropSession(session);
+    },
+    [dropSession],
+  );
 
   // Asks the live-edit server to tear down the realm. Returns `true` if the
   // request failed (callers treat that as "the session is still open").
@@ -637,54 +825,71 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
 
   const teardownSession = useCallback(
     async (uuid: UUID): Promise<boolean> => {
-      const current = activeRef.current;
-      if (!current || current.uuid !== uuid) return false;
+      const session = sessionsRef.current.get(uuid);
+      if (!session) return false;
       let failed = false;
-      if (current.role === "host") {
+      if (session.role === "host") {
         // Best-effort: tell joiners we're closing before the realm disappears.
-        publish({ kind: "closeSession", clientId: clientIdRef.current });
+        session.realm.publish({
+          kind: "closeSession",
+          clientId: clientIdRef.current,
+        });
         failed = await closeRealmOnServer(uuid);
       } else {
         // Joiners politely announce departure so peers drop our chip.
-        publish({ kind: "leave", clientId: clientIdRef.current });
+        session.realm.publish({ kind: "leave", clientId: clientIdRef.current });
       }
-      quietClose();
+      dropSession(session);
       return failed;
     },
-    [publish, closeRealmOnServer, quietClose],
+    [closeRealmOnServer, dropSession],
   );
 
-  // Memoized on the state it exposes; the inline closures below are rebuilt
-  // exactly when that state changes, so they always see current values.
+  // Rebuilt when anything a consumer reads changes — which `bump` forces on
+  // every session event, so the closures below always see the current map.
+  const sessions = sessionsRef.current;
   const providerData: SharingSessionsContextData = React.useMemo(
     () => ({
       clientId: clientIdRef.current,
-      getRole: (uuid) => (active?.uuid === uuid ? active.role : undefined),
-      reconnecting,
+      getRole: (uuid) => sessions.get(uuid)?.role,
+      // Any session getting itself back. Nothing keys off *which* one — the
+      // banner it drives is about this browser's connection, not a sheet's.
+      reconnecting: [...sessions.values()].some((s) => s.reconnecting),
       defaultIdentity,
       setDefaultIdentity,
       resetDefaultIdentity,
       getIdentity,
       setSessionIdentity,
-      getParticipants: (uuid) => (active?.uuid === uuid ? presence.roster : []),
+      getParticipants: (uuid) =>
+        sessions.get(uuid)?.presence.getSnapshot().roster ?? [],
       getFieldEditor: (uuid, field) =>
-        active?.uuid === uuid
-          ? presence.roster.find((p) => p.field === field)
-          : undefined,
+        sessions
+          .get(uuid)
+          ?.presence.getSnapshot()
+          .roster.find((p) => p.field === field),
       broadcastSelection: (uuid, field) => {
-        if (activeRef.current?.uuid === uuid) setMySelection(field);
+        const session = sessions.get(uuid);
+        if (!session || session.selection === field) return;
+        session.selection = field;
+        // The announce effect publishes it — it already knows how to tell a
+        // changed payload from a re-render.
+        bump();
       },
       markBorrowed: (uuid) => {
         borrowedRef.current.add(uuid);
       },
       isBorrowed: (uuid) => borrowedRef.current.has(uuid),
-      // Publish a local edit to everyone else in the realm. No-op when the
-      // active session isn't this character's — which is the guard that used
-      // to be missing: an edit to some *other* open sheet must not travel
-      // into the shared one's realm.
+      // Publish a local edit to everyone else in that character's realm. A uuid
+      // with no session is a no-op, which is the guard that keeps an edit to
+      // some *other* open sheet out of a realm it has nothing to do with — and
+      // the message carries the uuid so the receiving side can make the same
+      // check rather than assuming.
       broadcast: (uuid, action, dirtyAction) => {
-        if (activeRef.current?.uuid !== uuid) return;
-        publish({
+        const session = sessions.get(uuid);
+        if (!session) return;
+        // The transport's publish is typed for the envelope's own fields; the
+        // layer's message shape is the layer's business.
+        (session.realm.publish as (m: SharingMessage) => void)({
           kind: "dispatch",
           clientId: clientIdRef.current,
           uuid,
@@ -697,6 +902,10 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
         if (bindings.dispatch) bindingsRef.current.dispatch = bindings.dispatch;
         if (bindings.getCharacter)
           bindingsRef.current.getCharacter = bindings.getCharacter;
+        if (bindings.loadStored)
+          bindingsRef.current.loadStored = bindings.loadStored;
+        if (bindings.saveStored)
+          bindingsRef.current.saveStored = bindings.saveStored;
       },
       hostSession,
       joinCharacterSession,
@@ -704,9 +913,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       disconnectRemote,
     }),
     [
-      active,
-      reconnecting,
-      presence.roster,
+      sessions,
       defaultIdentity,
       setDefaultIdentity,
       resetDefaultIdentity,
@@ -717,7 +924,10 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       joinCharacterSession,
       fetchRemoteCharacter,
       disconnectRemote,
-      publish,
+      bump,
+      // Not read by any closure above — it is what makes them be rebuilt. See
+      // the note on `tick`.
+      tick,
     ],
   );
 
@@ -764,11 +974,16 @@ export function applyRemoteEdit(
 export function useHostSharingSession(
   dispatch: Dispatch,
   getCharacter: () => Character | undefined,
+  storage?: {
+    loadStored: (uuid: UUID) => Promise<Character | undefined>;
+    saveStored: (character: Character) => Promise<void>;
+  },
 ) {
   const { bind, hostSession, teardownSession } = useSharingSessions();
   // Re-bound every render, so the provider (which mounts above the character)
-  // always applies edits and serves syncs against the current sheet.
-  bind({ dispatch, getCharacter });
+  // always applies edits and serves syncs against the current sheet — and,
+  // through `storage`, against the ones that aren't open.
+  bind({ dispatch, getCharacter, ...storage });
   const uuid = getCharacter()?.uuid;
 
   return {
