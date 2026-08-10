@@ -105,6 +105,23 @@ const untilText = (page, text) =>
     text,
   );
 
+// The primary button of *one named* prompt.
+//
+// The play surface stacks its prompts — an unanswered roll call, a called rest
+// and an incoming condition offer can all be up at once, in that DOM order — so
+// `.assign-prompt .btn-primary` is a bet on which one happens to be first.
+// `page.click` isn't strict, so the bet is silent when it's wrong: the rest
+// check spent a run clicking "Roll (+1)" on a stale Stealth ask, opening the
+// roller, and then timing out on a rest panel nobody had asked for. Nothing had
+// regressed — the roll-call prompt deliberately stays up after it's answered
+// (see `RollCallPrompt`), so a second prompt above the one you want is the
+// normal case, not the odd one.
+//
+// Same house rule as the waits above: name the thing. Each prompt carries
+// exactly one `.btn-primary`, so its own text is enough to identify it.
+const prompt = (page, text) =>
+  page.locator(".assign-prompt", { hasText: text }).locator(".btn-primary");
+
 // The roster is the thing that actually has to converge, so it gets a wait of
 // its own rather than a sleep followed by a hopeful read.
 const untilRoster = (page, names) =>
@@ -622,7 +639,7 @@ const scenarios = {
     // The prompt arrives, not the sheet.
     await untilVisible(player.page, ".assign-prompt");
     check("the assignment prompt reaches the player", true, true);
-    await player.page.click(".assign-prompt .btn-primary");
+    await prompt(player.page, "handing you").click();
 
     // Accepting runs the claim flow end to end: sheet arrives, opens, plays.
     await untilVisible(player.page, ".action-board");
@@ -663,7 +680,7 @@ const scenarios = {
     // The player is prompted, and one click rolls with their own modifier.
     await untilText(player.page, "Roll initiative!");
     check("the players hear the call", true, true);
-    await player.page.click(".assign-prompt .btn-primary");
+    await prompt(player.page, "Roll initiative!").click();
     await until(
       player.page,
       "the player's own initiative to be set",
@@ -872,7 +889,7 @@ const scenarios = {
     // mode along with the answer. So answering is two acts: take the ask, then
     // roll it. (This check spent a while asserting the inline version, which
     // had stopped existing.)
-    await player.page.click(".assign-prompt .btn-primary");
+    await prompt(player.page, "asks for a").click();
     await untilVisible(player.page, '[aria-label="Roll"]');
     await player.page.click('[aria-label="Roll"]');
     await player.page.click('[aria-label="Close"]');
@@ -929,7 +946,7 @@ const scenarios = {
       ),
       Math.min(49, 20 + healed),
     );
-    await player.page.click(".assign-prompt .btn-primary");
+    await prompt(player.page, "calls a").click();
     await untilText(player.page, "Take rest");
     await player.page.click("text=Take rest");
     await untilText(player.page, "Long rest taken");
