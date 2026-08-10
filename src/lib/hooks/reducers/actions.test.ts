@@ -4,7 +4,14 @@ import { Character } from "src/lib/types";
 import { FIELD } from "src/lib/data/data-definitions";
 import { applyLevelUp, defaultLevelUpState } from "src/lib/builder/level-up";
 import reducer from "./reducer";
-import { invertAction, replaceCharacter, updateData } from "./actions";
+import {
+  invertAction,
+  isNavigationAction,
+  loadPersistedCharacter,
+  replaceCharacter,
+  resetCharacter,
+  updateData,
+} from "./actions";
 
 // Applying an edit then its inverse should leave the character untouched.
 // This is the guarantee undo/redo relies on.
@@ -69,5 +76,27 @@ describe("replace_character round-trips (level-up undo)", () => {
 
     const restored = reducer(edited, inverse);
     expect(restored).toEqual(start);
+  });
+});
+
+// Which actions are allowed onto the sync transports. The uuid a dispatch is
+// published under is the *pre-dispatch* character's, so broadcasting a
+// `load_character` sent a whole different sheet into the realm stamped with the
+// uuid of the one peers were editing — and they adopted it. Navigation stays
+// local; real edits, including a whole-character `replace_character` from a
+// rest or a level-up, still travel.
+describe("isNavigationAction", () => {
+  it("excludes the two actions that change which character is open", () => {
+    expect(isNavigationAction(loadPersistedCharacter({} as Character))).toBe(
+      true,
+    );
+    expect(isNavigationAction(resetCharacter())).toBe(true);
+  });
+
+  it("lets real edits through", () => {
+    expect(isNavigationAction(updateData(FIELD.name, { value: "Vex" }))).toBe(
+      false,
+    );
+    expect(isNavigationAction(replaceCharacter({} as Character))).toBe(false);
   });
 });

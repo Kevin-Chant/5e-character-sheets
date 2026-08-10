@@ -9,6 +9,7 @@ import React, {
 import {
   Action,
   invertAction,
+  isNavigationAction,
   isUpdateAction,
   replaceCharacter,
   resetCharacter,
@@ -273,22 +274,27 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       } else if (isDirty) {
         setUnsavedChanges(true);
       }
-      if (characterRef.current && !suppressBroadcast) {
+      // Only genuine edits travel, and now on *both* transports. Loads and
+      // resets are tab-local navigation, and the uuid here is the
+      // **pre-dispatch** character's — the one a load has already left. That
+      // asymmetry (tab-sync excluded them, the realm didn't) is how a
+      // `load_character` carrying a whole *other* sheet got published into a
+      // realm it had nothing to do with: the outgoing uuid still matched the
+      // session, so the guard in `broadcast` waved it through and every peer
+      // loaded somebody else's character. `replace_character` is a real edit —
+      // a rest, a level-up — and still travels.
+      if (
+        characterRef.current &&
+        !suppressBroadcast &&
+        !isNavigationAction(action)
+      ) {
         broadcast(characterRef.current.uuid, action, isDirty);
-        // The same edit, for this browser's other tabs. Only genuine edits
-        // travel: loads and resets are tab-local navigation, and the uuid here
-        // is the pre-dispatch character's, which a load has already left.
-        if (
-          action.type !== "load_character" &&
-          action.type !== "reset_character"
-        ) {
-          publishTabEdit({
-            uuid: characterRef.current.uuid,
-            action,
-            dirtyAction: isDirty,
-            origin: "local",
-          });
-        }
+        publishTabEdit({
+          uuid: characterRef.current.uuid,
+          action,
+          dirtyAction: isDirty,
+          origin: "local",
+        });
       }
     },
     [broadcast],

@@ -34,7 +34,17 @@
 // its edits silently lose every lane tie — a client that converges wrongly.
 // Dropping it entirely means a mismatched pair of tabs each see an empty room
 // and keep their own working state: a fresh join, not a corruption.
-export const PROTOCOL_VERSION = 3;
+// 4: character edits carry the uuid of the character they edit. An older
+// client's `dispatch` has no uuid, so a newer one cannot tell which sheet it
+// belongs to — and the whole point of the field is that guessing "the open one"
+// is what silently wrote a peer's edits into somebody else's character. Dropped
+// as `stale` is the honest answer: a build that can't say what it is editing
+// has nothing safe to say here.
+//
+// This bump costs the *party* layer a reload too, since both layers share the
+// version. That's the deal v3 already made, and it beats the alternative — a
+// mismatched pair where edits vanish silently and nobody is told why.
+export const PROTOCOL_VERSION = 4;
 
 export interface Envelope {
   // The kind is also the topic key — see each layer's `TOPIC_FOR`.

@@ -75,6 +75,20 @@ export type SharingMessage =
   | {
       kind: "dispatch";
       clientId: string;
+      // **Which character this edit is for.** The realm is named for a
+      // character, so this looks redundant — and it was, right up until the
+      // session outlived the sheet that opened it. A session is a property of
+      // the browser (nothing ends one when you open a different character), so
+      // a host with sheet B on screen still holds sheet A's realm, and an edit
+      // arriving from A used to be dispatched straight into B — then autosaved
+      // there, because the save gate only skips sheets we joined *remotely*.
+      // Every sibling path already carried this check (outbound `broadcast`,
+      // tab-sync's inbound, the reconnect `FULL_SYNC`); this one didn't,
+      // because the message had nothing to check against.
+      //
+      // In the multi-session layer this stops being only a guard and becomes
+      // the routing key: which of N open sessions an arriving edit belongs to.
+      uuid: UUID;
       action: Action;
       dirtyAction?: boolean;
     }
@@ -395,19 +409,26 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       const message = raw as SharingMessage;
       switch (message.kind) {
         case "dispatch": {
-          applyRemoteEdit(bindingsRef.current.dispatch, message);
+          // Applied only to the character it names. Until this layer can write
+          // to a sheet that isn't open, an edit for a session whose character
+          // has been navigated away from has nowhere to land — so it is
+          // dropped rather than applied to the wrong sheet. That is a lost
+          // edit, which is bad; the alternative was a silently corrupted
+          // *other* character, which is worse. Step three of the multi-session
+          // work gives it somewhere to land.
+          const open = bindingsRef.current.getCharacter?.();
+          if (!open || open.uuid !== message.uuid) return;
+          applyRemoteEdit(bindingsRef.current.dispatch, message, open.uuid);
           // A peer's edit is news to this browser's other tabs too. Tagged
           // `"remote"` so no sibling forwards it back into the realm it just
-          // came from — see `tab-sync.ts`.
-          const uuid = activeRef.current?.uuid;
-          if (uuid) {
-            publishTabEdit({
-              uuid,
-              action: message.action,
-              dirtyAction: message.dirtyAction,
-              origin: "remote",
-            });
-          }
+          // came from — see `tab-sync.ts`. Keyed off the message rather than
+          // the active session for the same reason the guard above exists.
+          publishTabEdit({
+            uuid: message.uuid,
+            action: message.action,
+            dirtyAction: message.dirtyAction,
+            origin: "remote",
+          });
           return;
         }
         case "closeSession":
@@ -666,6 +687,7 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
         publish({
           kind: "dispatch",
           clientId: clientIdRef.current,
+          uuid,
           action,
           dirtyAction,
         });
@@ -711,18 +733,27 @@ export function useSharingSessions() {
 }
 
 /**
- * Apply an edit that arrived from a peer. The load-bearing rule: it must be
- * replayed with `suppressBroadcast` (the third argument) or it would be
- * re-published, ping-ponging between peers forever. The self-echo check that
- * used to live beside this is the envelope's job now (`realm/envelope.ts`).
+ * Apply an edit that arrived from a peer. Two load-bearing rules:
+ *
+ * - It must be replayed with `suppressBroadcast` (the third argument) or it
+ *   would be re-published, ping-ponging between peers forever. The self-echo
+ *   check that used to live beside this is the envelope's job now
+ *   (`realm/envelope.ts`).
+ * - It must land on the character it names. `targetUuid` is the sheet this
+ *   dispatch would reach — the open one — and a mismatch means the session
+ *   outlived the sheet that opened it, so the edit belongs to a character we
+ *   are no longer holding. Dropping is the only safe answer while there is
+ *   exactly one dispatch target.
  *
  * Exported for tests — the provider needs a live WAMP connection, but this
  * decision doesn't.
  */
 export function applyRemoteEdit(
   dispatch: Dispatch,
-  message: { action: Action; dirtyAction?: boolean },
+  message: { uuid?: UUID; action: Action; dirtyAction?: boolean },
+  targetUuid?: UUID,
 ) {
+  if (message.uuid && targetUuid && message.uuid !== targetUuid) return;
   dispatch(message.action, message.dirtyAction, true);
 }
 

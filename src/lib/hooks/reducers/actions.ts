@@ -33,6 +33,18 @@ export function isUpdateAction(action: Action): action is UpdateAction {
   );
 }
 
+// Actions that *change which character is open* rather than edit one. They are
+// tab-local navigation and must never travel on either sync transport: the uuid
+// a dispatch is published under is the **pre-dispatch** character's — the one a
+// load has already left — so a broadcast `load_character` arrives at peers as
+// "here is a whole different sheet, adopt it", still stamped with the uuid of
+// the sheet they were editing. That is how a table ended up all looking at one
+// player's character. `replace_character` is deliberately *not* here: a rest or
+// a level-up is a real edit to the character that is open, and it syncs.
+export function isNavigationAction(action: Action): boolean {
+  return action.type === "load_character" || action.type === "reset_character";
+}
+
 // The dot-path an `update_*` action targets, e.g. "attacks.0.name".
 export function actionFieldPath(action: UpdateAction): string {
   let field: string = action.type.replace("update_", "");
