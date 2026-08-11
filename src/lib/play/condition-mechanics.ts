@@ -6,7 +6,11 @@ import {
 } from "src/lib/data/data-definitions";
 import { ActiveRider } from "src/lib/mechanics/types";
 import { FeatureRider, RollKind } from "src/lib/types";
-import { ConditionName } from "src/lib/play/conditions";
+import {
+  CONDITION_ROLL_EFFECTS,
+  ConditionName,
+  StandardCondition,
+} from "src/lib/play/conditions";
 
 // What a condition *does* to its bearer's rolls — the wired half of the
 // condition system, as `CONDITION_ROLL_EFFECTS` (conditions.ts) is the
@@ -1425,4 +1429,16 @@ export const WIRED_CONDITION_NAMES: string[] = Object.entries(
 // The one-line meaning of a condition, for banners and the seat's queue.
 export function conditionSummary(name: ConditionName): string | undefined {
   return CONDITION_MECHANICS[name]?.summary;
+}
+
+// The same line for a *picker*, which is the one place both halves of the
+// condition system are on offer together: the wired catalog answers for the
+// spell effects, and the advisory roll-effect table answers for the fourteen
+// standard conditions, which have no mechanics entry and would otherwise be
+// fourteen bare nouns. What Blinded does is the thing you're choosing on.
+export function conditionHint(name: ConditionName): string | undefined {
+  return (
+    conditionSummary(name) ??
+    CONDITION_ROLL_EFFECTS[name as StandardCondition]?.note
+  );
 }

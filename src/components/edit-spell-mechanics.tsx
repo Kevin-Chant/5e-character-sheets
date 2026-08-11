@@ -10,6 +10,7 @@ import {
   mechanicsToForm,
 } from "src/lib/spells/mechanics-form";
 import { FaXmark } from "react-icons/fa6";
+import Select from "src/components/select";
 
 const DAMAGE_TYPES = Object.values(DamageType);
 const STATS = Object.values(StatKey);
@@ -111,49 +112,49 @@ export default function EditSpellMechanics({
       <div className="spell-mechanics-controls">
         <label>
           How it hits
-          <select
+          <Select
+            label="How it hits"
             value={res.kind}
-            onChange={(e) =>
-              setResolutionKind(e.target.value as SpellResolution["kind"])
+            options={[
+              { value: "attack", label: "Spell attack roll" },
+              { value: "save", label: "Saving throw" },
+              { value: "auto", label: "Automatic hit" },
+            ]}
+            onChange={(value) =>
+              setResolutionKind(value as SpellResolution["kind"])
             }
-          >
-            <option value="attack">Spell attack roll</option>
-            <option value="save">Saving throw</option>
-            <option value="auto">Automatic hit</option>
-          </select>
+          />
         </label>
         {res.kind === "attack" && (
           <label>
             Attack range
-            <select
+            <Select
+              label="Attack range"
               value={res.range}
-              onChange={(e) =>
+              options={[
+                { value: "ranged", label: "Ranged" },
+                { value: "melee", label: "Melee" },
+              ]}
+              onChange={(value) =>
                 setResolution({
                   kind: "attack",
-                  range: e.target.value as "melee" | "ranged",
+                  range: value as "melee" | "ranged",
                 })
               }
-            >
-              <option value="ranged">Ranged</option>
-              <option value="melee">Melee</option>
-            </select>
+            />
           </label>
         )}
         {res.kind === "save" && (
           <label>
             Save ability
-            <select
+            <Select
+              label="Save ability"
               value={res.ability}
-              onChange={(e) =>
-                setResolution({ ...res, ability: e.target.value as StatKey })
+              options={STATS.map((s) => ({ value: s, label: s.toUpperCase() }))}
+              onChange={(value) =>
+                setResolution({ ...res, ability: value as StatKey })
               }
-            >
-              {STATS.map((s) => (
-                <option key={s} value={s}>
-                  {s.toUpperCase()}
-                </option>
-              ))}
-            </select>
+            />
           </label>
         )}
       </div>
@@ -225,18 +226,14 @@ export default function EditSpellMechanics({
                 </label>
               </>
             )}
-            <select
+            <Select
+              label="Damage type"
               value={row.damageType}
-              onChange={(e) =>
-                setDamageRow(i, { damageType: e.target.value as DamageType })
+              options={DAMAGE_TYPES.map((t) => ({ value: t, label: t }))}
+              onChange={(value) =>
+                setDamageRow(i, { damageType: value as DamageType })
               }
-            >
-              {DAMAGE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+            />
             <button
               type="button"
               aria-label="Remove damage type"
@@ -359,17 +356,19 @@ export default function EditSpellMechanics({
             <div className="spell-mechanics-controls">
               <label>
                 Grows with
-                <select
+                <Select
+                  label="Grows with"
                   value={scaling.driver}
-                  onChange={(e) =>
+                  options={[
+                    { value: "slot", label: "Spell slot level" },
+                    { value: "character", label: "Character level (cantrips)" },
+                  ]}
+                  onChange={(value) =>
                     patchScaling({
-                      driver: e.target.value as "slot" | "character",
+                      driver: value as "slot" | "character",
                     })
                   }
-                >
-                  <option value="slot">Spell slot level</option>
-                  <option value="character">Character level (cantrips)</option>
-                </select>
+                />
               </label>
             </div>
             {scaling.driver === "slot" && (
@@ -400,18 +399,14 @@ export default function EditSpellMechanics({
                 value={scaling.damageDice}
                 onChange={(e) => patchScaling({ damageDice: e.target.value })}
               />
-              <select
+              <Select
+                label="Type of the extra damage"
                 value={scaling.damageType}
-                onChange={(e) =>
-                  patchScaling({ damageType: e.target.value as DamageType })
+                options={DAMAGE_TYPES.map((t) => ({ value: t, label: t }))}
+                onChange={(value) =>
+                  patchScaling({ damageType: value as DamageType })
                 }
-              >
-                {DAMAGE_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="spell-mechanics-field-inline">
               <span className="spell-mechanics-step-label">

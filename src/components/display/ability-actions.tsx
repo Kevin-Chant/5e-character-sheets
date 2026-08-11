@@ -27,6 +27,7 @@ import {
   TargetMultiPicker,
   TargetPicker,
 } from "../roll-modal";
+import Select from "../select";
 import StepperInput from "../stepper-input";
 
 // Play-mode action rows for limited-use abilities the mechanics catalog knows
@@ -246,23 +247,25 @@ export function ActionRow({
         ))}
       <div className="row ability-action-row">
         {needsLevel && (
-          <select
-            aria-label={`${action.name} slot level`}
-            value={chosenLevel}
-            onChange={(e) => {
-              setLevel(Number(e.target.value) as LeveledSpellLevel);
+          <Select
+            label={`${action.name} slot level`}
+            value={String(chosenLevel)}
+            options={levels.map((lvl) => ({
+              value: String(lvl),
+              label: ordinal(lvl),
+              // The price of the slot, in its own column — the Sorcery Point
+              // cost is the whole decision here, and it used to be a
+              // parenthetical glued onto the label.
+              meta:
+                usesCostTable && SLOT_CREATION_COSTS[lvl] !== undefined
+                  ? `${SLOT_CREATION_COSTS[lvl]} pts`
+                  : undefined,
+            }))}
+            onChange={(value) => {
+              setLevel(Number(value) as LeveledSpellLevel);
               setManualTotals(null);
             }}
-          >
-            {levels.map((lvl) => (
-              <option key={lvl} value={lvl}>
-                {ordinal(lvl)}
-                {usesCostTable && SLOT_CREATION_COSTS[lvl] !== undefined
-                  ? ` (${SLOT_CREATION_COSTS[lvl]} pts)`
-                  : ""}
-              </option>
-            ))}
-          </select>
+          />
         )}
         {/* How much of the pool this use spends — Lay on Hands is the one
             ability that lets you choose. Labelled, because a bare number box

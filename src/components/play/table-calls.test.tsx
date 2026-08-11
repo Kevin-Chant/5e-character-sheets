@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RestCallForm, RollCallForm } from "./table-calls";
 
@@ -23,31 +23,36 @@ const renderRollCall = () => {
   return { callForRoll, user: userEvent.setup() };
 };
 
-const box = () => screen.getByLabelText("Which check or save to ask for");
+const openBox = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(
+    screen.getByRole("button", { name: "Which check or save to ask for" }),
+  );
 const options = () =>
-  screen.queryAllByRole("button").filter((b) => b.className.includes("option"));
+  within(screen.getByRole("listbox")).queryAllByRole("option");
 
-describe("the roll call's check typeahead", () => {
-  it("filters a closed list down to what was typed", async () => {
+describe("the roll call's check picker", () => {
+  it("filters the closed list down to what was typed", async () => {
     const { user } = renderRollCall();
-    await user.click(box());
-    // Everything is on offer before a query — the list opens on first focus.
+    await openBox(user);
+    // Everything is on offer before a query — the list opens whole.
     expect(options().length).toBe(CHECK_OPTION_COUNT);
 
-    await user.type(box(), "perc");
+    await user.keyboard("perc");
     expect(options().map((o) => o.textContent)).toEqual(["Perception"]);
   });
 
-  it("matches on the group too, so 'save' finds the saves", async () => {
+  it("matches the word a table actually says, so 'save' finds the saves", async () => {
     const { user } = renderRollCall();
-    await user.type(box(), "save");
+    await openBox(user);
+    await user.keyboard("save");
     expect(options().length).toBe(6);
   });
 
   it("sends the picked check", async () => {
     const { user, callForRoll } = renderRollCall();
-    await user.type(box(), "perc");
-    await user.click(screen.getByText("Perception"));
+    await openBox(user);
+    await user.keyboard("perc");
+    await user.click(screen.getByRole("option", { name: "Perception" }));
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
     expect(callForRoll).toHaveBeenCalledWith(
@@ -58,11 +63,12 @@ describe("the roll call's check typeahead", () => {
 
   it("picks and asks from the keyboard alone", async () => {
     const { user, callForRoll } = renderRollCall();
-    await user.type(box(), "dex");
+    await openBox(user);
+    await user.keyboard("dex");
     // Two matches, the save and the check; the cursor opens on the first, so
     // one step down lands on the check.
     await user.keyboard("{ArrowDown}{Enter}");
-    // The list is closed now, so this Enter reaches the form.
+    // Picking hands the cursor to Ask, so this Enter is the ask.
     await user.keyboard("{Enter}");
 
     expect(callForRoll).toHaveBeenCalledWith(
@@ -71,18 +77,17 @@ describe("the roll call's check typeahead", () => {
     );
   });
 
-  // The value has to resolve through `checkForValue`, so free text is a query
-  // and never an ask — and editing after a pick must not leave the button
-  // holding the check the box no longer shows.
-  it("won't ask for something that isn't on the list", async () => {
+  // Free text was a query and never an ask in the old bespoke typeahead; the
+  // shared picker makes that structural — there is nowhere to type a value.
+  it("won't ask until something on the list is picked", async () => {
     const { user, callForRoll } = renderRollCall();
-    await user.type(box(), "Vibes");
     expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
 
-    await user.clear(box());
-    await user.type(box(), "perc");
-    await user.click(screen.getByText("Perception"));
-    await user.type(box(), "zzz");
+    await openBox(user);
+    await user.keyboard("Vibes");
+    expect(screen.getByText(/No match/)).toBeTruthy();
+    await user.keyboard("{Escape}");
+
     expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
     expect(callForRoll).not.toHaveBeenCalled();
   });
@@ -90,8 +95,9 @@ describe("the roll call's check typeahead", () => {
 
 describe("the roll call's audience", () => {
   const ask = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.type(box(), "perc");
-    await user.click(screen.getByText("Perception"));
+    await openBox(user);
+    await user.keyboard("perc");
+    await user.click(screen.getByRole("option", { name: "Perception" }));
     await user.click(screen.getByRole("button", { name: "Ask" }));
   };
 
@@ -166,10 +172,10 @@ describe("the rest call", () => {
     const callForRest = vi.fn();
     const user = userEvent.setup();
     render(<RestCallForm callForRest={callForRest} />);
-    await user.selectOptions(
-      screen.getByLabelText("Which rest to call"),
-      "long",
+    await user.click(
+      screen.getByRole("button", { name: "Which rest to call" }),
     );
+    await user.click(screen.getByRole("option", { name: "Long rest" }));
     expect(screen.getByLabelText("This rest spans dawn")).toBeChecked();
 
     await user.click(screen.getByLabelText("This rest spans dawn"));

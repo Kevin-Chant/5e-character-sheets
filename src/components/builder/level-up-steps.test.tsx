@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { chooseOption, openSelect } from "src/lib/fixtures/select-testing";
 import { OfficialClass, SkillName } from "src/lib/data/data-definitions";
 import { buildCharacter } from "src/lib/builder/build-character";
 import { defaultBuilderState } from "src/lib/builder/types";
@@ -181,34 +182,37 @@ describe("LevelUpAdvancementStep — the ability score ceiling", () => {
     return patch;
   };
 
-  it("doesn't offer a stat that's already at 20", () => {
+  it("doesn't offer a stat that's already at 20", async () => {
     const char = level1("fighter");
     char.stats.str = 20;
     renderAsi(char, { advancement: "asi" });
-    expect(screen.queryByRole("option", { name: "Strength" })).toBeNull();
+    const first = await openSelect("First increase");
+    expect(first.queryByRole("option", { name: "Strength" })).toBeNull();
     // The others are still on offer.
-    expect(
-      screen.getAllByRole("option", { name: "Dexterity" }).length,
-    ).toBeGreaterThan(0);
+    expect(first.getByRole("option", { name: "Dexterity" })).toBeTruthy();
   });
 
-  it("still offers a 20 when a feature raised its ceiling", () => {
+  it("still offers a 20 when a feature raised its ceiling", async () => {
     const char = level1("fighter");
     char.stats.str = 20;
     char.features.push({ title: "Primal Champion", titleFormulas: [] });
     renderAsi(char, { advancement: "asi" });
-    expect(
-      screen.getAllByRole("option", { name: "Strength" }).length,
-    ).toBeGreaterThan(0);
+    const first = await openSelect("First increase");
+    expect(first.getByRole("option", { name: "Strength" })).toBeTruthy();
   });
 
-  it("drops a stat from the second column once the first spends it to the cap", () => {
+  it("drops a stat from the second column once the first spends it to the cap", async () => {
     const char = level1("fighter");
     char.stats.str = 19;
     renderAsi(char, { advancement: "asi", asi: { str: 1 } });
     // 19 + the +1 already taken = 20, so the remaining column can't add more.
-    // The one already-picked column still shows it, hence exactly one option.
-    expect(screen.getAllByRole("option", { name: "Strength" })).toHaveLength(1);
+    // The column that already picked it still shows it — never hide someone's
+    // own current answer.
+    const first = await openSelect("First increase");
+    expect(first.getByRole("option", { name: "Strength" })).toBeTruthy();
+    await userEvent.keyboard("{Escape}");
+    const second = await openSelect("Second increase");
+    expect(second.queryByRole("option", { name: "Strength" })).toBeNull();
   });
 });
 
@@ -338,7 +342,7 @@ describe("LevelUpSpellsStep — known-spell counts", () => {
 });
 
 describe("LevelUpAdvancementStep — feat dedup", () => {
-  it("doesn't offer a feat the character already took", () => {
+  it("doesn't offer a feat the character already took", async () => {
     // Fighter 3 → 4 takes Alert; the next feat pick shouldn't list it.
     const fighter3 = advanceTo(level1("fighter"), "Fighter", 3);
     const withAlert = applyLevelUp(fighter3, {
@@ -358,13 +362,11 @@ describe("LevelUpAdvancementStep — feat dedup", () => {
         patch={vi.fn()}
       />,
     );
-    const dropdown = screen.getByRole("combobox");
+    const dropdown = await openSelect("Feat");
     expect(
-      within(dropdown).queryByRole("option", { name: "Alert" }),
+      dropdown.queryByRole("option", { name: "Alert" }),
     ).not.toBeInTheDocument();
-    expect(
-      within(dropdown).getByRole("option", { name: "Lucky" }),
-    ).toBeInTheDocument();
+    expect(dropdown.getByRole("option", { name: "Lucky" })).toBeInTheDocument();
   });
 });
 
@@ -406,14 +408,10 @@ describe("LevelUpFeatureChoicesStep — Kensei's melee/ranged split", () => {
     expect(screen.getByText("Ranged kensei weapon")).toBeInTheDocument();
   });
 
-  it("offers only melee weapons in the melee slot", () => {
+  it("offers only melee weapons in the melee slot", async () => {
     kenseiStep();
-    const melee = screen.getByRole("combobox", {
-      name: /Melee kensei weapon/,
-    });
-    const names = within(melee)
-      .getAllByRole("option")
-      .map((o) => o.textContent);
+    const melee = await openSelect(/Melee kensei weapon/);
+    const names = melee.getAllByRole("option").map((o) => o.textContent);
     expect(names).toContain("Longsword");
     expect(names).not.toContain("Longbow");
     expect(names).not.toContain("Shortbow");
@@ -421,10 +419,7 @@ describe("LevelUpFeatureChoicesStep — Kensei's melee/ranged split", () => {
 
   it("records a pick per slot without disturbing the other", async () => {
     const { patch } = kenseiStep();
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: /Melee kensei weapon/ }),
-      "Longsword",
-    );
+    await chooseOption(/Melee kensei weapon/, "Longsword");
     expect(patch).toHaveBeenCalledWith({
       chosenOptions: { kenseiWeapon: ["Longsword"] },
     });

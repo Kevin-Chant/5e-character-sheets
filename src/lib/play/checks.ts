@@ -115,6 +115,24 @@ export const CHECK_GROUPS: {
   },
 ];
 
+// The same list flattened for the shared `<Select>`: one option per check,
+// carrying the heading it sorts under and the words a player types that its
+// label doesn't contain. "save" is the whole reason `keywords` exists — the
+// group reads "Saving throws", and nobody at a table says that.
+export const CHECK_OPTIONS: {
+  value: string;
+  label: string;
+  group: string;
+  keywords?: string;
+}[] = CHECK_GROUPS.flatMap(({ group, options }) =>
+  options.map(({ value, check }) => ({
+    value,
+    label: checkLabel(check),
+    group,
+    keywords: check.kind === "save" ? "save saving throw" : undefined,
+  })),
+);
+
 // The select's flat value ↔ check mapping, so the wire carries data and the
 // <option> carries a string.
 export function checkForValue(value: string): RollCallCheck | undefined {

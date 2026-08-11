@@ -20,6 +20,7 @@ import { useSave } from "./modals/modal-container";
 import { updateData } from "src/lib/hooks/reducers/actions";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 import { OptionsList } from "src/lib/types";
+import Select from "src/components/select";
 
 export interface UpdateFieldProps {
   allowUndefined?: boolean;
@@ -105,10 +106,6 @@ export default function UpdateField({
     setValue(e.target.value);
   };
 
-  const onChangeSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setValue(e.target.value);
-  };
-
   const optionalData = EDITABLE_FIELD_OPTIONAL_DATA[targetedField];
   // Drop a trailing array index (e.g. "languages.3" -> "languages") from the
   // title; the specific entry being edited isn't meaningful to the user.
@@ -174,36 +171,24 @@ export default function UpdateField({
         )}
         {/* TODO: make this into general enum? */}
         {modalType === Alignment && (
-          <select
+          <Select
             className="font-large"
+            label="Alignment"
+            autoFocus
             value={currentValue}
-            onChange={onChangeSelect}
-            autoFocus={true}
-          >
-            {Object.keys(Alignment).map((option) => {
-              return (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              );
-            })}
-          </select>
+            options={Object.keys(Alignment)}
+            onChange={setValue}
+          />
         )}
         {modalType === StatKey && (
-          <select
+          <Select
             className="font-large"
+            label="Ability"
+            autoFocus
             value={currentValue}
-            onChange={onChangeSelect}
-            autoFocus={true}
-          >
-            {Object.keys(StatKey).map((option) => {
-              return (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              );
-            })}
-          </select>
+            options={Object.keys(StatKey)}
+            onChange={setValue}
+          />
         )}
         <button
           className="margin-small"

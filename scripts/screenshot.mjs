@@ -26,7 +26,11 @@
 // Step vocabulary (each object has exactly one action key):
 //   {"click":"<selector>"}          Playwright selector — CSS, or text=/role= engine
 //   {"fill":["<selector>","text"]}  type into an input
-//   {"select":["<selector>","val"]} choose a <select> option (by value or label)
+//   {"select":["<selector>","val"]} choose a native <select> option (value or label)
+//   {"choose":["<label>","<option>"]} pick from the app's <Select> — open the picker
+//                                   by its accessible name, click the option by its
+//                                   label. Nearly every dropdown in the app is one of
+//                                   these now, not a native <select>.
 //   {"press":"<key>"}               keyboard press (e.g. "Enter", "Escape")
 //   {"wait":300}                    wait N ms
 //   {"wait":"<selector>"}           wait until the selector is visible
@@ -119,6 +123,14 @@ async function runStep(page, step) {
   if (Array.isArray(step.fill)) return page.fill(step.fill[0], step.fill[1]);
   if (Array.isArray(step.select))
     return page.selectOption(step.select[0], step.select[1]);
+  if (Array.isArray(step.choose)) {
+    // Two clicks, because the app's picker is a button plus a portalled
+    // listbox — `selectOption` has no native <select> to talk to.
+    await page.click(`button[aria-label="${step.choose[0]}"]`);
+    return page.click(
+      `[role="listbox"] [role="option"]:has-text("${step.choose[1]}")`,
+    );
+  }
   if (typeof step.press === "string") return page.keyboard.press(step.press);
   if (typeof step.wait === "number") return page.waitForTimeout(step.wait);
   if (typeof step.wait === "string")

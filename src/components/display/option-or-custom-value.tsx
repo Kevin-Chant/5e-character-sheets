@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { GroupedOptionsList, OptionsList } from "src/lib/types";
+import Select from "src/components/select";
 
 interface OptionOrCustomValueProps {
   value: any;
@@ -142,27 +143,28 @@ export default function OptionOrCustomValue({
   // Numeric values keep the simple dropdown + custom-number entry.
   if (flat.includes(value) || (value === "undefined" && allowUndefined)) {
     return (
-      <select
+      <Select
         className="font-large"
+        // The help text is the only name this component is given ("Custom
+        // class:"), and an unnamed picker in a modal of pickers is unusable
+        // by anything that can't see the layout.
+        label={customValueHelpText}
         value={value}
-        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-          if (e.target.value === "custom") {
+        options={[
+          ...flat.map((option) => ({ value: option, label: option })),
+          { value: "custom", label: "Other" },
+          ...(allowUndefined ? [{ value: "undefined", label: "None" }] : []),
+        ]}
+        onChange={(next) => {
+          if (next === "custom") {
             setValue(customDefaultValue);
-          } else if (e.target.value === "undefined") {
+          } else if (next === "undefined") {
             setValue(undefined);
           } else {
-            setValue(e.target.value);
+            setValue(next);
           }
         }}
-      >
-        {flat.map((option, i) => (
-          <option key={i} value={option}>
-            {option}
-          </option>
-        ))}
-        <option value="custom">Other</option>
-        {allowUndefined && <option value={"undefined"}>None</option>}
-      </select>
+      />
     );
   }
   if (allowUndefined && value === undefined) {

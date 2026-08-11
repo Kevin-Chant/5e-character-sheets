@@ -15,6 +15,7 @@ import { formatCustomFormula } from "src/lib/formula";
 import { getFieldValue, traverse } from "src/lib/fields";
 import { useSave } from "./modals/modal-container";
 import { fromStack, updateAt } from "src/lib/cursor";
+import Select from "src/components/select";
 
 export default function BuildCustomFormulaWithDamage() {
   const { targetedField, subField, pushCursor } = useTargetedField();
@@ -63,13 +64,9 @@ export default function BuildCustomFormulaWithDamage() {
     pushCursor(mapCursor.k(damageType));
   };
 
-  const updateDamageType = (
-    e: React.ChangeEvent<HTMLSelectElement>,
-    index: number,
-  ) => {
-    e.preventDefault();
+  const updateDamageType = (damageType: string, index: number) => {
     const formulaEntries = Object.entries(formulaWithDamage);
-    formulaEntries[index][0] = e.target.value;
+    formulaEntries[index][0] = damageType;
     setMap(formulaEntries);
   };
 
@@ -107,16 +104,14 @@ export default function BuildCustomFormulaWithDamage() {
                 </span>
                 <FaPencil />
               </button>
-              <select
+              <Select
+                label="Damage type"
                 value={damageType}
-                onChange={(e) => updateDamageType(e, index)}
-              >
-                {unusedDamageTypes.concat([damageType]).map((dType) => (
-                  <option key={dType} value={dType}>
-                    {dType}
-                  </option>
-                ))}
-              </select>
+                options={unusedDamageTypes
+                  .concat([damageType])
+                  .map((dType) => ({ value: dType, label: dType }))}
+                onChange={(value) => updateDamageType(value, index)}
+              />
               <button
                 type="button"
                 className="icon-btn btn-danger"

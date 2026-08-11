@@ -1,0 +1,188 @@
+/* ============================================================
+   Select — the app's closed-list picker (src/components/select.tsx)
+   ============================================================
+
+   The trigger deliberately wears the native `<select>`'s clothes: same border,
+   radius, padding and shadow as `base.css` gives every control, plus a caret in
+   the same place. Nothing on any screen should look like it moved — the change
+   is what happens when you open it, not what it looks like closed. */
+
+.app-select {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.app-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  font-weight: 400;
+  cursor: pointer;
+  /* `base.css` sets every button to 1rem, which a `<select>` in a dense row
+     (the DM's roster, the condition rail) was being sized down from by its
+     wrapper. Inheriting keeps those call sites working unchanged. */
+  font-size: inherit;
+}
+
+.app-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The placeholder is the same muted grey a native select's empty option would
+   be, so "nothing chosen yet" reads as a state and not as a short answer. */
+.app-select-trigger.is-placeholder .app-select-value {
+  color: var(--text-muted);
+}
+
+/* Sits between the value and the caret, quieter than the value it qualifies. */
+.app-select-trigger-meta {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.app-select-caret {
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  opacity: 0.55;
+  transition: transform 120ms ease;
+}
+
+.app-select-trigger.is-open .app-select-caret {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-select-caret {
+    transition: none;
+  }
+}
+
+/* ---- The floating list ---- */
+
+/* Portalled to <body> and positioned by script, so it sits above modals and
+   escapes every scroll container it might be opened from. */
+.app-select-popup {
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+
+.app-select-filter {
+  padding: 0.15rem;
+}
+
+.app-select-filter > input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  box-shadow: none;
+}
+
+.app-select-hint {
+  display: block;
+  padding: 0.25rem 0.35rem 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.app-select-list,
+.app-select-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Only the outer list scrolls — a group scrolling inside a scrolling list is
+   two scrollbars for one overflow. */
+.app-select-list {
+  overflow-y: auto;
+  /* Momentum stays in the popup rather than moving the page behind it. */
+  overscroll-behavior: contain;
+}
+
+.app-select-group {
+  display: block;
+  padding: 0.4rem 0.5rem 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.app-select-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  /* 40px of target: this is used one-handed at a table, and the roster rows it
+     sits in are dense enough that a 24px row would be a coin flip. */
+  min-height: 2.5rem;
+  justify-content: center;
+  padding: 0.3rem 0.5rem;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+}
+
+/* Keyboard and pointer share one highlight — the arrow keys move `is-active`
+   and hovering sets it, so there is never a second, competing cursor. */
+.app-select-option.is-active {
+  background: var(--surface-2);
+}
+
+.app-select-option.is-chosen .app-select-option-label {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.app-select-option.is-disabled {
+  color: var(--text-muted);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-select-option-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* The scannable column: a modifier or a count, tabular so the digits line up
+   down the list rather than dancing with the label lengths. */
+.app-select-option-meta {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.app-select-option.is-active .app-select-option-meta,
+.app-select-option.is-chosen .app-select-option-meta {
+  color: var(--text);
+}
+
+.app-select-option-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.app-select-empty {
+  padding: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}

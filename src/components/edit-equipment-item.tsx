@@ -34,6 +34,7 @@ import {
 } from "src/lib/builder/equipment-catalog";
 import { ControlledEditTextLine } from "./edit-text-line";
 import StepperInput from "./stepper-input";
+import Select from "src/components/select";
 
 // Default DEX contribution for a freshly-picked category — decoupled from the
 // stored `dex` so a special armor can override it after selection.
@@ -443,21 +444,23 @@ export default function EditEquipmentItem() {
           onPick={pickEntry}
         />
       </label>
-      <label
+      <div
         className="field"
         title="Magic bonus — applies to a built-in armor, shield, or weapon."
       >
         <span className="field-label">Bonus</span>
-        <select
-          value={bonus}
-          onChange={(e) => changeBonus(Number(e.target.value))}
-        >
-          <option value={0}>—</option>
-          <option value={1}>+1</option>
-          <option value={2}>+2</option>
-          <option value={3}>+3</option>
-        </select>
-      </label>
+        <Select
+          label="Magic bonus"
+          value={String(bonus)}
+          options={[
+            { value: "0", label: "—" },
+            { value: "1", label: "+1" },
+            { value: "2", label: "+2" },
+            { value: "3", label: "+3" },
+          ]}
+          onChange={(value) => changeBonus(Number(value))}
+        />
+      </div>
     </div>
   ) : undefined;
 
@@ -531,19 +534,21 @@ export default function EditEquipmentItem() {
       <fieldset className="equipment-armor">
         <legend className="field-label">Armor / Shield (drives AC)</legend>
         <div className="row equipment-fields">
-          <label className="field">
+          <div className="field">
             <span className="field-label">Type</span>
-            <select
+            <Select
+              label="Armor type"
               value={gearType}
-              onChange={(e) => setGearType(e.target.value)}
-            >
-              <option value="none">Not armor</option>
-              <option value="light">Light armor</option>
-              <option value="medium">Medium armor</option>
-              <option value="heavy">Heavy armor</option>
-              <option value="shield">Shield</option>
-            </select>
-          </label>
+              options={[
+                { value: "none", label: "Not armor" },
+                { value: "light", label: "Light armor" },
+                { value: "medium", label: "Medium armor" },
+                { value: "heavy", label: "Heavy armor" },
+                { value: "shield", label: "Shield" },
+              ]}
+              onChange={setGearType}
+            />
+          </div>
         </div>
 
         {item.armor && (
@@ -557,24 +562,26 @@ export default function EditEquipmentItem() {
                 onChange={(value) => updateArmor({ base: value })}
               />
             </label>
-            <label className="field">
+            <div className="field">
               <span className="field-label">DEX to AC</span>
-              <select
+              <Select
+                label="How DEX applies to AC"
                 value={item.armor.dex}
-                onChange={(e) =>
+                options={[
+                  { value: "full", label: "Full DEX" },
+                  { value: "capped", label: "Capped" },
+                  { value: "none", label: "No DEX" },
+                ]}
+                onChange={(value) =>
                   updateArmor({
-                    dex: e.target.value as ArmorMechanics["dex"],
-                    ...(e.target.value === "capped"
+                    dex: value as ArmorMechanics["dex"],
+                    ...(value === "capped"
                       ? { dexCap: item.armor?.dexCap ?? 2 }
                       : {}),
                   })
                 }
-              >
-                <option value="full">Full DEX</option>
-                <option value="capped">Capped</option>
-                <option value="none">No DEX</option>
-              </select>
-            </label>
+              />
+            </div>
             {item.armor.dex === "capped" && (
               <label className="field">
                 <span className="field-label">Max DEX</span>

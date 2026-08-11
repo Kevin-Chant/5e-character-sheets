@@ -83,6 +83,7 @@ import {
 import { FaXmark } from "react-icons/fa6";
 import { charPath, updateAt } from "src/lib/cursor";
 import { FIELD } from "src/lib/data/data-definitions";
+import Select from "src/components/select";
 
 const dieLabel = (die: DieDefinition) =>
   typeof die === "string" ? die : `d${die.numFaces}`;
@@ -592,31 +593,35 @@ export function TargetPicker({
   setTargetId: (id: string) => void;
 }) {
   return (
-    <label className="row roll-target">
+    <span className="row roll-target">
       <span>{verb ?? (healing ? "Healing" : "Attacking")}</span>
-      <select
-        aria-label={
+      <Select
+        label={
           verb
             ? `Who ${verb.toLowerCase()} targets`
             : healing
               ? "Who you are healing"
               : "Who you are attacking"
         }
+        placeholder="Choose a target…"
         value={targetId}
-        onChange={(e) => setTargetId(e.target.value)}
-      >
-        <option value="">Choose a target…</option>
-        {targetGroups(healing, foes, party).map(([label, list]) => (
-          <optgroup key={label} label={label}>
-            {list.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.id === selfId ? `${p.name} (you)` : p.name}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-    </label>
+        // Each row carries what's already on the creature, because that is
+        // what you pick between two Goblins on — the one that's Restrained,
+        // the one that already has your Hex. HP stays out: how much of it the
+        // table can see is the DM's call, and this picker isn't holding it.
+        options={targetGroups(healing, foes, party).flatMap(([label, list]) =>
+          list.map((p) => ({
+            value: p.id,
+            label: p.id === selfId ? `${p.name} (you)` : p.name,
+            group: label,
+            hint: p.conditions.length
+              ? p.conditions.map((c) => c.name).join(", ")
+              : undefined,
+          })),
+        )}
+        onChange={setTargetId}
+      />
+    </span>
   );
 }
 
@@ -1416,20 +1421,21 @@ function EffectControls({
       {titled && (
         <p className="roll-section-title">{isHealing ? "Healing" : "Damage"}</p>
       )}
+      {/* A `span`, not a `label`: what it names is a button now, and a label
+          that wraps a button forwards no click. */}
       {spell && mechanics && !isCantrip && !noSlots && (
-        <label className="row roll-level-select">
+        <span className="row roll-level-select">
           Cast at:{" "}
-          <select
-            value={castLevel}
-            onChange={(e) => setSlotLevel(Number(e.target.value))}
-          >
-            {availableLevels.map((lvl) => (
-              <option key={lvl} value={lvl}>
-                {ordinalSlot(lvl)} level
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            label="Cast at which slot level"
+            value={String(castLevel)}
+            options={availableLevels.map((lvl) => ({
+              value: String(lvl),
+              label: `${ordinalSlot(lvl)} level`,
+            }))}
+            onChange={(value) => setSlotLevel(Number(value))}
+          />
+        </span>
       )}
       {noSlots && <p className="muted">No spell slots available.</p>}
       {isCantrip && (mechanics?.scaling || mechanics?.damageTable) && (
@@ -1545,21 +1551,20 @@ function EffectControls({
                       ) : (
                         checked && (
                           <>
-                            <label className="row roll-extra-toggle">
+                            <span className="row roll-extra-toggle">
                               Slot:{" "}
-                              <select
-                                value={effSmiteLevel}
-                                onChange={(e) =>
-                                  setSmiteLevel(Number(e.target.value))
+                              <Select
+                                label="Which slot to burn on the smite"
+                                value={String(effSmiteLevel)}
+                                options={smiteLevels.map((l) => ({
+                                  value: String(l),
+                                  label: `${ordinalSlot(l)} level`,
+                                }))}
+                                onChange={(value) =>
+                                  setSmiteLevel(Number(value))
                                 }
-                              >
-                                {smiteLevels.map((l) => (
-                                  <option key={l} value={l}>
-                                    {ordinalSlot(l)} level
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
+                              />
+                            </span>
                             {slot.bonus && (
                               <label className="row roll-extra-toggle">
                                 <input

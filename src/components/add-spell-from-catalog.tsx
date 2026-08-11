@@ -12,6 +12,7 @@ import {
   searchCatalogSpells,
   CatalogSpell,
 } from "src/lib/spells/spell-catalog";
+import Select from "src/components/select";
 
 // The `subField` targeting this picker is `<level>.new`, e.g. "0.new" (cantrips)
 // or "3.new" — the numeric-level list the chosen spell should land in.
@@ -86,17 +87,15 @@ export default function AddSpellFromCatalog() {
         onChange={(e) => setQuery(e.target.value)}
       />
       {scPairs.length > 1 && (
-        <select
+        <Select
+          label="Filter spells by class"
+          placeholder="All classes"
+          clearable
+          clearLabel="All classes"
           value={classFilter}
-          onChange={(e) => setClassFilter(e.target.value)}
-        >
-          <option value="">All classes</option>
-          {scPairs.map((p) => (
-            <option key={p.id} value={p.name}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          options={scPairs.map((p) => ({ value: p.name, label: p.name }))}
+          onChange={setClassFilter}
+        />
       )}
       <div className="column spell-search-results">
         {matches.length === 0 && <p className="muted">No matching spells.</p>}

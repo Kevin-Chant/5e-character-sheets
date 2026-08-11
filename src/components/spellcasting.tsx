@@ -25,6 +25,7 @@ import { Character, SpellCastingClass } from "src/lib/types";
 import { charPath, updateAt } from "src/lib/cursor";
 import SpellList from "./display/spell-list";
 import { FaTrash } from "react-icons/fa6";
+import Select from "src/components/select";
 
 interface SpellsTableProps {
   character: Character;
@@ -220,23 +221,22 @@ function SpellsTable({ character }: SpellsTableProps) {
         })}
       </div>
       {editMode && hiddenLevels.length > 0 && (
-        <label className="add-spell-level">
+        <span className="add-spell-level">
           Add spell level:{" "}
-          <select
+          <Select
+            label="Add spell level"
+            triggerLabel="Select…"
             value=""
-            onChange={(e) => {
-              const level = Number(e.target.value) as LeveledSpellLevel;
+            options={hiddenLevels.map((level) => ({
+              value: String(level),
+              label: `Level ${level}`,
+            }))}
+            onChange={(value) => {
+              const level = Number(value) as LeveledSpellLevel;
               if (level) setRevealedLevels((prev) => new Set(prev).add(level));
             }}
-          >
-            <option value="">Select…</option>
-            {hiddenLevels.map((level) => (
-              <option value={level} key={level}>
-                Level {level}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </span>
       )}
     </div>
   );

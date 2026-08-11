@@ -32,6 +32,7 @@ import {
   SingleChoice,
   STAT_LABEL,
 } from "./builder-common";
+import Select from "src/components/select";
 
 // Domain-aware pickers for the two wizards — the widgets that know about
 // spells, feats, languages and class option lists. Split from
@@ -689,24 +690,22 @@ export function FeatPicker({
   return (
     <>
       <Field label="Feat">
-        <select
+        <Select
           className="builder-input"
+          label="Feat"
           value={state.featIndex ?? ""}
-          onChange={(e) =>
+          options={[
+            { value: "", label: "Choose a feat…" },
+            ...offeredFeats.map((f) => ({ value: f.index, label: f.name })),
+          ]}
+          onChange={(value) =>
             patch({
-              featIndex: e.target.value || undefined,
+              featIndex: value || undefined,
               featAbilityChoice: undefined,
               ...emptyFeatChoices(),
             })
           }
-        >
-          <option value="">Choose a feat…</option>
-          {offeredFeats.map((f) => (
-            <option key={f.index} value={f.index}>
-              {f.name}
-            </option>
-          ))}
-        </select>
+        />
       </Field>
       {feat && (
         <>
@@ -725,21 +724,20 @@ export function FeatPicker({
               <Field
                 label={`Ability score increase (+${feat.abilityIncrease.by})`}
               >
-                <select
+                <Select
                   className="builder-input"
+                  label="Which ability to raise"
                   value={
                     state.featAbilityChoice ?? feat.abilityIncrease.from[0]
                   }
-                  onChange={(e) =>
-                    patch({ featAbilityChoice: e.target.value as StatKey })
+                  options={feat.abilityIncrease.from.map((s) => ({
+                    value: s,
+                    label: STAT_LABEL[s],
+                  }))}
+                  onChange={(value) =>
+                    patch({ featAbilityChoice: value as StatKey })
                   }
-                >
-                  {feat.abilityIncrease.from.map((s) => (
-                    <option key={s} value={s}>
-                      {STAT_LABEL[s]}
-                    </option>
-                  ))}
-                </select>
+                />
               </Field>
             ) : (
               <Field label="Ability score increase">

@@ -24,6 +24,7 @@ import { FaTrash } from "react-icons/fa6";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 import { DEFAULT_SPELL_DURATIONS, DEFAULT_SPELL_RANGES } from "src/lib/rules";
 import EditSpellMechanics from "./edit-spell-mechanics";
+import Select from "src/components/select";
 
 const CASTING_TIME_PRESETS = Object.values(CastingTime) as string[];
 
@@ -92,8 +93,8 @@ export default function EditSpell() {
   const updateSpellField = <K extends keyof Spell>(key: K, value: Spell[K]) =>
     dispatch(updateAt(spellCursor.k(key), value));
 
-  const updateCastingClass = (e: React.ChangeEvent<HTMLSelectElement>) =>
-    updateSpellField("spellcastingClass", e.target.value as UUID);
+  const updateCastingClass = (value: string) =>
+    updateSpellField("spellcastingClass", value as UUID);
 
   // --- Components ---
   const components: SpellComponents = spell.components ?? {};
@@ -160,16 +161,15 @@ export default function EditSpell() {
   return (
     <form className="edit-spell">
       <div className="spell-meta-grid">
-        <label>
+        <span className="column">
           Spellcasting class
-          <select value={spell.spellcastingClass} onChange={updateCastingClass}>
-            {classOptions.map((c) => (
-              <option value={c.id} key={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            label="Spellcasting class"
+            value={spell.spellcastingClass}
+            options={classOptions.map((c) => ({ value: c.id, label: c.name }))}
+            onChange={updateCastingClass}
+          />
+        </span>
         <label>
           School
           <OptionOrCustomValue

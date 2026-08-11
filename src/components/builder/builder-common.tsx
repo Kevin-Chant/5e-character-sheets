@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { ReactNode, Ref } from "react";
 import { BuilderState } from "src/lib/builder/types";
+import Select from "src/components/select";
 
 // Every wizard step receives the working state and a shallow-merge patcher.
 export interface StepProps {
@@ -129,8 +130,8 @@ const DROPDOWN_THRESHOLD = 3;
  * Pick exactly one option, rendered by how many there are.
  *
  * Three or fewer stay radios — every option visible, one click to choose. More
- * than that collapses to a `<select>`, with the chosen option's summary kept
- * below it. One component rather than a judgement call per step, so the wizard
+ * than that collapses to a filtering picker, with the chosen option's summary
+ * kept below it. One component rather than a judgement call per step, so the wizard
  * is consistent and a list that grows past the threshold changes shape on its
  * own.
  */
@@ -139,6 +140,7 @@ export function SingleChoice({
   value,
   onChange,
   name,
+  label,
   placeholder = "Choose…",
 }: {
   options: SingleOption[];
@@ -146,25 +148,34 @@ export function SingleChoice({
   onChange: (next: string | undefined) => void;
   // Radio-group name; required so two groups on one step don't share state.
   name: string;
+  // What to call the control out loud. Separate from `name` because that one
+  // is a DOM grouping id and is sometimes machine-shaped ("asi-slot-0") —
+  // which a screen reader would then read as the question being asked.
+  label?: string;
   placeholder?: string;
 }) {
   if (options.length > DROPDOWN_THRESHOLD) {
     const chosen = options.find((o) => o.value === value);
     return (
       <>
-        <select
+        <Select
           className="builder-input"
+          label={label ?? name}
+          placeholder={placeholder}
           value={value ?? ""}
-          aria-label={name}
-          onChange={(e) => onChange(e.target.value || undefined)}
-        >
-          <option value="">{placeholder}</option>
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          // Each option's summary rides in the list, where the choice is
+          // actually made. It stays below the closed picker too — that line
+          // answers "what did I pick", which is a different question you go
+          // on asking after the list has shut.
+          options={options.map((o) => ({
+            value: o.value,
+            label: o.label,
+            // Only the plain-string summaries: the hint is also the filter's
+            // haystack, and a node has no text to match on.
+            hint: typeof o.summary === "string" ? o.summary : undefined,
+          }))}
+          onChange={(next) => onChange(next || undefined)}
+        />
         {chosen?.summary && (
           <p className="text-muted builder-hint">{chosen.summary}</p>
         )}

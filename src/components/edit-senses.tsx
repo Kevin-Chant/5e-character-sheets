@@ -5,6 +5,7 @@ import { useTargetedField } from "src/lib/hooks/use-targeted-field";
 import { charPath, updateAt } from "src/lib/cursor";
 import { Senses } from "src/lib/types";
 import { useSave } from "./modals/modal-container";
+import Select from "src/components/select";
 
 // Each sense with its label and a default range (feet) used when first added.
 const SENSES: Array<[keyof Senses, string, number]> = [
@@ -49,20 +50,16 @@ export default function EditSenses() {
       <label className="column">
         Sense
         {isNew ? (
-          <select
+          <Select
+            label="Sense"
             value={senseKey}
-            onChange={(e) => {
-              const key = e.target.value as keyof Senses;
+            options={unused.map(([key, label]) => ({ value: key, label }))}
+            onChange={(value) => {
+              const key = value as keyof Senses;
               setSenseKey(key);
               setRange(defaultOf(key));
             }}
-          >
-            {unused.map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
+          />
         ) : (
           <input type="text" value={labelOf(senseKey)} disabled />
         )}

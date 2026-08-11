@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { chooseOption } from "src/lib/fixtures/select-testing";
 import {
   DamageType,
   DieOperation,
@@ -455,7 +456,7 @@ describe("RollModal — save-based spells", () => {
     expect(report.save).toEqual({ dc: 12, stat: StatKey.wis });
   });
 
-  it("groups the single-target picker by side", () => {
+  it("groups the single-target picker by side", async () => {
     const ALLY: Participant = {
       ...ORC,
       id: "pc:ally",
@@ -468,6 +469,9 @@ describe("RollModal — save-based spells", () => {
       "app",
       { encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN, ALLY] } },
       { reportsEnabled: true, sendReport: vi.fn(), rememberTarget: vi.fn() },
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Who you are attacking" }),
     );
     const enemies = screen.getByRole("group", { name: "Enemies" });
     const party = screen.getByRole("group", { name: "Party" });
@@ -560,7 +564,7 @@ describe("RollModal — self-directed rolls at a table", () => {
     expect(sendReport.mock.calls[0][0].targetId).toBeUndefined();
   });
 
-  it("offers yourself as a healing target, marked and first", () => {
+  it("offers yourself as a healing target, marked and first", async () => {
     open(
       { kind: "attack", spell: CURE },
       {},
@@ -570,6 +574,9 @@ describe("RollModal — self-directed rolls at a table", () => {
         self: SELF,
       },
       { reportsEnabled: true, sendReport: vi.fn(), rememberTarget: vi.fn() },
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Who you are healing" }),
     );
     const you = screen.getByRole("option", { name: "Brakka (you)" });
     expect(screen.getByRole("group", { name: "Party" })).toContainElement(you);
@@ -787,8 +794,9 @@ describe("RollModal — reporting to the table", () => {
     );
   };
   const reports = () => sendReport.mock.calls.map((c) => c[0] as OutgoingRoll);
-  const target = () => screen.getByLabelText("Who you are attacking");
-  const aim = () => userEvent.selectOptions(target(), GOBLIN.id);
+  const target = () =>
+    screen.getByRole("button", { name: "Who you are attacking" });
+  const aim = () => chooseOption("Who you are attacking", GOBLIN.name);
   const toHit = () =>
     userEvent.click(screen.getByRole("button", { name: "Roll" }));
   const damage = () =>
@@ -802,7 +810,7 @@ describe("RollModal — reporting to the table", () => {
   it("asks nothing when there is no table to tell", () => {
     open({ kind: "attack", toHit: 7, damage: GREATSWORD });
     expect(
-      screen.queryByLabelText("Who you are attacking"),
+      screen.queryByRole("button", { name: "Who you are attacking" }),
     ).not.toBeInTheDocument();
   });
 
@@ -926,7 +934,7 @@ describe("RollModal — reporting to the table", () => {
     expect(rememberTarget).toHaveBeenCalledWith(GOBLIN.id);
     cleanup();
     atTable({ lastTargetId: GOBLIN.id });
-    expect((target() as HTMLSelectElement).value).toBe(GOBLIN.id);
+    expect(target()).toHaveTextContent(GOBLIN.name);
   });
 
   it("shows the DM's ruling under the roll it answers", () => {

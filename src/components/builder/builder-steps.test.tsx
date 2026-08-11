@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { chooseOption } from "src/lib/fixtures/select-testing";
 import { SkillName } from "src/lib/data/data-definitions";
 import { BuilderState, defaultBuilderState } from "src/lib/builder/types";
 import {
@@ -52,10 +53,7 @@ describe("ClassStep", () => {
 
     // Fourteen favored enemies is past `SingleChoice`'s threshold, so the pick
     // is a dropdown rather than a column of checkboxes.
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Favored Enemy" }),
-      "Dragons",
-    );
+    await chooseOption("Favored Enemy", "Dragons");
     expect(patch).toHaveBeenCalledWith({
       chosenOptions: { favoredEnemy: ["Dragons"] },
     });

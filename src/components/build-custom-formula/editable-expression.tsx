@@ -26,6 +26,7 @@ import {
 } from "src/lib/formula";
 import { EditableCustomFormula } from "./editable-custom-formula";
 import { EditableAtomicVariable } from "./editable-atomic-variable";
+import Select from "src/components/select";
 
 type ArbitraryExpr = Addition | Multiplication | Maximum | Minimum;
 
@@ -153,19 +154,18 @@ export function EditableExpression({
     <>
       <div className="row formula-type-row">
         <p className="field-label">Formula type</p>
-        <select
+        <Select
+          label="Formula type"
           value={expr.operation}
-          onChange={(e) => {
+          options={Object.keys(Operation).map((operation) => ({
+            value: operation,
+            label: operation,
+          }))}
+          onChange={(value) => {
             setOpenKey(null);
-            setOperation(e.target.value as Expression["operation"]);
+            setOperation(value as Expression["operation"]);
           }}
-        >
-          {Object.keys(Operation).map((operation) => (
-            <option key={operation} value={operation}>
-              {operation}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       <div className="formula-expression">
         <p className="formula-syntax">{startStr}</p>

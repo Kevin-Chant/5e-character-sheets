@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import classNames from "classnames";
 import { FaCampground, FaFileLines } from "react-icons/fa6";
@@ -20,7 +20,7 @@ import { getPB, modifier } from "src/lib/rules";
 import { initiativeModifierFor } from "src/lib/play/initiative";
 import { conditionSummary } from "src/lib/play/condition-mechanics";
 import {
-  CHECK_GROUPS,
+  CHECK_OPTIONS,
   checkForValue,
   checkLabel,
   checkModifier,
@@ -31,6 +31,7 @@ import { usePlayTurn } from "src/lib/play/use-turn";
 import { TurnFlowProvider } from "src/lib/play/use-turn-flow";
 import { Character } from "src/lib/types";
 import RollModal from "src/components/roll-modal";
+import Select from "src/components/select";
 import ActionBoard from "./action-board";
 import DmBoard from "./dm-board";
 import InitiativeRail from "./initiative-rail";
@@ -447,15 +448,33 @@ function InitiativeCallPrompt({
 // The ad-hoc d20 picker: any save, ability check or skill, one pick away.
 // Opens the ordinary roll dialog, so advantage, condition notes and the
 // real-dice mode all come along for free.
+//
+// Thirty-two options with three headings is exactly the list a filter box is
+// for — "perc" beats scrolling past six saves and six abilities. Each one
+// carries its own modifier, because the question a player is really asking is
+// "what do I add", and answering it in the list saves opening the dialog to
+// find out.
 function CheckLauncher({ character }: { character: Character }) {
   const { openRoller } = useRoller();
+  const options = useMemo(
+    () =>
+      CHECK_OPTIONS.map((option) => {
+        const check = checkForValue(option.value);
+        const mod = check ? checkModifier(character, check) : 0;
+        return { ...option, meta: `${mod >= 0 ? "+" : ""}${mod}` };
+      }),
+    [character],
+  );
   return (
-    <select
+    <Select
       className="check-launcher"
-      aria-label="Roll a check or save"
+      label="Roll a check or save"
+      placeholder="Roll a check…"
+      triggerLabel="Roll a check…"
       value=""
-      onChange={(e) => {
-        const check = checkForValue(e.target.value);
+      options={options}
+      onChange={(value) => {
+        const check = checkForValue(value);
         if (!check) return;
         openRoller({
           label: checkLabel(check),
@@ -468,18 +487,7 @@ function CheckLauncher({ character }: { character: Character }) {
           },
         });
       }}
-    >
-      <option value="">Roll a check…</option>
-      {CHECK_GROUPS.map(({ group, options }) => (
-        <optgroup key={group} label={group}>
-          {options.map(({ value, check }) => (
-            <option key={value} value={value}>
-              {checkLabel(check)}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    />
   );
 }
 

@@ -188,6 +188,16 @@ async function setHp(page, value) {
 
 // --- Clients -----------------------------------------------------------------
 
+// Pick from one of the app's `<Select>`s: a button that opens a portalled
+// listbox, so Playwright's `selectOption` has no native element to talk to.
+async function choose(page, selectLabel, optionLabel) {
+  await page.click(`button[aria-label="${selectLabel}"]`);
+  await page
+    .locator('[role="listbox"] [role="option"]', { hasText: optionLabel })
+    .first()
+    .click();
+}
+
 async function openClient(browser, fixture, label, extraFixtures = [], mutate) {
   const load = (name) =>
     JSON.parse(readFileSync(join(FIXTURES, `${name}.json`), "utf8"));
@@ -733,18 +743,16 @@ const scenarios = {
     await joinGame(player, code, undefined, "Nadia");
 
     await untilVisible(dm.page, ".dm-assign-select");
-    await until(
-      dm.page,
-      "the joiner's name in the Hand to… picker",
-      (name) =>
-        [...document.querySelectorAll(".dm-assign-select option")].some(
-          (option) => option.textContent.trim() === name,
-        ),
-      "Nadia",
-    );
+    // The roster of who can be handed a sheet lives inside the picker now, so
+    // opening it *is* the assertion — and it leaves the list open for the pick.
+    await dm.page.click(`button[aria-label="Hand ${offeredName} to a player"]`);
+    const joiner = dm.page
+      .locator('[role="listbox"] [role="option"]', { hasText: "Nadia" })
+      .first();
+    await joiner.waitFor({ state: "visible", timeout: TIMEOUT });
     check("the joiner's name reaches the DM", true, true);
 
-    await dm.page.selectOption(".dm-assign-select", { label: "Nadia" });
+    await joiner.click();
 
     // The prompt arrives, not the sheet.
     await untilVisible(player.page, ".assign-prompt");
@@ -829,9 +837,7 @@ const scenarios = {
     // lands, and the damage roll needs no second answer to "at what?".
     await untilRoster(player.page, ["Goblin", player.name]);
     await player.page.click('[aria-label="Roll Greatsword"]');
-    await player.page.selectOption('[aria-label="Who you are attacking"]', {
-      label: "Goblin",
-    });
+    await choose(player.page, "Who you are attacking", "Goblin");
     await player.page.getByRole("button", { name: /Roll .*Damage/ }).click();
     await player.page.click('[aria-label="Close"]');
 
@@ -884,9 +890,7 @@ const scenarios = {
     // Friendly fire, in the order the table plays it: name the target first,
     // then every stage travels on its own as it lands.
     await player.page.click('[aria-label="Roll Greatsword"]');
-    await player.page.selectOption('[aria-label="Who you are attacking"]', {
-      label: ally.name,
-    });
+    await choose(player.page, "Who you are attacking", ally.name);
     await player.page.click('[aria-label="Roll"]');
     await untilVisible(dm.page, ".dm-exchange");
     check(
@@ -982,8 +986,9 @@ const scenarios = {
     );
     // Typed, not selected: the check picker filters a closed list, so four
     // keystrokes and a click are the whole interaction.
-    await dm.page.fill('[aria-label="Which check or save to ask for"]', "perc");
-    await dm.page.click(".dm-check-option");
+    await dm.page.click('button[aria-label="Which check or save to ask for"]');
+    await dm.page.fill(".app-select-popup input", "perc");
+    await dm.page.click('[role="listbox"] [role="option"]');
     await dm.page
       .locator(".dm-audience-chip", { hasText: player.name })
       .click();
@@ -1010,8 +1015,9 @@ const scenarios = {
 
     // The same ask addressed to two players at once — the chips are additive,
     // so "you two scout ahead" is one call and not two.
-    await dm.page.fill('[aria-label="Which check or save to ask for"]', "stea");
-    await dm.page.click(".dm-check-option");
+    await dm.page.click('button[aria-label="Which check or save to ask for"]');
+    await dm.page.fill(".app-select-popup input", "stea");
+    await dm.page.click('[role="listbox"] [role="option"]');
     await dm.page
       .locator(".dm-audience-chip", { hasText: healer.name })
       .click();
@@ -1024,9 +1030,7 @@ const scenarios = {
     // and the *recipient* applies it to their own sheet.
     await setHp(player.page, 20);
     await healer.page.click('[aria-label="Roll Bless"]');
-    await healer.page.selectOption('[aria-label="Who you are healing"]', {
-      label: player.name,
-    });
+    await choose(healer.page, "Who you are healing", player.name);
     await healer.page.click("text=Roll Healing");
     const healed = Number(
       await healer.page.locator(".roll-total").last().textContent(),
@@ -1043,7 +1047,7 @@ const scenarios = {
     // "You make camp." Unlike the roll call there is nobody to address it to,
     // so both players are prompted — and the prompt is an invitation: the rest
     // isn't taken until the player takes it, on their own sheet.
-    await dm.page.selectOption('[aria-label="Which rest to call"]', "long");
+    await choose(dm.page, "Which rest to call", "Long rest");
     await dm.page.click('.dm-rest-call button[type="submit"]');
     await untilText(player.page, "Your DM calls a");
     await untilText(healer.page, "Your DM calls a");

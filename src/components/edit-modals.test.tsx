@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { chooseOption, openSelect } from "src/lib/fixtures/select-testing";
 import { ArmorType, FIELD, SkillName } from "src/lib/data/data-definitions";
 import {
   aCharacter,
@@ -40,17 +41,15 @@ describe("EditSpeeds", () => {
     expect(harness.character.speeds.walk).toBe(35);
   });
 
-  it("offers only the modes the character doesn't already have", () => {
+  it("offers only the modes the character doesn't already have", async () => {
     const character = aCharacter();
     character.speeds = { walk: 30, fly: 60 };
     renderWithCharacter(<EditSpeeds />, {
       character,
       targetedField: FIELD.speeds,
     });
-    const add = screen.getByLabelText(/Add movement mode/);
-    const options = Array.from(add.querySelectorAll("option")).map(
-      (o) => o.textContent,
-    );
+    const add = await openSelect("Add movement mode");
+    const options = add.getAllByRole("option").map((o) => o.textContent);
     expect(options).not.toContain("Fly");
     expect(options).toContain("Swim");
   });
@@ -101,10 +100,7 @@ describe("EditSenses", () => {
       targetedField: FIELD.senses,
       subField: "new",
     });
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Sense/),
-      "tremorsense",
-    );
+    await chooseOption("Sense", "Tremorsense");
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
     const action = harness.saveData.mock.calls[0][1] as { path?: unknown[] };
     expect(JSON.stringify(action)).toContain("tremorsense");

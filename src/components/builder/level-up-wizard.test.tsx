@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { chooseOption } from "src/lib/fixtures/select-testing";
 import { OfficialClass, SkillName } from "src/lib/data/data-definitions";
 import { buildCharacter } from "src/lib/builder/build-character";
 import { defaultBuilderState } from "src/lib/builder/types";
@@ -77,10 +78,7 @@ describe("LevelUpWizard step routing", () => {
     open(char);
     await next();
     const withoutSubclass = stepCount();
-    await userEvent.selectOptions(
-      screen.getByRole("combobox"),
-      "Battle Master",
-    );
+    await chooseOption("Fighter subclass", "Battle Master");
     // …but Battle Master owes maneuvers, so the route grows by a step.
     expect(stepCount()).toBe(withoutSubclass + 1);
   });

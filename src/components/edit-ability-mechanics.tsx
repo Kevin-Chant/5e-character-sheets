@@ -22,6 +22,7 @@ import {
 } from "src/lib/types";
 import { ordinal } from "src/lib/utils";
 import { FaXmark } from "react-icons/fa6";
+import Select from "src/components/select";
 
 const EFFECT_KINDS = Object.keys(EFFECT_KIND_LABELS) as Effect["effect"][];
 const COSTS = Object.keys(ACTION_COST_LABELS) as ActionCost[];
@@ -123,19 +124,15 @@ function ActionEditor({
           value={action.name}
           onChange={(e) => update({ ...action, name: e.target.value })}
         />
-        <select
-          aria-label="Action cost"
+        <Select
+          label="Action cost"
           value={action.cost}
-          onChange={(e) =>
-            update({ ...action, cost: e.target.value as ActionCost })
-          }
-        >
-          {COSTS.map((cost) => (
-            <option key={cost} value={cost}>
-              {ACTION_COST_LABELS[cost]}
-            </option>
-          ))}
-        </select>
+          options={COSTS.map((cost) => ({
+            value: cost,
+            label: ACTION_COST_LABELS[cost],
+          }))}
+          onChange={(value) => update({ ...action, cost: value as ActionCost })}
+        />
         <button type="button" aria-label="Remove action" onClick={remove}>
           <FaXmark />
         </button>
@@ -189,19 +186,17 @@ function EffectEditor({
 }) {
   return (
     <div className="row edit-effect-row">
-      <select
-        aria-label="Effect kind"
+      <Select
+        label="Effect kind"
         value={effect.effect}
-        onChange={(e) =>
-          update(defaultEffectOfKind(e.target.value as Effect["effect"]))
+        options={EFFECT_KINDS.map((kind) => ({
+          value: kind,
+          label: EFFECT_KIND_LABELS[kind],
+        }))}
+        onChange={(value) =>
+          update(defaultEffectOfKind(value as Effect["effect"]))
         }
-      >
-        {EFFECT_KINDS.map((kind) => (
-          <option key={kind} value={kind}>
-            {EFFECT_KIND_LABELS[kind]}
-          </option>
-        ))}
-      </select>
+      />
       <EffectParams effect={effect} update={update} />
       <button type="button" aria-label="Remove effect" onClick={remove}>
         <FaXmark />
@@ -245,42 +240,35 @@ function EffectParams({
     case "expendSlot":
     case "restoreSlot":
       return (
-        <select
-          aria-label="Slot level"
-          value={effect.level ?? "chosen"}
-          onChange={(e) =>
+        <Select
+          label="Slot level"
+          value={effect.level === undefined ? "chosen" : String(effect.level)}
+          options={[
+            { value: "chosen", label: "chosen at use" },
+            ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => ({
+              value: String(lvl),
+              label: `${ordinal(lvl)} level`,
+            })),
+          ]}
+          onChange={(value) =>
             update({
               ...effect,
               level:
-                e.target.value === "chosen"
+                value === "chosen"
                   ? undefined
-                  : (Number(e.target.value) as LeveledSpellLevel),
+                  : (Number(value) as LeveledSpellLevel),
             })
           }
-        >
-          <option value="chosen">chosen at use</option>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => (
-            <option key={lvl} value={lvl}>
-              {ordinal(lvl)} level
-            </option>
-          ))}
-        </select>
+        />
       );
     case "spendHitDie":
       return (
-        <select
-          aria-label="Hit die size"
+        <Select
+          label="Hit die size"
           value={effect.die}
-          onChange={(e) =>
-            update({ ...effect, die: e.target.value as StandardDie })
-          }
-        >
-          {DICE.map((die) => (
-            <option key={die} value={die}>
-              {die}
-            </option>
-          ))}
-        </select>
+          options={DICE.map((die) => ({ value: die, label: die }))}
+          onChange={(value) => update({ ...effect, die: value as StandardDie })}
+        />
       );
     case "remind":
       return (
@@ -310,11 +298,17 @@ function AmountEditor({
   const set = (next: SimpleAmount) => update(buildAmount(next));
   return (
     <>
-      <select
-        aria-label="Amount mode"
+      <Select
+        label="Amount mode"
         value={simple.mode}
-        onChange={(e) => {
-          const mode = e.target.value as SimpleAmount["mode"];
+        options={[
+          { value: "number", label: "Number" },
+          { value: "dice", label: "Dice" },
+          { value: "chosenAmount", label: "Player picks" },
+          { value: "chosenDice", label: "Player picks × dice" },
+        ]}
+        onChange={(value) => {
+          const mode = value as SimpleAmount["mode"];
           set(
             mode === "number"
               ? { mode, value: 1 }
@@ -325,12 +319,7 @@ function AmountEditor({
                   : { mode: "chosenAmount" },
           );
         }}
-      >
-        <option value="number">Number</option>
-        <option value="dice">Dice</option>
-        <option value="chosenAmount">Player picks</option>
-        <option value="chosenDice">Player picks × dice</option>
-      </select>
+      />
       {simple.mode === "number" && (
         <input
           type="number"
@@ -340,19 +329,12 @@ function AmountEditor({
         />
       )}
       {simple.mode === "chosenDice" && (
-        <select
-          aria-label="Die size"
+        <Select
+          label="Die size"
           value={simple.die}
-          onChange={(e) =>
-            set({ ...simple, die: e.target.value as StandardDie })
-          }
-        >
-          {DICE.map((die) => (
-            <option key={die} value={die}>
-              {die}
-            </option>
-          ))}
-        </select>
+          options={DICE.map((die) => ({ value: die, label: die }))}
+          onChange={(value) => set({ ...simple, die: value as StandardDie })}
+        />
       )}
       {simple.mode === "dice" && (
         <>
@@ -365,19 +347,12 @@ function AmountEditor({
               set({ ...simple, count: Math.max(1, Number(e.target.value)) })
             }
           />
-          <select
-            aria-label="Die size"
+          <Select
+            label="Die size"
             value={simple.die}
-            onChange={(e) =>
-              set({ ...simple, die: e.target.value as StandardDie })
-            }
-          >
-            {DICE.map((die) => (
-              <option key={die} value={die}>
-                {die}
-              </option>
-            ))}
-          </select>
+            options={DICE.map((die) => ({ value: die, label: die }))}
+            onChange={(value) => set({ ...simple, die: value as StandardDie })}
+          />
           <input
             type="number"
             aria-label="Flat bonus"

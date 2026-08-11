@@ -8,6 +8,7 @@ import { useSettings } from "src/lib/hooks/use-settings";
 import { RestVariant } from "src/lib/rest";
 import { CritMode } from "src/lib/roll";
 import SettingsSection from "./settings-section";
+import Select from "src/components/select";
 
 // House rules and table variants: how much bookkeeping the sheet does, how
 // crits work, and what a rest gives back. Split out of General because these
@@ -36,74 +37,99 @@ export default function GameSettings() {
         title="Rest pacing"
         description="How long a rest takes. This changes only the durations the sheet quotes — what a rest restores is the same either way. Epic Heroism and Gritty Realism are the Dungeon Master's Guide variants for faster and slower campaigns."
       >
-        <label className="settings-select-inline">
+        {/* Every one of these settings names a variant and then explains it,
+            so the explanation moves to its own line as a `hint` — the labels
+            were single strings with an em dash doing the work of a layout. */}
+        <span className="settings-select-inline">
           Rest lengths
-          <select
+          <Select
+            label="Rest lengths"
             value={settings.restVariant}
-            onChange={(e) =>
-              updateSetting("restVariant", e.target.value as RestVariant)
+            options={[
+              // `meta`, not `hint`: the durations are what you compare the
+              // three variants on, so they ride the trigger too rather than
+              // living only inside the open list.
+              {
+                value: "standard",
+                label: "Standard",
+                meta: "1 hour / 8 hours (RAW)",
+              },
+              {
+                value: "epic",
+                label: "Epic Heroism",
+                meta: "5 minutes / 1 hour",
+              },
+              {
+                value: "gritty",
+                label: "Gritty Realism",
+                meta: "8 hours / 7 days",
+              },
+            ]}
+            onChange={(value) =>
+              updateSetting("restVariant", value as RestVariant)
             }
-          >
-            <option value="standard">Standard — 1 hour / 8 hours (RAW)</option>
-            <option value="epic">Epic Heroism — 5 minutes / 1 hour</option>
-            <option value="gritty">Gritty Realism — 8 hours / 7 days</option>
-          </select>
-        </label>
+          />
+        </span>
       </SettingsSection>
 
       <SettingsSection
         title="Long rest recovery"
         description="What a long rest gives back. The defaults are by the book; the alternatives cover the variants and house rules tables most often use."
       >
-        <label className="settings-select-inline">
+        <span className="settings-select-inline">
           Hit dice regained
-          <select
+          <Select
+            label="Hit dice regained"
             value={settings.longRestHitDiceRecovery}
-            onChange={(e) =>
+            options={[
+              { value: "half", label: "Half your total, minimum one (RAW)" },
+              { value: "all", label: "All spent hit dice" },
+              { value: "none", label: "None" },
+            ]}
+            onChange={(value) =>
               updateSetting(
                 "longRestHitDiceRecovery",
-                e.target.value as "half" | "all" | "none",
+                value as "half" | "all" | "none",
               )
             }
-          >
-            <option value="half">Half your total, minimum one (RAW)</option>
-            <option value="all">All spent hit dice</option>
-            <option value="none">None</option>
-          </select>
-        </label>
-        <label className="settings-select-inline">
+          />
+        </span>
+        <span className="settings-select-inline">
           Hit points regained
-          <select
+          <Select
+            label="Hit points regained"
             value={settings.longRestHpRecovery}
-            onChange={(e) =>
-              updateSetting(
-                "longRestHpRecovery",
-                e.target.value as "full" | "none",
-              )
+            options={[
+              { value: "full", label: "All hit points (RAW)" },
+              {
+                value: "none",
+                label: "None",
+                hint: "Slow natural healing — spend hit dice instead",
+              },
+            ]}
+            onChange={(value) =>
+              updateSetting("longRestHpRecovery", value as "full" | "none")
             }
-          >
-            <option value="full">All hit points (RAW)</option>
-            <option value="none">
-              None — slow natural healing, spend hit dice instead
-            </option>
-          </select>
-        </label>
-        <label className="settings-select-inline">
+          />
+        </span>
+        <span className="settings-select-inline">
           Exhaustion removed
-          <select
+          <Select
+            label="Exhaustion removed"
             value={settings.longRestExhaustionRecovery}
-            onChange={(e) =>
+            options={[
+              { value: "one", label: "One level (RAW)" },
+              { value: "all", label: "Every level" },
+              { value: "none", label: "None" },
+            ]}
+            onChange={(value) =>
               updateSetting(
                 "longRestExhaustionRecovery",
-                e.target.value as "one" | "all" | "none",
+                value as "one" | "all" | "none",
               )
             }
-          >
-            <option value="one">One level (RAW)</option>
-            <option value="all">Every level</option>
-            <option value="none">None</option>
-          </select>
-        </label>
+          />
+        </span>
         <label className="settings-checkbox">
           <input
             type="checkbox"
@@ -170,19 +196,21 @@ export default function GameSettings() {
           />
           Track encumbrance
         </label>
-        <label className="settings-select-inline">
+        <span className="settings-select-inline">
           Weight unit
-          <select
+          <Select
+            label="Weight unit"
             value={settings.weightUnit}
             disabled={!settings.trackEncumbrance}
-            onChange={(e) =>
-              updateSetting("weightUnit", e.target.value as "lb" | "kg")
+            options={[
+              { value: "lb", label: "Pounds (lb)" },
+              { value: "kg", label: "Kilograms (kg)" },
+            ]}
+            onChange={(value) =>
+              updateSetting("weightUnit", value as "lb" | "kg")
             }
-          >
-            <option value="lb">Pounds (lb)</option>
-            <option value="kg">Kilograms (kg)</option>
-          </select>
-        </label>
+          />
+        </span>
       </SettingsSection>
 
       <SettingsSection
@@ -205,19 +233,21 @@ export default function GameSettings() {
         title="Critical hit damage"
         description="How a critical hit inflates damage. Crits are one of the most commonly house-ruled parts of 5e, so pick whichever flavor your table uses — it applies to weapon and spell damage alike, including riders like Sneak Attack and Divine Smite."
       >
-        <label className="settings-select-inline">
+        <span className="settings-select-inline">
           On a critical hit
-          <select
+          <Select
+            label="On a critical hit"
             value={settings.criticalDamageMode}
-            onChange={(e) =>
-              updateSetting("criticalDamageMode", e.target.value as CritMode)
+            options={[
+              { value: "raw", label: "Double the damage dice (RAW)" },
+              { value: "maxDice", label: "Maximize the dice, then roll again" },
+              { value: "total", label: "Double the total, modifiers included" },
+            ]}
+            onChange={(value) =>
+              updateSetting("criticalDamageMode", value as CritMode)
             }
-          >
-            <option value="raw">Double the damage dice (RAW)</option>
-            <option value="maxDice">Maximize the dice, then roll again</option>
-            <option value="total">Double the total, modifiers included</option>
-          </select>
-        </label>
+          />
+        </span>
         <label className="settings-checkbox">
           <input
             type="checkbox"
@@ -240,17 +270,15 @@ export default function GameSettings() {
           title="What players see"
           description="How much of the table's health the players see of each other and the monsters. The DM's own board always shows the numbers."
         >
-          <select
-            aria-label="What players see of the table's health"
+          <Select
+            label="What players see of the table's health"
             value={sharing}
-            onChange={(e) => setSharingLevel(e.target.value as SharingLevel)}
-          >
-            {SHARING_LEVELS.map((level) => (
-              <option key={level} value={level}>
-                {SHARING_LABELS[level]}
-              </option>
-            ))}
-          </select>
+            options={SHARING_LEVELS.map((level) => ({
+              value: level,
+              label: SHARING_LABELS[level],
+            }))}
+            onChange={(level) => setSharingLevel(level as SharingLevel)}
+          />
           <label className="settings-checkbox">
             <input
               type="checkbox"

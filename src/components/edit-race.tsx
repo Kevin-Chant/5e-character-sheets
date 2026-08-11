@@ -4,6 +4,7 @@ import { charPath, updateAt, clearAt, Cursor } from "src/lib/cursor";
 import { DEFAULT_RACES } from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
 import OptionOrCustomValue from "./display/option-or-custom-value";
+import Select from "src/components/select";
 
 // Editor for the `race` identity object (name / subrace / size). The mechanical
 // grants a race confers live in their own homes and are edited there — languages
@@ -44,19 +45,15 @@ export default function EditRace() {
           }
         />
       </label>
-      <label className="column">
+      <span className="column">
         Size
-        <select
+        <Select
+          label="Size"
           value={race.size}
-          onChange={(e) => set(racePath.k("size"), e.target.value as Size)}
-        >
-          {Object.values(Size).map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={Object.values(Size)}
+          onChange={(value) => set(racePath.k("size"), value as Size)}
+        />
+      </span>
       <button className="btn-primary edit-save" onClick={() => saveData()}>
         Save
       </button>

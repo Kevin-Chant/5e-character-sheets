@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { chooseOption } from "src/lib/fixtures/select-testing";
 import { renderWithCharacter } from "src/lib/fixtures/render-with-character";
 import DmBoard from "./dm-board";
 
@@ -134,10 +135,7 @@ describe("the DM board", () => {
     await user.click(screen.getByRole("button", { name: "Add" }));
 
     // One commit, no confirm step, no duration asked for up front.
-    await user.selectOptions(
-      screen.getByLabelText("Give Ogre a condition"),
-      "Stunned",
-    );
+    await chooseOption("Give Ogre a condition", "Stunned", user);
     const duration = () =>
       screen.getByLabelText("Set how long Stunned lasts on Ogre");
     expect(duration()).toHaveTextContent("∞");

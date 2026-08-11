@@ -16,6 +16,8 @@
 @import "./styles/tokens.css";
 /* Layout/spacing utilities used across every component. */
 @import "./styles/utilities.css";
+/* The shared closed-list picker, used on every surface below. */
+@import "./styles/select.css";
 
 /* Sheet regions, roughly in the order you meet them on the page. */
 @import "./styles/equipment.css";

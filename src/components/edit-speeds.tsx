@@ -4,6 +4,7 @@ import { charPath, updateAt, clearAt, Cursor } from "src/lib/cursor";
 import { Speeds } from "src/lib/types";
 import { useSave } from "./modals/modal-container";
 import { FaXmark } from "react-icons/fa6";
+import Select from "src/components/select";
 
 // The optional (non-walking) movement modes, in display order.
 const EXTRA_MODES: Array<[keyof Speeds, string]> = [
@@ -66,23 +67,18 @@ export default function EditSpeeds() {
         </label>
       ))}
       {unused.length > 0 && (
-        <label className="column">
+        <span className="column">
           Add movement mode
-          <select
+          <Select
+            label="Add movement mode"
+            triggerLabel="Add speed…"
             value=""
-            onChange={(e) => {
-              const key = e.target.value as keyof Speeds;
-              if (key) setMode(key, speeds.walk);
+            options={unused.map(([key, label]) => ({ value: key, label }))}
+            onChange={(key) => {
+              if (key) setMode(key as keyof Speeds, speeds.walk);
             }}
-          >
-            <option value="">Add speed…</option>
-            {unused.map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </span>
       )}
       <button className="btn-primary edit-save" onClick={() => saveData()}>
         Save

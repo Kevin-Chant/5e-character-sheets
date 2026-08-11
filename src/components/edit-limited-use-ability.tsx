@@ -23,6 +23,7 @@ import { useSave } from "./modals/modal-container";
 import { ControlledEditTextLine } from "./edit-text-line";
 import EditAbilityMechanics from "./edit-ability-mechanics";
 import OptionOrCustomValue from "./display/option-or-custom-value";
+import Select from "src/components/select";
 
 // The two rests, plus the magic-item triggers: "Dawn" fires from the play
 // surface's Dawn button or a rest that spans dawn, and "Every 7 days" counts
@@ -79,28 +80,30 @@ export function PoolMetaFields({
         </label>
       </div>
       <div className="row limited-use-ability-meta">
-        <label className="field">
+        <div className="field">
           <span className="field-label">Recharge regains</span>
           {/* "Regains 1d3 expended charges at dawn" — the magic-item pattern.
               Switching to a rolled amount seeds 1d3; the formula button opens
               the full editor for the 1d6+4 staves. */}
-          <select
+          <Select
+            label="What a recharge regains"
             value={ability.restore === undefined ? "all" : "roll"}
-            onChange={(e) =>
+            options={[
+              { value: "all", label: "All uses" },
+              { value: "roll", label: "A rolled amount" },
+            ]}
+            onChange={(value) =>
               dispatch(
                 updateAt(
                   cursor.k("restore"),
-                  e.target.value === "roll"
+                  value === "roll"
                     ? [1, { numFaces: 3 }, DieOperation.roll]
                     : undefined,
                 ),
               )
             }
-          >
-            <option value="all">All uses</option>
-            <option value="roll">A rolled amount</option>
-          </select>
-        </label>
+          />
+        </div>
         {ability.restore !== undefined && (
           <label className="field">
             <span className="field-label">Amount regained</span>
@@ -247,31 +250,30 @@ export default function EditLimitedUseAbility() {
                 <span className="uses-formula-hint">(edit formula)</span>
               </button>
             </div>
-            <label className="field">
+            <div className="field">
               <span className="field-label">Target rolls</span>
-              <select
+              {/* "(varies)" is the default for a pool: one Ki DC backs several
+                  features that call for different saves. */}
+              <Select
+                label="Which save the target rolls"
+                placeholder="(varies)"
+                clearable
+                clearLabel="(varies)"
                 value={ability.save.stat ?? ""}
-                onChange={(e) =>
+                options={Object.values(StatKey).map((stat) => ({
+                  value: stat,
+                  label: STAT_NAMES[stat],
+                }))}
+                onChange={(value) =>
                   dispatch(
                     updateAt(abilityCursor.k("save"), {
                       ...ability.save!,
-                      stat: (e.target.value || undefined) as
-                        | StatKey
-                        | undefined,
+                      stat: (value || undefined) as StatKey | undefined,
                     }),
                   )
                 }
-              >
-                {/* The default for a pool: one Ki DC backs several features
-                    that call for different saves. */}
-                <option value="">(varies)</option>
-                {Object.values(StatKey).map((stat) => (
-                  <option key={stat} value={stat}>
-                    {STAT_NAMES[stat]}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
           </div>
         )}
       </fieldset>

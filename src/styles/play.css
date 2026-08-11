@@ -1653,56 +1653,14 @@
   font-size: 0.85rem;
 }
 
-/* The check picker: a text box that filters a closed list, sized so it doesn't
-   crowd the audience chips beside it on a narrow board. */
+/* The check picker, sized so it doesn't crowd the audience chips beside it on
+   a narrow board. Everything else about it — the filter box, the list, the
+   keyboard highlight — is the shared `<Select>`'s (`select.css`); this used to
+   be a bespoke copy of all of it. */
 .dm-check-picker {
-  position: relative;
   flex: 1 1 9rem;
   min-width: 8rem;
   max-width: 14rem;
-}
-.dm-check-input {
-  width: 100%;
-}
-.dm-check-list {
-  position: absolute;
-  z-index: 5;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  margin: 0;
-  padding: 0.25rem;
-  list-style: none;
-  max-height: 220px;
-  overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-}
-.dm-check-group {
-  display: block;
-  padding: 0.3rem 0.5rem 0.15rem;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
-}
-.dm-check-option {
-  display: block;
-  width: 100%;
-  text-align: left;
-  color: var(--text);
-  font-weight: 400;
-  border: none;
-  background: none;
-  padding: 0.35rem 0.5rem;
-  border-radius: calc(var(--radius) - 2px);
-}
-/* Keyboard and pointer share one highlight — the arrow keys move `is-active`
-   and hovering sets it, so there is never a second, competing cursor. */
-.dm-check-option.is-active {
-  background: var(--surface-2);
 }
 
 /* Who was asked, as chips: several players at once, and legible without

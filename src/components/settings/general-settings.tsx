@@ -9,6 +9,7 @@ import IdentityFields from "../identity-fields";
 import AutosaveSettings from "./autosave-settings";
 import SettingsSection from "./settings-section";
 import SidecarHealthCheck from "./sidecar-health-check";
+import Select from "src/components/select";
 
 export default function GeneralSettings() {
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -19,29 +20,33 @@ export default function GeneralSettings() {
         title="Appearance"
         description="Choose how the app looks. System follows your device setting."
       >
-        <select
+        <Select
+          label="Appearance"
           value={settings.theme}
-          onChange={(e) => updateSetting("theme", e.target.value as Theme)}
-        >
-          <option value="system">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
+          options={[
+            { value: "system", label: "System" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+          onChange={(value) => updateSetting("theme", value as Theme)}
+        />
       </SettingsSection>
 
       <SettingsSection
         title="Default mode"
         description="Whether sheets open ready to edit or locked for play. You can always switch a sheet with the lock button in the header."
       >
-        <select
+        <Select
+          label="Default mode"
           value={settings.openInEditMode ? "edit" : "play"}
-          onChange={(e) =>
-            updateSetting("openInEditMode", e.target.value === "edit")
+          options={[
+            { value: "edit", label: "Edit mode" },
+            { value: "play", label: "Play mode" },
+          ]}
+          onChange={(value) =>
+            updateSetting("openInEditMode", value === "edit")
           }
-        >
-          <option value="edit">Edit mode</option>
-          <option value="play">Play mode</option>
-        </select>
+        />
       </SettingsSection>
 
       <AutosaveSettings />

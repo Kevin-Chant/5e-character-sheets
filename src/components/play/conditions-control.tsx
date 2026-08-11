@@ -2,11 +2,12 @@ import classNames from "classnames";
 import { FaXmark } from "react-icons/fa6";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import {
-  conditionSummary,
+  conditionHint,
   WIRED_CONDITION_NAMES,
 } from "src/lib/play/condition-mechanics";
 import { CONDITION_NAMES } from "src/lib/play/conditions";
 import { ActiveCondition, Participant } from "src/lib/play/encounter";
+import Select from "src/components/select";
 import RevealNumber from "./reveal-number";
 
 // Conditions on one participant — the same control whether you're looking at
@@ -52,45 +53,45 @@ export default function ConditionsControl({
         />
       ))}
       {available.length + effects.length > 0 && (
-        <select
+        <Select
           className="condition-adder"
-          aria-label={`Give ${participant.name} a condition`}
+          label={`Give ${participant.name} a condition`}
+          triggerLabel="+ condition"
           value=""
-          onChange={(e) => {
-            if (!e.target.value) return;
+          // The list is short enough to read and long enough to search, and
+          // what each entry *does* is the thing you're choosing on — so the
+          // summary rides beside the name rather than hiding in a `title`
+          // nobody hovers on a phone. It also feeds the filter: typing
+          // "advantage" finds every condition that grants one.
+          options={[
+            ...available.map((name) => ({
+              value: name,
+              label: name,
+              group: "Conditions",
+              hint: conditionHint(name),
+            })),
+            ...effects.map((name) => ({
+              value: name,
+              label: name,
+              group: "Spells & effects",
+              hint: conditionHint(name),
+            })),
+          ]}
+          onChange={(name) => {
+            if (!name) return;
             // Indefinite, which is what most of them are — a duration is the
             // exception, so it's opt-in on the chip rather than a field you
             // have to clear. A hand-placed spell effect on someone *else's*
             // row carries who placed it, because caster-only marks (Hex,
             // Hunter's Mark) pay out on provenance.
             const stampFrom =
-              effects.includes(e.target.value) &&
-              self &&
-              self.id !== participant.id;
+              effects.includes(name) && self && self.id !== participant.id;
             giveCondition(participant.id, {
-              name: e.target.value,
+              name,
               ...(stampFrom ? { from: self.id } : {}),
             });
           }}
-        >
-          <option value="">+ condition</option>
-          <optgroup label="Conditions">
-            {available.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </optgroup>
-          {effects.length > 0 && (
-            <optgroup label="Spells &amp; effects">
-              {effects.map((name) => (
-                <option key={name} value={name} title={conditionSummary(name)}>
-                  {name}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
+        />
       )}
     </>
   );

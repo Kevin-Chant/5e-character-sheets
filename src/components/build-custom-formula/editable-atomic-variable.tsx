@@ -24,6 +24,7 @@ import {
 import { equippedArmorAC, getPB } from "src/lib/rules";
 import { FaRightLeft, FaTrash } from "react-icons/fa6";
 import OptionOrCustomValue from "../display/option-or-custom-value";
+import Select from "src/components/select";
 
 interface EditableAtomicVariableProps {
   atomicVar: AtomicVariable;
@@ -122,16 +123,15 @@ export function EditableAtomicVariable({
     );
   } else if (isStatKey(atomicVar)) {
     inputElement = (
-      <select
+      <Select
+        label="Ability"
         value={atomicVar}
-        onChange={(e) => setVar(e.target.value as StatKey)}
-      >
-        {Object.keys(StatKey).map((statKey) => (
-          <option key={statKey} value={statKey}>
-            {statKey}
-          </option>
-        ))}
-      </select>
+        options={Object.keys(StatKey).map((statKey) => ({
+          value: statKey,
+          label: statKey,
+        }))}
+        onChange={(value) => setVar(value as StatKey)}
+      />
     );
   } else if (isDieExpression(atomicVar)) {
     inputElement = (
@@ -163,18 +163,17 @@ export function EditableAtomicVariable({
           customValueHelpText="Number of faces:"
           customInputType="number"
         />
-        <select
+        <Select
+          label="What to do with the dice"
           value={atomicVar[2]}
-          onChange={(e) =>
-            setVar([atomicVar[0], atomicVar[1], e.target.value as DieOperation])
+          options={Object.keys(DieOperation).map((dieOperation) => ({
+            value: dieOperation,
+            label: dieOperation,
+          }))}
+          onChange={(value) =>
+            setVar([atomicVar[0], atomicVar[1], value as DieOperation])
           }
-        >
-          {Object.keys(DieOperation).map((dieOperation) => (
-            <option key={dieOperation} value={dieOperation}>
-              {dieOperation}
-            </option>
-          ))}
-        </select>
+        />
       </div>
     );
   } else if (isPb(atomicVar)) {
@@ -187,16 +186,15 @@ export function EditableAtomicVariable({
     );
   } else if (isClassLevel(atomicVar)) {
     inputElement = (
-      <select
+      <Select
+        label="Which class's level"
         value={atomicVar.classLevel}
-        onChange={(e) => setVar({ classLevel: e.target.value as UUID })}
-      >
-        {character.class.map((klass) => (
-          <option key={klass.id} value={klass.id}>
-            {klass.name}
-          </option>
-        ))}
-      </select>
+        options={character.class.map((klass) => ({
+          value: klass.id,
+          label: klass.name,
+        }))}
+        onChange={(value) => setVar({ classLevel: value as UUID })}
+      />
     );
   }
 

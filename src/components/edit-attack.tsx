@@ -14,6 +14,7 @@ import { FaPencil } from "react-icons/fa6";
 import { useSave } from "./modals/modal-container";
 import { fromStack, updateAt } from "src/lib/cursor";
 import { Attack, AttackTag, CustomFormula, SaveEffect } from "src/lib/types";
+import Select from "src/components/select";
 
 // The weapon properties the roll dialog reads to decide which features apply
 // (see `mechanics/conditions.ts`). Offered as chips rather than derived, because
@@ -151,16 +152,18 @@ export default function EditAttack() {
           data-form-type="other"
         />
       </label>
-      <label className="field">
+      <div className="field">
         <span className="field-label">Resolved by</span>
-        <select
+        <Select
+          label="Resolved by"
           value={attack.save ? "save" : "toHit"}
-          onChange={(e) => setResolution(e.target.value as "toHit" | "save")}
-        >
-          <option value="toHit">Attack roll (you roll to hit)</option>
-          <option value="save">Saving throw (the target rolls)</option>
-        </select>
-      </label>
+          options={[
+            { value: "toHit", label: "Attack roll", hint: "You roll to hit" },
+            { value: "save", label: "Saving throw", hint: "The target rolls" },
+          ]}
+          onChange={(value) => setResolution(value as "toHit" | "save")}
+        />
+      </div>
       <div className="formula-field-grid">
         {attack.bonus !== undefined && (
           <div className="field">
@@ -201,42 +204,45 @@ export default function EditAttack() {
               <FaPencil />
             </button>
           </div>
-          <label className="field">
+          <div className="field">
             <span className="field-label">Target rolls</span>
-            <select
+            <Select
+              label="Which save the target rolls"
+              placeholder="(varies)"
+              clearable
+              clearLabel="(varies)"
               value={attack.save.stat ?? ""}
-              onChange={(e) =>
+              options={Object.values(StatKey).map((stat) => ({
+                value: stat,
+                label: STAT_NAMES[stat],
+              }))}
+              onChange={(value) =>
                 updateSave({
-                  stat: (e.target.value || undefined) as StatKey | undefined,
+                  stat: (value || undefined) as StatKey | undefined,
                 })
               }
-            >
-              <option value="">(varies)</option>
-              {Object.values(StatKey).map((stat) => (
-                <option key={stat} value={stat}>
-                  {STAT_NAMES[stat]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
+            />
+          </div>
+          <div className="field">
             <span className="field-label">On a success</span>
-            <select
+            <Select
+              label="What a successful save does"
               value={attack.save.onSuccess ?? ""}
-              onChange={(e) =>
+              options={[
+                { value: "half", label: "Half damage" },
+                { value: "none", label: "No damage" },
+                { value: "", label: "No damage effect" },
+              ]}
+              onChange={(value) =>
                 updateSave({
-                  onSuccess: (e.target.value || undefined) as
+                  onSuccess: (value || undefined) as
                     | "half"
                     | "none"
                     | undefined,
                 })
               }
-            >
-              <option value="half">Half damage</option>
-              <option value="none">No damage</option>
-              <option value="">No damage effect</option>
-            </select>
-          </label>
+            />
+          </div>
           <label className="field attack-save-note">
             <span className="field-label">Note (optional)</span>
             <input

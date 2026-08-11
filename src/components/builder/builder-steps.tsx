@@ -85,6 +85,7 @@ import {
   ToolPicker,
 } from "./builder-pickers";
 import { optionalFeaturesAt } from "src/lib/builder/optional-class-features";
+import Select from "src/components/select";
 
 const STAT_KEYS = Object.values(StatKey);
 // The comma/newline split `buildCharacter` applies to the free-text proficiency
@@ -167,18 +168,16 @@ function RaceBonusEditor({
         {state.raceBonuses.map((b, i) => (
           <div key={i} className="builder-bonus-row">
             <span className="builder-bonus-amount">+{b.bonus}</span>
-            <select
+            <Select
               className="builder-input"
+              label={`Which ability gets +${b.bonus}`}
               value={b.stat}
-              onChange={(e) => setStat(i, e.target.value as StatKey | "")}
-            >
-              <option value="">— choose —</option>
-              {STAT_KEYS.map((s) => (
-                <option key={s} value={s}>
-                  {STAT_LABEL[s]}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "— choose —" },
+                ...STAT_KEYS.map((s) => ({ value: s, label: STAT_LABEL[s] })),
+              ]}
+              onChange={(value) => setStat(i, value as StatKey | "")}
+            />
           </div>
         ))}
       </div>
@@ -393,20 +392,21 @@ export function RaceStep({ state, patch }: StepProps) {
           label="Draconic ancestry"
           hint="Your dragon type sets your damage resistance and your breath weapon's shape, save, and damage type."
         >
-          <select
+          <Select
             className="builder-input"
+            label="Draconic ancestry"
             value={state.draconicAncestry ?? ""}
-            onChange={(e) =>
-              patch({ draconicAncestry: e.target.value || undefined })
+            options={[
+              { value: "", label: "Choose a dragon…" },
+              ...Object.keys(DRACONIC_ANCESTRIES).map((color) => ({
+                value: color,
+                label: color,
+              })),
+            ]}
+            onChange={(value) =>
+              patch({ draconicAncestry: value || undefined })
             }
-          >
-            <option value="">Choose a dragon…</option>
-            {Object.keys(DRACONIC_ANCESTRIES).map((color) => (
-              <option key={color} value={color}>
-                {color}
-              </option>
-            ))}
-          </select>
+          />
         </Field>
       )}
 
@@ -435,20 +435,21 @@ export function RaceStep({ state, patch }: StepProps) {
             label="Wizard cantrip (High Elf)"
             hint="You know one wizard cantrip, cast with Intelligence."
           >
-            <select
+            <Select
               className="builder-input"
+              label="Wizard cantrip"
               value={state.highElfCantrip ?? ""}
-              onChange={(e) =>
-                patch({ highElfCantrip: e.target.value || undefined })
+              options={[
+                { value: "", label: "Choose a cantrip…" },
+                ...wizardCantrips.map((s) => ({
+                  value: s.index,
+                  label: s.name,
+                })),
+              ]}
+              onChange={(value) =>
+                patch({ highElfCantrip: value || undefined })
               }
-            >
-              <option value="">Choose a cantrip…</option>
-              {wizardCantrips.map((s) => (
-                <option key={s.index} value={s.index}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
         );
       })()}
@@ -666,20 +667,19 @@ export function ClassStep({ state, patch }: StepProps) {
 
         {klass && fightingStyleDueAt(klass.name, 1) && (
           <Field label="Fighting style">
-            <select
+            <Select
               className="builder-input"
+              label="Fighting style"
               value={state.fightingStyle ?? ""}
-              onChange={(e) =>
-                patch({ fightingStyle: e.target.value || undefined })
-              }
-            >
-              <option value="">Choose… (optional)</option>
-              {fightingStyleDueAt(klass.name, 1)!.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Choose… (optional)" },
+                ...fightingStyleDueAt(klass.name, 1)!.map((name) => ({
+                  value: name,
+                  label: name,
+                })),
+              ]}
+              onChange={(value) => patch({ fightingStyle: value || undefined })}
+            />
             {state.fightingStyle && (
               <p className="text-muted builder-hint">
                 {getFightingStyle(state.fightingStyle)?.summary}
@@ -701,18 +701,19 @@ export function ClassStep({ state, patch }: StepProps) {
 
         {klass?.subclassAtLevel1 && (
           <Field label="Subclass">
-            <select
+            <Select
               className="builder-input"
+              label="Subclass"
               value={state.subclass ?? ""}
-              onChange={(e) => patch({ subclass: e.target.value || undefined })}
-            >
-              <option value="">Choose… (optional)</option>
-              {subclassesForClass(klass.index).map((sub) => (
-                <option key={sub.index} value={sub.name}>
-                  {sub.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Choose… (optional)" },
+                ...subclassesForClass(klass.index).map((sub) => ({
+                  value: sub.name,
+                  label: sub.name,
+                })),
+              ]}
+              onChange={(value) => patch({ subclass: value || undefined })}
+            />
             {(() => {
               const chosen = subclassesForClass(klass.index).find(
                 (s) => s.name === state.subclass,
@@ -796,24 +797,20 @@ export function ClassStep({ state, patch }: StepProps) {
               />
             </Field>
             <Field label="Hit die">
-              <select
+              <Select
                 className="builder-input"
+                label="Hit die"
                 value={state.customHitDie}
-                onChange={(e) =>
-                  patch({ customHitDie: e.target.value as StandardDie })
-                }
-              >
-                {[
+                options={[
                   StandardDie.d6,
                   StandardDie.d8,
                   StandardDie.d10,
                   StandardDie.d12,
-                ].map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+                ].map((d) => ({ value: d, label: d }))}
+                onChange={(value) =>
+                  patch({ customHitDie: value as StandardDie })
+                }
+              />
             </Field>
           </>
         )}
@@ -1111,24 +1108,27 @@ function AssignEditor({
           return (
             <div key={stat} className="builder-stepper-row">
               <span className="builder-stat-name">{STAT_LABEL[stat]}</span>
-              <select
+              <Select
                 className="builder-input"
-                value={current ?? ""}
-                onChange={(e) => setStat(stat, e.target.value)}
-              >
-                <option value="">—</option>
-                {distinct.map((v) => {
-                  const free =
-                    (poolCounts[v] ?? 0) -
-                    (usedCounts[v] ?? 0) +
-                    (current === v ? 1 : 0);
-                  return (
-                    <option key={v} value={v} disabled={free <= 0}>
-                      {v}
-                    </option>
-                  );
-                })}
-              </select>
+                label={`${STAT_LABEL[stat]} score`}
+                value={current === null ? "" : String(current)}
+                options={[
+                  { value: "", label: "—" },
+                  // A score already spent elsewhere stays on the list and
+                  // dims, so the array you were handed is still legible as a
+                  // whole rather than shrinking as you assign it.
+                  ...distinct.map((v) => ({
+                    value: String(v),
+                    label: String(v),
+                    disabled:
+                      (poolCounts[v] ?? 0) -
+                        (usedCounts[v] ?? 0) +
+                        (current === v ? 1 : 0) <=
+                      0,
+                  })),
+                ]}
+                onChange={(value) => setStat(stat, value)}
+              />
             </div>
           );
         })}
@@ -1630,18 +1630,17 @@ export function EquipmentStep({ state, patch }: StepProps) {
                 const weapons = weaponsInCategory(category);
                 const value = state.classWeaponChoices[i]?.[slot] ?? weapons[0]?.name; // prettier-ignore
                 return (
-                  <select
+                  <Select
                     key={slot}
                     className="builder-input builder-weapon-select"
+                    label={`Which ${category} to take`}
                     value={value}
-                    onChange={(e) => setWeapon(i, slot, e.target.value)}
-                  >
-                    {weapons.map((w) => (
-                      <option key={w.name} value={w.name}>
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={weapons.map((w) => ({
+                      value: w.name,
+                      label: w.name,
+                    }))}
+                    onChange={(value) => setWeapon(i, slot, value)}
+                  />
                 );
               })}
             </Field>
@@ -1700,17 +1699,16 @@ export function DetailsStep({ state, patch }: StepProps) {
         />
       </Field>
       <Field label="Alignment">
-        <select
+        <Select
           className="builder-input"
+          label="Alignment"
           value={state.alignment}
-          onChange={(e) => patch({ alignment: e.target.value as Alignment })}
-        >
-          {Object.values(Alignment).map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
+          options={Object.values(Alignment).map((a) => ({
+            value: a,
+            label: a,
+          }))}
+          onChange={(value) => patch({ alignment: value as Alignment })}
+        />
       </Field>
       {/* A table that doesn't play with these shouldn't be asked for them at
           creation either — the Game setting is one answer for both surfaces. */}

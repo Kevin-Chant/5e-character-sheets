@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { chooseOption } from "src/lib/fixtures/select-testing";
 import { FIELD } from "src/lib/data/data-definitions";
 import {
   aCharacter,
@@ -67,7 +68,7 @@ describe("EditEquipmentItem (new item)", () => {
     const { harness } = renderNewItem();
     await userEvent.type(nameInput(), "longsw");
     await userEvent.click(screen.getByRole("button", { name: "Longsword" }));
-    await userEvent.selectOptions(screen.getByLabelText(/Bonus/), "1");
+    await chooseOption("Magic bonus", "+1");
     const item = harness.character.equipment.at(-1)!;
     expect(item.text).toMatchObject({ title: "Longsword +1" });
     expect(item.weapon?.attack.name).toBe("Longsword +1");

@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { chooseOption } from "src/lib/fixtures/select-testing";
 import {
   CoinType,
   DamageType,
@@ -713,10 +714,7 @@ describe("AbilityActions — condition-applying uses at a table", () => {
   it("asks whom, and reports the use as a cast carrying the condition", async () => {
     const sendReport = vi.fn();
     const harness = atTable(withKi(), sendReport);
-    await userEvent.selectOptions(
-      screen.getByLabelText("Who stunning strike targets"),
-      GOBLIN.id,
-    );
+    await chooseOption("Who stunning strike targets", GOBLIN.name);
     await userEvent.click(stunningStrikeButton());
     const cast = sendReport.mock.calls
       .map((c) => c[0])

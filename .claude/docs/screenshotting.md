@@ -56,15 +56,20 @@ To capture something that only exists after interaction (a modal, a picker, a
 roll result), pass `--steps` a JSON array of actions run in order after the sheet
 opens. Each step is an object with exactly one action key:
 
-| Step                              | Does                                         |
-| --------------------------------- | -------------------------------------------- |
-| `{"click":"<selector>"}`          | Click (Playwright selector: CSS, or `text=`) |
-| `{"fill":["<selector>","text"]}`  | Type into an input                           |
-| `{"select":["<selector>","val"]}` | Choose a `<select>` option (value or label)  |
-| `{"press":"<key>"}`               | Keyboard press, e.g. `"Enter"`, `"Escape"`   |
-| `{"wait":300}`                    | Wait N ms                                    |
-| `{"wait":"<selector>"}`           | Wait until the selector is visible           |
-| `{"shot":"<name>"}`               | Capture here and carry on                    |
+| Step                              | Does                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------- |
+| `{"click":"<selector>"}`          | Click (Playwright selector: CSS, or `text=`)                               |
+| `{"fill":["<selector>","text"]}`  | Type into an input                                                         |
+| `{"select":["<selector>","val"]}` | Choose a native `<select>` option (value or label)                         |
+| `{"choose":["<label>","<opt>"]}`  | Pick from the app's `<Select>` — open by accessible name, click the option |
+| `{"press":"<key>"}`               | Keyboard press, e.g. `"Enter"`, `"Escape"`                                 |
+| `{"wait":300}`                    | Wait N ms                                                                  |
+| `{"wait":"<selector>"}`           | Wait until the selector is visible                                         |
+| `{"shot":"<name>"}`               | Capture here and carry on                                                  |
+
+**Almost every dropdown is a `<Select>`, not a `<select>`** (`src/components/select.tsx`)
+— a button that opens a portalled, filterable listbox. Use `choose` for those;
+`select` only reaches the handful of native ones left.
 
 A failing step reports its index and selector, and the output carries a
 `FAILED: …` summary line at **both ends** so it survives being read through

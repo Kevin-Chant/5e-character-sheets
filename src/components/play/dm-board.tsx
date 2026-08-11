@@ -41,6 +41,7 @@ import {
   LIVENESS_TITLE,
   participantLiveness,
 } from "src/lib/play/liveness";
+import Select from "src/components/select";
 import StepperInput from "src/components/stepper-input";
 import ConditionsControl from "./conditions-control";
 import ConcentrationCell from "./concentration-cell";
@@ -324,25 +325,20 @@ export default function DmBoard() {
                           a stale name (a crashed tab we never heard leave)
                           costs nothing — the offer simply stands. */}
                       {present.length > 0 && (
-                        <select
+                        <Select
                           className="dm-assign-select"
-                          aria-label={`Hand ${participant.name} to a player`}
+                          label={`Hand ${participant.name} to a player`}
+                          triggerLabel="Hand to…"
                           value=""
-                          onChange={(e) => {
-                            if (!e.target.value) return;
-                            assignSheetTo(participant.id, e.target.value);
+                          options={present.map((client) => ({
+                            value: client.clientId,
+                            label: client.name,
+                          }))}
+                          onChange={(clientId) => {
+                            if (!clientId) return;
+                            assignSheetTo(participant.id, clientId);
                           }}
-                        >
-                          <option value="">Hand to…</option>
-                          {present.map((client) => (
-                            <option
-                              key={client.clientId}
-                              value={client.clientId}
-                            >
-                              {client.name}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       )}
                     </>
                   )}
@@ -427,20 +423,20 @@ export default function DmBoard() {
           here as well as in Settings → Game because the moment a DM decides
           to tighten it is mid-session. */}
       <div className="dm-visibility">
-        <label className="dm-sharing">
+        {/* A `span`, not a `label`: the picker is a button, and a label that
+            wraps one forwards nothing when you click its text. */}
+        <span className="dm-sharing">
           <span className="text-muted">Players see</span>
-          <select
-            aria-label="What players see of the table's health"
+          <Select
+            label="What players see of the table's health"
             value={sharing}
-            onChange={(e) => setSharingLevel(e.target.value as SharingLevel)}
-          >
-            {SHARING_LEVELS.map((level) => (
-              <option key={level} value={level}>
-                {SHARING_LABELS[level]}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={SHARING_LEVELS.map((level) => ({
+              value: level,
+              label: SHARING_LABELS[level],
+            }))}
+            onChange={(level) => setSharingLevel(level as SharingLevel)}
+          />
+        </span>
         <label className="dm-sharing">
           <input
             type="checkbox"

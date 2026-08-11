@@ -57,6 +57,7 @@ import {
   OptionalFeaturePicker,
   SpellChecklist,
 } from "./builder-pickers";
+import Select from "src/components/select";
 
 export interface LevelUpStepProps {
   character: Character;
@@ -192,18 +193,16 @@ export function LevelUpSubclassStep({ state, patch }: LevelUpStepProps) {
   return (
     <div className="builder-step">
       <Field label={`${state.className} subclass`}>
-        <select
+        <Select
           className="builder-input"
+          label={`${state.className} subclass`}
           value={state.subclass ?? ""}
-          onChange={(e) => patch({ subclass: e.target.value || undefined })}
-        >
-          <option value="">Choose…</option>
-          {options.map((s) => (
-            <option key={s.index} value={s.name}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "", label: "Choose…" },
+            ...options.map((s) => ({ value: s.name, label: s.name })),
+          ]}
+          onChange={(value) => patch({ subclass: value || undefined })}
+        />
         {chosen && <p className="text-muted builder-hint">{chosen.summary}</p>}
       </Field>
     </div>
@@ -245,25 +244,21 @@ export function LevelUpFeatureChoicesStep({
     <div className="builder-step">
       {styleNames && (
         <Field label="Fighting style">
-          <select
+          <Select
             className="builder-input"
+            label="Fighting style"
             value={state.fightingStyle ?? ""}
-            onChange={(e) =>
-              patch({ fightingStyle: e.target.value || undefined })
-            }
-          >
-            <option value="">Choose…</option>
-            {/* A style already on the sheet isn't offered again — the only way
-                to be picking twice is Champion's Additional Fighting Style,
-                where the 1st-level pick must leave the list. */}
-            {styleNames
-              .filter((name) => !known.has(name))
-              .map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-          </select>
+            options={[
+              { value: "", label: "Choose…" },
+              // A style already on the sheet isn't offered again — the only
+              // way to be picking twice is Champion's Additional Fighting
+              // Style, where the 1st-level pick must leave the list.
+              ...styleNames
+                .filter((name) => !known.has(name))
+                .map((name) => ({ value: name, label: name })),
+            ]}
+            onChange={(value) => patch({ fightingStyle: value || undefined })}
+          />
           {state.fightingStyle && (
             <p className="text-muted builder-hint">
               {getFightingStyle(state.fightingStyle)?.summary}
@@ -462,6 +457,7 @@ function AsiPicker({ character, state, patch }: LevelUpStepProps) {
               glance, so this lands on the dropdown side of `SingleChoice`. */}
           <SingleChoice
             name={`asi-slot-${idx}`}
+            label={idx === 0 ? "First increase" : "Second increase"}
             value={slots[idx] || undefined}
             onChange={(next) => setSlot(idx, next ?? "")}
             options={optionsFor(idx)}
@@ -713,20 +709,16 @@ export function LevelUpSpellsStep({
             label={`Mystic Arcanum (${arcanumLevel}th-level spell)`}
             hint="Choose one warlock spell of this level; you can cast it once per long rest without a slot."
           >
-            <select
+            <Select
               className="builder-input"
+              label="Mystic Arcanum spell"
               value={state.mysticArcanum ?? ""}
-              onChange={(e) =>
-                patch({ mysticArcanum: e.target.value || undefined })
-              }
-            >
-              <option value="">Choose a spell…</option>
-              {options.map((s) => (
-                <option key={s.index} value={s.index}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Choose a spell…" },
+                ...options.map((s) => ({ value: s.index, label: s.name })),
+              ]}
+              onChange={(value) => patch({ mysticArcanum: value || undefined })}
+            />
           </Field>
         );
       })()}
@@ -753,18 +745,16 @@ export function LevelUpSpellsStep({
           label="Swap a known spell (optional)"
           hint="Known casters may replace one spell they know each level."
         >
-          <select
+          <Select
             className="builder-input"
+            label="Swap a known spell"
             value={state.swapSpell ?? ""}
-            onChange={(e) => patch({ swapSpell: e.target.value || undefined })}
-          >
-            <option value="">Keep everything</option>
-            {knownSpells.map((e) => (
-              <option key={e.key} value={e.key}>
-                {e.label}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "Keep everything" },
+              ...knownSpells.map((e) => ({ value: e.key, label: e.label })),
+            ]}
+            onChange={(value) => patch({ swapSpell: value || undefined })}
+          />
         </Field>
       )}
       {/* An allowance of 0 means this level grants no cantrips — offering the
