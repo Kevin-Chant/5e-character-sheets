@@ -6,7 +6,19 @@ import {
   encounterForTable,
   OFFLINE,
 } from "src/lib/play/connection";
-import { EMPTY_ENCOUNTER, Encounter } from "src/lib/play/encounter";
+import {
+  DEFAULT_SHARING,
+  EMPTY_ENCOUNTER,
+  Encounter,
+  TableDefaults,
+} from "src/lib/play/encounter";
+
+// A DM whose defaults match the built-in policy, so these cases isolate the
+// table-vs-stored decision from the defaults being copied on.
+const DEFAULTS: TableDefaults = {
+  sharing: DEFAULT_SHARING,
+  hideDeathSaves: false,
+};
 
 const CODE = "1f0d2c3b-4a59-4687-9c01-2d3e4f5a6b7c";
 
@@ -153,26 +165,87 @@ describe("what a table opens with", () => {
 
   it("starts a new table empty when the stored fight belongs to another one", () => {
     expect(
-      encounterForTable(fight, "last-weeks-code", {
-        kind: "host",
-        reopening: false,
-      }),
+      encounterForTable(
+        fight,
+        "last-weeks-code",
+        { kind: "host", reopening: false },
+        DEFAULTS,
+      ),
     ).toBe(EMPTY_ENCOUNTER);
   });
 
   it("keeps a stored fight that belongs to no table", () => {
     expect(
-      encounterForTable(fight, undefined, { kind: "host", reopening: false }),
+      encounterForTable(
+        fight,
+        undefined,
+        { kind: "host", reopening: false },
+        DEFAULTS,
+      ),
     ).toBe(fight);
   });
 
   it("keeps it when reopening the table it came from", () => {
     expect(
-      encounterForTable(fight, "the-code", { kind: "host", reopening: true }),
+      encounterForTable(
+        fight,
+        "the-code",
+        { kind: "host", reopening: true },
+        DEFAULTS,
+      ),
     ).toBe(fight);
   });
 
+  const OWN_DEFAULTS: TableDefaults = {
+    sharing: "exact",
+    hideDeathSaves: true,
+  };
+
+  it("copies the DM's defaults onto a table they open", () => {
+    const opened = encounterForTable(
+      fight,
+      "last-weeks-code",
+      { kind: "host", reopening: false },
+      OWN_DEFAULTS,
+    );
+    expect(opened.sharing).toBe("exact");
+    expect(opened.hideDeathSaves).toBe(true);
+  });
+
+  it("copies them onto local prep carried into a new table too", () => {
+    const opened = encounterForTable(
+      fight,
+      undefined,
+      { kind: "host", reopening: false },
+      OWN_DEFAULTS,
+    );
+    expect(opened.participants).toEqual(fight.participants);
+    expect(opened.sharing).toBe("exact");
+  });
+
+  it("leaves a reopened table on the policy it already had", () => {
+    const running: Encounter = { ...fight, sharing: "private" };
+    expect(
+      encounterForTable(
+        running,
+        "the-code",
+        { kind: "host", reopening: true },
+        OWN_DEFAULTS,
+      ).sharing,
+    ).toBe("private");
+  });
+
+  it("leaves a joined table's policy to the room", () => {
+    const running: Encounter = { ...fight, sharing: "private" };
+    expect(
+      encounterForTable(running, "any-code", { kind: "join" }, OWN_DEFAULTS)
+        .sharing,
+    ).toBe("private");
+  });
+
   it("keeps it when joining", () => {
-    expect(encounterForTable(fight, "any-code", { kind: "join" })).toBe(fight);
+    expect(
+      encounterForTable(fight, "any-code", { kind: "join" }, DEFAULTS),
+    ).toBe(fight);
   });
 });

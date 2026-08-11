@@ -5,12 +5,14 @@ import GameSettings from "src/components/settings/game-settings";
 import GeneralSettings from "src/components/settings/general-settings";
 import GoogleDriveSettings from "src/components/settings/google-drive-settings";
 import LocalStorageSettings from "src/components/settings/local-storage-settings";
+import TableSettings from "src/components/settings/table-settings";
 
-type Tab = "general" | "game" | "gdrive" | "local";
+type Tab = "general" | "game" | "table" | "gdrive" | "local";
 
 const TABS: { id: Tab; label: string; component: JSX.Element }[] = [
   { id: "general", label: "General", component: <GeneralSettings /> },
   { id: "game", label: "Game", component: <GameSettings /> },
+  { id: "table", label: "Table", component: <TableSettings /> },
   { id: "gdrive", label: "Google Drive", component: <GoogleDriveSettings /> },
   { id: "local", label: "Local storage", component: <LocalStorageSettings /> },
 ];

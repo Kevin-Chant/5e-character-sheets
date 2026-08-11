@@ -168,3 +168,92 @@
   margin-top: 0.2rem;
   flex-shrink: 0;
 }
+
+/* ---- Table policy, shared by Settings → Table and the table panel ---- */
+
+.table-policy {
+  display: grid;
+  gap: 0.6rem;
+}
+
+/* Says whether this game is on the DM's defaults. Absent in Settings, where
+   the values *are* the defaults. */
+.table-policy-source {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.table-policy-source.overridden {
+  background: var(--arcane-soft);
+  color: var(--arcane);
+}
+
+.table-policy-choices {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.table-policy-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.table-policy-choice.picked {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.table-policy-choice > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.table-policy-choice b {
+  font-weight: 600;
+}
+
+.table-policy-choice span span {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.table-settings .brought-sheets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.table-settings .brought-sheets li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.invite-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.invite-row code {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}

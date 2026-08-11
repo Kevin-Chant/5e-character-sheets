@@ -3,6 +3,7 @@ import { readLocalStorage, writeLocalStorage } from "../local-storage";
 import { missingProvider } from "../missing-provider";
 import { CritMode } from "../roll";
 import { RestVariant } from "../rest";
+import { DEFAULT_SHARING, SharingLevel } from "../play/encounter";
 
 export const CLOUD_DEFAULT_HOST = "https://live.dndcharactersheets.net";
 export const DEFAULT_LIVE_EDIT_HOST =
@@ -48,6 +49,11 @@ export interface Settings {
   longRestClearsTempHp: boolean;
   // Off skips straight to the rest summary instead of prompting spell re-prep.
   promptSpellPreparation: boolean;
+  // Table policy a new game starts from. Applied when a table is opened and
+  // copied onto the encounter there — see `encounterForTable`. Changing one
+  // never reaches a game already running.
+  defaultSharing: SharingLevel;
+  defaultHideDeathSaves: boolean;
 }
 
 function sanitizeSettingValue<K extends keyof Settings>(
@@ -96,6 +102,8 @@ export const DEFAULT_SETTINGS: Settings = {
   longRestExhaustionRecovery: "one",
   longRestClearsTempHp: true,
   promptSpellPreparation: true,
+  defaultSharing: DEFAULT_SHARING,
+  defaultHideDeathSaves: false,
 };
 
 export const SettingsContext = React.createContext<SettingsContextData>({

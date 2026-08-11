@@ -125,10 +125,17 @@ export const SHARING_LEVELS: SharingLevel[] = [
 export const DEFAULT_SHARING: SharingLevel = "bloodied-enemies";
 
 export const SHARING_LABELS: Record<SharingLevel, string> = {
-  exact: "Open numbers — exact HP for everyone, monsters included",
-  "bloodied-enemies": "Bloodied enemies — party in numbers, monsters by look",
-  bloodied: "Bloodied everyone — health by look only",
-  private: "Private — nobody sees anyone else's health",
+  exact: "Open numbers",
+  "bloodied-enemies": "Bloodied enemies",
+  bloodied: "Bloodied everyone",
+  private: "Private",
+};
+
+export const SHARING_DETAILS: Record<SharingLevel, string> = {
+  exact: "Exact hit points for everyone, monsters included.",
+  "bloodied-enemies": "Party health in numbers, monsters by look.",
+  bloodied: "Health by look only, party included.",
+  private: "Nobody sees anyone else's health.",
 };
 
 // What one player client may render of a participant's vitals.
@@ -719,6 +726,24 @@ export function setHideDeathSaves(
     hideDeathSaves: hide,
     policyRev: (encounter.policyRev ?? 0) + 1,
   };
+}
+
+// A DM's per-device starting point for a table's policy, held in Settings.
+// Applied once, when a table is opened; from then on the encounter carries its
+// own copy, so changing a default never reaches back into a running game.
+export interface TableDefaults {
+  sharing: SharingLevel;
+  hideDeathSaves: boolean;
+}
+
+export function withTableDefaults(
+  encounter: Encounter,
+  defaults: TableDefaults,
+): Encounter {
+  return setHideDeathSaves(
+    setSharing(encounter, defaults.sharing),
+    defaults.hideDeathSaves,
+  );
 }
 
 export function setHidden(

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { chooseOption } from "src/lib/fixtures/select-testing";
 import { renderWithCharacter } from "src/lib/fixtures/render-with-character";
@@ -10,6 +11,28 @@ import DmBoard from "./dm-board";
 // `encounter.test.ts`; this covers component-level workflow.
 
 describe("the DM board", () => {
+  it("says whether this game is on your defaults, and hands them back", async () => {
+    const user = userEvent.setup();
+    renderWithCharacter(
+      <MemoryRouter>
+        <DmBoard />
+      </MemoryRouter>,
+      { editMode: false },
+    );
+
+    await user.click(screen.getByRole("button", { name: /Table settings/ }));
+    expect(screen.getByText("Matching your defaults.")).toBeInTheDocument();
+
+    // The game's own copy diverges; the default it started from is untouched.
+    await user.click(screen.getByRole("radio", { name: /Private/ }));
+    expect(
+      screen.getByText("This game doesn't use your defaults."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Use my defaults" }));
+    expect(screen.getByText("Matching your defaults.")).toBeInTheDocument();
+  });
+
   it("adds a numbered pack of tracked monsters in one submit", async () => {
     const user = userEvent.setup();
     renderWithCharacter(<DmBoard />, { editMode: false });

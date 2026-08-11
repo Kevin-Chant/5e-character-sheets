@@ -1,9 +1,4 @@
 import { useEncounter } from "src/lib/hooks/use-encounter";
-import {
-  SHARING_LABELS,
-  SHARING_LEVELS,
-  SharingLevel,
-} from "src/lib/play/encounter";
 import { useSettings } from "src/lib/hooks/use-settings";
 import { RestVariant } from "src/lib/rest";
 import { CritMode } from "src/lib/roll";
@@ -13,19 +8,8 @@ import Select from "src/components/select";
 // House rules and table variants: bookkeeping, crits, rest recovery.
 export default function GameSettings() {
   const { settings, updateSetting } = useSettings();
-  const {
-    sessionStatus,
-    hasDm,
-    isDm,
-    claimDm,
-    canRun,
-    sharing,
-    setSharingLevel,
-    hideDeathSaves,
-    setDeathSavesHidden,
-  } = useEncounter();
+  const { sessionStatus, hasDm, isDm, claimDm } = useEncounter();
   const canTakeOver = sessionStatus === "connected" && hasDm && !isDm;
-  const canSetSharing = canRun;
   return (
     <div className="settings-sections">
       <SettingsSection
@@ -250,33 +234,6 @@ export default function GameSettings() {
           another set of critical dice
         </label>
       </SettingsSection>
-
-      {/* Edits the encounter (syncs to every client); renders only for whoever runs the table. */}
-      {canSetSharing && (
-        <SettingsSection
-          title="What players see"
-          description="How much of the table's health the players see of each other and the monsters. The DM's own board always shows the numbers."
-        >
-          <Select
-            label="What players see of the table's health"
-            value={sharing}
-            options={SHARING_LEVELS.map((level) => ({
-              value: level,
-              label: SHARING_LABELS[level],
-            }))}
-            onChange={(level) => setSharingLevel(level as SharingLevel)}
-          />
-          <label className="settings-checkbox">
-            <input
-              type="checkbox"
-              checked={!hideDeathSaves}
-              onChange={(e) => setDeathSavesHidden(!e.target.checked)}
-            />
-            The party sees each other&apos;s death saving throws (the DM always
-            does)
-          </label>
-        </SettingsSection>
-      )}
 
       {/* Escape hatch for a DM who is genuinely never coming back. */}
       {canTakeOver && (

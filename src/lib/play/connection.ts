@@ -1,4 +1,9 @@
-import { EMPTY_ENCOUNTER, Encounter } from "src/lib/play/encounter";
+import {
+  EMPTY_ENCOUNTER,
+  Encounter,
+  TableDefaults,
+  withTableDefaults,
+} from "src/lib/play/encounter";
 
 // State machine for a party session's sync handshake: a joiner asks the room
 // (`syncRequest`), the room answers (`syncResponse`), and if nobody answers
@@ -113,11 +118,15 @@ export function adoptsResponse(
 // pairs them so a brand-new game doesn't open onto the previous one's fight.
 // Reopening a code keeps its encounter. An encounter with no `belongsTo`
 // (built while disconnected) is local prep and carries into a fresh host too.
+// Opening a new table is also the one moment the DM's default policy applies:
+// joining adopts the room's, and reopening keeps the copy the table already
+// made, so a default changed mid-campaign can't reach backwards.
 export function encounterForTable(
   stored: Encounter,
   belongsTo: string | undefined,
   intent: SessionIntent,
+  defaults: TableDefaults,
 ): Encounter {
   if (intent.kind === "join" || intent.reopening) return stored;
-  return belongsTo ? EMPTY_ENCOUNTER : stored;
+  return withTableDefaults(belongsTo ? EMPTY_ENCOUNTER : stored, defaults);
 }

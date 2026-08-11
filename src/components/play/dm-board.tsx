@@ -4,6 +4,7 @@ import {
   FaCopy,
   FaEye,
   FaEyeSlash,
+  FaGear,
   FaSkullCrossbones,
   FaXmark,
 } from "react-icons/fa6";
@@ -21,8 +22,6 @@ import {
   Participant,
   ParticipantVitals,
   SHARING_LABELS,
-  SHARING_LEVELS,
-  SharingLevel,
 } from "src/lib/play/encounter";
 import {
   beatsAc,
@@ -41,11 +40,11 @@ import {
   LIVENESS_TITLE,
   participantLiveness,
 } from "src/lib/play/liveness";
-import Select from "src/components/select";
 import StepperInput from "src/components/stepper-input";
 import ConditionsControl from "./conditions-control";
 import ConcentrationCell from "./concentration-cell";
 import { RestCallForm, RollCallForm } from "./table-calls";
+import TableSettingsModal from "./table-settings-modal";
 import { HpTotal, VitalsEntry } from "./vitals-entry";
 
 // The DM's side of the play surface: a roster of rows (not the player action
@@ -61,7 +60,6 @@ export default function DmBoard() {
     removeCombatant,
     setCombatantInitiative,
     setCombatantVitals,
-    setSheetOffered,
     addCombatant,
     clearFallen,
     fallen,
@@ -70,13 +68,9 @@ export default function DmBoard() {
     sessionStatus,
     present,
     quietClients,
-    assignSheetTo,
     setCombatantHidden,
     setCombatantSide,
     sharing,
-    setSharingLevel,
-    hideDeathSaves,
-    setDeathSavesHidden,
   } = useEncounter();
   const {
     reports,
@@ -89,6 +83,7 @@ export default function DmBoard() {
     callForRest,
   } = useTableTalk();
 
+  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
   // Pending concentration checks: participant id → save DC. Local UI state.
   const [conChecks, setConChecks] = useState<Record<string, number>>({});
 
@@ -262,47 +257,13 @@ export default function DmBoard() {
                 >
                   {isFoe(participant) ? "Foe" : "Party"}
                 </button>
-                {/* Once a player picks up an offered sheet, ownership moves to their client; reverts when they leave. */}
-                {participant.characterUuid &&
+                {/* Offering and handing out live in Table settings; the row
+                    only reports where a sheet ended up. */}
+                {participant.claimable &&
                   participant.ownerClientId === clientId && (
-                    <>
-                      {participant.claimable ? (
-                        <button
-                          type="button"
-                          className="dm-offer-btn offered"
-                          title="Withdraw the offer — the sheet stops being available to pick up"
-                          onClick={() => setSheetOffered(participant.id, false)}
-                        >
-                          Offered
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="dm-offer-btn"
-                          title="Offer this sheet — a player without a character can pick it up and play it"
-                          onClick={() => setSheetOffered(participant.id, true)}
-                        >
-                          Offer sheet
-                        </button>
-                      )}
-                      {/* Marks the sheet offered and asks the chosen player; travels only on accept. */}
-                      {present.length > 0 && (
-                        <Select
-                          className="dm-assign-select"
-                          label={`Hand ${participant.name} to a player`}
-                          triggerLabel="Hand to…"
-                          value=""
-                          options={present.map((client) => ({
-                            value: client.clientId,
-                            label: client.name,
-                          }))}
-                          onChange={(clientId) => {
-                            if (!clientId) return;
-                            assignSheetTo(participant.id, clientId);
-                          }}
-                        />
-                      )}
-                    </>
+                    <span className="dm-in-play" title="Offered for pickup">
+                      Offered
+                    </span>
                   )}
                 {participant.claimable &&
                   participant.ownerClientId !== clientId && (
@@ -372,31 +333,17 @@ export default function DmBoard() {
         <RestCallForm callForRest={callForRest} />
       )}
 
-      {/* Also in Settings → Game; duplicated here since a DM may toggle it mid-session. */}
-      <div className="dm-visibility">
-        {/* `span`, not `label`: the picker is a button, and a wrapping label forwards nothing. */}
-        <span className="dm-sharing">
-          <span className="text-muted">Players see</span>
-          <Select
-            label="What players see of the table's health"
-            value={sharing}
-            options={SHARING_LEVELS.map((level) => ({
-              value: level,
-              label: SHARING_LABELS[level],
-            }))}
-            onChange={(level) => setSharingLevel(level as SharingLevel)}
-          />
+      <div className="dm-table-rail">
+        <span className="text-muted">
+          Players see: {SHARING_LABELS[sharing].toLowerCase()}
         </span>
-        <label className="dm-sharing">
-          <input
-            type="checkbox"
-            checked={!hideDeathSaves}
-            onChange={(e) => setDeathSavesHidden(!e.target.checked)}
-            aria-label="Party sees death saves"
-          />
-          <span className="text-muted">Party sees death saves</span>
-        </label>
+        <button type="button" onClick={() => setTableSettingsOpen(true)}>
+          <FaGear /> Table settings
+        </button>
       </div>
+      {tableSettingsOpen && (
+        <TableSettingsModal onClose={() => setTableSettingsOpen(false)} />
+      )}
     </div>
   );
 }

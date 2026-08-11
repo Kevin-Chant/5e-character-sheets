@@ -54,6 +54,7 @@ import {
   setInitiative,
   setSharing,
   SharingLevel,
+  TableDefaults,
   setSpent,
   setVitals,
   startCombat,
@@ -102,6 +103,7 @@ import {
   SessionStatus,
   usePlaySession,
 } from "src/lib/hooks/use-play-session";
+import { useSettings } from "src/lib/hooks/use-settings";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastore } from "src/lib/hooks/use-datastore";
@@ -384,6 +386,17 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const syncResponseRef = useRef<
     (toClientId: string, requestId: string, encounter: Encounter) => void
   >(() => {});
+  // Table policy a new game starts from. A ref, not a dep: `enterSession` is
+  // registered once, and only the value at the moment of hosting matters.
+  const { settings } = useSettings();
+  const defaultsRef = useRef<TableDefaults>({
+    sharing: settings.defaultSharing,
+    hideDeathSaves: settings.defaultHideDeathSaves,
+  });
+  defaultsRef.current = {
+    sharing: settings.defaultSharing,
+    hideDeathSaves: settings.defaultHideDeathSaves,
+  };
   // Read lazily so a browser that never runs a game never writes the key.
   const dmTokenRef = useRef<string>("");
   if (!dmTokenRef.current) dmTokenRef.current = dmToken();
@@ -671,7 +684,9 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       // rules in `receiveState`. Pinned by "does not let a DM-elsewhere
       // arrival wipe the room" in `session-lifecycle.test.ts`.
       update((current) => {
-        const base = encounterForTable(current, belongsTo, intent);
+        const base = encounterForTable(current, belongsTo, intent, {
+          ...defaultsRef.current,
+        });
         // Hosting claims the seat at creation; rejoining a table you ran
         // reclaims it — the token is this browser either way, and the DM
         // shouldn't wait on a peer to confirm an often-empty realm.

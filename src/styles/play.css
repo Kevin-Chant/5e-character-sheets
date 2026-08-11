@@ -1773,3 +1773,21 @@
   border-color: var(--health);
   color: var(--health);
 }
+
+/* Table-wide state the DM sets once, kept out of the per-round controls. */
+.dm-table-rail {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.dm-table-rail button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}

@@ -2,6 +2,7 @@ import { UUID } from "crypto";
 import {
   addParticipant,
   claimDmSeat,
+  DEFAULT_SHARING,
   Encounter,
   EMPTY_ENCOUNTER,
   reclaimDmSeat,
@@ -263,7 +264,10 @@ export class SimClient {
     // room through the sync handshake instead (`receiveState`'s re-add/seat
     // rules), not by broadcasting here.
     this.apply((current) => {
-      const base = encounterForTable(current, belongsTo, intent);
+      const base = encounterForTable(current, belongsTo, intent, {
+        sharing: DEFAULT_SHARING,
+        hideDeathSaves: false,
+      });
       return intent.kind === "host"
         ? claimDmSeat(base, this.clientId, this.dmToken ?? "")
         : reclaimDmSeat(base, this.clientId, this.dmToken);
