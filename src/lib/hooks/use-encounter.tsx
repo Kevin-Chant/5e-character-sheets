@@ -781,9 +781,15 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
     });
   }, [character?.currHp, character?.tempHp, character?.uuid]);
 
+  // The seat, not the sheet: a DM's open sheet is a document they are
+  // consulting (an NPC, a check, a player's stats), so none of the effects
+  // below — which put the open character into the shared order — are theirs.
+  // They seat combatants from the board instead.
+  const holdsDmSeat = encounter.dmClientId === clientId;
+
   const characterUuidForSession = character?.uuid;
   useEffect(() => {
-    if (!connectedCode || !characterUuidForSession) return;
+    if (!connectedCode || !characterUuidForSession || holdsDmSeat) return;
     dispatch(
       updateAt(
         charPath(FIELD.playSessions),
@@ -794,7 +800,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         ),
       ),
     );
-  }, [connectedCode, characterUuidForSession, dispatch]);
+  }, [connectedCode, characterUuidForSession, holdsDmSeat, dispatch]);
 
   // What this browser is playing at this table, kept current as it changes —
   // a reconnect reopens whatever is recorded here.
@@ -815,7 +821,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   const uuid = character?.uuid;
   const name = character?.name;
   useEffect(() => {
-    if (!uuid) return;
+    if (!uuid || holdsDmSeat) return;
     update((current) => {
       const existing = current.participants.find(
         (p) => p.characterUuid === uuid,
@@ -834,7 +840,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       const owned = claimParticipant(current, existing.id, clientId);
       return name ? renameParticipant(owned, existing.id, name) : owned;
     });
-  }, [uuid, name, clientId, update]);
+  }, [uuid, name, clientId, holdsDmSeat, update]);
 
   // Publishes the projection the party sees (`setVitals`/`update` both
   // no-op on an unchanged result, so this doesn't broadcast every render).
@@ -847,7 +853,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
   // Skipped while offline, where the sheet is the document of record.
   const adoptedVitalsForRef = useRef<UUID | undefined>();
   useEffect(() => {
-    if (!character || !uuid) return;
+    if (!character || !uuid || holdsDmSeat) return;
     if (adoptedVitalsForRef.current !== uuid) {
       adoptedVitalsForRef.current = uuid;
       const vitals = connectedRef.current
@@ -875,9 +881,9 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
       if (!mine) return current;
       return setVitals(current, mine.id, characterVitals(character));
     });
-  }, [character, uuid, update]);
+  }, [character, uuid, holdsDmSeat, update]);
 
-  const self = participantFor(encounter, uuid);
+  const self = holdsDmSeat ? undefined : participantFor(encounter, uuid);
 
   const next = useCallback((): TurnAdvance | undefined => {
     let result: TurnAdvance | undefined;
@@ -1053,7 +1059,7 @@ export function EncounterContextProvider(props: React.PropsWithChildren) {
         ),
       canRun: canRunCombat(encounter, clientId),
       hasDm: !!encounter.dmClientId,
-      isDm: encounter.dmClientId === clientId,
+      isDm: holdsDmSeat,
       claimDm: () =>
         update((current) => claimDmSeat(current, clientId, dmTokenRef.current)),
       releaseDm: () => update(releaseDmSeat),

@@ -1175,13 +1175,18 @@ wiring. Three answers:
   where the probe can still discover it's a shared _sheet_).
 - **Wait** — connected, or an attempt in flight.
 
-Retries back off (`REJOIN_BACKOFF_MS`, capped at `MAX_REJOIN_ATTEMPTS`) and
-reset immediately on `visibilitychange`, `online` and `pageshow` — `pageshow`
-being the Android case specifically, since a _frozen_ tab was never hidden.
-A wake never revives a search that already gave up, though: a phone in a
-pocket fires these events all night, and each used to restart the ladder
-against a table that had genuinely ended. Past the cap, only the manual
-button retries.
+Retries back off (`REJOIN_BACKOFF_MS`) and reset immediately on
+`visibilitychange`, `online` and `pageshow` — `pageshow` being the Android
+case specifically, since a _frozen_ tab was never hidden. `MAX_REJOIN_ATTEMPTS`
+is where the surface stops _promising_ and offers a manual button, not where
+trying stops: past it the retry holds at the 60s tail for as long as the tab is
+on screen, because the two things that outlast the ladder — a sidecar redeploy
+and a DM who stepped out — both end with someone reopening the realm minutes
+later, and a table that heals itself beats one that needs every player told to
+press a button. What the cap does end is retrying _out of sight_: a phone in a
+pocket fires wake events all night, and `online`/`pageshow` past the cap no
+longer restart the ladder. Someone actually looking at the tab still does.
+
 Three things are easy to get wrong here and are each pinned by a comment:
 
 - **The redirect guard is `atTable`, not `rejoining`.** Every attempt passes
@@ -1196,6 +1201,14 @@ Three things are easy to get wrong here and are each pinned by a comment:
   `no_such_realm`, which reads exactly like the table having closed.
 - **Leaving clears the code from the URL**, because otherwise the rejoin puts
   you straight back into the seat you just stood up from.
+- **The URL's code is only ever replaced by another code**, never dropped for a
+  session that hasn't reported one (`shouldRestamp`). The connected code is
+  read off the transport's own realm name (`sessionForRealm`) rather than kept
+  in a second piece of state — a copy written after `connect` resolves gives a
+  render where the status says connected and the code is still absent, which
+  was enough to rewrite `/play/<code>` to a table-less `/play`. The tab stayed
+  connected, so nothing looked wrong until the next reload had nothing to go
+  back to. Pinned by `--only reload`, which reloads twice.
 
 The sheet comes back too: the per-code memory records what this browser played
 at that table (kept current as it changes, and never written as `undefined` —
@@ -1207,7 +1220,10 @@ memory deliberately records no sheet.
 the DM's are reloaded mid-table and nothing is clicked afterwards.
 `tabledropout` is the other half — a real network drop via `context.setOffline`
 — and asserts that a player who was away for the start of combat comes back
-into round 1 without touching anything.
+into round 1 without touching anything. `deploy` is the third: both tabs point
+at a `/play/<code>` the sidecar has never heard of (what a restart leaves
+behind), and the DM's reopens the realm on its own code with the player seated
+behind it.
 
 ### Two tabs, one seat
 
@@ -1325,3 +1341,19 @@ id from the character uuid. Ownership decides whose vitals are authoritative and
 who takes the participant with them on leaving, so it has to follow the live
 copy. That is also most of "the DM assigns a player to a sheet" already working,
 minus the sheet itself travelling.
+
+**Except for whoever holds the DM seat, for whom an open sheet is a document,
+not a seat** (`holdsDmSeat` in `use-encounter.tsx`). A player's open sheet is
+the character they are playing; a DM's is an NPC they are reading, a rule they
+are checking, or a player's stats they are looking up — and a DM opens far more
+sheets than they play. Four effects key off the open character and are all
+wrong for that seat: the participant sync (which _seated_ every sheet the DM
+opened, in everyone's initiative order, and took the row off a player whose
+sheet the DM read), the vitals projection (which published the DM's copy of a
+sheet over the row the player was keeping), the `playSessions` write (a game
+recorded on a character that never played it — an edit, and an autosave, to
+someone else's sheet), and `self`, which made a row the DM merely had open
+disappear from their own attack targets. The DM seats combatants from the
+board, which is where their creature-facing controls already are. Pinned by
+`session-smoke --only dmsheet`, which walks the DM off the board to a sheet
+and back.

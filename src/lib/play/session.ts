@@ -214,6 +214,12 @@ export function realmForSession(code: string): string {
   return `sess${normalizeSessionCode(code).replace(/-/g, "")}`;
 }
 
+export function sessionForRealm(realm: string): string | undefined {
+  if (!realm.startsWith("sess")) return undefined;
+  const code = normalizeSessionCode(realm.slice(4));
+  return isValidSessionCode(code) ? code : undefined;
+}
+
 export const REMEMBERED_SESSIONS = 5;
 
 // Most recent first; re-joining an existing session moves it to the top

@@ -11,6 +11,7 @@ import {
   planRejoin,
   playPathFor,
   rejoinDelayMs,
+  shouldRestamp,
 } from "src/lib/play/rejoin";
 
 // Auto-reconnects to `/play/<code>` after a cold reload (e.g. Android evicting
@@ -59,19 +60,25 @@ export function useAutoRejoin(): AutoRejoin {
 
   const retry = useCallback(() => setAttempts(0), []);
 
-  // Foreground/network-back events reset the backoff schedule (rather than
-  // connecting directly, keeping one connect call site) — but not past the
-  // cap, since a phone fires these all night and would otherwise keep
-  // restarting the ladder for a table that has genuinely ended.
+  // Network-back events reset the backoff schedule (rather than connecting
+  // directly, keeping one connect call site) — but not past the cap, since a
+  // phone fires these all night and would otherwise keep restarting the
+  // ladder for a table that has genuinely ended. Someone looking at the tab
+  // is different, and does restart it.
   const attemptsRef = useRef(attempts);
   attemptsRef.current = attempts;
   const wakeRetry = useCallback(() => {
     if (attemptsRef.current >= MAX_REJOIN_ATTEMPTS) return;
     setAttempts(0);
   }, []);
+  const [visible, setVisible] = useState(
+    () => document.visibilityState !== "hidden",
+  );
   useEffect(() => {
     const wake = () => {
-      if (document.visibilityState === "visible") wakeRetry();
+      const shown = document.visibilityState !== "hidden";
+      setVisible(shown);
+      if (shown) setAttempts(0);
     };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wakeRetry);
@@ -90,14 +97,16 @@ export function useAutoRejoin(): AutoRejoin {
     memory,
     wasLast,
     attempts,
+    visible,
   });
 
   useEffect(() => {
     if (plan.action === "connected") {
       // URL follows the session, never the reverse — a live connection is not
       // torn down to obey a stale link.
-      const path = playPathFor(sessionCode);
-      if (urlCode !== sessionCode) navigate(path, { replace: true });
+      if (shouldRestamp(urlCode, sessionCode)) {
+        navigate(playPathFor(sessionCode), { replace: true });
+      }
       if (attempts !== 0) setAttempts(0);
       return;
     }
@@ -122,7 +131,7 @@ export function useAutoRejoin(): AutoRejoin {
       if (!result.ok) setAttempts((spent) => spent + 1);
     }, rejoinDelayMs(attempts));
     return () => clearTimeout(timer);
-  }, [plan.action, urlCode, sessionCode, sessionStatus, attempts]);
+  }, [plan.action, urlCode, sessionCode, sessionStatus, attempts, visible]);
 
   // Restore the sheet that was open when the tab died, per-table (not "last
   // sheet opened anywhere"). A DM's memory records no sheet, so nothing opens

@@ -15,7 +15,7 @@
 //   --only <name>     run one scenario: gameplay | editing | reload | dmboard |
 //                     pickup | assign | initiative | damage | table | rejoin |
 //                     multisession |
-//                     dmreturn | dropout | tabledropout | invite
+//                     dmreturn | dropout | tabledropout | deploy | invite
 //   --headed          show the browsers
 //   --slow <ms>       slow motion, for watching a failure happen
 //   --timeout <ms>    per-condition wait budget (default 15000)
@@ -482,6 +482,18 @@ const scenarios = {
       await roster(dm.page),
       [dm.name, player.name].sort(),
     );
+    check(
+      "the reconnected tab still names the table in its URL",
+      new URL(player.page.url()).pathname,
+      `/play/${code}`,
+    );
+
+    // The second reload is the one that finds a URL rewritten by the first.
+    await player.page.reload({ waitUntil: "domcontentloaded" });
+    await untilBoard(player.page);
+    await untilVisible(player.page, ".session-live");
+    await untilRoster(player.page, [dm.name, player.name]);
+    check("so reloading again lands at the table too", true, true);
 
     // `clientId` is per-tab; the durable DM token is what brings the seat back.
     await dm.page.reload({ waitUntil: "domcontentloaded" });
@@ -1126,6 +1138,137 @@ const scenarios = {
       "and the DM's roster never lost them",
       await roster(dm.page),
       [dm.name, player.name].sort(),
+    );
+
+    return [dm, player];
+  },
+
+  // A DM stepping off the board to read a sheet and back. Their open sheet is
+  // a document they are consulting, not a seat at their own table.
+  async dmsheet(browser) {
+    // The DM holds a copy of the player's sheet as well as their own — the
+    // ordinary case, since they brought it to the table.
+    const dm = await openClient(browser, "martial-fighter", "dm", [
+      "full-caster-wizard",
+    ]);
+    const player = await openClient(browser, "full-caster-wizard", "player");
+
+    const code = await startGame(dm, [player.name]);
+    await joinGame(player, code, player.name);
+    await untilRoster(dm.page, [player.name]);
+
+    await dm.page.click('[title="Characters"]');
+    await dm.page.click(`#sidebar .character-list a:has-text("${dm.name}")`);
+    await untilPath(dm.page, `/sheet/${dm.character.uuid}`);
+    check("the DM can open a sheet mid-table", true, true);
+
+    await dm.page.click('[aria-label="Play"]');
+    await untilBoard(dm.page);
+    check("dm roster after reading a sheet", await roster(dm.page), [
+      player.name,
+    ]);
+    check(
+      "player roster after the DM read a sheet",
+      await roster(player.page),
+      [player.name],
+    );
+    check(
+      "the DM's URL still names the table",
+      new URL(dm.page.url()).pathname,
+      `/play/${code}`,
+    );
+    check(
+      "and the nav names the table, not the sheet",
+      (await dm.page.locator("#main-nav h1").textContent()).trim(),
+      "At the table",
+    );
+
+    // The row the player is playing: reading the DM's own copy of that sheet
+    // must not take it off them.
+    await dm.page.click('[title="Characters"]');
+    await dm.page.click(
+      `#sidebar .character-list a:has-text("${player.name}")`,
+    );
+    await untilPath(dm.page, `/sheet/${player.character.uuid}`);
+    await dm.page.click('[aria-label="Play"]');
+    await untilBoard(dm.page);
+    check(
+      "and the table gained nothing from the reading",
+      await roster(dm.page),
+      [player.name],
+    );
+    check(
+      "nor did the sheet gain a game it never played",
+      await dm.page.evaluate((uuid) => {
+        const stored = JSON.parse(
+          localStorage.getItem("dndcharactersheets_characters") ?? "{}",
+        );
+        return stored[uuid]?.playSessions?.length ?? 0;
+      }, dm.character.uuid),
+      0,
+    );
+
+    return [dm, player];
+  },
+
+  // A deploy: the sidecar restarts and every realm with it, while the tabs
+  // stay where they are. Nothing is clicked — the URL is the whole recovery.
+  async deploy(browser) {
+    const dm = await openClient(browser, "martial-fighter", "dm");
+    const player = await openClient(browser, "full-caster-wizard", "player");
+
+    // A code whose realm was never opened stands in for one the restart took;
+    // both are "the sidecar has never heard of this table".
+    const code = randomUUID();
+    const remember = (client, seat) =>
+      client.page.evaluate(
+        (entry) => {
+          localStorage.setItem(
+            "dndcharactersheets_playSessionMemory",
+            JSON.stringify([entry]),
+          );
+        },
+        {
+          code,
+          lastJoined: Date.now(),
+          seat,
+          // What a real memory of a table holds: a player's sheet comes back
+          // with them, a DM's doesn't.
+          ...(seat === "dm"
+            ? {}
+            : { playAsUuid: client.character.uuid, playAsName: client.name }),
+        },
+      );
+
+    await remember(dm, "dm");
+    await dm.page.goto(`${BASE}/play/${code}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await untilBoard(dm.page);
+    await untilVisible(dm.page, ".session-live");
+    check("the DM's tab reopens the table it was already at", true, true);
+    check(
+      "on the code the group already has",
+      (await dm.page.locator(".session-code code").textContent()).trim(),
+      code,
+    );
+    check(
+      "and keeps it in the URL",
+      new URL(dm.page.url()).pathname,
+      `/play/${code}`,
+    );
+
+    await remember(player, "player");
+    await player.page.goto(`${BASE}/play/${code}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await untilBoard(player.page);
+    await untilVisible(player.page, ".session-live");
+    await untilRoster(dm.page, [player.name]);
+    check(
+      "and a player pointed at the same URL is seated again, with their sheet",
+      await roster(dm.page),
+      [player.name],
     );
 
     return [dm, player];

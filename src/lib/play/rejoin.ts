@@ -23,9 +23,12 @@ export interface RejoinContext {
   // memory entry — the memory list is capped and can forget it.
   wasLast?: boolean;
   attempts?: number;
+  // Past the cap the retry continues only while the tab is on screen.
+  visible?: boolean;
 }
 
-// Cap on automatic retries; a manual rejoin button remains available.
+// Attempts after which the surface stops promising a reconnect and offers a
+// manual button; retrying continues at the tail delay while visible.
 export const MAX_REJOIN_ATTEMPTS = 6;
 
 export function planRejoin({
@@ -34,16 +37,18 @@ export function planRejoin({
   memory,
   wasLast,
   attempts = 0,
+  visible = true,
 }: RejoinContext): RejoinPlan {
+  // "connected" wins even against a different table than the URL names — a
+  // live session is never torn down for a stale link — and is answered
+  // before the URL is read, so a session started here also stamps the URL.
+  if (status === "connected") return { action: "connected" };
   if (!urlCode) return { action: "wait" };
   const code = normalizeSessionCode(urlCode);
-  // "connected" wins even against a different table than the URL names — a
-  // live session is never torn down for a stale link.
-  if (status === "connected") return { action: "connected" };
   if (status === "connecting") return { action: "wait" };
   const known = !!memory || !!wasLast;
   if (!known) return { action: "lobby", code };
-  if (attempts >= MAX_REJOIN_ATTEMPTS) return { action: "wait" };
+  if (attempts >= MAX_REJOIN_ATTEMPTS && !visible) return { action: "wait" };
   return {
     action: "rejoin",
     code,
@@ -62,4 +67,13 @@ export function rejoinDelayMs(attempt: number): number {
 // The URL the surface should show; only a code we actually connected to.
 export function playPathFor(sessionCode?: string): string {
   return sessionCode ? `/play/${normalizeSessionCode(sessionCode)}` : "/play";
+}
+
+// The URL's code is only ever replaced by another code, never dropped for a
+// session that hasn't reported one yet.
+export function shouldRestamp(
+  urlCode: string | undefined,
+  sessionCode: string | undefined,
+): boolean {
+  return !!sessionCode && normalizeSessionCode(sessionCode) !== urlCode;
 }

@@ -62,8 +62,14 @@ export function navControls({
 }
 
 // The bar's title. Every route names itself; the two that show a character fall
-// back to naming the surface when none is open.
-export function navTitle(pathname: string, characterName?: string): string {
+// back to naming the surface when none is open. A DM's open sheet is one they
+// are consulting rather than playing, so at the table it doesn't name the page.
+export function navTitle(
+  pathname: string,
+  characterName?: string,
+  isDm = false,
+): string {
+  const playedName = isDm ? undefined : characterName;
   switch (pathname) {
     case "/host":
       return "Start a game";
@@ -74,13 +80,13 @@ export function navTitle(pathname: string, characterName?: string): string {
     case "/join":
       return "Join a shared sheet";
     case "/play":
-      return characterName ?? "At the table";
+      return playedName ?? "At the table";
     case "/sheet":
       return characterName ?? "Character Select";
     default:
       if (pathname.startsWith("/sheet/"))
         return characterName ?? "Character Select";
-      if (pathname.startsWith("/play/")) return characterName ?? "At the table";
+      if (pathname.startsWith("/play/")) return playedName ?? "At the table";
       if (pathname.startsWith("/join/")) return "Join a game";
       // The share email's link. Named for what it does rather than for the
       // file it names, which the page itself is better placed to show.

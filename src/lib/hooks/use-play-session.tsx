@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import { Encounter } from "src/lib/play/encounter";
 import {
   ConditionOffer,
@@ -11,6 +11,7 @@ import {
   RestCall,
   RollCall,
   SessionMessage,
+  sessionForRealm,
   TOPIC_FOR,
 } from "src/lib/play/session";
 import { RollReport, RollVerdict } from "src/lib/play/reports";
@@ -56,7 +57,6 @@ interface PlaySessionOptions {
 
 export function usePlaySession(options: PlaySessionOptions) {
   const { clientId } = options;
-  const [code, setCode] = useState<string | undefined>();
   // Ref so the once-registered subscription always calls the current closure.
   const handlers = useRef(options);
   handlers.current = options;
@@ -111,7 +111,6 @@ export function usePlaySession(options: PlaySessionOptions) {
           return on.onSheet(message.participantId, message.character);
       }
     },
-    onClosed: () => setCode(undefined),
     // `state`, `presence`, `leave`, and sync request/response all supersede
     // or self-expire, so replaying a stale one is wrong or pointless.
     // Everything else (roll, ruling, ask, offer, claim) has no other copy,
@@ -126,6 +125,10 @@ export function usePlaySession(options: PlaySessionOptions) {
 
   const publish = realm.publish as (message: SessionMessage) => void;
 
+  // Derived, not held: a separate copy set after `connect` resolves leaves a
+  // window where callers see "connected" with no code yet.
+  const code = realm.realm ? sessionForRealm(realm.realm) : undefined;
+
   const connect = useCallback(
     async (sessionCode: string, create: boolean): Promise<JoinResult> => {
       const normalized = normalizeSessionCode(sessionCode);
@@ -136,7 +139,6 @@ export function usePlaySession(options: PlaySessionOptions) {
         create,
       });
       if (!result.ok) return result;
-      setCode(normalized);
       return { ok: true, code: normalized };
     },
     [realm.connect, realm.refuse],
@@ -161,7 +163,6 @@ export function usePlaySession(options: PlaySessionOptions) {
     // leaving mustn't end the fight for everyone else. Idle realms are
     // swept by the sidecar.
     realm.close();
-    setCode(undefined);
   }, [publish, clientId, realm.close]);
 
   return {

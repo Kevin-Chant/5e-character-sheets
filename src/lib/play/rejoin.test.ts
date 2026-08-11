@@ -4,6 +4,7 @@ import {
   planRejoin,
   playPathFor,
   rejoinDelayMs,
+  shouldRestamp,
 } from "src/lib/play/rejoin";
 
 const CODE = "3f8a91c2-1111-4222-8333-444455556666";
@@ -21,6 +22,12 @@ describe("planRejoin", () => {
 
   it("is satisfied once connected", () => {
     expect(planRejoin({ urlCode: CODE, status: "connected" })).toEqual({
+      action: "connected",
+    });
+  });
+
+  it("reports connected even before the URL names the table", () => {
+    expect(planRejoin({ status: "connected" })).toEqual({
       action: "connected",
     });
   });
@@ -57,7 +64,7 @@ describe("planRejoin", () => {
     expect(plan).toEqual({ action: "rejoin", code: CODE, seat: "player" });
   });
 
-  it("stops trying after the attempt cap", () => {
+  it("keeps trying past the attempt cap while the tab is on screen", () => {
     expect(
       planRejoin({
         urlCode: CODE,
@@ -65,7 +72,31 @@ describe("planRejoin", () => {
         wasLast: true,
         attempts: MAX_REJOIN_ATTEMPTS,
       }),
+    ).toEqual({ action: "rejoin", code: CODE, seat: "player" });
+  });
+
+  it("stops once past the cap and out of sight", () => {
+    expect(
+      planRejoin({
+        urlCode: CODE,
+        status: "offline",
+        wasLast: true,
+        attempts: MAX_REJOIN_ATTEMPTS,
+        visible: false,
+      }),
     ).toEqual({ action: "wait" });
+  });
+
+  it("keeps trying out of sight while inside the cap", () => {
+    expect(
+      planRejoin({
+        urlCode: CODE,
+        status: "offline",
+        wasLast: true,
+        attempts: 1,
+        visible: false,
+      }),
+    ).toEqual({ action: "rejoin", code: CODE, seat: "player" });
   });
 });
 
@@ -80,5 +111,20 @@ describe("playPathFor", () => {
   it("names the table in the URL when there is one", () => {
     expect(playPathFor(CODE)).toBe(`/play/${CODE}`);
     expect(playPathFor()).toBe("/play");
+  });
+});
+
+describe("shouldRestamp", () => {
+  it("writes a connected code into a URL that lacks it", () => {
+    expect(shouldRestamp(undefined, CODE)).toBe(true);
+  });
+
+  it("never drops the URL's code for a session with none to give", () => {
+    expect(shouldRestamp(CODE, undefined)).toBe(false);
+  });
+
+  it("replaces one table's code with another's", () => {
+    expect(shouldRestamp(CODE, CODE.replace(/^3/, "4"))).toBe(true);
+    expect(shouldRestamp(CODE, CODE)).toBe(false);
   });
 });

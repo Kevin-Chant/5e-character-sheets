@@ -261,7 +261,7 @@ function RejoinBanner({ rejoin }: { rejoin: AutoRejoin }) {
     <div className={classNames("rejoin-banner", { "gave-up": givenUp })}>
       <span>
         {givenUp
-          ? "Couldn't get back to your game. It may have ended, or your connection is still down."
+          ? "Couldn't get back to your game. It may have ended, or your connection is still down — still trying every minute while this tab is open."
           : rejoin.attempts === 0
             ? "Getting you back to your game…"
             : `Getting you back to your game… (attempt ${rejoin.attempts + 1})`}

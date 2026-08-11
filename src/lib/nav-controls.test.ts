@@ -121,4 +121,11 @@ describe("the title names the page", () => {
     expect(navTitle("/play/some-code", "Brakka")).toBe("Brakka");
     expect(navTitle("/play/some-code")).toBe("At the table");
   });
+
+  it("names the table, not the sheet, for whoever runs it", () => {
+    expect(navTitle("/play/some-code", "Brakka", true)).toBe("At the table");
+    expect(navTitle("/play", "Brakka", true)).toBe("At the table");
+    // Off the board it's still the sheet they opened.
+    expect(navTitle("/sheet/some-uuid", "Brakka", true)).toBe("Brakka");
+  });
 });

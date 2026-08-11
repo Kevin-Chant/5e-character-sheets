@@ -18,6 +18,7 @@ import {
   normalizeSessionCode,
   realmForSession,
   RollCall,
+  sessionForRealm,
   rollCallReaches,
   REMEMBERED_SESSIONS,
   TOPIC_FOR,
@@ -87,6 +88,15 @@ describe("session codes", () => {
     const code = "ABCDEF12-3456-7890-ABCD-EF1234567890";
     expect(realmForSession(code)).toBe("sessabcdef1234567890abcdef1234567890");
     expect(realmForSession(code).startsWith("sess")).toBe(true);
+  });
+
+  it("reads the code back off a realm name, and refuses anything else", () => {
+    const code = "abcdef12-3456-7890-abcd-ef1234567890";
+    expect(sessionForRealm(realmForSession(code))).toBe(code);
+    expect(
+      sessionForRealm("2f8a91c21111422283334444555566667"),
+    ).toBeUndefined();
+    expect(sessionForRealm("sessnotauuid")).toBeUndefined();
   });
 });
 

@@ -47,6 +47,7 @@ import BackgroundSaveWarning from "src/components/background-save-warning";
 import { requestDriveToken } from "src/lib/google-auth";
 import { parseCharacterFile } from "src/lib/character-bundle";
 import { navControls, navTitle } from "src/lib/nav-controls";
+import { useEncounter } from "src/lib/hooks/use-encounter";
 
 function Sidebar({ close }: { close: () => void }) {
   const { datastore } = useDatastoreSelector();
@@ -168,6 +169,7 @@ export default function Root() {
   const { settings } = useSettings();
   const { settingsOpen, openSettings, closeSettings } = useSettingsPanel();
   const { getRole, isBorrowed } = useSharingSessions();
+  const { isDm } = useEncounter();
   const location = useLocation();
   const [fileSelected, setFileSelected] = useState<File | undefined>();
   const [importErrorMessage, setImportErrorMessage] = useState("");
@@ -290,7 +292,7 @@ export default function Root() {
 
   const onPlaySurface =
     location.pathname === "/play" || location.pathname.startsWith("/play/");
-  const pageTitle = navTitle(location.pathname, character?.name);
+  const pageTitle = navTitle(location.pathname, character?.name, isDm);
 
   // Not for a sheet joined remotely or borrowed from a DM — sharing is the owner's call.
   const canShare =
