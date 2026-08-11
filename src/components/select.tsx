@@ -344,11 +344,18 @@ function SelectPopup({
     });
   }, []);
 
+  useLayoutEffect(place, []);
+
+  // Focus is a no-op on a `visibility: hidden` element, and the popup starts
+  // hidden until `place` has measured it — so this waits for the placed box
+  // rather than running with the mount, where it silently did nothing and
+  // left the keyboard on the trigger.
+  const placed = box.visibility !== "hidden";
   useLayoutEffect(() => {
-    place();
+    if (!placed) return;
     inputRef.current?.focus();
     if (!filtering) listRef.current?.focus();
-  }, []);
+  }, [placed]);
 
   useEffect(() => {
     // Capture catches inner scrollers (sheet `#detail`, roster) as well as the window.

@@ -885,7 +885,16 @@ const scenarios = {
         document.querySelectorAll(".dm-audience .dm-audience-chip").length >= 3,
     );
     await dm.page.click('button[aria-label="Which check or save to ask for"]');
-    await dm.page.fill(".app-select-popup input", "perc");
+    // Typed, not filled: an open picker puts the keyboard in its filter box,
+    // which only holds in a real browser (focus is a no-op while the popup is
+    // still `visibility: hidden`).
+    await dm.page.keyboard.type("perc");
+    await untilVisible(dm.page, '[role="listbox"] [role="option"]');
+    check(
+      "an opened picker takes typing straight into its filter",
+      await dm.page.locator('[role="listbox"] [role="option"]').count(),
+      1,
+    );
     await dm.page.click('[role="listbox"] [role="option"]');
     await dm.page
       .locator(".dm-audience-chip", { hasText: player.name })
