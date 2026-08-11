@@ -155,7 +155,19 @@ payload here is `{name, color, field}`:
 `teardownSession` differs by role and this asymmetry is deliberate: a **host**
 publishes `closeSession` (so joiners clear the now-dead character and alert)
 and then asks the server to close the realm; a **remote** just publishes
-`leave` so peers drop its chip. The transport's rule that a deliberate
+`leave` so peers drop its chip.
+
+**The goodbye is awaited, not fired** (`realm.farewell` — publish with WAMP's
+`acknowledge`, bounded at two seconds so a dead socket can't hold a teardown
+open). Ending a session is two messages to the same box over two different
+transports — the `closeSession` through the broker and the `closeRealm` over
+HTTP — and the second kills the realm the first is still crossing. Whoever lost
+that race sat on a frozen sheet with no notice until the reconnect campaign
+gave up on it, half a minute later. It reproduced about half the time in
+`session-smoke --only editing`, which is what a race between two roughly equal
+latencies looks like from outside. nightlife-rabbit sends `PUBLISHED` before
+dispatching the event, but queues the subscribers' writes in the same turn, so
+the ack is the point after which the close can no longer overtake the goodbye. The transport's rule that a deliberate
 `close()` never fires `onClosed` (see `use-realm.tsx`) is what tells a
 deliberate teardown from an unexpected one without the old
 `intentionalDisconnect` ref.

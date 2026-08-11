@@ -56,6 +56,10 @@ const PING_TIMEOUT_MS = 8_000;
 const QUEUE_MAX_AGE_MS = 30_000;
 const QUEUE_MAX = 40;
 
+// How long a goodbye waits to be taken by the broker before the caller stops
+// holding a teardown open for it.
+const GOODBYE_ACK_MS = 2_000;
+
 // How long a replayable publish waits for the broker's PUBLISHED confirmation
 // before assuming it died with the socket (a zombie socket accepts publishes
 // without error until the probe notices it's gone). An unconfirmed message is
@@ -103,6 +107,10 @@ export interface RealmInstance<K extends string> {
     message: { kind: K; clientId: string; toClientId?: string },
     heldSince?: number,
   ) => void;
+  // Publish, resolving once the broker has taken it — for a caller about to
+  // tear the realm down, whose message would otherwise race the teardown.
+  // Never rejects: a goodbye that didn't leave is not worth an error.
+  farewell: (message: { kind: K; clientId: string }) => Promise<void>;
   register: (procedure: string, handler: () => unknown) => Promise<unknown>;
   call: (procedure: string, args?: unknown[]) => Promise<unknown>;
   connected: () => boolean;
@@ -203,6 +211,35 @@ export function createRealm<K extends string>(
       );
     } catch {
       if (replayable) enqueue(realm!, message, heldSince);
+    }
+  };
+
+  // nightlife-rabbit answers PUBLISHED before it dispatches the event, but
+  // both happen in one turn and the subscribers' writes are queued by the
+  // time the ack is sent — so the ack is the signal that the message is past
+  // the point a `closeRealm` could overtake it.
+  const farewell: RealmInstance<K>["farewell"] = (message) => {
+    const live = session;
+    if (!live) return Promise.resolve();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const ack = live.publish(
+        options.topics[message.kind],
+        [stamp(message)],
+        {},
+        { acknowledge: true },
+      );
+      return Promise.race([
+        Promise.resolve(ack).then(
+          () => undefined,
+          () => undefined,
+        ),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, GOODBYE_ACK_MS);
+        }),
+      ]).finally(() => clearTimeout(timer));
+    } catch {
+      return Promise.resolve();
     }
   };
 
@@ -469,6 +506,7 @@ export function createRealm<K extends string>(
     close,
     refuse,
     publish,
+    farewell,
     register,
     call,
     connected: () => !!session,

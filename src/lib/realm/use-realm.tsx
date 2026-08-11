@@ -79,6 +79,7 @@ export function useRealm<K extends string>({
       close: instance.close,
       refuse: instance.refuse,
       publish: instance.publish,
+      farewell: instance.farewell,
       register: instance.register,
       call: instance.call,
       connected: instance.connected,

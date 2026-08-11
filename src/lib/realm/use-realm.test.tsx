@@ -96,6 +96,45 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("the goodbye a teardown waits for", () => {
+  it("asks the broker to confirm, and resolves when it does", async () => {
+    const { result } = setup();
+    await openRealm(result);
+    mock.published = [];
+
+    await act(async () => {
+      await result.current.farewell({ kind: "chatter", clientId: "me" });
+    });
+    expect(mock.published.map((p) => p.message.kind)).toEqual(["chatter"]);
+  });
+
+  it("gives up rather than holding a teardown open on a dead socket", async () => {
+    vi.useFakeTimers();
+    const { result } = setup();
+    await openRealm(result);
+    mock.ackAnswers = false;
+
+    let done = false;
+    const sent = result.current
+      .farewell({ kind: "chatter", clientId: "me" })
+      .then(() => {
+        done = true;
+      });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    await sent;
+    expect(done).toBe(true);
+  });
+
+  it("is a no-op with no socket at all", async () => {
+    const { result } = setup();
+    await expect(
+      result.current.farewell({ kind: "chatter", clientId: "me" }),
+    ).resolves.toBeUndefined();
+  });
+});
+
 describe("publishing into a socket that isn't there", () => {
   it("holds the kinds the layer says are worth holding, and replays them", async () => {
     const { result } = setup();

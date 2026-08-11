@@ -797,15 +797,20 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       if (!session) return false;
       let failed = false;
       if (session.role === "host") {
-        // Best-effort: tell joiners we're closing before the realm disappears.
-        session.realm.publish({
+        // Awaited, not fired: closing the realm on the server races the
+        // goodbye through the broker, and a joiner that loses that race sits
+        // on a frozen sheet until the reconnect campaign gives up on it.
+        await session.realm.farewell({
           kind: "closeSession",
           clientId: clientIdRef.current,
         });
         failed = await closeRealmOnServer(uuid);
       } else {
         // Joiners politely announce departure so peers drop our chip.
-        session.realm.publish({ kind: "leave", clientId: clientIdRef.current });
+        await session.realm.farewell({
+          kind: "leave",
+          clientId: clientIdRef.current,
+        });
       }
       dropSession(session);
       return failed;
