@@ -907,30 +907,47 @@
   padding-bottom: 2rem;
 }
 
+/* The tracks live on the list, not the row, so every row lands on the same
+   ones and the board can be read down a column — "who is bloodied", "whose AC
+   I can't beat" — which a per-row grid can't answer at a glance. Rows take
+   them back with subgrid. The name and the conditions are the two things that
+   genuinely grow, so they get the fractions; everything else is content-sized. */
 .dm-roster {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns:
+    auto minmax(11rem, 2fr) auto auto minmax(10rem, 1.2fr)
+    minmax(9rem, 1fr) auto;
   gap: 0.5rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* One creature per row: init | who | vitals | conditions | concentration |
-   remove. Grid rather than a table so a row can restack on a narrow screen
-   without markup games. The name and the conditions are the two things that
-   genuinely grow, so they get the fractions; everything else is content-sized. */
-.dm-row {
+.dm-row,
+.dm-roster-head {
   display: grid;
-  grid-template-columns:
-    auto minmax(11rem, 2fr) auto minmax(12rem, 1.5fr)
-    minmax(7rem, 1fr) auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
+}
+
+.dm-row {
   gap: 0.5rem 1rem;
   padding: 0.5rem 0.75rem;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+}
+
+/* Captions for the columns below, at the weight of a caption — the rows are
+   the content, this is only the key to them. */
+.dm-roster-head {
+  gap: 0.5rem 1rem;
+  padding: 0 0.75rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
 }
 
 /* The spotlight. A DM glances at eight rows to find one; the one acting has
@@ -1056,6 +1073,26 @@
   min-width: 2rem;
   display: flex;
   justify-content: center;
+}
+
+/* Its own column now that the header names it, so the numbers line up down
+   the board instead of floating after however wide the HP cluster ended up. */
+.dm-row-ac {
+  display: flex;
+  justify-content: center;
+  min-width: 2.5rem;
+}
+
+.dm-ac-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* The header names the columns where they align, so the welded caption would
+   be saying it twice. It comes back with the stacked layout, which is the one
+   that needs it. */
+.dm-row-init > span:not(.stepper) {
+  display: none;
 }
 
 /* A small caption welded to its control — what keeps the initiative stepper
@@ -1206,15 +1243,6 @@
   text-align: center;
 }
 
-.dm-row-ac {
-  padding: 0.1rem 0.45rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
 .dm-hp-input {
   width: 5.5rem;
 }
@@ -1248,15 +1276,36 @@
   justify-self: end;
 }
 
+/* Below this the columns have no room to be columns, so the roster gives up
+   alignment and each row stacks on its own — the same rows, one per screen
+   width rather than one per column. */
 @media (max-width: 900px) {
+  .dm-roster {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dm-roster-head {
+    display: none;
+  }
+
   .dm-row {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  /* The vitals cluster (HP stepper, max, AC) is too wide to share the name's
+  .dm-row-ac {
+    justify-content: flex-start;
+  }
+
+  .dm-row-init > span:not(.stepper) {
+    display: inline;
+  }
+
+  /* The vitals cluster (HP stepper, max) is too wide to share the name's
      line on a phone — it crushed "Goblin 1" to a single letter. Name line
-     first, then vitals, then conditions, then concentration. */
+     first, then vitals and AC, then conditions, then concentration. */
   .dm-row-vitals,
+  .dm-row-ac,
   .dm-row-conditions,
   .dm-row-concentration {
     grid-column: 1 / -1;

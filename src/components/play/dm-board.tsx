@@ -172,6 +172,18 @@ export default function DmBoard() {
         </div>
       ) : (
         <ul className="dm-roster">
+          {/* Column captions for the aligned layout. Hidden from assistive
+              tech: every cell below carries its own label, and the roster
+              restacks out of columns on a narrow screen. */}
+          <li className="dm-roster-head" aria-hidden="true">
+            <span>Init</span>
+            <span>Combatant</span>
+            <span>Hit points</span>
+            <span>AC</span>
+            <span>Conditions</span>
+            <span>Concentration</span>
+            <span />
+          </li>
           {order.map((participant) => (
             <li
               key={participant.id}
@@ -972,65 +984,72 @@ function RowVitals({
   // A hand-typed combatant has no sheet; its HP starts existing once a max is set.
   if (!vitals) {
     return (
-      <form
-        className="dm-row-vitals"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const max = Number(maxInput);
-          if (!(max > 0)) return;
-          apply({ currHp: max, maxHp: max, ac: 0 });
-          setMaxInput("");
-        }}
-      >
-        <input
-          type="text"
-          inputMode="numeric"
-          className="dm-hp-input"
-          aria-label={`${participant.name} max HP`}
-          placeholder="max HP"
-          value={maxInput}
-          onChange={(e) => setMaxInput(e.target.value)}
-        />
-        <button type="submit" disabled={!(Number(maxInput) > 0)}>
-          Track
-        </button>
-      </form>
+      <>
+        <form
+          className="dm-row-vitals"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const max = Number(maxInput);
+            if (!(max > 0)) return;
+            apply({ currHp: max, maxHp: max, ac: 0 });
+            setMaxInput("");
+          }}
+        >
+          <input
+            type="text"
+            inputMode="numeric"
+            className="dm-hp-input"
+            aria-label={`${participant.name} max HP`}
+            placeholder="max HP"
+            value={maxInput}
+            onChange={(e) => setMaxInput(e.target.value)}
+          />
+          <button type="submit" disabled={!(Number(maxInput) > 0)}>
+            Track
+          </button>
+        </form>
+        <span className="dm-row-ac" />
+      </>
     );
   }
 
   return (
-    <div className="dm-row-vitals">
-      <VitalsEntry vitals={vitals} name={participant.name} apply={apply} />
-      <HpTotal
-        vitals={vitals}
-        name={participant.name}
-        max={vitals.maxHp}
-        apply={apply}
-      />
-      {/* The DM always sees death-save progress; the party-visibility toggle doesn't gate this board. */}
-      {vitals.deathSaves && (
-        <span
-          className="dm-death-saves"
-          title="Death saving throws — successes · failures"
-        >
-          {vitals.deathSaves.successes}✓ {vitals.deathSaves.failures}✗
-        </span>
-      )}
-      {(vitals.tempHp ?? 0) > 0 && (
-        <span
-          className="dm-temp"
-          title="Temporary hit points — damage drains these first"
-        >
-          +{vitals.tempHp}
-        </span>
-      )}
-      {participant.characterUuid ? (
-        // Read-only: a character's AC derives from its own sheet.
-        vitals.ac > 0 && <span className="dm-row-ac">AC {vitals.ac}</span>
-      ) : (
-        <AcInput participant={participant} apply={apply} />
-      )}
-    </div>
+    <>
+      <div className="dm-row-vitals">
+        <VitalsEntry vitals={vitals} name={participant.name} apply={apply} />
+        <HpTotal
+          vitals={vitals}
+          name={participant.name}
+          max={vitals.maxHp}
+          apply={apply}
+        />
+        {/* The DM always sees death-save progress; the party-visibility toggle doesn't gate this board. */}
+        {vitals.deathSaves && (
+          <span
+            className="dm-death-saves"
+            title="Death saving throws — successes · failures"
+          >
+            {vitals.deathSaves.successes}✓ {vitals.deathSaves.failures}✗
+          </span>
+        )}
+        {(vitals.tempHp ?? 0) > 0 && (
+          <span
+            className="dm-temp"
+            title="Temporary hit points — damage drains these first"
+          >
+            +{vitals.tempHp}
+          </span>
+        )}
+      </div>
+      <span className="dm-row-ac">
+        {participant.characterUuid ? (
+          // Read-only: a character's AC derives from its own sheet.
+          vitals.ac > 0 && <span className="dm-ac-value">{vitals.ac}</span>
+        ) : (
+          <AcInput participant={participant} apply={apply} />
+        )}
+      </span>
+    </>
   );
 }
 
@@ -1050,16 +1069,13 @@ function AcInput({
     onCommit: (ac) => apply({ ...vitals, ac }, 0),
   });
   return (
-    <label className="dm-field-label">
-      <span>AC</span>
-      <input
-        type="text"
-        inputMode="numeric"
-        className="dm-ac-input"
-        aria-label={`${participant.name} armor class`}
-        {...inputProps}
-        value={inputProps.value === "0" ? "" : inputProps.value}
-      />
-    </label>
+    <input
+      type="text"
+      inputMode="numeric"
+      className="dm-ac-input"
+      aria-label={`${participant.name} armor class`}
+      {...inputProps}
+      value={inputProps.value === "0" ? "" : inputProps.value}
+    />
   );
 }

@@ -79,7 +79,7 @@ export default function ConcentrationCell({
       <input
         type="text"
         aria-label={`${participant.name} concentrating on`}
-        placeholder="concentration"
+        placeholder="spell"
         value={spell}
         onChange={(e) => setSpell(e.target.value)}
       />
