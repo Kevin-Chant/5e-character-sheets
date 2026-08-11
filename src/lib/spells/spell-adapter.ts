@@ -7,9 +7,7 @@ import { DieExpression, Spell, SpellComponents } from "src/lib/types";
 import { UUID } from "crypto";
 import { CatalogSpell } from "./spell-catalog";
 
-// Map a die's face count to the `StandardDie` enum. Every SRD damage die is
-// standard (d4–d12); anything else yields undefined and we skip the live formula
-// rather than invent a non-standard die.
+// Every SRD damage die is standard (d4-d12); anything else yields undefined.
 const STANDARD_DIE_BY_FACES: Record<number, StandardDie> = {
   4: StandardDie.d4,
   6: StandardDie.d6,
@@ -19,9 +17,7 @@ const STANDARD_DIE_BY_FACES: Record<number, StandardDie> = {
   20: StandardDie.d20,
 };
 
-// Parse an "NdM" roll (e.g. "8d6") into a `DieExpression` the formula engine can
-// evaluate. `DieOperation.roll` matches how weapon damage is stored, so a spell's
-// base damage renders and scales through the same code path as an attack.
+// Parse an "NdM" roll (e.g. "8d6") into a `DieExpression`.
 export function parseDamageRoll(roll: string): DieExpression | undefined {
   const match = /^(\d+)d(\d+)$/.exec(roll.trim());
   if (!match) return undefined;
@@ -32,8 +28,8 @@ export function parseDamageRoll(roll: string): DieExpression | undefined {
 }
 
 // The generated `mechanics` marks a spell's caster ability modifier with a
-// placeholder class (see generate-spells.mjs); the real spellcasting class is
-// only known when the spell is added, so we stamp it in here.
+// placeholder class (see generate-spells.mjs), stamped with the real
+// spellcasting class here once the spell is added.
 const CASTER_PLACEHOLDER = "@caster";
 
 function stampCaster<T>(value: T, classId: UUID): T {
@@ -49,8 +45,7 @@ function stampCaster<T>(value: T, classId: UUID): T {
   return value;
 }
 
-// SRD damage-type strings line up 1:1 with our enum values ("Fire", "Cold", …);
-// guard anyway so a future/renamed type degrades to plain prose.
+// SRD damage-type strings line up 1:1 with our enum values ("Fire", "Cold", …).
 const asDamageType = (name?: string): DamageType | undefined =>
   name && (Object.values(DamageType) as string[]).includes(name)
     ? (name as DamageType)
@@ -64,11 +59,9 @@ function buildComponents(entry: CatalogSpell): SpellComponents | undefined {
   return Object.keys(components).length ? components : undefined;
 }
 
-// Compose the spell’s detail: the catalog description, a compact stat line, an
-// optional live base-damage slot, and the "at higher levels" scaling prose. The
-// `{{}}` in the damage line is filled positionally from `detailFormulas` (see
-// `TextWithFormulasDisplay`) — the same mechanism the weapon presets use so a
-// looked-up spell shows a computed roll that recomputes with the character.
+// Composes the spell's detail: description, stat line, optional live
+// base-damage slot, and "at higher levels" prose. `{{}}` in the damage line is
+// filled positionally from `detailFormulas` (see `TextWithFormulasDisplay`).
 function buildDetail(entry: CatalogSpell): {
   detail: string;
   detailFormulas: DieExpression[];
@@ -76,8 +69,6 @@ function buildDetail(entry: CatalogSpell): {
   const detailFormulas: DieExpression[] = [];
   const parts: string[] = [entry.desc];
 
-  // The school is a structured field now (`Spell.school`), so it's no longer
-  // repeated in the description prose.
   const stats: string[] = [];
   if (entry.areaOfEffect) stats.push(`Area: ${entry.areaOfEffect}`);
   if (entry.save) stats.push(`Save: ${entry.save}`);
@@ -97,9 +88,7 @@ function buildDetail(entry: CatalogSpell): {
 }
 
 // Build a ready-to-edit `Spell` from a catalog entry, attributed to the given
-// spellcasting class. Mirrors `buildAttackFromPreset` in `rules.ts`: official
-// content pre-populates the fields (including a computed base-damage roll), and
-// everything stays editable so a player can tweak or homebrew from there.
+// spellcasting class. Mirrors `buildAttackFromPreset` in `rules.ts`.
 export function buildSpellFromCatalog(
   entry: CatalogSpell,
   spellcastingClass: UUID,

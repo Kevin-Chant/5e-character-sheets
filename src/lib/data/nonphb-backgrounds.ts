@@ -1,15 +1,12 @@
 import { SkillName } from "src/lib/data/data-definitions";
 import { Background } from "src/lib/data/phb-backgrounds";
 
-// Backgrounds beyond the Player's Handbook's thirteen — the Sword Coast
-// Adventurer's Guide set, the two from Tomb of Annihilation that everyone
-// reaches for, Curse of Strahd's Haunted One, and the two PHB variants whose
-// *feature* differs from their parent (Knight and Pirate; the other variants
-// only change the flavour, so listing them would add cards that do nothing).
+// Backgrounds beyond the PHB's thirteen: SCAG, two from Tomb of Annihilation,
+// Curse of Strahd's Haunted One, and the two PHB variants whose feature
+// differs from its parent (Knight, Pirate).
 //
-// Same licensing rule as `nonsrd-races.ts` and `subclasses.ts`: mechanical
-// facts only, with original one-line summaries of each feature's benefit.
-// Never published prose.
+// Same licensing rule as nonsrd-races.ts/subclasses.ts: mechanical facts only,
+// with original one-line summaries — never published prose.
 
 export const NON_PHB_BACKGROUNDS: Background[] = [
   {

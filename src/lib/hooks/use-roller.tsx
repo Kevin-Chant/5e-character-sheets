@@ -11,37 +11,22 @@ import {
 
 // What a roll button asks the roller to roll.
 export type RollSpec =
-  // A d20 + flat modifier check (skills, saves, ability checks, initiative).
-  // Supports advantage/disadvantage. `save: true` marks a saving throw — one
-  // dialog shape, but a different `RollKind`, so save-only riders (Bless's
-  // d4, Dwarven Resilience) reach the rolls they mean and skip the ones they
-  // don't.
+  // d20 + flat modifier (skills, saves, checks, initiative); `save: true`
+  // marks a saving throw so save-only riders (Bless's d4) apply correctly.
   | { kind: "check"; modifier: number; save?: boolean }
-  // A single dice formula rolled on its own.
   | { kind: "formula"; formula: CustomFormula }
-  // Spending a hit die: rolls 1d<die> + CON, then offers to apply the healing
-  // to current HP and mark the die expended. Declarative (rather than an
-  // afterRoll callback) so the modal can gate on the live character — remaining
-  // dice, max-HP clamp, Durable's minimum.
+  // Spending a hit die: rolls 1d<die>+CON, offers to apply healing and mark
+  // the die expended. Declarative so the modal can gate on the live
+  // character (remaining dice, max-HP clamp, Durable's minimum).
   | { kind: "hitDie"; die: StandardDie }
-  // A death saving throw: a flat d20 that reads its own outcome (10 or better
-  // is a success, a nat 1 costs two failures, a nat 20 puts you back up) and
-  // offers to write it onto the pips. Its own kind rather than a `check` with
-  // modifier 0 because none of that arithmetic belongs to the player, and
-  // because it is the roll a table most wants made in the open.
+  // A death save: reads its own outcome (10+ success, nat 1 two failures,
+  // nat 20 stabilizes) and offers to write it onto the pips.
   | { kind: "deathSave" }
-  // Using a weapon or spell: an optional to-hit roll and its damage, handled
-  // together in one dialog. `spell` carries the model so the modal can offer a
-  // cast-level selector and expand scaling; otherwise `damage` is fixed.
-  // `save` is the alternative to `toHit` — the target rolls instead of the
-  // character, so the dialog shows the DC and (for `onSuccess: "half"`) the
-  // halved damage alongside the full total.
-  // `attack` is the sheet entry this came from, carried purely for its weapon
-  // properties: the roll dialog reads `tags` and the to-hit formula's ability to
-  // decide which riders apply (Archery on a bow, Rage on a melee Strength hit).
-  // Absent for a spell attack, whose riders stay undecidable by design — a
-  // fighting style is a *weapon* feature, so "unknown" correctly leaves it as a
-  // prompt rather than auto-applying it to Fire Bolt.
+  // A weapon/spell attack: optional to-hit + damage in one dialog. `spell`
+  // carries the model for cast-level/scaling; `save` is the DC alternative
+  // to `toHit`. `attack` carries the sheet entry's weapon properties (tags,
+  // to-hit formula) so the dialog can decide which riders apply — absent for
+  // spell attacks, whose weapon-only riders (e.g. Archery) stay unresolved.
   | {
       kind: "attack";
       toHit?: number;
@@ -52,34 +37,26 @@ export type RollSpec =
     };
 
 export interface RollRequest {
-  // Identity for *this opening of the dialog*. Two jobs: it keys the dialog's
-  // contents, so yesterday's result can't linger in a freshly opened one (the
-  // components sit at the same tree position and would otherwise be reused),
-  // and it is the `exchangeId` every roll made inside is reported under — the
-  // to-hit and the damage of one swing are one act, and the DM reads them as
-  // one card.
+  // Identity for this opening of the dialog: keys its contents (avoids reuse
+  // at the same tree position) and is the `exchangeId` every roll inside is reported under.
   id: string;
   label: string;
   spec: RollSpec;
-  // Where this dialog's attempt numbering starts. Normally 0, but a dialog
-  // re-opened onto an existing exchange (answering a roll call a second time)
-  // must not report "attempt 1" again — the number is what makes a re-roll
-  // visible, and the dialog's own counter resets with each opening.
+  // Attempt numbering start; nonzero when re-opened onto an existing exchange
+  // so a re-roll doesn't report "attempt 1" again.
   attemptBase?: number;
 }
 
 interface RollerContextData {
   request: RollRequest | null;
-  // `id` may be supplied to aim the dialog at an existing exchange (a roll
-  // call's answer reports under the call's own id); omitted, each opening is
-  // its own exchange.
+  // `id` aims the dialog at an existing exchange (e.g. answering a roll
+  // call); omitted, each opening is its own exchange.
   openRoller: (request: Omit<RollRequest, "id"> & { id?: string }) => void;
   closeRoller: () => void;
 }
 
-// Rolling is a play-mode, read-only action, so it lives outside the edit-gated
-// targeted-field stack (see use-targeted-field.tsx). This is its own tiny modal
-// channel — at most one roll dialog open at a time.
+// Play-mode, read-only, so it lives outside the edit-gated targeted-field
+// stack. At most one roll dialog open at a time.
 const RollerContext = React.createContext<RollerContextData>({
   request: null,
   openRoller: () => {},

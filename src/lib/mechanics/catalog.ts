@@ -21,17 +21,9 @@ import {
   FeatureMechanics,
 } from "./types";
 
-// Mechanics for well-known features, keyed by normalized feature / ability
-// title (the same identity bridge the builder and Durable detection already
-// use — a structured mechanics field on the character model can replace the
-// title lookup later without touching the interpreters).
-//
-// As with the non-SRD content files: entries store only mechanical facts with
-// original summaries — never published prose. Reminder notes are paraphrases.
-//
-// Fidelity gaps are deliberate and commented — conditions the sheet can't see
-// (wielding style, proficiency of a given check) are approximated and noted,
-// because a wrong-but-visible rider beats silent absence at the table.
+// Mechanics for well-known features, keyed by normalized feature/ability title.
+// Entries store only mechanical facts with original summaries, never published
+// prose. Fidelity gaps (conditions the sheet can't see) are noted inline.
 
 const SLOT_CREATION_COSTS: Record<number, number> = {
   1: 2,
@@ -42,9 +34,8 @@ const SLOT_CREATION_COSTS: Record<number, number> = {
 };
 export { SLOT_CREATION_COSTS };
 
-// Font of Magic (PHB sorcerer): both directions are bonus actions. Creating a
-// slot costs points per the table above (nothing above 5th); converting an
-// unspent slot yields points equal to its level.
+// Font of Magic (PHB sorcerer): create/convert are both bonus actions.
+// Creating costs points per the table above; converting yields the slot's level.
 const FONT_OF_MAGIC: FeatureMechanics = {
   actions: [
     {
@@ -70,18 +61,17 @@ const FONT_OF_MAGIC: FeatureMechanics = {
   ],
 };
 
-// Exported for the builder's pool grants, which compose their own actions when
-// the shape isn't `spendRollRemind`'s (a temp-HP grant, say).
+// Exported for the builder's pool grants that compose their own actions
+// (e.g. a temp-HP grant) rather than using `spendRollRemind`.
 export const spendOneUse = {
   effect: "spendUses",
   amount: { fixed: 1 },
 } as const;
 
-// Build one "spend a use, optionally roll for display, then remind" action —
-// the shape behind most limited-use features. Callers bake structural scaling
-// (the dice `count`/`die`) from a level; modifiers stay formulas resolved at
-// roll time, so they aren't passed here. Shared by the catalog below and the
-// builder's pool grants (`class-pools.ts`).
+// Builds a "spend a use, optionally roll for display, then remind" action —
+// the shape behind most limited-use features. Callers bake dice scaling
+// (`count`/`die`) from a level; formula modifiers resolve at roll time.
+// Shared with the builder's pool grants (`class-pools.ts`).
 export const spendRollRemind = (opts: {
   id: string;
   name: string;
@@ -120,26 +110,21 @@ export const spendRollRemind = (opts: {
 });
 
 // A pool-less "action host": a feature that spends a *shared* resource owned by
-// a different ability (a Lore bard's Cutting Words draining Bardic Inspiration,
-// a monk discipline draining Ki). The host ability itself has `maxUses: 0` — it
-// owns no charges — so the display renders it as its action(s) alone, and the
-// `spendUses.pool` names the resource to drain by title. Optionally rolls a die
-// for display (the spent Bardic Inspiration die) before the reminder.
+// a different ability (Cutting Words draining Bardic Inspiration, a monk
+// discipline draining Ki). The host has `maxUses: 0`; `spendUses.pool` names
+// the resource to drain by title. Optionally rolls a die for display first.
 export const spendsSharedPool = (opts: {
   id: string;
   name: string;
   cost: ActionCost;
   costNote?: string;
-  // The pool ability's title to drain, e.g. "Bardic Inspiration", "Ki". Omit
-  // for an at-will feature that costs nothing and only rolls a die — a Spores
-  // druid's Halo of Spores, Song of Rest, Deflect Missiles. Those have no pool
-  // of their own *and* drain nobody else's, which previously left them with
-  // nowhere to live: `LimitedUseAbility` assumes a finite `maxUses`.
+  // The pool ability's title to drain (e.g. "Bardic Inspiration", "Ki"). Omit
+  // for an at-will feature with no pool of its own (Halo of Spores, Song of
+  // Rest, Deflect Missiles).
   pool?: string;
-  // Uses to spend (default 1) — a monk discipline may cost several Ki.
-  // `"choose"` offers a free-typed amount instead, capped at the pool's
-  // remaining uses: Twinned Spell costs the spell's level, which the sheet
-  // can't know, so the player says.
+  // Uses to spend (default 1). `"choose"` offers a free-typed amount instead,
+  // capped at the pool's remaining uses (e.g. Twinned Spell costs the spell's
+  // level, which the sheet can't know).
   amount?: number | "choose";
   roll?: { label: string; count?: number; die: DieDefinition };
   note: string;
@@ -191,10 +176,7 @@ export const spendsSharedPool = (opts: {
 });
 
 // An at-will feature that costs no resource and just rolls its die: Halo of
-// Spores, Song of Rest, Deflect Missiles. Same machinery as a shared-pool
-// spender minus the spend — named separately so the call sites read honestly,
-// since "spendsSharedPool with no pool" describes the implementation rather
-// than the feature.
+// Spores, Song of Rest, Deflect Missiles.
 export const atWillAction = (opts: {
   id: string;
   name: string;
@@ -235,8 +217,7 @@ const SLOT_RECOVERY: FeatureMechanics = {
 export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   // ---- Riders (feats, fighting styles, class features) ----
 
-  // Durable: hit-die healing has a floor of twice the CON modifier, itself at
-  // least 2 — expressible as one max() formula now that the engine has it.
+  // Durable: hit-die healing floors at twice the CON modifier, minimum 2.
   durable: {
     riders: [
       {
@@ -259,19 +240,15 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   },
 
   // Reliable Talent (rogue 11): d20s of 9 or lower count as 10. Fidelity gap:
-  // RAW applies only to *proficient* ability checks; the sheet applies it to
-  // every ability/skill check since the dialog doesn't know the source skill.
-  // (Saves are their own kind now, so at least those are correctly excluded.)
+  // RAW is proficient checks only; the sheet applies it to every check.
   "reliable talent": {
     riders: [
       { appliesTo: ["check"], rider: { rider: "minimumDie", value: 10 } },
     ],
   },
 
-  // Great Weapon Fighting style: reroll 1s and 2s on damage dice once, keeping
-  // the new roll. RAW wants a two-handed or versatile melee weapon, which the
-  // attack's tags now settle — a versatile weapon swung one-handed is correctly
-  // excluded, since `buildAttackFromPreset` only tags the (2H) variant.
+  // Great Weapon Fighting: reroll 1s and 2s on damage dice once. Requires the
+  // two-handed tag (`buildAttackFromPreset` only tags versatile weapons' 2H variant).
   "great weapon fighting": {
     riders: [
       {
@@ -285,11 +262,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Archery style: +2 to attack rolls with ranged weapons. Now applies on its
-  // own for a tagged attack, and falls back to an opt-in checkbox on an
-  // untagged one. A thrown *melee* weapon is excluded by the `ranged` tag
-  // alone — it's tagged `melee`+`thrown` — which is also RAW: Archery is a
-  // property of the weapon, not of the throw.
+  // Archery style: +2 to attack rolls with ranged weapons. A thrown melee
+  // weapon is tagged `melee`+`thrown`, so `ranged` correctly excludes it.
   archery: {
     riders: [
       {
@@ -304,12 +278,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Dueling style: +2 damage with a one-handed melee weapon while no other
-  // weapon is held. An `extraDamage` rider rather than a `bonus` one because
-  // that's the shape the damage section already offers opt-in — and a flat
-  // amount correctly stays flat on a crit (only dice double). Tags rule out the
-  // two-handed case; "no other weapon held" stays the player's call, so it
-  // remains `optional`.
+  // Dueling style: +2 damage with a one-handed melee weapon, no other weapon
+  // held (the latter isn't sheet-visible, hence `optional`).
   dueling: {
     riders: [
       {
@@ -326,12 +296,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Foe Slayer (ranger 20): once per turn, add your WIS modifier to *either*
-  // the attack roll or the damage roll against a favored enemy. Both halves are
-  // offered as opt-in riders so the player picks whichever the moment calls for
-  // — the note carries the "not both" the sheet can't enforce. Unlike the
-  // level-scaled riders in `classDamageRiders`, WIS is a formula leaf, so this
-  // needs no baking and lives here, keyed off the granted feature's title.
+  // Foe Slayer (ranger 20): once per turn, add WIS mod to either the attack
+  // or the damage roll against a favored enemy — "not both" is noted, not enforced.
   "foe slayer": {
     riders: [
       {
@@ -357,14 +323,12 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Eldritch invocations. They land on the sheet as feature rows, so the
-  // title-keyed map picks them up with no extra wiring. Only the three with
-  // arithmetic are here — the rest grant at-will spells or movement, which the
-  // prose already states and the engine has nothing to add to.
+  // Eldritch invocations: only the three with arithmetic are here — the rest
+  // grant at-will spells or movement with nothing for the engine to add.
 
-  // Agonizing Blast: +CHA to Eldritch Blast's damage. Opt-in rather than
-  // automatic because it applies to *one specific cantrip* and `spellDamage`
-  // scopes by cantrip-vs-leveled, not by which spell was cast.
+  // Agonizing Blast: +CHA to Eldritch Blast's damage. Opt-in because it
+  // applies to one specific cantrip, and `spellDamage` scopes by
+  // cantrip-vs-leveled rather than by which spell was cast.
   "agonizing blast": {
     riders: [
       {
@@ -406,7 +370,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
         appliesTo: ["damage"],
         rider: {
           rider: "extraDamage",
-          amount: [2, StandardDie.d8, DieOperation.roll], // before a slot is picked
+          amount: [2, StandardDie.d8, DieOperation.roll], // placeholder before a slot is picked
           damageType: DamageType.Force,
           declareAt: "on-hit",
           optional: true,
@@ -432,12 +396,11 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Spell-damage riders (see the `spellDamage` kind). `appliesTo` is a formality
-  // the `spellDamageRiders` collector ignores — it keys off the rider kind and
-  // the roll dialog scopes by the cast — so ["damage"] is convention only.
+  // Spell-damage riders (`spellDamage` kind). `appliesTo` is convention only —
+  // the `spellDamageRiders` collector keys off the rider kind instead.
 
-  // Potent Spellcasting (cleric domains without Divine Strike, druid Land at
-  // 14th): +WIS to the damage of any cantrip. Unconditional, so auto-applied.
+  // Potent Spellcasting (cleric domains without Divine Strike, druid Land 14):
+  // +WIS to the damage of any cantrip. Unconditional, so auto-applied.
   "potent spellcasting": {
     riders: [
       {
@@ -500,8 +463,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   },
 
   // Alchemical Savant (artificer 5): +INT to one roll of a spell cast with
-  // alchemist's supplies that heals or deals acid/fire/necrotic/poison. Only the
-  // damage half is modelled here; the healing half the sheet can't scope.
+  // alchemist's supplies that deals acid/fire/necrotic/poison. Only the
+  // damage half is modelled; the healing half the sheet can't scope.
   "alchemical savant": {
     riders: [
       {
@@ -518,8 +481,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   },
 
   // Arcane Firearm (artillerist 5): +1d8 to one damage roll of an artificer
-  // spell channelled through the firearm. A die, not a flat mod, so it inflates
-  // on a crit like any damage die.
+  // spell channelled through the firearm.
   "arcane firearm": {
     riders: [
       {
@@ -535,10 +497,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Reckless Attack (barbarian 2): still advisory — it's a choice you make on
-  // your turn, and it hands attackers advantage against you in return, which no
-  // sheet should quietly opt you into. The `requires` clause is what stops the
-  // note appearing on a longbow shot, where it isn't even an option.
+  // Reckless Attack (barbarian 2): advisory — grants attackers advantage
+  // against you in return, so it must be a player choice, not auto-applied.
   "reckless attack": {
     riders: [
       {
@@ -622,8 +582,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Action Surge (fighter): no action cost — grants an extra action on your
-  // turn. The extra action itself is a table fact, so it's a reminder.
+  // Action Surge (fighter): free, grants an extra action this turn.
   "action surge": {
     actions: [
       spendRollRemind({
@@ -637,9 +596,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   },
 
   // Rage (barbarian): the ongoing state (damage bonus, resistances) is a table
-  // condition, not sheet automation. The advantage is advisory — it applies
-  // only to Strength checks/saves and only while raging, neither of which the
-  // roll dialog can see.
+  // condition. The advantage is advisory — applies only while raging, which
+  // the roll dialog can't see.
   rage: {
     riders: [
       {
@@ -678,8 +636,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   },
 
   // Bardic Inspiration: this static entry only reminds; the builder-granted
-  // pool overrides it with a level-scaled die roll (d6→d12) — see
-  // class-pools.ts.
+  // pool overrides it with a level-scaled die roll (d6→d12), see class-pools.ts.
   "bardic inspiration": {
     actions: [
       spendRollRemind({
@@ -733,8 +690,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
 
   // Arcane Recovery (wizard) / Natural Recovery (land druid): once per day on
   // a short rest. Fidelity gap: RAW allows several slots with combined levels
-  // up to half class level; the sheet restores one slot per use of the pool
-  // (≤ 5th), which covers the common case — expand once multi-pick UI exists.
+  // up to half class level; the sheet restores one slot per use (≤ 5th).
   "arcane recovery": SLOT_RECOVERY,
   "natural recovery": SLOT_RECOVERY,
 
@@ -793,9 +749,9 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Hexblade's Curse (hexblade warlock): the mark rides the condition system —
-  // its `against` riders in CONDITION_MECHANICS pay the curser (and only the
-  // curser) the +PB damage and the widened crit range.
+  // Hexblade's Curse: the mark rides the condition system — its `against`
+  // riders in CONDITION_MECHANICS pay only the curser the +PB damage and
+  // widened crit range.
   "hexblade's curse": {
     actions: [
       spendRollRemind({
@@ -900,8 +856,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
 
   // Breath Weapon (dragonborn): damage type/shape follow the ancestry. This
   // static entry is a level-unaware fallback; the builder-granted racial pool
-  // overrides it with dice scaled to total character level — see class-pools.ts
-  // (syncRacePools re-derives it on level-up).
+  // overrides it with dice scaled to character level, see class-pools.ts.
   "breath weapon": {
     actions: [
       spendRollRemind({
@@ -936,8 +891,8 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
   },
 
   // Fighting Spirit (samurai fighter): temp HP + advantage this turn. This
-  // static entry grants the base 5; the builder-granted pool overrides it with
-  // level-scaled mechanics (10 at samurai 10, 15 at 15) — see class-pools.ts.
+  // static entry grants the base 5; the builder-granted pool scales it
+  // (10 at samurai 10, 15 at 15), see class-pools.ts.
   "fighting spirit": {
     actions: [
       {
@@ -956,11 +911,9 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Combat Superiority (battle master fighter): d8 superiority dice. This
-  // static entry pins d8; the builder-granted Battle Master pool overrides it
-  // with a level-scaled die (d10 at 10, d12 at 18) — see class-pools.ts. The
-  // Martial Adept feat's d6 pool is keyed separately below (its grant is
-  // titled "Superiority Die").
+  // Combat Superiority (battle master fighter): this static entry pins d8;
+  // the builder-granted pool scales the die (d10 at 10, d12 at 18), see
+  // class-pools.ts. Martial Adept's d6 pool is keyed separately below.
   "superiority dice": SUPERIORITY(StandardDie.d8),
   "combat superiority": SUPERIORITY(StandardDie.d8),
   "superiority die": SUPERIORITY(StandardDie.d6),
@@ -1014,7 +967,6 @@ export const RACE_MECHANICS: Record<string, FeatureMechanics> = {
   halfling: {
     riders: [
       {
-        // RAW: attack rolls, ability checks, and saving throws — all three.
         appliesTo: ["check", "attack", "save"],
         rider: { rider: "rerollBelow", threshold: 1 },
       },
@@ -1081,15 +1033,13 @@ export function mechanicsForAbility(
   return ability.mechanics ?? mechanicsForTitle(ability.info.title);
 }
 
-// Divine Strike's damage type, by cleric domain. `type: null` means the extra
-// damage is untyped from the sheet's point of view: War matches the weapon's
-// own type, and Nature is the player's choice per attack — both render as the
-// weapon's line rather than a fixed type.
+// Divine Strike's damage type, by cleric domain. `type: null` means untyped
+// from the sheet's point of view: War matches the weapon's own type, Nature
+// is the player's per-attack choice.
 //
-// Domains absent from this map get Potent Spellcasting at 8th instead of Divine
-// Strike (Knowledge, Light, Grave, Peace, Arcana), so they're deliberately not
-// listed rather than missing. Only Life is SRD; the rest are mechanical facts
-// with original wording, per the non-SRD rule.
+// Domains absent from this map get Potent Spellcasting at 8th instead of
+// Divine Strike (Knowledge, Light, Grave, Peace, Arcana). Only Life is SRD;
+// the rest are mechanical facts with original wording.
 const DIVINE_STRIKE_TYPES: Record<
   string,
   { type: DamageType | null; note?: string }
@@ -1112,13 +1062,11 @@ const DIVINE_STRIKE_TYPES: Record<
 };
 
 // Level-scaled `extraDamage` riders derived from the character's class levels.
-// These can't live in the static title-keyed map above: the dice *count* scales
-// with class level, and the engine's die count is a literal a formula can't
-// drive — so it must be baked from an integer level. The collector runs at roll
-// time with the character in hand, so it bakes it here (no storage on the
-// character, re-derives every roll). Eligibility follows the class levels — the
-// same thing the builder keyed each feature's prose to. `extraDamageRiders` in
-// `riders.ts` merges these with any authored `extraDamage` riders.
+// These can't live in the static title-keyed map: die count scales with class
+// level, and the engine's die count is a literal a formula can't drive, so it
+// must be baked from an integer level at roll time (no storage on the
+// character). `extraDamageRiders` in `riders.ts` merges these with any
+// authored `extraDamage` riders.
 export function classDamageRiders(character: Character): ActiveRider[] {
   const out: ActiveRider[] = [];
   const levelOf = (name: OfficialClass) =>
@@ -1129,9 +1077,9 @@ export function classDamageRiders(character: Character): ActiveRider[] {
     DieOperation.roll,
   ];
 
-  // Sneak Attack (rogue): ceil(level/2) d6 of the weapon's damage type, once per
-  // turn. Opt-in because its conditions — a finesse or ranged weapon, and either
-  // advantage or an ally adjacent to the target — aren't visible to the sheet.
+  // Sneak Attack (rogue): ceil(level/2) d6 of the weapon's damage type, once
+  // per turn. Opt-in because advantage/adjacent-ally isn't visible to the
+  // sheet; `requires` only hides it on a weapon that could never qualify.
   const rogue = levelOf(OfficialClass.Rogue);
   if (rogue > 0)
     out.push({
@@ -1143,19 +1091,12 @@ export function classDamageRiders(character: Character): ActiveRider[] {
         optional: true,
         oncePerTurn: true,
         note: "Finesse or ranged weapon, with advantage on the attack or an ally within 5 ft of the target (and not disadvantage).",
-        // The weapon half is decidable; the advantage/ally half never is, so it
-        // stays opt-in — the condition only hides it on a weapon that could
-        // never qualify (a greatsword).
         requires: { anyTags: ["finesse", "ranged"] },
       },
     });
 
-  // Rage damage (barbarian): +2/+3/+4 by level. The weapon half of the
-  // condition (melee, Strength, not thrown) is decidable from the attack's tags
-  // and hides this entirely on a bow; **whether you are raging is not** — it's a
-  // resource you spend, and the sheet tracks uses, not an active state (see the
-  // conditions/VTT-layer boundary). So it's `optional`: offered, unticked, on
-  // the attacks it could apply to, rather than silently added to every hit.
+  // Rage damage (barbarian): +2/+3/+4 by level. Whether you're raging is a
+  // spent resource, not visible sheet state, so it stays `optional`.
   const barb = levelOf(OfficialClass.Barbarian);
   if (barb > 0)
     out.push({
@@ -1166,17 +1107,15 @@ export function classDamageRiders(character: Character): ActiveRider[] {
         declareAt: "on-hit",
         optional: true,
         note: "While raging.",
-        // `thrown` isn't excluded: a handaxe is tagged melee+thrown because it
-        // *can* be thrown, and one sheet entry covers both uses — which swing
-        // this was is exactly the sort of thing the opt-in tick already asks.
+        // A handaxe is tagged melee+thrown (it *can* be thrown); the opt-in
+        // tick is what settles which use this swing was.
         requires: { tags: ["melee"], ability: [StatKey.str] },
       },
     });
 
   // Divine Smite (paladin 2+): expend a spell slot on a melee weapon hit for
   // 2d8 radiant, +1d8 per slot level above 1st (max 5d8), +1d8 vs undead or
-  // fiends. Opt-in and slot-powered — the modal shows a slot selector, bakes
-  // the dice from the chosen level, and expends the slot on an explicit button.
+  // fiends.
   const paladin = levelOf(OfficialClass.Paladin);
   if (paladin >= 2)
     out.push({
@@ -1215,9 +1154,7 @@ export function classDamageRiders(character: Character): ActiveRider[] {
     });
 
   // Divine Strike (cleric 8+): once per turn, a weapon hit deals an extra 1d8
-  // (2d8 at 14th) of the domain's damage type. The type is the whole reason
-  // this needs the subclass — see DIVINE_STRIKE_TYPES. Domains that get Potent
-  // Spellcasting instead simply have no entry, so nothing is offered.
+  // (2d8 at 14th) of the domain's damage type — see DIVINE_STRIKE_TYPES.
   const cleric = levelOf(OfficialClass.Cleric);
   const domain = character.class.find(
     (k) => k.name === OfficialClass.Cleric,
@@ -1229,9 +1166,7 @@ export function classDamageRiders(character: Character): ActiveRider[] {
       rider: {
         rider: "extraDamage",
         amount: [cleric >= 14 ? 2 : 1, StandardDie.d8, DieOperation.roll],
-        // `null` marks a domain whose type is the weapon's own (War) or the
-        // player's per-attack choice (Nature) — both mean "leave it untyped",
-        // which is exactly what omitting `damageType` does.
+        // `null` (War/Nature) means untyped, i.e. omit `damageType`.
         ...(strike.type ? { damageType: strike.type } : {}),
         declareAt: "on-hit",
         oncePerTurn: true,
@@ -1239,10 +1174,8 @@ export function classDamageRiders(character: Character): ActiveRider[] {
       },
     });
 
-  // Ranger archetype strikes: all three scale on *ranger* level at 11th, and
-  // all three are subclass-gated, so — like Divine Strike — they can't live in
-  // the static title-keyed map. Table-driven because the shape is identical;
-  // only the die, type, and prose differ.
+  // Ranger archetype strikes: all three scale on ranger level at 11th and are
+  // subclass-gated, so they can't live in the static title-keyed map.
   const ranger = levelOf(OfficialClass.Ranger);
   const conclave = character.class.find(
     (k) => k.name === OfficialClass.Ranger,
@@ -1268,12 +1201,10 @@ export function classDamageRiders(character: Character): ActiveRider[] {
     });
   }
 
-  // Psychic Blades (College of Whispers bard 3+): once per turn on a weapon hit,
-  // expend a use of Bardic Inspiration for level-scaled psychic damage. The one
-  // rider whose cost is *another* feature's pool, which is why it carries `uses`
-  // — the dialog ticks it, rolls it with the weapon, and spends the inspiration
-  // on its own button. It can't live in the title-keyed map: the Soulknife rogue
-  // has a feature by the same name that works nothing like it.
+  // Psychic Blades (College of Whispers bard 3+): once per turn on a weapon
+  // hit, expend a use of Bardic Inspiration for level-scaled psychic damage.
+  // Costs another feature's pool, hence `uses`. Can't live in the title-keyed
+  // map: the Soulknife rogue has a feature by the same name.
   const bard = levelOf(OfficialClass.Bard);
   if (
     bard >= 3 &&
@@ -1299,8 +1230,8 @@ export function classDamageRiders(character: Character): ActiveRider[] {
 
 // The three ranger archetypes whose signature strike is level-scaled extra
 // damage, starting at one die at 3rd. They step differently at 11th — two grow
-// the *die* (1d4→1d6, 1d6→1d8) and one the *count* (1d8→2d8) — so `at11` names
-// whichever half moves and leaves the other at its base.
+// the die (1d4→1d6, 1d6→1d8), one the count (1d8→2d8) — so `at11` names
+// whichever half moves.
 const RANGER_ARCHETYPE_STRIKES: Record<
   string,
   {

@@ -10,9 +10,7 @@ import { applyLevelUp, defaultLevelUpState } from "src/lib/builder/level-up";
 import { Character } from "src/lib/types";
 import LevelUpWizard from "./level-up-wizard";
 
-// Which steps the wizard shows is decided by `visible` predicates that read
-// `grantsAt`. Those predicates and the step bodies used to be written twice and
-// could disagree; these tests pin the routing so they can't drift again.
+// Pins which steps the wizard shows, decided by `visible` predicates reading `grantsAt`.
 
 const level1 = (classIndex: string, extra = {}) =>
   buildCharacter({

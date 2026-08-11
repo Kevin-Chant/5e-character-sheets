@@ -135,8 +135,7 @@ describe("getHpFormula", () => {
 describe("officialSpellcastingClasses", () => {
   it("keeps only official spellcasting classes", () => {
     const c = wizard(9);
-    // First entry resolves to the character's Wizard class; the second references
-    // no class on the sheet, so it resolves to nothing and is filtered out.
+    // The second entry references no class on the sheet, so it's filtered out.
     c.spellcastingClasses = [
       { classId: c.class[0].id },
       { classId: randomUUID() },
@@ -329,9 +328,9 @@ describe("countAttunedItems", () => {
     expect(
       countAttunedItems([
         item({ attunement: { attuned: true } }),
-        item({ attunement: { attuned: false } }), // requires attunement, not attuned
+        item({ attunement: { attuned: false } }),
         item({ attunement: { attuned: true } }),
-        item({}), // no attunement at all
+        item({}),
       ]),
     ).toBe(2);
   });
@@ -450,11 +449,9 @@ describe("weight unit conversion", () => {
 describe("spell slot accounting", () => {
   it("clamps a stored expended count that exceeds the total", () => {
     const c = wizard(9);
-    // Spend all three 3rd-level slots, then lose the levels that granted them.
     c.spellSlots[3].expended = 3;
     expect(availableSpellSlots(c, 3)).toBe(0);
     c.spellSlots[3].totalOverride = 1;
-    // The stored 3 is now impossible; reads clamp rather than going negative.
     expect(expendedSpellSlots(c, 3)).toBe(1);
     expect(availableSpellSlots(c, 3)).toBe(0);
   });
@@ -464,7 +461,6 @@ describe("spell slot accounting", () => {
     c.spellSlots[3].expended = 3;
     c.spellSlots[3].totalOverride = 1;
     expect(expendedSpellSlots(c, 3)).toBe(1);
-    // Clamping is read-side only, so the original 3 is still there.
     c.spellSlots[3].totalOverride = undefined;
     expect(expendedSpellSlots(c, 3)).toBe(3);
   });
@@ -528,8 +524,6 @@ describe("preparedSpellCount", () => {
       1: [spell(true, klass.id), spell(false, klass.id), spell(true, other)],
       2: [spell(true, klass.id)],
     } as typeof char.spells;
-    // One at level 1 and one at level 2: the unticked one, the other class's,
-    // and the cantrip are all excluded.
     expect(preparedSpellsFor(char, klass.id)).toBe(2);
   });
 });

@@ -7,9 +7,7 @@ import {
   turnActions,
 } from "src/lib/play/turn-actions";
 
-// A neutral base: `defaultCharacter` ships mid-adventuring-day (see the rest
-// system's decision record), so anything asserting on availability has to reset
-// the play state it arrives with.
+// defaultCharacter ships mid-adventuring-day; reset play state for availability tests.
 function baseCharacter(): Character {
   const character = structuredClone(defaultCharacter) as Character;
   character.attacks = [];
@@ -18,8 +16,6 @@ function baseCharacter(): Character {
   return character;
 }
 
-// `TextComponent` carries a formula list alongside its title; nothing here
-// exercises formulas, so every fixture gets an empty one.
 function text(title: string) {
   return { title, titleFormulas: [] };
 }
@@ -138,7 +134,7 @@ describe("turnActions", () => {
 
   it("dims a prepared caster's unprepared spells rather than hiding them", () => {
     const character = baseCharacter();
-    // The default character's first class is a Paladin — a prepared caster.
+    // Default character's first class is a Paladin (prepared caster).
     character.spells = {
       0: [spell({ info: text("Light") })],
       1: [
@@ -147,8 +143,6 @@ describe("turnActions", () => {
       ],
     };
     const actions = turnActions(character);
-    // Every spell is still on the board — an empty board is worse than a
-    // truthful one.
     expect(actions.map((a) => a.name)).toEqual(["Light", "Bless", "Heroism"]);
     const heroism = actions.find((a) => a.name === "Heroism");
     expect(heroism?.available).toBe(false);

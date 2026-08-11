@@ -6,8 +6,7 @@ import {
   ROUTE_NAMES,
 } from "./modal-routing";
 
-// Pins every branch the old if/else chain in charsheet.tsx had, so the routing
-// can be changed with something other than hope.
+// Pins every routing branch so it can be changed with something other than hope.
 
 describe("resolveModalType", () => {
   it("falls back to the field's own editor when no rule matches", () => {
@@ -94,10 +93,7 @@ describe("resolveModalType", () => {
     for (const sub of [
       "0.info.titleFormulas.0",
       "0.maxUses",
-      // The save DC — this exact path used to reopen the ability editor.
       "0.save.dc",
-      // The recharge amount — same bug, one field later: falling through to
-      // the ability editor renders an empty modal for a formula sub-path.
       "0.restore",
     ])
       expect(resolveModalType(FIELD.limitedUseAbilities, sub), sub).toBe(
@@ -108,7 +104,6 @@ describe("resolveModalType", () => {
   it("routes an item-owned ability's formula leaves", () => {
     for (const sub of ["0.ability.maxUses", "0.ability.restore"])
       expect(resolveModalType(FIELD.equipment, sub), sub).toBe("formula");
-    // …but the item itself still opens the item editor.
     expect(resolveModalType(FIELD.equipment, "0")).toBe("equipment");
   });
 
@@ -119,7 +114,6 @@ describe("resolveModalType", () => {
     expect(resolveModalType(FIELD.spells, "1.0.info.detailFormulas.0")).toBe(
       "formula",
     );
-    // …but a spell itself opens the spell editor.
     expect(resolveModalType(FIELD.spells, "1.0")).toBe("spell");
   });
 
@@ -132,8 +126,6 @@ describe("resolveModalType", () => {
 
 describe("the route table", () => {
   it("has no unreachable rule", () => {
-    // Each rule must be the *first* match for at least one real path, or it's
-    // shadowed by an earlier one and only looks load-bearing.
     const samples: [FIELD, string | undefined][] = [
       [FIELD.attacks, "new"],
       [FIELD.attacks, "0.formula"],

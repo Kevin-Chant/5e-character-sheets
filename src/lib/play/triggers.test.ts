@@ -54,8 +54,6 @@ describe("matchesTrigger", () => {
     expect(matchesTrigger("Initiative", "dawn")).toBe(false);
   });
 
-  // The rest planner owns rest triggers. A homebrew "Long rest or dawn" must
-  // not be restored by both planners.
   it("leaves rest triggers to the rest planner", () => {
     expect(matchesTrigger("Long Rest", "dawn")).toBe(false);
     expect(matchesTrigger("Short Rest", "combatStart")).toBe(false);
@@ -89,7 +87,6 @@ describe("planTrigger", () => {
     ]);
   });
 
-  // "Regains 1d3 expended charges daily at dawn" — the magic-item pattern.
   it("rolls a partial restore when the pool carries a restore formula", () => {
     const character = characterWith([
       {
@@ -129,8 +126,6 @@ describe("planTrigger", () => {
     expect(plan.changes[0].detail).toBe("Restored 1 (rolled) — now 7 of 7");
   });
 
-  // A receipt that lists things which didn't change is how the rest panel's
-  // first version told a hurt player "nothing to restore".
   it("says nothing about a pool that is already full", () => {
     const character = characterWith([
       { title: "Arcane Ward", recharge: "Dawn", max: 4, expended: 0 },
@@ -145,8 +140,6 @@ describe("planTrigger", () => {
       { title: "Luck Blade", recharge: "Every 7 days", max: 1, expended: 1 },
     ]);
     const plan = planTrigger(character, "dawn");
-    // First dawn after the use: the countdown seeds from the interval and
-    // ticks once; nothing comes back yet.
     expect(plan.updates).toHaveLength(1);
     expect(plan.updates[0].payload.value).toBe(6);
     expect(plan.changes).toEqual([
@@ -169,7 +162,6 @@ describe("planTrigger", () => {
       },
     ]);
     const plan = planTrigger(character, "dawn");
-    // Two updates: the pool refills and the countdown clears.
     expect(plan.updates).toHaveLength(2);
     expect(plan.updates[0].payload.value).toBe(0);
     expect(plan.updates[1].payload.value).toBeUndefined();
@@ -191,7 +183,6 @@ describe("planTrigger", () => {
     const character = characterWith([
       { title: "Arcane Ward", recharge: "Dawn", max: 4, expended: 0 },
     ]);
-    // True even when full — the control should exist, it just does nothing yet.
     expect(hasTriggerFor(character, "dawn")).toBe(true);
     expect(hasTriggerFor(character, "combatStart")).toBe(false);
   });
@@ -219,7 +210,6 @@ describe("rechargeIntervalDays", () => {
     expect(rechargeIntervalDays("")).toBeUndefined();
   });
 
-  // The phrase match must not full-restore what the countdown owns.
   it("keeps interval triggers out of the plain dawn match", () => {
     expect(matchesTrigger("Every 7 days", "dawn")).toBe(false);
   });
@@ -231,7 +221,6 @@ describe("tickDawn", () => {
       { title: "Luck Blade", recharge: "Every 7 days", max: 1, expended: 1 },
     ]);
     const ability = character.limitedUseAbilities[0];
-    // A gritty-realism long rest spans 7 dawns — the whole interval.
     const tick = tickDawn(character, ability, 0, 7);
     expect(tick?.restored).toBe(1);
     expect(tick?.newExpended).toBe(0);

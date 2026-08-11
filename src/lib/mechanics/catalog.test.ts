@@ -140,10 +140,8 @@ describe("catalog integrity", () => {
   });
 });
 
-// The ranger archetype strikes are the only riders that scale on class level
-// *and* gate on the subclass, so they're baked at roll time rather than living
-// in the title-keyed map. Two of the three step their die at 11th and one steps
-// its count, which is the part worth pinning down.
+// These riders scale on class level and gate on subclass, so they're baked
+// at roll time rather than living in the title-keyed map.
 describe("ranger archetype strikes", () => {
   const ranger = (subclass: string, level: number): Character => {
     const c = structuredClone(defaultCharacter);

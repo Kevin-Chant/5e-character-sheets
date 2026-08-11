@@ -10,18 +10,13 @@ import { isValidSessionCode, normalizeSessionCode } from "src/lib/play/session";
 import { playPathFor } from "src/lib/play/rejoin";
 import { sessionMemoryFor } from "src/lib/play/session-memory";
 
-// `/join/<code>` — the invite link, and the one destination for a pasted code.
+// `/join/<code>` — the invite link, and the one destination for a pasted
+// code. Takes both kinds of code (game or shared sheet); which realm
+// answers is what tells them apart, so the probe runs here and the two
+// flows diverge after it.
 //
-// A DM pastes this URL into the group chat and is done: the player who has
-// never opened the app clicks it and lands on the lobby for the right table,
-// having answered nothing. That's the whole point of the route existing, and
-// it's why it takes *both* kinds of code. Which realm answers is what tells a
-// game from a shared sheet apart (shape can't — both are uuids), so the probe
-// runs here and the two flows diverge after it, invisibly.
-//
-// Hosting side note: this is a client-side path over a static bucket, so it
-// only resolves because the CloudFront distribution rewrites 403/404 to
-// `/index.html`. That was already true for the app's other routes.
+// Client-side path over a static bucket: resolves because CloudFront
+// rewrites 403/404 to `/index.html`.
 
 type Resolution =
   | { state: "checking" }
@@ -42,8 +37,6 @@ export default function JoinSession() {
     state: "checking",
   });
 
-  // Clicking the same link twice mid-game shouldn't take a seat away from
-  // whoever is already sitting in it — we're already there.
   const code = raw ? normalizeSessionCode(raw) : undefined;
   const alreadyHere = sessionStatus === "connected" && sessionCode === code;
   useEffect(() => {
@@ -61,13 +54,9 @@ export default function JoinSession() {
     detectSessionKind(liveEditHost, code).then((kind) => {
       if (!current) return;
       if (kind === "editing") {
-        // A shared *sheet* is a different object with a different joiner, and
-        // it hands back a whole character rather than a seat at a table.
+        // A shared sheet hands back a whole character, not a seat at a table.
         navigate("/join", { replace: true, state: { code } });
       } else if (kind === "unreachable") {
-        // The sidecar didn't answer at all. The old socket probe couldn't
-        // tell this from a closed realm, and told the player to check a code
-        // that was fine.
         setResolution({ state: "unreachable" });
       } else if (kind) {
         setResolution({ state: "game", code });
@@ -98,11 +87,7 @@ export default function JoinSession() {
     );
   }
 
-  // A code whose realm has closed. For the DM who ran that table this isn't an
-  // error at all — it's next Thursday. Reopening the same code is what keeps
-  // the link they handed out a year ago working, so the offer is made to the
-  // one browser that can prove it ran the table: the one that remembers doing
-  // so. For everyone else it stays what it is, a table nobody has opened yet.
+  // Offer reopening only to the browser that remembers running this table.
   const wasOurs =
     resolution.state === "missing" &&
     sessionMemoryFor(resolution.code)?.seat === "dm";

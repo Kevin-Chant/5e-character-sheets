@@ -2,60 +2,39 @@ import { UUID } from "crypto";
 import { readLocalStorage, writeLocalStorage } from "src/lib/local-storage";
 import { normalizeSessionCode } from "src/lib/play/session";
 
-// What this browser remembers about the games it has been in.
-//
-// There is already a memory of joined sessions on the character
-// (`Character.playSessions`), and it stays: it travels with the sheet, so a
-// player who opens Brakka on a different machine still sees Brakka's games.
-// This one answers a different question, and neither can answer the other's:
-//
-//  - **A DM has no character.** The one persona that most needs a rejoin
-//    shortcut is the one with nothing to hang it on.
-//  - **The front door renders before any datastore does.** Drive takes an OAuth
-//    round-trip and a list fetch; a resume strip that waits for that is a resume
-//    strip nobody sees.
-//  - **"Which sheet did I bring last time" is a fact about this browser's
-//    choice**, not about the sheet — and it's the whole of the returning
-//    player's flow, which is otherwise re-answered every week.
-//
-// So: keyed by code, written only after a connection actually succeeded (a code
-// recorded when it's typed is a list of typos), and merged rather than replaced
-// so the entry can be filled in by whichever surface knows each part.
+// What this browser (not the character — see `Character.playSessions`)
+// remembers about games it has joined. Needed because a DM has no character
+// to hang a memory on, and the front door renders before any datastore does.
+// Keyed by code, written only after a connection succeeds, merged rather
+// than replaced so different surfaces can each fill in their own part.
 
 export type SessionSeat = "dm" | "player";
 
 export interface SessionMemory {
   code: string;
-  // Epoch ms. Orders the list — one uuid looks much like another.
   lastJoined: number;
   seat?: SessionSeat;
-  // The sheet this browser played. The name rides along so the resume strip can
-  // say "as Brakka" without loading a datastore to look it up.
+  // Name rides along so the resume strip can say "as Brakka" without a
+  // datastore lookup.
   playAsUuid?: UUID;
   playAsName?: string;
   // Sheets a DM put into the order without opening.
   broughtUuids?: UUID[];
   // What a sheetless joiner asked to be called.
   displayName?: string;
-  // What the DM calls this table. Local to this browser and optional: it exists
-  // because a DM who runs two campaigns otherwise gets two rows reading "the
-  // game you're running", told apart only by eight characters of uuid. It does
-  // not cross the wire — naming a table for everyone is a protocol change, and
-  // the person who needs the label is the person who has two of them.
+  // Local-only label so a DM running two campaigns can tell the rows apart;
+  // never crosses the wire.
   title?: string;
 }
 
-// A game night or two, not a backlog — past that the list stops being a
-// shortcut and becomes something to read. Deliberately larger than the
-// per-character `REMEMBERED_SESSIONS`, because a DM's list is every table they
-// run rather than one character's.
+// Larger than per-character REMEMBERED_SESSIONS: a DM's list spans every
+// table they run, not one character's games.
 export const REMEMBERED_LOCAL_SESSIONS = 8;
 
 const SESSION_MEMORY_KEY = "playSessionMemory";
 
-// Merge an entry into the list, newest first. Merging (rather than replacing)
-// is what lets the connect effect record the code while the lobby records what
-// was brought, without either needing to know about the other.
+// Merge (not replace) so e.g. the connect effect can record the code while
+// the lobby separately records what was brought.
 export function recordSession(
   sessions: SessionMemory[],
   entry: SessionMemory,
@@ -79,9 +58,8 @@ export function dropSession(
 
 export function readSessionMemory(): SessionMemory[] {
   const stored = readLocalStorage(SESSION_MEMORY_KEY, []);
-  // Anything could be in localStorage — an older shape, or a hand-edit. A
-  // resume strip is a convenience, so a bad entry is dropped rather than
-  // thrown: the worst case is one missing shortcut.
+  // Bad/old-shape entries are dropped, not thrown, since this is a
+  // convenience list.
   if (!Array.isArray(stored)) return [];
   return stored.filter(
     (entry): entry is SessionMemory =>
@@ -102,14 +80,9 @@ export function forgetSessionLocally(code: string) {
   writeLocalStorage(SESSION_MEMORY_KEY, dropSession(readSessionMemory(), code));
 }
 
-// The sheet this browser last actually played, at any table.
-//
-// Needed because a code is not durable the way a character is: a realm exists
-// only while somebody is connected, so a DM who doesn't deliberately reopen
-// last week's code sends a brand-new one every session. Keyed memory has
-// nothing to say about a code it has never seen — but "you played Brakka last
-// game" is still true, and it's the whole of what the returning player wanted
-// remembered.
+// The sheet this browser last played, at any table — independent of code,
+// since a realm's code doesn't persist between sessions the way a character
+// does.
 export function lastPlayedCharacter():
   | { uuid: UUID; name?: string }
   | undefined {

@@ -1,20 +1,16 @@
 import classNames from "classnames";
 import { RestChange, RestPlan } from "src/lib/rest";
 
-// The reckoning of a rest: what comes back on the left, what stays spent on the
-// right. Deliberately the same component before and after the rest is taken —
-// a forecast becomes a receipt, with the markers switching from "will" to
-// "did" — so nothing about a rest happens off-screen.
+// What comes back vs. what stays spent. Used both as a pre-rest forecast and
+// a post-rest receipt (markers switch "will"/"did").
 //
-// Restored vs. withheld is carried by marker and ink weight, NOT by hue: this
-// sheet reserves colour for meaning (crimson = life, amethyst = magic), and a
-// third semantic colour here would blur a map that already works.
+// Restored vs. withheld is carried by marker and ink weight, not hue — this
+// sheet reserves colour for meaning (crimson = life, amethyst = magic).
 export default function RestLedger({
   plan,
   committed,
-  // Entry keys to leave out. The hit dice tray takes over the HP story once it's
-  // on screen, and a ledger line still reading "21/56 — spend hit dice to heal"
-  // beside a tray that has already healed you to 33 is just a stale duplicate.
+  // Entry keys to leave out — the hit dice tray takes over the HP story once
+  // it's on screen.
   omit = [],
 }: {
   plan: RestPlan;
@@ -36,10 +32,7 @@ export default function RestLedger({
     <div className="rest-ledger">
       {changes.length > 0 && (
         <Column
-          // Not "Restored": most entries are restorations, but expiring
-          // temporary hit points is a rest effect too, and filing that under
-          // "restored" would be wrong. "What changes" covers both honestly, and
-          // the ✓ after the fact carries the affirmative.
+          // Not "Restored": expiring temp HP is a rest effect too, not a restoration.
           title={committed ? "What changed" : "What changes"}
           entries={changes}
           marker={committed ? "✓" : "◆"}

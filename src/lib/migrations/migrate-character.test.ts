@@ -8,7 +8,6 @@ import { reconcileCharacterContent } from "./reconcile-content";
 
 describe("migrateCharacter", () => {
   it("upgrades a pre-versioning (v0) character to a schema-valid current one", () => {
-    // A character from before schemaVersion existed: strip the field entirely.
     const { schemaVersion: _omit, ...v0 } = structuredClone(defaultCharacter);
     void _omit;
 
@@ -37,7 +36,6 @@ describe("migrateCharacter", () => {
   });
 
   it("v3 parses a legacy race string into a structured race object", () => {
-    // A real v2 character had a flat numeric `speed` and no `speeds`/`senses`.
     const {
       speeds: _s,
       senses: _n,
@@ -57,8 +55,6 @@ describe("migrateCharacter", () => {
       subrace: "High Elf",
       size: "Medium",
     });
-    // Flat speed → structured speeds.walk; the old field is dropped; senses start
-    // empty (a legacy save has no structured senses).
     expect(migrated.speeds).toEqual({ walk: 35 });
     expect(migrated.speed).toBeUndefined();
     expect(migrated.senses).toEqual({});
@@ -95,8 +91,6 @@ describe("migrateCharacter", () => {
           },
         ],
       },
-      // A limited-use pool scaled by "Wizard level" (bare class-name leaf) and a
-      // spellMod leaf carrying the class name.
       limitedUseAbilities: [
         {
           info: { title: "Arcane Recovery", titleFormulas: [] },
@@ -114,7 +108,6 @@ describe("migrateCharacter", () => {
       abilityOverride: "int",
     });
     expect(migrated.spells[0][0].spellcastingClass).toBe(wizardId);
-    // Bare class-name leaf became an id-tagged classLevel leaf.
     expect(migrated.limitedUseAbilities[0].maxUses).toEqual({
       classLevel: wizardId,
     });
@@ -136,7 +129,6 @@ describe("migrateCharacter", () => {
     expect(migrated.ammunition).toEqual([]);
     expect(typeof migrated.attacks[0].id).toBe("string");
     expect(typeof migrated.attacks[1].id).toBe("string");
-    // Distinct ids per attack.
     expect(migrated.attacks[0].id).not.toBe(migrated.attacks[1].id);
     const [valid] = validateCharacterData(migrated);
     expect(valid).toBe(true);
@@ -177,7 +169,6 @@ describe("migrateCharacter", () => {
     };
     const migrated = migrateCharacter(legacy);
     expect(migrated.equipment).toHaveLength(2);
-    // The original TextComponent is preserved verbatim under `text`.
     expect(migrated.equipment[0].text).toEqual({
       title: "Rope",
       titleFormulas: [],
@@ -188,7 +179,6 @@ describe("migrateCharacter", () => {
     });
     expect(typeof migrated.equipment[0].id).toBe("string");
     expect(migrated.equipment[1].text.detail).toBe("10");
-    // Distinct ids per item; no attunement/weight added.
     expect(migrated.equipment[0].id).not.toBe(migrated.equipment[1].id);
     expect(migrated.equipment[0].attunement).toBeUndefined();
     const [valid] = validateCharacterData(migrated);
@@ -249,7 +239,6 @@ describe("v12 — inspiration becomes a boolean", () => {
 
   it("reads any stored count above zero as holding inspiration", () => {
     expect(migrateCharacter(atV11(1)).inspiration).toBe(true);
-    // A table that house-ruled stacking loses the count, not the fact.
     expect(migrateCharacter(atV11(3)).inspiration).toBe(true);
   });
 
@@ -265,9 +254,8 @@ describe("v12 — inspiration becomes a boolean", () => {
 
 describe("hydrateCharacter", () => {
   it("accepts a fully current character without reporting a migration", () => {
-    // Pre-reconciled: hydrate also backfills catalog-derived pools, and the
-    // default template is missing some (its race's innate spells), which would
-    // legitimately report as a change.
+    // Pre-reconciled: hydrate also backfills catalog-derived pools, which the
+    // default template is missing some of.
     const current = structuredClone(defaultCharacter);
     reconcileCharacterContent(current);
     const result = hydrateCharacter(current);

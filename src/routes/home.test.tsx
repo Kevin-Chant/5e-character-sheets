@@ -11,10 +11,8 @@ import { writeLastCharacter } from "src/lib/last-character";
 import { writeLastDatastore } from "src/lib/last-datastore";
 import { rememberSessionLocally } from "src/lib/play/session-memory";
 
-// The front door is the one screen every persona meets, and the only screen
-// whose job is to *not* be the same for all of them. These tests pin the four
-// arrivals it has to tell apart: someone brand new, someone holding a code,
-// a player coming back to their table, and the DM coming back to run it.
+// Pins the four arrivals the front door tells apart: brand new, holding a
+// code, a player returning to their table, and the DM returning to run it.
 
 const CODE = "3f8a91c2-7d14-4a9b-9c02-5e8f1b6a4d33";
 const BRAKKA = "11111111-2222-3333-4444-555555555555" as UUID;

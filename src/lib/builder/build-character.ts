@@ -64,19 +64,16 @@ const DIE_BY_FACES: Record<number, StandardDie> = {
   12: StandardDie.d12,
 };
 
-// Map an SRD race's free-text size label ("Medium", "Small") onto the Size enum,
-// defaulting to Medium for anything unrecognized (homebrew, missing data).
+// Maps an SRD race's free-text size label onto the Size enum; defaults to
+// Medium for anything unrecognized.
 const sizeFromLabel = (label?: string): Size =>
   (Object.values(Size) as string[]).includes(label ?? "")
     ? (label as Size)
     : Size.Medium;
 
-// Damage resistances certain racial traits confer, keyed by normalized trait
-// title — so Hellish Resistance lands as a structured Fire resistance, not
-// just prose. Dragonborn's Damage Resistance is ancestry-dependent and stays
-// prose-only (the sheet doesn't model the ancestry choice yet).
-// A few resistance traits name the damage type only in the feature title, not
-// the prose the generic scanner reads — keep an explicit map for those.
+// Resistances named only in a trait's title, not its prose, so the generic
+// scanner below misses them. Dragonborn's Damage Resistance is
+// ancestry-dependent and stays prose-only.
 const TRAIT_RESISTANCES: Record<string, DamageType[]> = {
   "hellish resistance": [DamageType.Fire],
   "dwarven resilience": [DamageType.Poison],
@@ -84,15 +81,12 @@ const TRAIT_RESISTANCES: Record<string, DamageType[]> = {
   "celestial resistance": [DamageType.Necrotic, DamageType.Radiant],
 };
 
-// Damage words → DamageType, for scanning trait prose ("resistance to cold
-// damage", "immunity to poison").
+// Damage words → DamageType, for scanning trait prose.
 const DAMAGE_BY_WORD = new Map<string, DamageType>(
   Object.values(DamageType).map((dt) => [String(dt).toLowerCase(), dt]),
 );
 
-// Pull damage types out of a trait's sentences that mention `keyword`
-// (resistan… / immun…). Sentence-scoped so an unrelated damage word elsewhere
-// in the trait isn't swept in.
+// Sentence-scoped so an unrelated damage word elsewhere in the trait isn't swept in.
 const damageTypesForKeyword = (
   traits: TextComponent[],
   keyword: RegExp,
@@ -127,10 +121,8 @@ const resistancesFromTraits = (traits: TextComponent[]): DamageType[] => {
 const immunitiesFromTraits = (traits: TextComponent[]): DamageType[] =>
   damageTypesForKeyword(traits, /immun/i);
 
-// Pull a darkvision range out of a race's traits. SRD traits title the feature
-// "Darkvision" and put the range in the detail prose ("…within 60 feet…"), so
-// scan both; a darkvision trait with no explicit number defaults to 60 (the
-// standard range). Undefined when the race grants no darkvision at all.
+// SRD traits title the feature "Darkvision" and put the range in the detail
+// prose, so scan both; no explicit number defaults to 60 ft.
 const darkvisionFromTraits = (traits: TextComponent[]): number | undefined => {
   for (const t of traits) {
     const text = `${t.title} ${isTextComponentWithDetail(t) ? t.detail : ""}`;
@@ -143,8 +135,7 @@ const darkvisionFromTraits = (traits: TextComponent[]): number | undefined => {
 };
 
 // Seed fly/swim/climb speeds from race/subrace trait text (Aarakocra's Flight,
-// Triton/Water Genasi/Sea Elf swim, Tabaxi climb, Fairy/Owlin "equal to your
-// walking speed"). Editable afterward like every seeded value.
+// Triton swim, Tabaxi climb, Fairy/Owlin "equal to your walking speed").
 const speedsFromTraits = (
   traits: TextComponent[],
   walk: number,
@@ -171,16 +162,11 @@ const speedsFromTraits = (
   return out;
 };
 
-// Turn a race's natural-weapon traits into rollable attacks — a Lizardfolk's
-// Bite, a Tabaxi's Cat's Claws, a Minotaur's Horns. The traits already state
-// their own numbers in a consistent shape ("…natural weapon(s) dealing 1d6 +
-// Strength piercing damage…"), so this reads the prose rather than duplicating
-// the table beside it, exactly as `resistancesFromTraits` and `speedsFromTraits`
-// do. Requiring the words "natural weapon" is what keeps conditional attacks out
-// — a Shifter's bite exists only while shifted, and says so instead.
-//
-// The attack is seeded once at creation and editable like any other; nothing
-// re-derives it, because no natural weapon scales with level.
+// Turn a race's natural-weapon traits into rollable attacks. Traits state
+// their numbers in a consistent shape ("…natural weapon(s) dealing 1d6 +
+// Strength piercing damage…"). Requiring the words "natural weapon" excludes
+// conditional attacks like a Shifter's bite (only while shifted).
+// Seeded once at creation; nothing re-derives it since no natural weapon scales with level.
 const NATURAL_WEAPON =
   /natural weapons?\b[^.]*?(\d+)d(\d+)\s*\+\s*(\w+)\s+(\w+)\s+damage/i;
 
@@ -213,7 +199,7 @@ const naturalWeaponAttacks = (traits: TextComponent[]): Attack[] => {
   return out;
 };
 
-// Ability names as the trait prose spells them, for the scanner above.
+// Ability names as trait prose spells them, for the scanner above.
 const STAT_BY_NAME: Record<string, StatKey> = {
   strength: StatKey.str,
   dexterity: StatKey.dex,
@@ -223,10 +209,8 @@ const STAT_BY_NAME: Record<string, StatKey> = {
   charisma: StatKey.cha,
 };
 
-// Rewrite a Dragonborn's ancestry-dependent traits (Draconic Ancestry, Breath
-// Weapon, Damage Resistance) with the specifics of the chosen dragon, so the
-// concrete damage type/shape/save show on the sheet — and, because
-// `resistancesFromTraits` scans the prose, the resistance is actually conferred.
+// Rewrite a Dragonborn's ancestry-dependent traits with the chosen dragon's
+// specifics; `resistancesFromTraits` scans the resulting prose to grant the resistance.
 const applyDraconicAncestry = (
   traits: TextComponent[],
   color: string,
@@ -269,14 +253,10 @@ const text = (title: string, detail?: string): TextComponent =>
     ? { title, titleFormulas: [], detail, detailFormulas: [] }
     : { title, titleFormulas: [] };
 
-// Wrap a free-text equipment line into a structured `EquipmentItem` (unequipped,
-// no attunement) — the builder only produces mundane starting gear.
-//
-// A grant of several of something arrives as one line with the count in the name
-// ("Javelin (4)"), so the count is lifted into `quantity` and the SRD per-unit
-// weight attached. Both matter to encumbrance, which multiplies the two; before
-// this, every builder-made character carried 0 lb. Items we have no weight for
-// keep `weight` unset and contribute nothing, exactly as they used to.
+// Wraps a free-text equipment line into a structured EquipmentItem. A grant of
+// several of something arrives as one line with the count in the name
+// ("Javelin (4)"); the count is lifted into `quantity` and the SRD per-unit
+// weight attached (encumbrance multiplies the two). Unknown items keep `weight` unset.
 const equipmentItem = (title: string): EquipmentItem => {
   const { name, count } = splitItemCount(title);
   const weight = weightForItem(title);
@@ -308,9 +288,8 @@ const emptyArmor = (): Record<ArmorType, boolean> => ({
   [ArmorType.Shields]: false,
 });
 
-// A clean, empty level-nothing sheet — the "Blank sheet" escape hatch and the
-// base every guided character is layered onto. Deliberately free of the joke
-// placeholder data that the old default character carried.
+// A clean, empty level-nothing sheet: the "Blank sheet" escape hatch and the
+// base every guided character is layered onto.
 function emptyScaffold(): Character {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -410,7 +389,6 @@ function guidedCharacter(state: BuilderState): Character {
   const klass = getCatalogClass(state.classIndex);
   const background = getBackground(state.backgroundName);
 
-  // Identity
   char.name = state.name.trim() || "New Character";
   char.playerName = state.playerName.trim();
   char.alignment = state.alignment;
@@ -421,8 +399,7 @@ function guidedCharacter(state: BuilderState): Character {
     state.subraceIndex === CUSTOM_SUBRACE
       ? state.customSubraceName.trim()
       : subrace?.name;
-  // Racial traits as TextComponents — reused for both the structured race source
-  // and the flattened `features` aggregate below.
+  // Reused for both the structured race source and the flattened `features` aggregate below.
   const baseRaceTraits = [
     ...(race?.traits ?? []),
     ...(subrace?.traits ?? []),
@@ -433,8 +410,7 @@ function guidedCharacter(state: BuilderState): Character {
       : baseRaceTraits;
 
   const className = klass?.name ?? (state.customClassName.trim() || "Custom");
-  // Level-1 subclass mechanics, if the chosen subclass carries any (only the
-  // classes that pick a subclass at level 1 — cleric/sorcerer/warlock — do).
+  // Only cleric/sorcerer/warlock pick a subclass at level 1.
   const classId = randomUUID();
   char.class = [
     {
@@ -446,11 +422,10 @@ function guidedCharacter(state: BuilderState): Character {
   ];
   char.background = background?.name ?? "Custom";
 
-  // Ability scores
   char.stats = resolveFinalStats(state);
   const conMod = modifier(char.stats.con);
 
-  // Hit points & hit dice (level 1: max hit die + CON mod)
+  // Level 1 HP: max hit die + CON mod.
   const hitDieFaces = klass?.hitDie ?? Number(state.customHitDie.slice(1));
   const die = DIE_BY_FACES[hitDieFaces];
   if (die) {
@@ -461,15 +436,10 @@ function guidedCharacter(state: BuilderState): Character {
     };
     char.currHp = hitDieFaces + conMod;
   }
-  // Seed the character's walking speed and darkvision from the race/subrace
-  // (e.g. Wood Elf's Fleet of Foot → 35); both are fully editable afterward. The
-  // race object keeps only identity — languages/traits are seeded into their own
-  // homes (below) rather than mirrored here.
   const walkSpeed = subrace?.speed ?? race?.speed ?? 30;
   char.speeds = { walk: walkSpeed, ...speedsFromTraits(raceTraits, walkSpeed) };
-  // A `darkvisionOrSkill` race decides by the player's pick rather than by its
-  // trait text — the text names darkvision as one of two options, and scanning
-  // it would grant the sense to everyone, including those who took the skill.
+  // darkvisionOrSkill races (an either/or pick) resolve by the player's choice,
+  // not by scanning trait text, since the text names both options.
   const darkvision = race?.darkvisionOrSkill
     ? state.raceTookDarkvision
       ? race.darkvisionOrSkill
@@ -482,7 +452,6 @@ function guidedCharacter(state: BuilderState): Character {
     size: sizeFromLabel(race?.size),
   };
 
-  // Proficiencies — saving throws (class) and skills (class + race + background)
   for (const stat of klass?.savingThrows ?? [])
     char.proficiencies.savingThrows[stat] = true;
   const skills = uniq([
@@ -494,8 +463,8 @@ function guidedCharacter(state: BuilderState): Character {
     ...(race?.proficiencies.skills ?? []),
     ...(subrace?.proficiencies.skills ?? []),
     ...(background?.skills ?? []),
-    // Only picks the background actually offers, so a stale choice left over
-    // from switching background mid-wizard can't leak through.
+    // Filtered to picks the background actually offers, so switching background
+    // mid-wizard can't leak a stale choice through.
     ...state.backgroundSkillChoices.filter((s) =>
       (background?.skillChoices?.from ?? []).includes(s),
     ),
@@ -503,7 +472,6 @@ function guidedCharacter(state: BuilderState): Character {
   ]);
   for (const skill of skills) char.proficiencies.skills[skill] = true;
 
-  // Other proficiencies
   char.otherProficiencies.languages = uniq([
     ...(race?.languages ?? []),
     ...state.raceLanguageChoices,
@@ -522,8 +490,8 @@ function guidedCharacter(state: BuilderState): Character {
   const toolLabels = uniqBy(
     [
       ...(klass?.proficiencies.tools ?? []),
-      // Only the picks the class actually offers, so a stale choice left over
-      // from switching class mid-wizard can't leak through.
+      // Filtered to picks the class actually offers, so switching class
+      // mid-wizard can't leak a stale choice through.
       ...(klass?.toolChoices
         ? state.toolChoices.filter((t) => klass.toolChoices!.from.includes(t))
         : []),
@@ -532,15 +500,12 @@ function guidedCharacter(state: BuilderState): Character {
       ...(background?.tools ?? []),
       ...(state.backgroundName ? [] : splitLines(state.customBackgroundTools)),
     ].filter(Boolean),
-    // Case-insensitive so a class's "Thieves' Tools" and a background's
-    // "Thieves' tools" don't both land on the sheet.
+    // Case-insensitive dedup, e.g. class "Thieves' Tools" vs background "Thieves' tools".
     (t) => t.toLowerCase(),
   );
   char.otherProficiencies.toolsAndOther = toolLabels.map((t) => text(t));
 
-  // Features — racial traits and the background feature. The class's and
-  // subclass's level-1 features are added by `applyClassLevel` below, the same
-  // way every later level gets them.
+  // Class/subclass level-1 features are added by `applyClassLevel` below.
   char.features = [...raceTraits];
   const bgFeature = background?.feature ?? {
     title: state.customBackgroundFeatureTitle.trim(),
@@ -549,9 +514,8 @@ function guidedCharacter(state: BuilderState): Character {
   if (bgFeature.title)
     char.features.push(text(bgFeature.title, bgFeature.detail || undefined));
 
-  // Racial pools (a dragonborn's Breath Weapon) and structured racial
-  // resistances. Keyed to race traits rather than a class level, so they stay
-  // here; `applyClassLevel` only refreshes what already exists.
+  // Keyed to race traits rather than a class level, so this stays here;
+  // `applyClassLevel` only refreshes pools that already exist.
   syncRacePools(
     char,
     raceTraits.map((t) => t.title),
@@ -559,9 +523,8 @@ function guidedCharacter(state: BuilderState): Character {
   char.damageModifiers.resistances = resistancesFromTraits(raceTraits);
   char.damageModifiers.immunities = immunitiesFromTraits(raceTraits);
 
-  // High Elf's chosen wizard cantrip. Racial spells have no spellcasting class,
-  // so — like Drow/Tiefling innate magic — it rides as an at-will limited-use
-  // ability rather than a slot-cast repertoire spell.
+  // Racial spells have no spellcasting class, so this rides as an at-will
+  // limited-use ability rather than a slot-cast repertoire spell.
   const hasHighElfCantrip = raceTraits.some(
     (t) => t.title.trim().toLowerCase() === "high elf cantrip",
   );
@@ -583,20 +546,16 @@ function guidedCharacter(state: BuilderState): Character {
     }
   }
 
-  // Spellcasting
   if (klass && castsAtLevelOne(klass)) {
     char.spellcastingClasses = [{ classId }];
-    // A subclass's always-prepared spells (cleric domain spells) are added by
-    // `applyClassLevel`, which runs after this — `buildSpells` replaces the
-    // whole spell object, so it has to go first.
+    // buildSpells replaces the whole spell object, so it must run before
+    // applyClassLevel adds subclass always-prepared spells (e.g. cleric domain).
     char.spells = buildSpells(state, classId);
     if (className === OfficialClass.Warlock) char.pactSlots = { expended: 0 };
   }
 
-  // Equipment & coin. The class loadout also derives weapon attacks and any
-  // granted armor/shield. AC comes from the `equippedArmor` formula leaf (set on
-  // the scaffold), so we just tag the granted armor/shield items and mark them
-  // equipped — equipping/unequipping then drives AC with no formula rewrite.
+  // AC comes from the `equippedArmor` formula leaf, so granted armor/shield
+  // items just need to be marked equipped; toggling equip then drives AC.
   const classItems: EquipmentItem[] = [];
   const tookGold = state.startingWealth === "gold";
   if (state.acceptClassEquipment && klass && !tookGold) {
@@ -625,45 +584,36 @@ function guidedCharacter(state: BuilderState): Character {
   }
   otherLines.push(...state.extraEquipment.filter((l) => l.trim()));
   char.equipment = [...classItems, ...otherLines.map((l) => equipmentItem(l))];
-  // Rolled starting wealth stacks with a background's coin rather than
-  // replacing it — the trade was class equipment for gold.
+  // Stacks with a background's coin rather than replacing it: the trade was
+  // class equipment for gold, not background gold for gold.
   if (tookGold && state.startingGold)
     char.coins = {
       ...char.coins,
       GP: (char.coins.GP ?? 0) + state.startingGold,
     };
 
-  // Everything reaching class level 1 grants — the class's and subclass's
-  // features, pools, fighting style, expertise, tool picks, chosen options.
-  // The same call the level-up wizard makes for level N, which is what keeps
-  // the two wizards from applying different sets.
+  // Same call the level-up wizard makes for level N.
   if (char.class[0]) applyClassLevel(char, char.class[0], state);
 
-  // Picks a *race* owes at 1st level (Simic Hybrid's first Animal Enhancement).
-  // After `char.race` is set and after the class grants, so a race feature reads
-  // below the class ones in the features list.
+  // After char.race and the class grants, so a race feature reads below the
+  // class ones in the features list.
   applyRaceOptions(char, state, 1);
 
-  // A level-1 feat, for the two races that grant one. Applied through the same
-  // `applyFeat` the level-up wizard uses, and last of all so its grants layer
-  // over the class/race/background proficiencies rather than being overwritten.
+  // For the two races that grant a level-1 feat. Applied last so its grants
+  // layer over class/race/background proficiencies rather than being overwritten.
   if (raceGrantsFeat(race, subrace) && state.featIndex) {
     const feat = getFeat(state.featIndex);
     if (feat) applyFeat(char, feat, { ...state, className });
   }
 
-  // The monk's Unarmed Strike, whose damage die is the Martial Arts die. After
-  // the loadout, since that's what populates `char.attacks`.
+  // Must run after the loadout, since that's what populates char.attacks.
   if (char.class[0]) syncMartialArts(char, char.class[0]);
 
-  // Racial natural weapons (a Lizardfolk's Bite, a Tabaxi's claws) become real
-  // attacks rather than prose you have to translate mid-combat. Also after the
-  // loadout, and skipping any name the loadout already used.
+  // Also after the loadout; skips any name the loadout already used.
   const attackNames = new Set(char.attacks.map((a) => a.name.toLowerCase()));
   for (const attack of naturalWeaponAttacks(raceTraits))
     if (!attackNames.has(attack.name.toLowerCase())) char.attacks.push(attack);
 
-  // Personality
   const p = state.personality;
   char.personality = {
     traits: p.traits.filter(Boolean).map((t) => text(t)),
@@ -675,10 +625,8 @@ function guidedCharacter(state: BuilderState): Character {
   return char;
 }
 
-// Turn the wizard's collected selections into a persisted `Character`. The
-// formula engine derives AC/HP/modifiers/spell slots from these source fields,
-// so this only needs to set the inputs. SRD casting abilities are the standard
-// ones, so no `abilityOverride` is needed; custom casters adjust on the sheet.
+// Turn the wizard's collected selections into a persisted Character. The
+// formula engine derives AC/HP/modifiers/spell slots from these source fields.
 export function buildCharacter(state: BuilderState): Character {
   if (state.mode === "sample")
     return { ...structuredClone(defaultCharacter), uuid: randomUUID() };

@@ -25,10 +25,8 @@ export function setFieldValue(
 ) {
   const partialFieldName = fieldName.split(".").slice(0, -1).join(".");
   const leafNode = traverse(partialFieldName, character);
-  // Fail soft: a path whose parent node is missing must not throw. These
-  // actions replay from undo history and arrive over WAMP from live-session
-  // peers — untrusted input — so a bad/stale path should be dropped with a
-  // warning, not crash the reducer.
+  // Fail soft: actions replay from undo history and arrive over WAMP from
+  // untrusted peers, so a bad/stale path is dropped with a warning, not thrown.
   if (leafNode === undefined || leafNode === null) {
     console.warn(`setFieldValue: no parent node at path "${fieldName}"`);
     return;

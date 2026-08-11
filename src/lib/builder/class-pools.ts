@@ -32,38 +32,28 @@ import {
   SaveEffect,
 } from "src/lib/types";
 
-// The limited-use pools each class's features carry, so the builder and the
-// level-up wizard grant real, mechanics-backed pools (titles match the
-// mechanics catalog, which lights up their actions) instead of prose-only
-// features. `sync` semantics: pools are created when the class reaches the
-// feature's level and their size/recharge is re-derived on every level-up —
-// the table is authoritative for these class pools, so a hand-edited maximum
-// on one of them is overwritten the next time that class levels. (Homebrew
-// pools with other titles are never touched.)
+// Limited-use pools each class's features carry (titles match the mechanics
+// catalog so actions come with them). Pools are created when the class
+// reaches the feature's level; size/recharge are re-derived on every
+// level-up, so a hand-edited maximum on one is overwritten on the next
+// level-up. Homebrew pools with other titles are untouched.
 //
 // Numbers are the 2014 SRD progressions; summaries are original paraphrases.
 
 export interface ClassPoolDef {
   title: string;
   detail: string;
-  // Class level at which the pool appears.
   level: number;
   recharge: (level: number) => RestType;
   maxUses: (klass: IClass) => CustomFormula;
-  // Level-computed mechanics attached to the granted pool. Needed for anything
-  // that scales with level (a growing die, a growing amount), which the static
-  // title-keyed catalog can't see — `mechanicsForAbility` prefers the pool's
-  // own `mechanics`, so this wins over the catalog and is re-derived on every
-  // level-up alongside `maxUses`.
+  // For mechanics that scale with level (growing die/amount). Wins over the
+  // static title-keyed catalog entry; re-derived every level-up like maxUses.
   mechanics?: (klass: IClass) => FeatureMechanics;
-  // The DC targets roll against for features this pool fuels (a monk's Ki save
-  // DC, a Battle Master's maneuver DC). A formula, so it tracks PB and ability
-  // changes; re-derived on level-up like `maxUses`.
+  // Save DC for features this pool fuels (monk Ki DC, Battle Master maneuver
+  // DC). A formula so it tracks PB/ability changes; re-derived like maxUses.
   save?: SaveEffect;
-  // Only granted to a character carrying this feature title — the Tasha's
-  // optional features, whose pools belong to a class level the player may have
-  // spent on the 2014 feature instead. Everything else in the table is granted
-  // by the level alone.
+  // Only granted if the character carries this feature title — for Tasha's
+  // optional-feature pools that replace a 2014 feature at the same level.
   requiresFeature?: string;
 }
 
@@ -89,17 +79,15 @@ const DESTROY_UNDEAD_CR = (level: number): string =>
     [17, "4"],
   ]);
 
-// A die-roll expression as a formula (`count`d`die`), for riders/mechanics that
-// bake a die size from the character's level (Giant's Might's extra damage).
+// A die-roll expression as a formula (`count`d`die`).
 const dieRoll = (count: number, die: StandardDie): CustomFormula => [
   count,
   die,
   DieOperation.roll,
 ];
 
-// The Bardic Inspiration die by bard level (d6 → d8 → d10 → d12). Exported so
-// the subclass features that *spend* a Bardic Inspiration die (Cutting Words,
-// Combat Inspiration, …) roll the same size the pool grants.
+// PHB: d6 → d8 (5th) → d10 (10th) → d12 (15th). Exported so subclass spenders
+// (Cutting Words, Combat Inspiration, …) roll the same size the pool grants.
 export const bardicInspirationDie = (level: number): StandardDie =>
   atLevel(level, [
     [1, StandardDie.d6],
@@ -108,9 +96,8 @@ export const bardicInspirationDie = (level: number): StandardDie =>
     [15, StandardDie.d12],
   ]);
 
-// A bard-subclass action host that spends one Bardic Inspiration die, rolling
-// the current die for display. Every College feature that drains the shared
-// pool has this exact shape, so they share one builder.
+// Shared builder for bard-subclass features that spend one Bardic Inspiration
+// die.
 const bardicSpender = (opts: {
   title: string;
   detail: string;
@@ -203,8 +190,8 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
         "Enter a battle fury as a bonus action: bonus melee damage with STR weapons, resistance to bludgeoning/piercing/slashing, advantage on STR checks and saves.",
       level: 1,
       recharge: long,
-      // 2 → 3 (3rd) → 4 (6th) → 5 (12th) → 6 (17th); unlimited at 20 isn't
-      // representable as a pool, so it stays 6.
+      // PHB: 2 → 3 (3rd) → 4 (6th) → 5 (12th) → 6 (17th); unlimited at 20
+      // isn't representable as a pool, so it stays 6.
       maxUses: (k) =>
         k.level >= 17
           ? 6
@@ -227,7 +214,6 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       recharge: (level) =>
         level >= 5 ? RestType.shortRest : RestType.longRest,
       maxUses: () => atLeastOne(StatKey.cha),
-      // The die grows d6 → d8 (5th) → d10 (10th) → d12 (15th).
       mechanics: (k) => ({
         actions: [
           spendRollRemind({
@@ -244,9 +230,7 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
         ],
       }),
     },
-    // Song of Rest owns no resource and drains none — it's an at-will die that
-    // happens to scale. `maxUses: 0` renders it as its action alone (see the
-    // action-host pattern), which is the only reason it can live here at all.
+    // At-will (no charges), so `maxUses: 0` renders it as an action-only host.
     {
       title: "Song of Rest",
       detail:
@@ -254,7 +238,7 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       level: 2,
       recharge: short,
       maxUses: () => 0,
-      // d6 → d8 (9th) → d10 (13th) → d12 (17th).
+      // PHB: d6 → d8 (9th) → d10 (13th) → d12 (17th).
       mechanics: (k) =>
         atWillAction({
           id: "song-of-rest",
@@ -282,11 +266,8 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       level: 2,
       recharge: short,
       maxUses: (k) => (k.level >= 18 ? 3 : k.level >= 6 ? 2 : 1),
-      // The cleric's pool overrides the shared catalog entry (which the
-      // paladin still uses) because Turn Undead is a base-class feature every
-      // cleric owns — the subclass-keyed host registry had no slot for it, so
-      // it hid inside a generic "use an option" button until conditions could
-      // cross the wire and gave it something real to do.
+      // Overrides the shared catalog entry (paladin still uses it): Turn
+      // Undead is a base-class feature every cleric owns, not subclass-keyed.
       mechanics: (k) => ({
         actions: [
           {
@@ -376,16 +357,15 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       level: 2,
       recharge: short,
       maxUses: classLevel,
-      // Ki save DC = 8 + PB + WIS. No fixed ability: the DC is one number, but
-      // each ki feature names its own save (Stunning Strike is CON).
+      // Ki save DC = 8 + PB + WIS; individual ki features name their own save
+      // (Stunning Strike is CON).
       save: {
         dc: saveDcFormula(StatKey.wis),
         note: "Ki save DC. Stunning Strike calls for a CON save.",
       },
     },
-    // Deflect Missiles: the reaction itself is free (spending 1 ki to throw the
-    // missile back is a separate choice the prompt names), so it's an at-will
-    // host rather than a Ki spender.
+    // The reaction itself is free; spending 1 ki to throw the missile back is
+    // a separate choice, so this is an at-will host, not a Ki spender.
     {
       title: "Deflect Missiles",
       detail:
@@ -469,8 +449,8 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       }),
     },
   ],
-  // Every ranger pool is a Tasha's optional feature: the 2014 ranger has no
-  // limited-use resource at all, which is half of why these swaps exist.
+  // Every ranger pool is a Tasha's optional feature — the 2014 ranger has no
+  // limited-use resource of its own.
   [OfficialClass.Ranger]: [
     {
       title: "Favored Foe",
@@ -480,13 +460,9 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
       recharge: long,
       maxUses: () => PB,
       requiresFeature: "Favored Foe",
-      // The die grows 1d4 → 1d6 (6th) → 1d8 (14th). Its damage lands on a hit,
-      // so it rides the attack's damage roll. The *spend* belongs to the mark,
-      // not the damage: the "Mark a foe" action takes the use and puts the
-      // condition on the target (which is what carries the mark to the table),
-      // and the rider's ticks on later turns cost nothing — RAW, only marking
-      // spends. The rider used to own the spend, which double-charged anyone
-      // who ticked it on turn two.
+      // Die: 1d4 → 1d6 (6th) → 1d8 (14th). The spend belongs to the "Mark a
+      // foe" action, not the damage rider — RAW only marking spends a use,
+      // so later-turn ticks of the damage rider must cost nothing.
       mechanics: (k) => ({
         actions: [
           {
@@ -612,23 +588,20 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
   ],
 };
 
-// Rune Knight (fighter, Tasha's). Giant's Might and Runic Shield are always
-// granted at their level (PB uses per long rest); each rune is a separate
-// once-per-short-rest invocation, gated by the chosen rune landing as a feature
-// (`requiresFeature`) so only runes you know get a pool. Master of Runes (15th)
-// grants a second invocation of each rune. The passive check advantages ride on
-// each rune's pool as an advisory note — advantage is never auto-applied (see
-// Rage) — so they surface as a reminder when you roll the relevant check.
+// Rune Knight (fighter, Tasha's). Giant's Might and Runic Shield are granted
+// at their level (PB uses/long rest); each rune is a separate once-per-short-
+// rest invocation gated by `requiresFeature` so only runes you know get a
+// pool. Master of Runes (15th) grants a second invocation of each rune.
+// Passive check advantages ride as an advisory note rather than auto-applying.
 function runeKnightPools(): ClassPoolDef[] {
-  // One rune's once-per-rest invocation pool. `checkNote` is the passive
-  // advantage reminder (omitted for a rune whose passive isn't a check
-  // advantage — Fire's tool bonus); `save` appears on runes that force one.
+  // `checkNote` is the passive advantage reminder (omitted for runes whose
+  // passive isn't a check advantage, e.g. Fire's tool bonus); `save` appears
+  // on runes that force one.
   //
-  // How the invocation is offered is a union, because it's a real fork: most
-  // runes are invoked on their own (an action/reaction, so a button on the pool),
-  // but a rune invoked **on a weapon hit** belongs in the attack's roll dialog as
-  // an `onHit` rider that spends the use — rolling its damage in the abilities
-  // panel would divorce it from the attack that caused it.
+  // The options union is a real fork: most runes invoke on their own (button
+  // on the pool), but a rune invoked on a weapon hit is an `onHit` rider in
+  // the attack dialog instead, so its damage isn't rolled apart from the
+  // attack that caused it.
   const rune = (
     opts: {
       name: string; // e.g. "Cloud" — the pool/feature title is `${name} Rune`
@@ -653,8 +626,7 @@ function runeKnightPools(): ClassPoolDef[] {
             amount: CustomFormula;
             damageType: DamageType;
             note: string;
-            // The condition the hit puts on the target (Fire Rune's
-            // restrain) — carried by the damage rider, stamped by the dialog.
+            // Condition the hit puts on the target (Fire Rune's restrain).
             applies?: AppliedCondition;
           };
         }
@@ -712,12 +684,9 @@ function runeKnightPools(): ClassPoolDef[] {
         ],
         ...("onHit" in opts
           ? {
-              // A hit-riding invoke has no roll of its own — the dice and the
-              // spend live in the attack dialog's damage section — but without
-              // a row it was invisible on the play board, and a player who
-              // never opened a damage roll had no way to learn the rune
-              // existed. The row is a signpost: remind-only, no spend (the
-              // dialog's own button takes the use when the extra is ticked).
+              // Signpost row (remind-only, no spend): the dice and the spend
+              // live in the attack dialog's damage section, but the rune
+              // needs a row on the play board to be discoverable at all.
               actions: [
                 {
                   id: slugId(`invoke-${opts.name}-rune`),
@@ -891,13 +860,10 @@ function runeKnightPools(): ClassPoolDef[] {
   ];
 }
 
-// Subclass pools, keyed by the subclass name stored on the class entry.
-// Synced exactly like class pools (created at the feature's class level,
-// size/recharge re-derived every level-up), which is what handles scaling
-// pools like the battle master's superiority dice. Titles match the mechanics
-// catalog so the pools arrive with their actions.
+// Subclass pools, keyed by subclass name. Synced like class pools: created at
+// the feature's class level, size/recharge re-derived every level-up.
 export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
-  // --- Wizard traditions -------------------------------------------------
+  // Wizard traditions
   Divination: [
     {
       title: "Portent",
@@ -961,7 +927,7 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
       }),
     },
   ],
-  // --- Bard colleges -----------------------------------------------------
+  // Bard colleges
   Creation: [
     {
       title: "Performance of Creation",
@@ -1006,7 +972,7 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
       maxUses: () => 1,
     },
   ],
-  // --- Druid circles -----------------------------------------------------
+  // Druid circles
   Dreams: [
     {
       title: "Balm of the Summer Court",
@@ -1321,20 +1287,17 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
   ],
 };
 
-// Racial pools, keyed by the trait title the race data grants. The use count
-// and recharge are created once at build (no re-derive), but `mechanics` is a
-// function of *total character level* — racial features scale on character
-// level, not a class level — and is re-derived on level-up so scaling dice
-// stay current. Only structural scaling (dice count/size) needs this; a `+CON`
-// modifier stays a formula resolved against the character at roll time.
+// Racial pools, keyed by the trait title the race data grants. Use count and
+// recharge are created once (no re-derive); `mechanics` is keyed off *total
+// character level* (racial features scale on character, not class, level)
+// and is re-derived on level-up so scaling dice stay current.
 export const RACE_POOLS: Record<
   string,
   {
     detail: string;
     recharge: RestType;
     maxUses: CustomFormula;
-    // Total character level the pool first appears at (an aasimar subrace's
-    // 3rd-level transformation). Omitted means level 1.
+    // Total character level the pool first appears at. Omitted means level 1.
     minLevel?: number;
     mechanics?: (totalLevel: number) => FeatureMechanics;
     save?: SaveEffect;
@@ -1345,16 +1308,14 @@ export const RACE_POOLS: Record<
       "Exhale your draconic ancestry's breath: DC 8 + CON mod + PB, damage scaling with character level, half on a successful save.",
     recharge: RestType.shortRest,
     maxUses: 1,
-    // The ancestry decides whether the target rolls DEX (a line/cone of fire,
-    // lightning, …) or CON (poison), and the sheet doesn't model ancestry — so
-    // the DC is fixed and the ability is left to vary.
+    // Ancestry decides DEX (line/cone) vs. CON (poison); the sheet doesn't
+    // model ancestry, so the ability is left to vary.
     save: {
       dc: saveDcFormula(StatKey.con),
       onSuccess: "half",
       note: "The ability saved against follows your draconic ancestry (usually DEX; CON for poison).",
     },
-    // 2d6 → 3d6 (6th) → 4d6 (11th) → 5d6 (16th) by character level. Type and
-    // shape (line vs. cone) follow the ancestry, which the sheet doesn't model.
+    // 2d6 → 3d6 (6th) → 4d6 (11th) → 5d6 (16th) by character level.
     mechanics: (level) => ({
       actions: [
         spendRollRemind({
@@ -1478,16 +1439,13 @@ export const RACE_POOLS: Record<
 
 // Racial innate spellcasting, keyed by the trait title that grants it. Each
 // entry becomes its own limited-use ability once the character reaches its
-// `minLevel`: at-will cantrips (maxUses 0, like other at-will hosts) and the
-// once-per-long-rest spells races cast without a slot. The casting ability is
-// named in the note; racial spells have no spellcasting class, so they live
-// here rather than in the (class-keyed) spell list.
+// `minLevel`: at-will cantrips (maxUses 0) or once-per-rest spells. Racial
+// spells have no spellcasting class, so they don't live in the spell list.
 interface InnateSpell {
   name: string;
   minLevel: number;
   atWill?: boolean;
-  // Recharge for the non-at-will spells; long rest unless stated (a firbolg's
-  // magic comes back on a short rest).
+  // Long rest unless stated (a firbolg's magic comes back on a short rest).
   recharge?: RestType;
   note: string;
 }
@@ -1712,11 +1670,9 @@ const findPool = (
     (a) => normalizeTitle(a.info.title) === normalizeTitle(title),
   );
 
-// Create/refresh the pools `klass` should have at its current level. Mutates
-// `char` (both callers work on a fresh clone/scaffold).
+// Create/refresh the pools `klass` should have at its current level.
 export function syncClassPools(char: Character, klass: IClass): void {
-  // Pre-migration saves may lack the list entirely (level-up runs on raw
-  // characters in tests and legacy flows).
+  // Pre-migration saves may lack the list entirely.
   char.limitedUseAbilities ??= [];
   const oc = Object.values(OfficialClass).find((c) => c === klass.name);
   const pools = [
@@ -1743,8 +1699,7 @@ export function syncClassPools(char: Character, klass: IClass): void {
       existing.maxUses = maxUses;
       existing.recharge = recharge;
       if (mechanics) existing.mechanics = mechanics;
-      // The DC is a formula, so it needs no re-derivation — but a pool granted
-      // before save DCs existed won't have one, so backfill it.
+      // Backfill for pools granted before save DCs existed.
       if (pool.save && !existing.save) existing.save = pool.save;
     } else {
       char.limitedUseAbilities.push({
@@ -1764,13 +1719,10 @@ export function syncClassPools(char: Character, klass: IClass): void {
   }
 }
 
-// Create/refresh the racial pools matching any of the given trait titles. The
-// use count and recharge are created once (never re-derived, so a hand-edit
-// sticks), but the level-scaled `mechanics` block is re-derived every call —
-// so passing a leveled character refreshes Breath Weapon's dice. On level-up,
-// pass the character's existing pool titles: the matching ones refresh and no
-// new pool is created (the race doesn't change), while non-racial titles fall
-// through `def` being undefined.
+// Create/refresh the racial pools matching any of the given trait titles.
+// Use count/recharge are created once (a hand-edit sticks); the level-scaled
+// `mechanics` block is re-derived every call. On level-up, pass the
+// character's existing pool titles so matching ones refresh in place.
 export function syncRacePools(char: Character, traitTitles: string[]): void {
   char.limitedUseAbilities ??= [];
   const totalLevel = char.class.reduce((sum, k) => sum + k.level, 0);

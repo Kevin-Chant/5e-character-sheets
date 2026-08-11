@@ -6,9 +6,7 @@ import {
 } from "src/lib/spells/spell-scaling";
 import { attack, auto, save, saveHalf, spellMech } from "./nonsrd-mechanics";
 
-// The helper must produce exactly the `SpellMechanics` shape the SRD generator
-// does, so a non-SRD spell rolls through `spellDamageAtLevel` identically. These
-// pin the shapes against known SRD spells.
+// Pins spellMech's output against known SRD spell shapes.
 
 describe("spellMech", () => {
   it("builds a slot-scaling save-half damage spell (Fireball's shape)", () => {
@@ -52,9 +50,8 @@ describe("spellMech", () => {
       operands: [[1, "d8", "roll"], { spellMod: "@caster" }],
     });
     expect(m.scaling).toEqual({ driver: "slot", healing: [1, "d8", "roll"] });
-    // Cast at 3rd = base + two 1d8 steps + the mod, worth 3d8 + mod. (The engine
-    // keeps it as a nested addition rather than collapsing, since the base isn't
-    // a bare die — the total is what matters.)
+    // Cast at 3rd = base + two 1d8 steps = 3d8 + mod, kept as a nested addition
+    // since the base isn't a bare die.
     expect(spellHealingAtLevel(m, 3)).toEqual({
       operation: "addition",
       operands: [

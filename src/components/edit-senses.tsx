@@ -19,10 +19,8 @@ const labelOf = (key: keyof Senses) =>
 const defaultOf = (key: keyof Senses) =>
   SENSES.find(([k]) => k === key)?.[2] ?? 30;
 
-// Add or edit a single sense. Opened with subField "new" (pick an unused sense +
-// range) or a sense key (edit that sense's range). The chosen value is committed
-// as one targeted action on save, so cancelling discards it and switching sense
-// type in add-mode never leaves an orphan key behind.
+// Opened with subField "new" (pick an unused sense + range) or a sense key
+// (edit its range). Committed as one action on save.
 export default function EditSenses() {
   const { character } = useLoadedCharacter();
   const { subField } = useTargetedField();

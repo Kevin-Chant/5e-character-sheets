@@ -25,20 +25,14 @@ import EditAbilityMechanics from "./edit-ability-mechanics";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 import Select from "src/components/select";
 
-// The two rests, plus the magic-item triggers: "Dawn" fires from the play
-// surface's Dawn button or a rest that spans dawn, and "Every 7 days" counts
-// dawns until it comes due (any number works — the preset is just the common
-// one; type "Every 3 days" for a different interval).
 const RECHARGE_PRESETS = [
   ...(Object.values(RestType) as string[]),
   "Dawn",
   "Every 7 days",
 ];
 
-// The pool's mechanical knobs — max uses, recharge trigger, and how much a
-// firing recharge hands back. Shared between this editor and the equipment item
-// editor (a magic item's charges are the same pool, stored on the item), so
-// `cursor` points at the ability wherever it lives.
+// Shared between this editor and the equipment item editor (a magic item's
+// charges are the same pool), so `cursor` points at the ability wherever it lives.
 export function PoolMetaFields({
   ability,
   cursor,
@@ -82,9 +76,7 @@ export function PoolMetaFields({
       <div className="row limited-use-ability-meta">
         <div className="field">
           <span className="field-label">Recharge regains</span>
-          {/* "Regains 1d3 expended charges at dawn" — the magic-item pattern.
-              Switching to a rolled amount seeds 1d3; the formula button opens
-              the full editor for the 1d6+4 staves. */}
+          {/* Switching to a rolled amount seeds 1d3. */}
           <Select
             label="What a recharge regains"
             value={ability.restore === undefined ? "all" : "roll"}
@@ -137,12 +129,8 @@ export default function EditLimitedUseAbility() {
     ? traverse(subField!, getFieldValue(FIELD.limitedUseAbilities, character!))
     : undefined;
 
-  // The "+" add button opens the editor on the next (not-yet-created) index.
-  // Seed a blank ability into the *modal draft* so there's something to edit;
-  // it lives only in the draft, so nothing is persisted until the user saves
-  // and backing out discards it. The seed replaces the whole list with the
-  // pre-seed list plus one default, so it's idempotent under StrictMode's
-  // double-invoked effects (running it twice yields the same list).
+  // Seeds a blank ability into the modal draft when opened on a
+  // not-yet-created index; idempotent under StrictMode's double-invoked effects.
   useEffect(() => {
     if (!isAbilityTarget || ability) return;
     const list = charPath(FIELD.limitedUseAbilities);
@@ -158,14 +146,11 @@ export default function EditLimitedUseAbility() {
 
   const abilityCursor = fromStack<LimitedUseAbility>(targetedField, subField);
   const info = abilityCursor.k("info");
-  // `detailFormulas` only exists on the with-details variant; used solely from
-  // the branch where details are present.
   const infoDetail = fromStack<TextComponentWithDetails>(
     targetedField,
     `${subField}.info`,
   );
 
-  // --- info (name/description), delegated to ControlledEditTextLine ---
   const setTitle = (text: string, formulas: CustomFormula[]) =>
     dispatch(
       updateAt(info, {
@@ -252,8 +237,6 @@ export default function EditLimitedUseAbility() {
             </div>
             <div className="field">
               <span className="field-label">Target rolls</span>
-              {/* "(varies)" is the default for a pool: one Ki DC backs several
-                  features that call for different saves. */}
               <Select
                 label="Which save the target rolls"
                 placeholder="(varies)"

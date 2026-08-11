@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { navControls, navTitle, NavContext } from "./nav-controls";
 
-// The nav grew a control per feature and never lost one, until the same eleven
-// buttons were rendering on pages where three of them did anything. These pin
-// the matrix per surface — the regression to guard against is a control
-// spreading back to a page it can't act on.
+// Pins the control matrix per surface — the regression to guard against is a
+// control spreading back to a page it can't act on.
 
 function context(over: Partial<NavContext> = {}): NavContext {
   return {
@@ -49,9 +47,6 @@ describe("what the nav offers, per surface", () => {
   });
 
   it("gives a non-character route only the things that work there", () => {
-    // The bug this replaces: /settings was identical to the sheet, edit lock
-    // and all. It's an overlay now, but the rule it broke still holds for every
-    // route that isn't a character surface.
     expect(shown({ pathname: "/host" })).toEqual(["characterDrawer"]);
   });
 
@@ -107,7 +102,6 @@ describe("what the nav offers, per surface", () => {
 describe("the title names the page", () => {
   it("names each route", () => {
     expect(navTitle("/host")).toBe("Start a game");
-    // Both used to fall through to "Home".
     expect(navTitle("/auth")).toBe("Google Drive");
     expect(navTitle("/")).toBe("Home");
   });

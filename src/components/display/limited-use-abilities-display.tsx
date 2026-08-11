@@ -43,11 +43,8 @@ export default function LimitedUseAbilitiesDisplay() {
   const setExpended = (index: number, expended: number) =>
     dispatch(updateAt(list.at(index).k("expended"), expended));
 
-  // Open the editor on the next (empty) index; EditLimitedUseAbility seeds a
-  // blank ability into the modal draft, so nothing is persisted until save.
   const addAbility = () => pushCursor(list.at(abilities.length));
 
-  // Nothing to track yet: hide in play mode, collapse to a strip in edit mode.
   if (abilities.length === 0 && !editMode) return <></>;
 
   return (
@@ -60,10 +57,8 @@ export default function LimitedUseAbilitiesDisplay() {
         const { info } = ability;
         const total = calculateCustomFormula(ability.maxUses, character);
         const expended = Math.max(0, Math.min(ability.expended, total));
-        // A pool-less "action host": maxUses 0 means it owns no charges and
-        // just carries actions (a Cutting Words that spends Bardic Inspiration).
-        // Its own counter, recharge label, and reset button are all noise, so
-        // outside edit mode it renders as its actions alone.
+        // maxUses 0 = a pool-less action host (e.g. Cutting Words); outside
+        // edit mode it renders as its actions alone, with no counter/recharge/reset.
         const actionsOnly = total === 0 && !editMode;
         const name = (
           <TextWithFormulasDisplay
@@ -71,10 +66,6 @@ export default function LimitedUseAbilitiesDisplay() {
             formulas={info.titleFormulas}
           />
         );
-        // Carrying detail prose is signalled with the dotted underline the
-        // equipment and feature lists already use for it — not with the
-        // `editable` fill, which put a filled chip beside an outlined one and
-        // read as a state difference (uses left vs spent) rather than "hover me".
         const title = isTextComponentWithDetail(info) ? (
           <ComponentWithPopover
             componentClass="rounded-border-box pos-relative padding-small detail-hint limited-use-ability-name"
@@ -105,12 +96,9 @@ export default function LimitedUseAbilitiesDisplay() {
               )}
               {!actionsOnly && (
                 <i className="font-small nowrap">
-                  {/* A partial recharge reads like the item text: "1d3 per
-                      dawn" rather than the pool default "per dawn". */}
                   {ability.restore !== undefined
                     ? `${formatCustomFormula(ability.restore, character)} per ${formatRecharge(ability.recharge)}`
                     : `per ${formatRecharge(ability.recharge)}`}
-                  {/* A running "Every X days" countdown, ticked by dawns. */}
                   {ability.daysUntilRecharge !== undefined &&
                     expended > 0 &&
                     ` — ${ability.daysUntilRecharge} ${
@@ -127,8 +115,7 @@ export default function LimitedUseAbilitiesDisplay() {
                     onClick={(e) => {
                       e.preventDefault();
                       setExpended(i, 0);
-                      // A manual reset ends any "Every X days" countdown too —
-                      // the pool is full, so there's nothing to wait for.
+                      // Manual reset also ends any "Every X days" countdown.
                       if (ability.daysUntilRecharge !== undefined)
                         dispatch(
                           updateAt(
@@ -167,10 +154,6 @@ export default function LimitedUseAbilitiesDisplay() {
                 )}
               </div>
             </div>
-            {/* Uses and the actions that spend them belong on one line: they're
-                the same transaction, and a separate row per action made a
-                six-pool sheet the tallest thing in the column. Wraps when a pool
-                carries several actions (a monk's Ki) or a level picker. */}
             <div className="row limited-use-ability-body">
               {total === 0 ? null : total > PIP_THRESHOLD ? (
                 <div className="row limited-use-count">

@@ -22,41 +22,26 @@ import {
 import { removeLocalStorage } from "src/lib/local-storage";
 import { Character } from "src/lib/types";
 
-// One harness for the sheet's display components and edit modals.
+// Harness for the sheet's display components and edit modals: supplies the
+// real character/targeted-field/save contexts with stub values, so components
+// run their actual `useLoadedCharacter`/`useTargetedField`/`useSave` code
+// paths. Spies (`dispatch`, `commit`/`saveData`) are the seams a test asserts
+// on.
 //
-// These all read the open character from `CharacterContext`, and the modals
-// additionally need a *targeted field* (which field the modal was opened for)
-// and the modal container's save/commit callbacks. Rendering them used to mean
-// mocking `use-character` per file, which couples each test to the hook's shape
-// and can't express "opened for `spells`, sub-field `3.0`".
-//
-// So this supplies the real contexts with stub values instead. Nothing is
-// mocked: the components run their actual `useLoadedCharacter` /
-// `useTargetedField` / `useSave` code paths, and the spies this returns are
-// the seams a test asserts on — `dispatch` for edits that go through the
-// reducer, `commit`/`saveData` for the modal save flow.
-//
-// `dispatch` is a spy that *also* runs the real reducer and re-renders, so the
-// character in context actually changes. Without that, every field on the sheet
-// is a controlled input wired to a value that never moves: typing "12" into a
-// field showing 340 produces "34012", and the test ends up asserting on an
-// artefact of the harness rather than on the component. It also means a test
-// can assert the resulting character, not just the action.
+// `dispatch` also runs the real reducer and re-renders, so the character in
+// context actually changes — otherwise every field is a controlled input
+// wired to a value that never moves.
 
 export interface CharacterHarness {
   character?: Character;
-  // Which field the modal under test was opened for, and its sub-path. Display
-  // components don't need these; every `edit-*` modal returns null without them.
+  // Field the modal under test was opened for, and its sub-path; every
+  // `edit-*` modal returns null without them.
   targetedField?: FIELD;
   subField?: string;
-  // Play mode hides the edit affordances (pencils, +) — pass false to assert
-  // that a display component stops offering them.
+  // Play mode hides edit affordances — pass false to assert they're hidden.
   editMode?: boolean;
-  // Overrides merged over the defaults, for the table-level `track*` settings
-  // that decide whether a whole section exists (ammunition, encumbrance,
-  // personality). Supplying any override swaps the stateful provider for a
-  // fixed value, so `updateSetting` is a no-op in that case — these tests are
-  // about what a setting *renders*, not about changing it.
+  // Overrides merged over the defaults. Supplying any override swaps the
+  // stateful provider for a fixed value, so `updateSetting` becomes a no-op.
   settings?: Partial<Settings>;
 }
 
@@ -78,11 +63,8 @@ export function renderWithCharacter(
   const saveData = vi.fn();
   const commit = vi.fn();
   const setTargetedFieldStack = vi.fn();
-  // The encounter is an app-wide provider that deliberately outlives any one
-  // component, so it also outlives a test unless it's cleared — a spent action
-  // or a lingering condition would otherwise arrive in the next test.
+  // The encounter provider outlives a test unless cleared here.
   removeLocalStorage(ENCOUNTER_STORAGE_KEY);
-  // The live character, so a test can read the end state after interacting.
   const latest = { current: initial };
 
   function Harness() {
@@ -92,8 +74,6 @@ export function renderWithCharacter(
       dispatch(action);
       setCharacter((current) => reducer(current, action) ?? current);
     };
-    // Either the real stateful provider, or a fixed settings value when the
-    // test pins one.
     const withSettings = (inner: ReactElement) =>
       settings ? (
         <SettingsContext.Provider
@@ -157,7 +137,6 @@ export function renderWithCharacter(
 
   return {
     ...result,
-    // The character as it stands *now* — read it after interacting.
     get character() {
       return latest.current;
     },
@@ -168,9 +147,8 @@ export function renderWithCharacter(
   };
 }
 
-// The value an `update_*` action carries, for asserting on `dispatch`. The
-// reducer's rule is that an update carries the field's *whole* new value, so a
-// test asserts on that value rather than on a diff.
+// The value an `update_*` action carries — the whole new field value, not a
+// diff — for asserting on `dispatch`.
 export const dispatchedValue = (dispatch: { mock: { calls: unknown[][] } }) => {
   const last = dispatch.mock.calls.at(-1)?.[0] as
     | { payload?: { value?: unknown } }

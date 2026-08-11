@@ -18,18 +18,14 @@ import { Cursor, fromStack, updateAt } from "src/lib/cursor";
 
 interface MultiLineTextDisplayProps {
   title: string;
-  // Typed cursor to the TextComponent array is preferred; `field`/`subField` are
-  // the legacy string form for not-yet-migrated call sites.
+  // Typed cursor is preferred; field/subField are the legacy string form.
   cursor?: Cursor<TextComponent[] | undefined>;
   field?: FIELD;
   subField?: string;
   transform?: (data: any, character: Character) => any;
-  // Flow the entries into as many columns as the panel can hold, instead of one
-  // long single-file list. Only for sections whose entries are short *names*
-  // (Features & Traits — 18 of them, one line each). Personality entries are
-  // prose sentences, and setting those in a ~9rem measure would make them
-  // harder to read, not easier. Play mode only: in edit mode each row also
-  // carries edit/remove controls, which need the full width.
+  // Flow entries into columns instead of one list — for short-name sections
+  // (e.g. Features & Traits) only; prose entries read worse in a narrow
+  // column. Play mode only: edit mode's row controls need full width.
   flowEntries?: boolean;
 }
 
@@ -49,8 +45,6 @@ export default function MultiLineTextDisplay({
 
   if (!field) return <></>;
 
-  // Re-derive a typed list cursor from the resolved field/subField (covers both
-  // the cursor prop and the legacy string props identically).
   const list = fromStack<TextComponent[]>(field, subField);
 
   let textComponents = getFieldValue(field, character);
@@ -72,15 +66,9 @@ export default function MultiLineTextDisplay({
     dispatch(updateAt(list, newValue));
   };
 
-  // Open the editor at the next (empty) index; the entry is only persisted when
-  // the user saves, so no placeholder is written up-front.
   const addTextComponent = () => editTextComponent(textComponents.length);
 
-  // An empty section is scaffolding, and the paper sheet only prints it because
-  // it can't know whether you'll write there. In play mode it can't even be
-  // filled, so it isn't shown; in edit mode it collapses to a slim labelled
-  // strip, which keeps the landmark (and the order around it) while giving back
-  // the height an empty frame was taking.
+  // Hidden in play mode; collapses to a slim labelled strip in edit mode.
   const empty = renderedTextComponents.length === 0;
   if (empty && !editMode) return <></>;
 

@@ -20,13 +20,9 @@ import TextWithFormulasDisplay from "./text-with-formulas-display";
 import StepperInput from "../stepper-input";
 import { FaPencil, FaXmark } from "react-icons/fa6";
 
-// The Equipment section. Each row is a structured `EquipmentItem` — a free-text
-// name/description (with popover detail) plus its mechanical fields: an equipped
-// toggle (worn/wielded state, which drives AC and stays live in play), a
-// quantity, and, when the `trackEncumbrance` setting is on, a per-stack weight
-// with a carrying-capacity readout. Attunement lives in its own sub-section
-// (`AttunementDisplay`); name, description, quantity, weight and the armor
-// mechanics are edited in the item modal.
+// The Equipment section: each row is an EquipmentItem with an equipped toggle
+// (drives AC), quantity, and (if trackEncumbrance is on) weight. Attunement is
+// its own sub-section (AttunementDisplay); item fields are edited in the modal.
 export default function EquipmentDisplay() {
   const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
@@ -50,11 +46,9 @@ export default function EquipmentDisplay() {
         : undefined
     : undefined;
 
-  // Equipping is what puts an item's mechanics in play: armor starts counting
-  // toward AC via the `equippedArmor` leaf, and a weapon's attack row appears in
-  // the Attacks section. The item owns the attack — equipping copies it into
-  // `attacks`, unequipping parks the live row (with any edits made to it) back
-  // on the item and removes it, same id both ways so ammunition links survive.
+  // Equipping copies a weapon's attack into `attacks`; unequipping parks the
+  // live row (with its edits) back on the item and removes it. Same id both
+  // ways so ammunition links survive.
   const setEquipped = (index: number, equipped: boolean) => {
     const item = equipment[index];
     const weaponAttack = item.weapon?.attack;
@@ -78,9 +72,8 @@ export default function EquipmentDisplay() {
         }
       }
     }
-    // An item-granted ability follows the same park/copy contract as the
-    // attack, gated on the item being fully active (equipped AND attuned where
-    // each applies) rather than on `equipped` alone.
+    // Same park/copy contract for a granted ability, gated on itemAbilityActive
+    // (equipped AND attuned where each applies), not on `equipped` alone.
     const itemAbility = item.ability;
     if (itemAbility?.id) {
       const abilities = character.limitedUseAbilities;
@@ -107,7 +100,7 @@ export default function EquipmentDisplay() {
   };
 
   const removeItem = (index: number) => {
-    // A removed weapon takes its attack row with it — the item owns the attack.
+    // A removed weapon takes its attack row with it.
     const weaponAttack = equipment[index].weapon?.attack;
     if (weaponAttack)
       dispatch(
@@ -116,7 +109,7 @@ export default function EquipmentDisplay() {
           character.attacks.filter((a) => a.id !== weaponAttack.id),
         ),
       );
-    // Likewise a removed item takes its granted ability's live row with it.
+    // A removed item takes its granted ability's live row with it too.
     const abilityId = equipment[index].ability?.id;
     if (abilityId)
       dispatch(

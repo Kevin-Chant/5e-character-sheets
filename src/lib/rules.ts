@@ -75,11 +75,7 @@ export const DEFAULT_STAT_CAP = 20;
 export const MAX_EXHAUSTION = 6;
 
 // Features that raise a score's ceiling above 20, keyed by the bare feature
-// title the builder grants (the same convention the mechanics catalog matches
-// riders by). A function of the *character* rather than a constant because the
-// exceptions are real: a barbarian 20 caps STR and CON at 24, and pinning 20
-// into the ASI picker would have to be torn out again the moment Primal
-// Champion's +4 lands.
+// title the builder grants. E.g. Primal Champion raises STR/CON to 24.
 const RAISED_CAPS: { feature: string; stats: StatKey[]; cap: number }[] = [
   { feature: "Primal Champion", stats: [StatKey.str, StatKey.con], cap: 24 },
 ];
@@ -154,8 +150,8 @@ export function levelInClass(className: ClassName, character: Character) {
   return character.class.find((klass) => klass.name === className)?.level || 0;
 }
 
-// Class-identity resolution by stable id (the form spells / spellcasting entries
-// / `spellMod` / `classLevel` leaves reference).
+// Class-identity resolution by stable id, as spells/spellcasting entries/
+// `spellMod`/`classLevel` leaves reference it.
 export function classById(character: Character, id: UUID): IClass | undefined {
   return character.class.find((klass) => klass.id === id);
 }
@@ -204,11 +200,9 @@ export function hasJackOfAllTrades(character: Character): boolean {
   return bardLevel > 1 || character.proficiencies.isJackOfAllTradesOverride;
 }
 
-// The default Passive Perception formula: 10 + WIS modifier + the proficiency
-// contribution for Perception (expertise / proficiency / Jack of All Trades) +
-// any per-skill Perception bonus. Seeds the editable `passivePerception`
-// override so a player can tweak it (e.g. Observant's passive-only +5) starting
-// from the computed value.
+// Default Passive Perception formula: 10 + WIS mod + proficiency contribution
+// (expertise/proficiency/Jack of All Trades) + any per-skill bonus. Seeds the
+// editable `passivePerception` override.
 export function getPassivePerceptionFormula(
   character: Character,
 ): CustomFormula {
@@ -216,9 +210,8 @@ export function getPassivePerceptionFormula(
   const expert = !!character.proficiencies.expertise.Perception;
   const bonus = character.proficiencies.skillBonuses.Perception;
   const operands: CustomFormula[] = [10, StatKey.wis];
-  // Proficiency contribution as a PB-referencing formula (not a frozen number),
-  // so a saved override keeps scaling with level: PB when proficient, 2×PB with
-  // expertise, and floor(PB/2) for Jack of All Trades.
+  // A PB-referencing formula, not a frozen number, so a saved override keeps
+  // scaling with level.
   if (expert) {
     operands.push({ operation: Operation.multiplication, operands: [2, PB] });
   } else if (proficient) {
@@ -233,11 +226,7 @@ export function getPassivePerceptionFormula(
   return { operation: Operation.addition, operands };
 }
 
-// ---------------------------------------------------------------------------
-// Inventory: attunement + encumbrance
-// ---------------------------------------------------------------------------
-
-// The standard number of attunement slots. Overridable per-character via the
+// Standard number of attunement slots. Overridable per-character via the
 // `attunementSlots` formula (e.g. Artificer's 4/5/6); this seeds that override.
 export const DEFAULT_ATTUNEMENT_SLOTS = 3;
 
@@ -246,19 +235,17 @@ export function countAttunedItems(equipment: EquipmentItem[]): number {
   return equipment.filter((item) => item.attunement?.attuned).length;
 }
 
-// Whether an item can be worn/wielded, and so should show an equip toggle. Armor,
-// shields and weapons are inherently equippable (their mechanics only apply
-// while equipped); anything else opts in via the `equippable` flag.
+// Whether an item can be worn/wielded and so shows an equip toggle. Armor,
+// shields and weapons are inherently equippable; anything else opts in via
+// the `equippable` flag.
 export function isEquippable(item: EquipmentItem): boolean {
   return !!item.equippable || !!item.armor || !!item.shield || !!item.weapon;
 }
 
-// Whether an item's granted limited-use ability (`EquipmentItem.ability`) is in
-// play right now: attuned when the item requires attunement, equipped when the
-// item is equippable, and both when it's both — a Staff of Healing does nothing
-// in a backpack. An item with neither gate grants its ability just by being
-// carried. Callers pass a patched item to ask "would it be active if …"
-// (`itemAbilityActive({ ...item, equipped: true })`).
+// Whether an item's granted ability (`EquipmentItem.ability`) is in play right
+// now: attuned when attunement is required, equipped when equippable — an
+// item with neither gate grants its ability just by being carried. Callers
+// pass a patched item to ask "would it be active if …".
 export function itemAbilityActive(item: EquipmentItem): boolean {
   if (!item.ability) return false;
   if (item.attunement && !item.attunement.attuned) return false;
@@ -266,9 +253,8 @@ export function itemAbilityActive(item: EquipmentItem): boolean {
   return true;
 }
 
-// Total carried weight in POUNDS: Σ per-unit weight × quantity. Items without a
-// weight contribute nothing. Kept in lb because 5e carrying capacity is in lb;
-// display converts to kg when the `weightUnit` setting asks for it.
+// Total carried weight in lb: Σ per-unit weight × quantity. 5e carrying
+// capacity is defined in lb; display converts to kg when requested.
 export function totalEquipmentWeightLb(equipment: EquipmentItem[]): number {
   return sum(
     equipment.map((item) => (item.weight ?? 0) * (item.quantity ?? 1)),
@@ -296,8 +282,8 @@ export function kgToLb(kg: number): number {
   return kg * LB_PER_KG;
 }
 
-// Round a lb weight to the chosen unit for display in an editable input (2 dp),
-// so a kg-unit user reads/edits kilograms even though pounds are what's stored.
+// Round a lb weight to the chosen unit for an editable input (2 dp), so a
+// kg-unit user reads/edits kilograms even though pounds are stored.
 export function weightInUnit(lb: number, unit: "lb" | "kg"): number {
   const value = unit === "kg" ? lbToKg(lb) : lb;
   return Math.round(value * 100) / 100;
@@ -327,12 +313,9 @@ function armorDexBonus(armor: ArmorMechanics, dexMod: number): number {
   }
 }
 
-// AC from the character's *equipped* armor and shields — the value behind the
-// `equippedArmor` formula leaf. Body armor sets the base (best AC wins if more
-// than one is somehow equipped); with none equipped it falls back to the
-// unarmored 10 + DEX. Every equipped shield's bonus is added on top. Custom
-// cases (unarmored defense, magic bonuses, cover) stay expressible because the
-// caller's `acFormula` merely *references* this leaf.
+// AC from the character's equipped armor and shields — the `equippedArmor`
+// formula leaf. Body armor sets the base (best AC wins if several equipped);
+// none equipped falls back to unarmored 10 + DEX. Shield bonuses add on top.
 export function equippedArmorAC(character: Character): number {
   const equipped = character.equipment.filter((i) => i.equipped);
   const dexMod = modifier(character.stats[StatKey.dex]);
@@ -348,8 +331,7 @@ export function equippedArmorAC(character: Character): number {
 
 export function getHpFormula(character: Character): CustomFormula {
   const firstClass = character.class[0];
-  // A classless (e.g. freshly blank) character has no hit die to derive HP
-  // from; fall back to 0 so the sheet still renders and the user can fill it in.
+  // A classless character has no hit die to derive HP from.
   if (!firstClass) return 0;
   const rest = character.class.slice(1);
   const firstClassHp = {
@@ -414,19 +396,10 @@ export function getHpFormula(character: Character): CustomFormula {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Rolled hit points.
-//
-// `getHpFormula` derives max HP from the class list using *average* dice, and
-// `applyLevelUp` rebuilds it from scratch every level — so a rolled result has
-// nowhere to live unless it's carried as a flat term on top. These two keep
-// that term: `hpAdjustmentOf` reads back what earlier rolls left behind (which
-// would otherwise be wiped by the next level-up's rebuild), and
-// `withHpAdjustment` re-applies the running total.
-//
-// The shape is always `getHpFormula(...) + <number>`, so reading it back is a
-// structural check rather than a search.
-// ---------------------------------------------------------------------------
+// Rolled hit points. `getHpFormula` derives max HP from the class list using
+// average dice, rebuilt from scratch on every level-up — so a rolled result
+// only survives as a flat term on top. `hpAdjustmentOf` reads back that term
+// (shape is always `getHpFormula(...) + <number>`); `withHpAdjustment` re-applies it.
 
 export function hpAdjustmentOf(formula: CustomFormula | undefined): number {
   if (
@@ -450,15 +423,11 @@ export function withHpAdjustment(
   return { operation: Operation.addition, operands: [base, adjustment] };
 }
 
-// The standard 5e save DC: 8 + proficiency bonus + a governing ability modifier.
-// Kept as a formula (not a computed number) so it re-derives on a level-up or an
-// ASI. Every DC on the sheet is this shape — spellcasting's seeded
-// `saveDcOverride`, a class feature's `SaveEffect.dc`, a save-based attack —
-// which is why they share one builder.
+// Standard 5e save DC: 8 + proficiency bonus + governing ability modifier.
+// Kept as a formula, not a computed number, so it re-derives on a level-up.
 //
-// `stat` may be a list when the rule lets the player choose (a Battle Master's
-// maneuver DC is "STR or DEX"); the best of them is used, since the choice is
-// free and always resolves that way in practice.
+// `stat` may be a list when the rule lets the player choose (a Battle
+// Master's maneuver DC is "STR or DEX"); the best of them is used.
 export function saveDcFormula(stat: StatKey | StatKey[]): CustomFormula {
   const ability: CustomFormula = Array.isArray(stat)
     ? { operation: Operation.maximum, operands: stat }
@@ -475,9 +444,8 @@ export function getSpellcastingAbility(className: ClassName) {
     : StatKey.int;
 }
 
-// The ability a class actually casts with on this character: the character's
-// per-class `abilityOverride` if set, else the class's 5e default. Used to
-// resolve `spellMod` formula leaves live.
+// The ability a class actually casts with: per-class `abilityOverride` if
+// set, else the class's 5e default. Resolves `spellMod` formula leaves live.
 export function spellcastingAbilityFor(
   character: Character,
   classId: UUID,
@@ -546,12 +514,12 @@ export function getSpellSlotsByLevelAndSpellcasterLevel(
 }
 
 /**
- * Single source of truth for a class entry's spellcasting. `isSpellcaster` marks
- * whether it should appear in the spellcasting class list; `spellcasterLevel` is
- * its share of the multiclass caster level used to size shared slots. The two
- * differ for Warlocks — they cast via pact magic and so are spellcasters but
- * contribute nothing to the shared slot pool. Eldritch Knights and Arcane
- * Tricksters only cast with their respective subclass.
+ * Single source of truth for a class entry's spellcasting. `isSpellcaster`
+ * marks whether it appears in the spellcasting class list; `spellcasterLevel`
+ * is its share of the multiclass caster level for sizing shared slots.
+ * Warlocks are spellcasters via pact magic but contribute nothing to the
+ * shared slot pool. Eldritch Knights and Arcane Tricksters only cast via
+ * their subclass.
  */
 function casterContribution(klass: IClass): {
   isSpellcaster: boolean;
@@ -592,11 +560,10 @@ function casterContribution(klass: IClass): {
   }
 }
 
-// A single spellcasting class draws slots from *its own* class table, where
-// half-casters and third-casters round their effective caster level UP (a
-// single-classed paladin 5 has 4/2 slots — caster level 3, i.e. ceil(5/2)).
-// This mirrors `maxSpellLevelForClass`'s rounding so "can prepare a 2nd-level
-// spell" and "has a 2nd-level slot to cast it" agree.
+// A single spellcasting class draws slots from its own class table, where
+// half/third-casters round their effective caster level UP (a single-classed
+// paladin 5 has caster level 3, ceil(5/2)) — mirrors `maxSpellLevelForClass`'s
+// rounding so "can prepare" and "has a slot to cast it" agree.
 function singleClassCasterLevel(klass: IClass): number {
   if (!isOfficialClass(klass.name)) return 0;
   switch (klass.name) {
@@ -626,10 +593,9 @@ function singleClassCasterLevel(klass: IClass): number {
   }
 }
 
-// The combined caster level used to size the shared (non-pact) slot pool.
-// PHB p.164: with a *single* spellcasting class use its own table (round up for
-// half/third casters); only when *multiclassing* do you sum the rounded-DOWN
-// contributions on the Multiclass Spellcaster table.
+// Combined caster level for sizing the shared (non-pact) slot pool. PHB
+// p.164: a single spellcasting class uses its own table (round up); only
+// multiclassing sums the rounded-down contributions on the Multiclass table.
 export function calculateSpellcasterLevel(character: Character) {
   const casters = character.class.filter(
     (klass) => casterContribution(klass).isSpellcaster,
@@ -655,13 +621,11 @@ export function getDefaultSpellSlots(
   );
 }
 
-// The highest spell level a class entry can learn/prepare **as if
-// single-classed** at its own level — the RAW gate for spells known/prepared
-// (PHB multiclassing: each class determines its spells individually, even
-// though *slots* pool). Half-casters use ceil(level/2) as their effective
-// caster level (a single-classed paladin 9 has 3rd-level slots), warlocks
-// their pact-slot level, subclass third-casters ceil(level/3) from their
-// subclass level.
+// Highest spell level a class entry can learn/prepare as if single-classed at
+// its own level — the RAW gate for spells known/prepared (PHB multiclassing:
+// each class determines its spells individually even though slots pool).
+// Half-casters use ceil(level/2), warlocks their pact-slot level, subclass
+// third-casters ceil(level/3) from subclass level.
 export function maxSpellLevelForClass(klass: IClass): number {
   const highestSlot = (casterLevel: number): number => {
     for (let sl = 9; sl >= 1; sl--)
@@ -706,8 +670,6 @@ export function maxSpellLevelForClass(klass: IClass): number {
   }
 }
 
-// Unspent standard slots at a level (total, respecting any override, minus
-// expended). Used to offer only castable levels in the roll dialog.
 // Total slots at a level: the override if set, else the derived table value.
 export function totalSpellSlots(
   character: Character,
@@ -719,12 +681,10 @@ export function totalSpellSlots(
   );
 }
 
-// Slots spent at a level, **clamped to the total**. The stored `expended` can
-// legitimately exceed it — spend three 3rd-level slots, then lower the override
-// or lose the class level that granted them — and nothing should read as
-// "-1 available" or render more spent pips than exist. Clamping here (rather
-// than rewriting the character) keeps the read path honest without a migration
-// or a surprise edit, and the stored value recovers if the total goes back up.
+// Slots spent at a level, clamped to the total. The stored `expended` can
+// legitimately exceed it — spend slots, then lower the override or lose the
+// granting class level. Clamping on read keeps the value honest without a
+// migration, and it recovers if the total goes back up.
 export function expendedSpellSlots(
   character: Character,
   slotLevel: LeveledSpellLevel,
@@ -758,9 +718,8 @@ export function isPreparedCaster(className: ClassName): boolean {
 }
 
 // How much of its class level a prepared caster counts toward the allowance.
-// Full casters use the whole level; the half-casters use half — rounded *down*
-// for the paladin and *up* for the artificer, which is a genuine asymmetry
-// between the PHB and Tasha's rather than a typo.
+// Full casters use the whole level; half-casters use half — rounded down for
+// paladin, up for artificer (PHB vs. Tasha's, not a typo).
 const PREPARED_LEVEL_DIVISOR: Partial<
   Record<OfficialClass, (level: number) => number>
 > = {
@@ -772,15 +731,10 @@ const PREPARED_LEVEL_DIVISOR: Partial<
 };
 
 /**
- * How many spells this class can have prepared: its spellcasting modifier plus
- * (some fraction of) its level, minimum 1. Returns null for a class that has a
- * fixed repertoire instead — there's no preparing to do.
- *
- * This is the number a prepared caster needs at every long rest, and it was the
- * one piece of their spellcasting the sheet never showed. Note the RAW wrinkle
- * it doesn't model: domain/oath/circle spells are *always* prepared and don't
- * count against the limit, but the sheet has no "always prepared" flag — so the
- * count reflects the boxes actually ticked.
+ * How many spells this class can have prepared: spellcasting modifier plus
+ * some fraction of level, minimum 1. Null for a class with a fixed repertoire.
+ * Does not model always-prepared domain/oath/circle spells — the sheet has no
+ * "always prepared" flag, so the count reflects boxes actually ticked.
  */
 export function preparedSpellCount(
   character: Character,
@@ -812,9 +766,9 @@ export function preparedSpellsFor(character: Character, classId: UUID): number {
     );
 }
 
-// The character's spellcasting classes that are official 5e classes (so their
-// catalog spell lists are known). Custom classes are omitted — callers treat an
-// empty result as "don't restrict".
+// The character's spellcasting classes that are official 5e classes (known
+// catalog spell lists). Custom classes are omitted; callers treat an empty
+// result as "don't restrict".
 export function officialSpellcastingClasses(
   character: Character,
 ): OfficialClass[] {
@@ -893,11 +847,9 @@ export const OPTIONAL_FIELD_INITIALIZERS: {
         : undefined,
 };
 
-// Boundary over OPTIONAL_FIELD_INITIALIZERS: the seeded default (if any) for the
-// value at `field`+`subField`. Callers pass the field/subField pair (typically
-// from a cursor's `.root()`/`.subpath()`) and no longer hand-index the map or
-// know its per-field subField shapes — those stay encapsulated in the entries
-// above (which still parse subField internally).
+// Boundary over OPTIONAL_FIELD_INITIALIZERS: the seeded default (if any) for
+// the value at `field`+`subField`, keeping per-field subField shapes
+// encapsulated in the entries above.
 export function getOptionalInitializer(
   field: FIELD | undefined,
   subField: string | undefined,
@@ -907,15 +859,8 @@ export function getOptionalInitializer(
   return OPTIONAL_FIELD_INITIALIZERS[field]?.(character, subField);
 }
 
-// --- Death saving throws ------------------------------------------------------
-
-// The verdict on a death save, and the pips it leaves behind.
-//
-// The one roll in 5e that nothing can improve — no modifier, no proficiency, no
-// magic item — which is exactly why it is the roll a table most wants to see
-// made in the open. It is also the one where the arithmetic is fiddly enough to
-// be worth doing for the player: a nat 1 costs *two* failures, a nat 20 skips
-// the whole track and puts you back up at 1 hit point.
+// The verdict on a death save, and the pips it leaves behind. Nat 1 costs two
+// failures; nat 20 skips the track and revives at 1 HP.
 export type DeathSaveVerdict =
   | "success"
   | "failure"
@@ -939,8 +884,6 @@ export function resolveDeathSave(
   face: number,
   saves: { successes: number; failures: number },
 ): DeathSaveResult {
-  // Up at 1 HP, and the track is wiped — the saves that got you here stop
-  // meaning anything the moment you're conscious.
   if (face >= 20) {
     return { verdict: "revived", successes: 0, failures: 0, revivedAtHp: 1 };
   }
@@ -954,8 +897,6 @@ export function resolveDeathSave(
   }
   if (face >= 10) {
     const successes = Math.min(3, saves.successes + 1);
-    // Stabilised: the pips have done their job, so they clear rather than
-    // sitting there implying a set still in progress.
     if (successes >= 3) return { verdict: "stable", successes: 0, failures: 0 };
     return { verdict: "success", successes, failures: saves.failures };
   }
@@ -983,9 +924,8 @@ export function describeDeathSave(result: DeathSaveResult): string {
   }
 }
 
-// The static preset/option-list data used to live in this file; it moved to
-// src/lib/data/ (this file is for rules logic). Re-exported here so existing
-// imports keep working.
+// Preset/option-list data lives in src/lib/data/; re-exported here for
+// existing imports.
 export {
   buildAttackFromPreset,
   DEFAULT_CUSTOM_ATTACK,

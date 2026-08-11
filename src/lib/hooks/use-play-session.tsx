@@ -16,19 +16,13 @@ import {
 import { RollReport, RollVerdict } from "src/lib/play/reports";
 import { RealmResult, useRealm } from "src/lib/realm/use-realm";
 
-// The party session's transport: which messages exist and who they go to.
-//
-// Sockets, subscriptions, self-echo, versioning and teardown are `useRealm` —
-// this file is now only the protocol. Everything it *decides* still lives in
-// `play/session.ts`, which is the split the codebase already used: network
-// paths are verified by hand, so the decisions inside them are extracted to
-// somewhere a test can reach.
+// The party session's message protocol; sockets/subscriptions/versioning
+// live in `useRealm`, decisions about the messages live in `play/session.ts`.
 
 export type SessionStatus = "offline" | "connecting" | "connected" | "error";
 
-// Joining resolves with the code that was joined. A host doesn't know it in
-// advance — the transport mints it — and the caller needs it in the same breath
-// to record the table in this browser's memory.
+// Joining resolves with the code that was joined, since a host doesn't know
+// it until the transport mints it.
 export type JoinResult =
   | Extract<RealmResult, { ok: false }>
   | {
@@ -38,71 +32,48 @@ export type JoinResult =
 
 interface PlaySessionOptions {
   clientId: string;
-  // Applied when a peer sends state. The provider decides how to merge.
   onRemoteState: (encounter: Encounter, fromClientId: string) => void;
-  // A peer arrived and asked what the room holds: answer them directly.
   onSyncRequest: (fromClientId: string, requestId: string) => void;
-  // Somebody answered ours.
   onSyncResponse: (encounter: Encounter, requestId: string) => void;
-  // A peer left: drop what it owned.
   onLeave: (fromClientId: string) => void;
-  // A peer said who they are. Names only — liveness is best-effort, which is
-  // fine for a dropdown and would be wrong for a lock.
+  // Names only — liveness is best-effort, fine for a dropdown, wrong for a lock.
   onPresence: (fromClientId: string, name: string) => void;
-  // A peer said *anything*. Every message is evidence of a live client, which
-  // matters most where the heartbeat is least reliable: a backgrounded phone
-  // has its timers throttled to about one a minute, while a publish caused by
-  // a tap goes out immediately.
+  // Any message counts as a heartbeat — a backgrounded phone throttles
+  // timers to about once a minute, but a tap-triggered publish is immediate.
   onPeerHeard: (fromClientId: string) => void;
-  // The DM pointed a sheet at us. Addressed, so the envelope has already
-  // dropped the copies meant for other clients.
+  // Addressed — the envelope has already dropped copies meant for others.
   onAssignSheet: (participantId: string, fromClientId: string) => void;
-  // The DM called for initiative. Each player client raises its own prompt.
   onCallInitiative: (fromClientId: string) => void;
-  // A player rolled something at the table — a to-hit, damage, an answered
-  // check. Everyone hears it; whoever holds the seat queues it.
   onRollReport: (report: RollReport, fromClientId: string) => void;
-  // The DM ruled on a to-hit roll. Each client keeps the ones addressed to it.
   onRollVerdict: (verdict: RollVerdict, fromClientId: string) => void;
-  // The DM asked for a d20 — everyone, or one addressed client.
   onRollCall: (call: RollCall, fromClientId: string) => void;
-  // The DM called a rest. Every player raises its own prompt, and the rest
-  // itself runs on their own sheet.
   onRestCall: (call: RestCall, fromClientId: string) => void;
-  // Approved healing looking for its recipient — each client checks whether
-  // the target participant is its own open character.
   onHealingOffer: (offer: HealingOffer, fromClientId: string) => void;
-  // A cast condition looking for consent — same addressing rule as healing.
   onConditionOffer: (offer: ConditionOffer, fromClientId: string) => void;
-  // Someone wants to play an offered sheet: whoever owns it replies.
   onClaimSheet: (participantId: string, fromClientId: string) => void;
-  // A whole sheet arrived, addressed to us. The provider validates and loads it.
   onSheet: (participantId: string, character: unknown) => void;
 }
 
 export function usePlaySession(options: PlaySessionOptions) {
   const { clientId } = options;
   const [code, setCode] = useState<string | undefined>();
-  // Held in a ref so the once-registered subscription always calls the current
-  // closure rather than the one captured at connect time.
+  // Ref so the once-registered subscription always calls the current closure.
   const handlers = useRef(options);
   handlers.current = options;
 
   const realm = useRealm<SessionMessage["kind"]>({
     clientId,
     topics: TOPIC_FOR,
-    // One exhaustive switch instead of twelve subscriptions. The envelope has
-    // already dropped our own echo, an unknown kind, a future version and
-    // anything addressed elsewhere, so everything here is ours to act on.
+    // The envelope has already dropped self-echo, unknown kinds, future
+    // versions and anything addressed elsewhere.
     onMessage: (raw) => {
       const message = raw as SessionMessage;
       const on = handlers.current;
       on.onPeerHeard(message.clientId);
       switch (message.kind) {
         case "state":
-          // The one payload big enough to be worth checking: a peer on a
-          // different build handing us something that isn't an encounter would
-          // otherwise throw inside this callback, which whitescreens the table.
+          // Guard against a peer on a different build sending something
+          // that isn't an encounter, which would otherwise throw here.
           if (isEncounter(message.encounter)) {
             on.onRemoteState(message.encounter, message.clientId);
           }
@@ -110,9 +81,6 @@ export function usePlaySession(options: PlaySessionOptions) {
         case "syncRequest":
           return on.onSyncRequest(message.clientId, message.requestId);
         case "syncResponse":
-          // Same check as `state`, for the same reason — this one arrives from
-          // a peer we have never heard from before, which is if anything the
-          // likelier one to be on a different build.
           if (isEncounter(message.encounter)) {
             on.onSyncResponse(message.encounter, message.requestId);
           }
@@ -144,18 +112,10 @@ export function usePlaySession(options: PlaySessionOptions) {
       }
     },
     onClosed: () => setCode(undefined),
-    // What survives a blip, and what shouldn't.
-    //
-    // The encounter converges on its own: a `state` published into a dead
-    // socket is superseded by the next one, and replaying a stale copy would
-    // put an old fight back on the wire. Presence re-announces on its own
-    // beat; a `leave` is meaningless once we've already gone; a sync request
-    // and its answer are keyed to an id that has expired by then.
-    //
-    // Everything else is a *sentence somebody said* — a roll, a ruling, an
-    // ask, an offer, a claim — and none of it has any other copy. Losing one
-    // is the player who rolled to hit and got no answer, or the sheet pickup
-    // that silently did nothing. Those are worth a few seconds of holding.
+    // `state`, `presence`, `leave`, and sync request/response all supersede
+    // or self-expire, so replaying a stale one is wrong or pointless.
+    // Everything else (roll, ruling, ask, offer, claim) has no other copy,
+    // so it's held and replayed instead of dropped.
     queueWhileOffline: (kind) =>
       kind !== "state" &&
       kind !== "presence" &&
@@ -182,12 +142,9 @@ export function usePlaySession(options: PlaySessionOptions) {
     [realm.connect, realm.refuse],
   );
 
-  // A code may be supplied to reopen a table that has gone quiet. Realms only
-  // exist while somebody is connected, so last week's code is dead by this week
-  // — and minting a new one every time meant the invite link a group pinned in
-  // their chat was good for one evening. Reopening the same code is what makes
-  // it durable: the uuid is still the authentication, and the DM who has it is
-  // the person who ran the table.
+  // Realms only exist while somebody is connected, so an existing code can
+  // be passed to reopen a table rather than always minting a new one — the
+  // uuid itself is the authentication.
   const host = useCallback(
     (existing?: string) => connect(existing ?? newSessionCode(), true),
     [connect],
@@ -200,9 +157,9 @@ export function usePlaySession(options: PlaySessionOptions) {
 
   const leave = useCallback(() => {
     publish({ kind: "leave", clientId });
-    // Deliberately not closing the realm: in a party session there is no owner,
-    // and one player going to bed must not end everyone else's fight. Empty
-    // realms are swept by the sidecar after a long idle.
+    // Not closing the realm: no owner in a party session, so one player
+    // leaving mustn't end the fight for everyone else. Idle realms are
+    // swept by the sidecar.
     realm.close();
     setCode(undefined);
   }, [publish, clientId, realm.close]);
@@ -214,10 +171,9 @@ export function usePlaySession(options: PlaySessionOptions) {
     host,
     join,
     leave,
-    // Asking the room what it holds, and answering somebody who asked. The
-    // request is published by the provider once connecting has resolved, rather
-    // than by the transport on open: what to do about the answer — and about
-    // there being none — is a decision, and decisions live outside this file.
+    // Published by the provider once connecting resolves, not by the
+    // transport on open — handling the answer (or its absence) is a
+    // decision that lives outside this file.
     sendSyncRequest: useCallback(
       (requestId: string) =>
         publish({ kind: "syncRequest", clientId, requestId }),

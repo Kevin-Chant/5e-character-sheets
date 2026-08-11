@@ -636,9 +636,7 @@ describe("applyLevelUp — chosen options", () => {
   it("writes the picks onto the character, with their summaries", () => {
     const char = toBattleMaster();
     const picks = chosenIn(char, "maneuvers");
-    // A name that isn't in the catalog is rejected — the grant path validates
-    // picks against the group it's applying, so a hand-edited or stale state
-    // can't put junk on the sheet.
+    // A name not in the catalog is rejected.
     expect(picks.map((o) => o.name)).toEqual(["Riposte", "Precision Attack"]);
     expect(picks.find((o) => o.name === "Riposte")?.detail).toContain(
       "reaction",
@@ -755,9 +753,7 @@ describe("level-up choices added by the coverage audit", () => {
 });
 
 describe("summarizeLevelUp", () => {
-  // The review step's "You gain" list. It's a diff of the applied character
-  // rather than a second reading of the grant tables, so these assert the shape
-  // of what a player is told, not which table it came from.
+  // The review step's "You gain" list.
   const levelTo = (
     char: Parameters<typeof applyLevelUp>[0],
     className: string,
@@ -964,9 +960,7 @@ describe("applyLevelUp — ability scores a class feature grants", () => {
   });
 });
 
-// `LevelEffects` — the grants that write to a character field rather than
-// adding prose. The unit tests in level-effects.test.ts cover the applier; this
-// checks the wiring, i.e. that levelling actually reaches it.
+// level-effects.test.ts covers the applier; this checks the wiring.
 describe("applyLevelUp — level effects", () => {
   // Advance a fresh level-1 character to `to`, keeping the subclass set.
   const levelTo = (classIndex: string, subclass: string, to: number) => {

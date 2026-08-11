@@ -1,20 +1,15 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// Choosing from a `<Select>` in a test.
-//
-// The app's pickers are comboboxes rather than native `<select>`s, so
-// `userEvent.selectOptions` doesn't reach them — it wants an `HTMLSelectElement`.
-// Two clicks do, and every test that picks something wants the same two, so
-// they live here rather than being spelled out (differently) in each file.
+// The app's `<Select>` is a combobox, not a native `<select>`, so
+// `userEvent.selectOptions` can't reach it. These two clicks can.
 export async function chooseOption(
   selectName: string | RegExp,
   optionName: string | RegExp,
   user: ReturnType<typeof userEvent.setup> = userEvent.setup(),
 ) {
   await user.click(screen.getByRole("button", { name: selectName }));
-  // The popup is portalled to <body>, so it's reachable from `screen` even when
-  // the caller rendered into a container.
+  // The popup is portalled to <body>, reachable from `screen`.
   await user.click(
     within(await screen.findByRole("listbox")).getByRole("option", {
       name: optionName,

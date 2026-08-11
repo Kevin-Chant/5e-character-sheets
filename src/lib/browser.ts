@@ -1,8 +1,7 @@
 import { UUID } from "crypto";
 
-// `crypto.randomUUID` is only exposed in secure contexts (HTTPS or localhost).
-// Over plain HTTP on a LAN IP it's undefined, so fall back to a v4 UUID built
-// from `crypto.getRandomValues`, which is available in non-secure contexts too.
+// crypto.randomUUID is only exposed in secure contexts (HTTPS/localhost); fall
+// back to a v4 UUID built from getRandomValues, which works everywhere.
 export function randomUUID(): UUID {
   if (typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -20,9 +19,8 @@ export function randomUUID(): UUID {
   ].join("-") as UUID;
 }
 
-// Like `crypto.randomUUID`, `navigator.clipboard` is only exposed in secure
-// contexts, so it's undefined over plain HTTP on a LAN IP. Fall back to the
-// legacy `execCommand("copy")` against an off-screen textarea in that case.
+// navigator.clipboard is also secure-context only; fall back to
+// execCommand("copy") against an off-screen textarea.
 export function copyToClipboard(text: string): Promise<void> {
   if (navigator.clipboard) {
     return navigator.clipboard.writeText(text);

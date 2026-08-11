@@ -12,43 +12,29 @@ import {
   StandardCondition,
 } from "src/lib/play/conditions";
 
-// What a condition *does* to its bearer's rolls — the wired half of the
-// condition system, as `CONDITION_ROLL_EFFECTS` (conditions.ts) is the
-// advisory half.
+// Wired half of the condition system: what a condition does to its bearer's
+// rolls. `CONDITION_ROLL_EFFECTS` (conditions.ts) is the advisory half.
 //
-// This is the catalog that makes "send fully wired conditions across the
-// wire" viable without sending mechanics across the wire: a `ConditionOffer`
-// carries only the condition's **name**, and every client resolves that name
-// against this bundled table — the same trust and versioning model as the
-// spell catalog. Rider definitions never travel, so a rogue client can lie
-// about *which* buff it cast but cannot inject arbitrary mechanics into a
-// peer's rolls.
+// `ConditionOffer` carries only the condition's name over the wire; each
+// client resolves it against this bundled table, so mechanics never travel
+// and a rogue client can't inject arbitrary rider effects.
 //
-// The standard 5e conditions stay advisory-only (their clauses hinge on
-// facts the sheet can't see); entries here are the buff/debuff conditions
-// spells mint — Bless, Guidance — whose effects are unconditional enough to
-// wire. Checks and saves are distinct `RollKind`s, so a rider aimed at one
-// never leaks onto the other; `optional` remains for eligibility the kinds
-// still can't express (Guidance boosts *one* check, then ends).
+// Standard 5e conditions stay advisory-only. Entries here are spell-minted
+// buffs/debuffs (Bless, Guidance) whose effects are unconditional enough to
+// wire to a specific `RollKind`.
 
-// A rider applied to rolls made *against* a bearer of the condition — the
-// attacker's side of the mirror. `casterOnly` limits it to whoever placed
-// the condition (`ActiveCondition.from`): Hex's d6 is the hexer's, while
-// Faerie Fire's advantage belongs to anyone who can see the glow.
+// Rider applied to rolls made against a bearer of the condition.
+// `casterOnly` limits it to whoever placed the condition (`ActiveCondition.from`).
 export interface TargetedRider extends FeatureRider {
   casterOnly?: boolean;
 }
 
 export interface ConditionMechanics {
-  // What the condition does to the *bearer's* own rolls (Bless's d4).
+  // Effect on the bearer's own rolls (Bless's d4).
   riders?: FeatureRider[];
-  // What it does to rolls aimed *at* the bearer (Hex's d6, Faerie Fire's
-  // advantage). Consumed by the dialog when the roll's chosen target bears
-  // the condition — which lives on an encounter row: placed over the wire at
-  // a table, or by hand from the condition adder's "Spells & effects" group
-  // (which is the whole solo path).
+  // Effect on rolls aimed at the bearer (Hex's d6, Faerie Fire's advantage).
   against?: TargetedRider[];
-  // One line for banners and the DM board: what accepting this means.
+  // One-line summary for banners and the DM board.
   summary?: string;
 }
 
@@ -57,8 +43,6 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
     summary: "+1d4 to attack rolls and saving throws",
     riders: [
       {
-        // Saves and attacks are exactly what Bless touches and exactly what
-        // the kinds can now say — so the d4 folds in on its own, no tick.
         appliesTo: ["attack", "save"],
         rider: {
           rider: "bonusDice",
@@ -88,14 +72,6 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
       "Falls prone, incapacitated with laughter; repeats the save when damaged",
   },
 
-  // --- 2026-08-03 catalog fan-out (see spell-conditions.ts). `riders` only
-  // where the bearer-side effect is expressible; caster-/attacker-side
-  // effects (Hex's d6, Blur's disadvantage, Sanctuary's save) live in
-  // `against` instead — applied to rolls aimed at the bearer, `casterOnly`
-  // where the benefit belongs to whoever placed the mark. When neither a die
-  // nor a modifier is wireable, an `advantage` rider (advisory by design)
-  // still puts the reminder on exactly the rolls it concerns — Fire Shield's
-  // burn, Mirror Image's duplicates.
   "Absorb Elements": {
     summary:
       "Resistance to the triggering damage type, and the bearer's first successful melee attack that turn deals an extra 1d6 of that type.",
@@ -196,9 +172,7 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   Bane: {
     summary:
       "Subtracts a rolled d4 from the bearer's attack rolls and saving throws.",
-    // A *negative* bonus die has no rider shape (bonusDice only adds), so the
-    // d4 stays the roller's to subtract — but the reminder lands on exactly
-    // the rolls it taxes.
+    // bonusDice only adds; no rider shape for a negative die, so this is a reminder only.
     riders: [
       {
         appliesTo: ["attack", "save"],
@@ -213,10 +187,8 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
     summary:
       "Banished to a harmless demiplane and incapacitated until the spell ends, then reappears where it left.",
   },
-  // Granted by the bard's Inspire action, not a spell. The die scales with the
-  // *bard's* level (d6→d12), which the bearer's sheet can't know — so it stays
-  // an advisory note rather than a `bonusDice` rider that would roll the wrong
-  // size.
+  // Granted by the bard's Inspire action, not a spell. Die scales with bard
+  // level (d6-d12), unknown to the bearer's sheet, so it's advisory only.
   "Bardic Inspiration": {
     summary:
       "Add an inspiration die (d6–d12 by the bard's level) to one attack roll, ability check, or saving throw within 10 minutes; then it's spent.",
@@ -276,8 +248,7 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
           amount: [1, StandardDie.d8, DieOperation.roll],
           damageType: DamageType.Necrotic,
           declareAt: "on-hit",
-          // One of four curse options, so it waits for a tick where Hex's d6
-          // folds in on its own.
+          // One of four curse options.
           optional: true,
           note: "only if the extra-damage curse was the option chosen",
         },
@@ -455,8 +426,7 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
         rider: { rider: "bonus", value: 1 },
       },
       {
-        // No damageType: the type is chosen at cast and the wire only
-        // carries the condition's name — same shape as Absorb Elements.
+        // No damageType: type is chosen at cast, not carried by the condition name.
         appliesTo: ["damage"],
         rider: {
           rider: "extraDamage",
@@ -527,9 +497,7 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
       "May teleport up to 60 feet as a bonus action on this and later turns.",
   },
   // Granted by the ranger's Mark a foe action (Tasha's Favored Foe), not a
-  // spell. The die scales with the *ranger's* level (d4→d8), which a static
-  // rider can't say — so the payout stays an advisory note; the ranger's own
-  // dialog rolls the real die via the Favored Foe damage rider.
+  // spell. Die scales with ranger level (d4-d8), so payout stays advisory.
   "Favored Foe": {
     summary:
       "Marked as the ranger's favored foe (concentration, 1 minute): their first hit each turn deals their Favored Foe die extra.",
@@ -759,9 +727,7 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
       },
     ],
   },
-  // Granted by the hexblade's Curse action, not a spell. The +PB damage and
-  // the widened crit range belong to the curser alone — both riders ride
-  // `casterOnly` off the mark's provenance, the same way Hex's d6 does.
+  // Granted by the hexblade's Curse action, not a spell.
   "Hexblade's Curse": {
     summary:
       "Cursed: the curser's damage rolls against it gain the curser's proficiency bonus, the curser crits against it on 19–20, and the curser regains HP if it dies.",
@@ -979,8 +945,7 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
     summary:
       "+10 bonus to Dexterity (Stealth) checks and can't be tracked except by magical means.",
   },
-  // Granted by the Grave cleric's Channel Divinity action, not a spell. The
-  // vulnerability is anyone's to cash — the first attack, ally or cleric.
+  // Granted by the Grave cleric's Channel Divinity action, not a spell.
   "Path to the Grave": {
     summary:
       "Cursed until the end of the cleric's next turn: the first attack to hit it makes it vulnerable to all of that attack's damage, then the curse ends.",
@@ -1270,9 +1235,7 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
       },
     ],
   },
-  // Granted by turn features (Turn Undead, Arcane Abjuration, the paladin
-  // turns) — one shared name, since "turned" means the same thing wherever
-  // it comes from.
+  // Shared name for all turn features (Turn Undead, Arcane Abjuration, paladin turns).
   Turned: {
     summary:
       "Turned: must spend its turns trying to move as far from the turner as it can, can't willingly move within 30 ft. of them, and can't take reactions; ends if it takes damage.",
@@ -1372,10 +1335,7 @@ export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
   },
 };
 
-// The riders a bearer's active conditions contribute to a roll of this kind.
-// Merged beside `ridersFor`'s feature riders at the dialog's collection
-// points — conditions live on the encounter, features on the character, and
-// neither layer should import the other's store.
+// Riders a bearer's active conditions contribute to a roll of this kind.
 export function conditionRiders(
   conditions: ConditionName[],
   kind: RollKind,
@@ -1388,9 +1348,8 @@ export function conditionRiders(
   });
 }
 
-// The riders the chosen *target's* conditions contribute to a roll against
-// it. Takes the full ActiveConditions (not just names) because provenance
-// gates the caster-only ones: a Hex someone else placed pays you nothing.
+// Riders the target's conditions contribute to a roll against it. Takes full
+// ActiveConditions (not just names) so provenance can gate casterOnly riders.
 export function ridersAgainst(
   targetConditions: { name: ConditionName; from?: string }[],
   selfParticipantId: string | undefined,
@@ -1409,13 +1368,8 @@ export function ridersAgainst(
   });
 }
 
-// Catalog entries whose mechanics are actually wired to rolls — riders on
-// the bearer (Zephyr Strike's d8, Divine Favor's d4) or marks paid by
-// attackers (Hex, Hunter's Mark). Offered by the manual condition adder so a
-// buff can land on a row *by hand*: the consent pipeline that normally
-// delivers these only runs at a table with a separate DM client, which left
-// solo play — and a caster who runs their own table — with no way to make an
-// active spell reach their own attack rolls.
+// Catalog entries with actual roll mechanics (riders or against), offered by
+// the manual condition adder for solo play with no separate DM client.
 export const WIRED_CONDITION_NAMES: string[] = Object.entries(
   CONDITION_MECHANICS,
 )
@@ -1426,16 +1380,13 @@ export const WIRED_CONDITION_NAMES: string[] = Object.entries(
   .map(([name]) => name)
   .sort((a, b) => a.localeCompare(b));
 
-// The one-line meaning of a condition, for banners and the seat's queue.
+// One-line meaning of a condition, for banners and the seat's queue.
 export function conditionSummary(name: ConditionName): string | undefined {
   return CONDITION_MECHANICS[name]?.summary;
 }
 
-// The same line for a *picker*, which is the one place both halves of the
-// condition system are on offer together: the wired catalog answers for the
-// spell effects, and the advisory roll-effect table answers for the fourteen
-// standard conditions, which have no mechanics entry and would otherwise be
-// fourteen bare nouns. What Blinded does is the thing you're choosing on.
+// Same line for a picker: falls back to the advisory roll-effect table for
+// standard conditions with no mechanics entry.
 export function conditionHint(name: ConditionName): string | undefined {
   return (
     conditionSummary(name) ??

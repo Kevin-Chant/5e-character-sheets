@@ -31,9 +31,9 @@ interface StepDef {
   visible?: (character: Character, state: LevelUpState) => boolean;
 }
 
-// The grants for the level this wizard run is reaching. The subclass may be
-// chosen in this very run (Battle Master at 3rd owes maneuvers immediately), so
-// the pending choice wins over what's on the sheet.
+// The grants for the level this wizard run is reaching. A subclass or
+// fighting style chosen in this same run wins over what's already on the
+// sheet, since it may unlock an immediate grant (e.g. Battle Master maneuvers).
 export const grantsForLevelUp = (
   character: Character,
   state: LevelUpState,
@@ -45,24 +45,17 @@ export const grantsForLevelUp = (
       subclass:
         state.subclass ??
         character.class.find((k) => k.name === state.className)?.subclass,
-      // Same reason as `subclass`: Superior Technique's maneuver is owed by the
-      // style being picked in this very run.
       fightingStyle: state.fightingStyle,
-      // Tasha's swaps taken earlier (read off the sheet) plus any taken now —
-      // a Favored Foe ranger is owed no favored enemy at 6th or 14th.
+      // Tasha's swaps taken earlier (read off the sheet) plus any taken now.
       optionalFeatures: [
         ...takenOptionalFeatures(character).map((f) => f.name),
         ...(state.optionalFeatures ?? []),
       ],
     },
-    // Reaching level 1 in a class when the sheet already has one is a
-    // multiclass — derived from the same facts `applyClassLevel` uses rather
-    // than from `isNewMulticlass`, so picking an absent class without ticking
-    // that flag can't offer one allowance and apply another.
+    // Multiclass = reaching level 1 in a class the sheet already has another
+    // class in, derived from the same facts `applyClassLevel` uses.
     targetClassLevel(character, state) === 1 && character.class.length > 0,
   ),
-  // Racial allowances advance on total character level, which a level-up always
-  // raises by exactly one — whichever class it was spent on.
   raceOptionPicks: newRaceOptionPicksAt(
     character.race?.name,
     character.class.reduce((sum, k) => sum + k.level, 0) + 1,
@@ -86,13 +79,8 @@ const STEPS: StepDef[] = [
   },
   {
     key: "featureChoices",
-    // Not "Class features": the step also carries skill and tool picks, and now
-    // a racial allowance (Simic Hybrid's 5th-level enhancement) that no class
-    // grants.
     title: "Level choices",
     Component: LevelUpFeatureChoicesStep,
-    // Asks `grantsAt` the same question the step itself does, so a new kind of
-    // choice shows up in both without a second edit.
     visible: (character, state) =>
       hasFeatureChoices(grantsForLevelUp(character, state)),
   },
@@ -117,9 +105,9 @@ interface Props {
   onFinish: (updated: Character) => void | Promise<void>;
 }
 
-// The guided level-up wizard. Owns a working `LevelUpState`, routes between the
-// applicable steps (subclass / ASI / spells appear only when the chosen class &
-// level call for them), and hands back the updated character on finish.
+// Owns a working `LevelUpState`, routes between applicable steps (subclass /
+// ASI / spells appear only when the class & level call for them), hands back
+// the updated character on finish.
 export default function LevelUpWizard({
   character,
   onCancel,
@@ -143,14 +131,12 @@ export default function LevelUpWizard({
   const isFirst = clampedIndex === 0;
   const isLast = clampedIndex === steps.length - 1;
 
-  // Each step opens scrolled to its top, not wherever the previous one left off.
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 });
   }, [clampedIndex]);
 
-  // Once a level-up is underway, a stray backdrop click would throw away the
-  // choices made so far — so only the X button can dismiss it then.
+  // Once a level-up is underway, only the X button dismisses it.
   const guardExit = clampedIndex > 0;
 
   const finish = async () => {

@@ -12,18 +12,14 @@ import {
 import type { Character } from "src/lib/types";
 import { PROTOCOL_VERSION } from "src/lib/realm/envelope";
 
-// Capture the mock autobahn connection the transport constructs, so the test
-// can drive its onopen/onclose lifecycle by hand.
+// Capture the mock autobahn connection so the test can drive onopen/onclose.
 const mock = vi.hoisted(() => ({ holder: { connection: null as any } }));
 
 vi.mock("autobahn-browser", () => {
   class MockConnection {
     onopen: ((session: unknown) => void) | undefined;
     onclose: (() => boolean) | undefined;
-    // Subscriptions are captured so a test can deliver a peer's message —
-    // which is now the only way to say "the host ended it on purpose", as
-    // against "the socket went away", which is a different story with a
-    // different ending.
+    // Captured subscriptions, so a test can deliver a peer's message.
     handlers: ((args: unknown[]) => void)[] = [];
     session = {
       subscribe: (_topic: string, handler: (args: unknown[]) => void) => {
@@ -43,8 +39,7 @@ vi.mock("autobahn-browser", () => {
   return { default: { Connection: MockConnection } };
 });
 
-// Deliver a message as a peer would. Every subscription gets it; the envelope
-// check drops the ones it isn't for.
+// Deliver a message as a peer would; the envelope check drops mismatches.
 const deliver = (connection: any, message: Record<string, unknown>) => {
   for (const handler of connection.handlers) {
     handler([{ ...message, v: PROTOCOL_VERSION }]);
@@ -54,11 +49,8 @@ const deliver = (connection: any, message: Record<string, unknown>) => {
 const UUID_A = "11111111-1111-1111-1111-111111111111" as UUID;
 const UUID_B = "22222222-2222-2222-2222-222222222222" as UUID;
 
-// The provider holds one session per character now, so "is this the sheet on
-// screen" is a real question it has to ask — with several rooms open, a room
-// ending in the background must not clear the character the user is looking at.
-// Binding a character is what lets a test say which sheet is open; the real app
-// binds it from `CharacterContext`.
+// Binds which sheet is "open" for the test; the real app binds this from
+// `CharacterContext`.
 const useJoinerWithOpenSheet = (
   dispatch: (...args: unknown[]) => void,
   openUuid: UUID | undefined,
@@ -71,8 +63,7 @@ const useJoinerWithOpenSheet = (
   return useRemoteSharingSession(dispatch as never);
 };
 
-// The join flow lives in the provider now (one transport for the layer), so
-// the hook is rendered under the real one rather than making its own sockets.
+// Render under the real provider rather than making its own sockets.
 const wrapper = ({ children }: React.PropsWithChildren) =>
   React.createElement(SharingSessionsContextProvider, null, children);
 
@@ -90,9 +81,9 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
       wrapper,
     });
     await act(async () => {
-      // Kick off a join; it rejects when the realm isn't there — swallow it.
+      // Join rejects when the realm isn't there — swallow it.
       const join = result.current.joinSession(UUID_A).catch(() => {});
-      // Simulate a connection that closes before ever opening.
+      // Connection closes before ever opening.
       mock.holder.connection.onclose();
       await join;
     });
@@ -101,10 +92,6 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  // The socket going away is not the host saying goodbye, and treating it as
-  // one is the bug this pins. On a phone a dropped connection is a routine
-  // event — a wifi handover, a tunnel, a backgrounded tab — and it used to cost
-  // the joiner the borrowed sheet plus an alert blaming their friend.
   it("does not end the session when the socket merely drops", async () => {
     const dispatch = vi.fn();
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -117,7 +104,6 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
       const connection = mock.holder.connection;
       connection.onopen(connection.session);
       await join;
-      // Gone, with nothing said about why.
       connection.onclose();
     });
 
@@ -125,8 +111,6 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  // The host's explicit goodbye still ends it at once — no retry, because
-  // there is nothing to retry into and we've been told so.
   it("clears the character and alerts when the host closes the session", async () => {
     const dispatch = vi.fn();
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -151,11 +135,6 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
     expect(alertSpy).toHaveBeenCalled();
   });
 
-  // The other half of that, and the reason the check exists at all. Holding one
-  // session, "the host closed it" and "the sheet on screen is dead" were the
-  // same fact. Holding several they aren't: a DM's other room can end while you
-  // are looking at a different character, and resetting then would take a sheet
-  // nobody said anything about.
   it("leaves a different open sheet alone when a background session ends", async () => {
     const dispatch = vi.fn();
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -177,17 +156,12 @@ describe("useRemoteSharingSession quiet-failure guard", () => {
       expect.anything(),
       expect.anything(),
     );
-    // Still told — the session they joined really did end.
     expect(alertSpy).toHaveBeenCalled();
   });
 });
 
-// A joiner that gets its socket back re-runs `FULL_SYNC` to collect what it
-// missed — and then has to decide where to put the answer. "The realm asked for
-// it, so it goes on screen" is the assumption that predates several sessions
-// per browser, and it is the same one that scrambled sheets everywhere else it
-// survived: join a friend's character, open one of your own, and the first wifi
-// handover would replace yours with theirs.
+// A reconnected joiner's FULL_SYNC answer must only land on the sheet it's
+// actually for — not just whichever session asked.
 describe("a joiner's reconnect", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -195,9 +169,8 @@ describe("a joiner's reconnect", () => {
     vi.restoreAllMocks();
   });
 
-  // Drop the socket without a goodbye, then let the reconnect ladder's first
-  // rung fire and hand it a connection that answers `FULL_SYNC` with the host's
-  // copy of UUID_A.
+  // Drop the socket without a goodbye, then let the first reconnect attempt
+  // fire and answer FULL_SYNC with the host's copy of UUID_A.
   const reconnectWith = async (
     result: { current: { joinSession: (uuid: UUID) => Promise<void> } },
     hostCopy: Character,

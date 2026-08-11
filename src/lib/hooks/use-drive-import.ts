@@ -6,17 +6,11 @@ import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { ImportHint } from "src/lib/types";
 
-// Opens the Google Picker so the user can pull in a character document someone
-// shared with them, then loads it and navigates to the sheet. Shared by the
-// nav overflow menu, any standalone import button, and the `/import/<fileId>`
-// link in the Drive share email — which passes a `hint` naming the file it
-// meant, so the picker opens on that one character instead of on everything
-// ever shared with this account. `supported` reflects whether the active
-// datastore can import (currently only Google Drive).
-//
-// `handleImport` resolves to whether a character was actually opened, so a
-// caller that has nothing else on screen (the import route) can tell a cancel
-// from a success; the menu item ignores it.
+// Opens the Google Picker to import a shared character, then loads it and
+// navigates to the sheet. `hint` (from the `/import/<fileId>` link) pre-queries
+// the picker to one file. `supported` reflects whether the active datastore
+// can import (currently only Drive). `handleImport` resolves to whether a
+// character was opened, so the import route can tell a cancel from a success.
 export function useDriveImport() {
   const { datastore } = useDatastoreSelector();
   const { importCharacter } = useDatastore();

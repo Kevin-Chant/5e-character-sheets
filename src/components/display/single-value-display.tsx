@@ -15,9 +15,7 @@ import { getOptionalInitializer } from "src/lib/rules";
 import RollButton from "../roll-button";
 
 interface SingleValueDisplayProps {
-  // A typed cursor is the preferred way to point at the value; `field`/`subField`
-  // are the legacy string form kept for not-yet-migrated call sites. Exactly one
-  // form is supplied, and both serialize to the same targeted-field stack entry.
+  // Typed cursor is preferred; field/subField is the legacy string form.
   cursor?: Cursor<unknown>;
   field?: FIELD;
   subField?: string;
@@ -29,12 +27,9 @@ interface SingleValueDisplayProps {
   removeMargin?: boolean;
   editable?: boolean;
   compact?: boolean;
-  // When set, show a d20 roll button that rolls (this display's numeric value) +
-  // d20 — e.g. Initiative. The label names the roll.
+  // Shows a d20 roll button (this display's value + d20), e.g. Initiative.
   rollCheck?: string;
-  // An element pinned to the box's top-right corner (e.g. the level-up button on
-  // Class & Level). Rendered outside the editable value so its clicks don't open
-  // the field editor.
+  // Pinned to the box's top-right corner, outside the editable value so its clicks don't open the field editor.
   cornerAction?: ReactNode;
 }
 

@@ -25,8 +25,6 @@ describe("planRejoin", () => {
     });
   });
 
-  // Somebody pasted a link to a table this browser has never been at. Which
-  // sheet to bring is a real question, and the lobby is where it's asked.
   it("sends an unknown code to the lobby", () => {
     expect(planRejoin({ urlCode: CODE, status: "offline" })).toEqual({
       action: "lobby",
@@ -44,8 +42,6 @@ describe("planRejoin", () => {
     ).toEqual({ action: "rejoin", code: CODE, seat: "dm" });
   });
 
-  // The memory list is capped and can be forgotten; "the one we were just in"
-  // is an independent claim to knowing the table.
   it("rejoins the last session even with no memory entry", () => {
     expect(
       planRejoin({ urlCode: CODE, status: "offline", wasLast: true }),
@@ -61,8 +57,6 @@ describe("planRejoin", () => {
     expect(plan).toEqual({ action: "rejoin", code: CODE, seat: "player" });
   });
 
-  // A phone in a pocket must not spend the night reconnecting to a table that
-  // ended. The manual button on the session bar still works.
   it("stops trying after the attempt cap", () => {
     expect(
       planRejoin({

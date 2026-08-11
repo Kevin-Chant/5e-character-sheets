@@ -132,10 +132,8 @@ export function LevelUpClassStep({
   );
 }
 
-// Average vs. rolled hit points. Average is the default because it's what most
-// tables use, and a rolled result is entered rather than rolled for you: the
-// roll belongs to the player (and often has the DM watching), so the wizard
-// records it instead of quietly generating one.
+// Average vs. rolled hit points. A rolled result is entered, not generated,
+// since the roll belongs to the player.
 function HitPointChoice({ character, state, patch }: LevelUpStepProps) {
   const die =
     HIT_DICE[
@@ -210,18 +208,15 @@ export function LevelUpSubclassStep({ state, patch }: LevelUpStepProps) {
 }
 
 // ------------------------------------------- Class feature choices step
-// Fighting styles (fighter 1 / paladin 2 / ranger 2) and eldritch invocations
-// (whenever the warlock's known count grows). Choices land as features titled
-// with the bare style/invocation name, so the ones the mechanics catalog
-// knows (Great Weapon Fighting) activate their riders by title.
+// Fighting styles and eldritch invocations. Choices land as features titled
+// with the bare style/invocation name, so mechanics the catalog knows
+// (Great Weapon Fighting) activate their riders by title.
 export function LevelUpFeatureChoicesStep({
   character,
   state,
   patch,
 }: LevelUpStepProps) {
-  // One description of what this level offers, shared with the wizard's
-  // step-visibility predicate — so a new kind of choice can't appear in one
-  // place and not the other.
+  // Shared with the wizard's step-visibility predicate.
   const grants = grantsForLevelUp(character, state);
   const styleNames = grants.fightingStyles;
   const newInvocations = grants.invocations;
@@ -230,8 +225,7 @@ export function LevelUpFeatureChoicesStep({
   const mcSkills = grants.multiclassSkills;
   const toolChoices = grants.toolChoices;
   const known = new Set(character.features.map((f) => f.title.trim()));
-  // Expertise doubles an existing proficiency, so the options are the skills
-  // the character already has — minus the ones already doubled.
+  // Skills already proficient in, minus ones already doubled.
   const expertiseOptions = (
     Object.keys(character.proficiencies.skills) as SkillName[]
   ).filter(
@@ -250,9 +244,7 @@ export function LevelUpFeatureChoicesStep({
             value={state.fightingStyle ?? ""}
             options={[
               { value: "", label: "Choose…" },
-              // A style already on the sheet isn't offered again — the only
-              // way to be picking twice is Champion's Additional Fighting
-              // Style, where the 1st-level pick must leave the list.
+              // A style already on the sheet isn't offered again.
               ...styleNames
                 .filter((name) => !known.has(name))
                 .map((name) => ({ value: name, label: name })),
@@ -314,8 +306,6 @@ export function LevelUpFeatureChoicesStep({
           hint="Multiclassing grants a limited set of proficiencies — the armor, weapons and tools are applied for you; this is the part you choose."
         >
           <ChipMultiSelect<SkillName>
-            // Skills already on the sheet are dropped rather than shown and
-            // ignored: picking one would silently waste the grant.
             options={mcSkills.from.filter(
               (s) => !character.proficiencies.skills[s],
             )}
@@ -328,8 +318,6 @@ export function LevelUpFeatureChoicesStep({
       {toolChoices && (
         <Field label={`Tool proficiency (choose ${toolChoices.choose})`}>
           <ChipMultiSelect<string>
-            // Same rule as the multiclass skills above: a tool already on the
-            // sheet would waste the grant, so it isn't offered.
             options={toolChoices.from.filter(
               (t) =>
                 !character.otherProficiencies.toolsAndOther.some(
@@ -353,9 +341,9 @@ export function LevelUpFeatureChoicesStep({
           }
         >
           <ChipMultiSelect<SkillName>
-            // A plain proficiency grant hides skills already proficient; an
-            // expertise-flavored grant (Scout's Survivalist) targets skills you
-            // may well have, so it only hides ones already doubled.
+            // A plain grant hides already-proficient skills; an
+            // expertise-flavored grant (Scout's Survivalist) only hides
+            // already-doubled ones.
             options={grants.subclassSkillChoices.from.filter((s) =>
               grants.subclassSkillChoices!.expertise
                 ? !character.proficiencies.expertise[s]
@@ -380,9 +368,8 @@ export function LevelUpFeatureChoicesStep({
           />
         </Field>
       )}
-      {/* Class lists first, then anything the character's race owes at this
-          total level (Simic Hybrid's 5th-level Animal Enhancement) — both land
-          in the same `chosenOptions` map and use the same picker. */}
+      {/* Class lists plus anything the character's race owes at this total
+          level (e.g. Simic Hybrid's 5th-level Animal Enhancement). */}
       {[...newPicks, ...(grants.raceOptionPicks ?? [])].map(
         ({ group, count }) => (
           <ChosenOptionPicker
@@ -390,8 +377,6 @@ export function LevelUpFeatureChoicesStep({
             group={group}
             count={count}
             classLevel={targetClassLevel(character, state)}
-            // Options already on the sheet from an earlier level aren't offered
-            // again — you're picking what's *new*.
             alreadyKnown={chosenIn(character, group.category).map(
               (o) => o.name,
             )}
@@ -412,11 +397,9 @@ export function LevelUpFeatureChoicesStep({
 }
 
 // ------------------------------------------------------ ASI / feat step
-// Two independent +1 picks. Choosing the same stat in both columns spends the
-// whole ASI as +2 to one score; choosing two different stats gives +1/+1.
+// Two independent +1 picks; same stat in both columns spends the ASI as +2.
 function AsiPicker({ character, state, patch }: LevelUpStepProps) {
-  // Reconstruct the two +1 slots from the delta record so the radios stay in
-  // sync with state.
+  // Reconstruct the two +1 slots from the delta record.
   const slots: string[] = [];
   for (const [stat, delta] of Object.entries(state.asi))
     for (let i = 0; i < (delta ?? 0); i++) slots.push(stat);
@@ -431,10 +414,8 @@ function AsiPicker({ character, state, patch }: LevelUpStepProps) {
     patch({ asi });
   };
 
-  // A stat already at its ceiling isn't offered. The ceiling is per-stat
-  // because a feature can raise it (a barbarian 20's STR and CON go to 24), and
-  // it counts the increase spent in the *other* column — otherwise two +1s
-  // could walk a 19 up to 21 one column at a time.
+  // A stat at its ceiling isn't offered; the ceiling counts the increase
+  // spent in the other column too, so two +1s can't walk past it.
   const optionsFor = (idx: number) =>
     Object.values(StatKey)
       .filter((s) => {
@@ -453,8 +434,6 @@ function AsiPicker({ character, state, patch }: LevelUpStepProps) {
           <span className="builder-field-label">
             {idx === 0 ? "First increase (+1)" : "Second increase (+1)"}
           </span>
-          {/* Six abilities is past the point where a radio column reads at a
-              glance, so this lands on the dropdown side of `SingleChoice`. */}
           <SingleChoice
             name={`asi-slot-${idx}`}
             label={idx === 0 ? "First increase" : "Second increase"}
@@ -471,10 +450,8 @@ function AsiPicker({ character, state, patch }: LevelUpStepProps) {
 
 const signedMod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
-// Shows all six abilities with their current score/modifier and — where the
-// pending ASI (or feat) raises one — the resulting score/modifier, so the
-// player sees the whole picture, not just the two stats they touched. Rendered
-// both on the ASI picker step and again on the review step.
+// All six abilities with current and (where changed) resulting score/mod.
+// Used on both the ASI picker step and the review step.
 function AsiStatChanges({
   character,
   deltas,
@@ -588,18 +565,16 @@ export function LevelUpSpellsStep({
   patch,
 }: LevelUpStepProps) {
   const preview = applyLevelUp(character, state);
-  // The highest spell level offered is the *leveled class's own* limit at its
-  // new level, as if single-classed — the RAW gate for spells known/prepared.
-  // (Multiclass slot pooling affects casting, not learning: a Paladin 9 /
-  // Warlock 1 picks warlock spells as a warlock 1, despite 3rd-level slots.)
+  // Highest spell level offered is the leveled class's own limit at its new
+  // level, as if single-classed (multiclass slot pooling affects casting,
+  // not learning).
   const targetKlass = preview.class.find((c) => c.name === state.className);
   const maxSpellLevel = targetKlass ? maxSpellLevelForClass(targetKlass) : 0;
   const leveledSpellLevels = Array.from(
     { length: maxSpellLevel },
     (_, i) => i + 1,
   );
-  // Artificer / homebrew aren't tagged in the spell catalog, so show every
-  // spell rather than an empty class-filtered list.
+  // Artificer / homebrew aren't tagged in the catalog, so show every spell.
   const filterClass = spellListFilterFor(
     state.className,
     targetClassLevel(character, state),
@@ -607,19 +582,13 @@ export function LevelUpSpellsStep({
   const setLevel = (numeric: number, indices: string[]) =>
     patch({ newSpells: { ...state.newSpells, [numeric]: indices } });
 
-  // Known casters may replace one spell they know each level; prepared casters
-  // (cleric, druid, wizard, paladin, artificer) re-prepare daily instead, so
-  // there's nothing to swap.
-  // How many new cantrips / spells this level actually grants. Creation has
-  // always enforced its level-1 counts; these are the same limits at level N,
-  // so the two halves of the wizard finally agree. `null` means the class
-  // prepares from its whole list — there's no repertoire to cap.
+  // Prepared casters re-prepare daily rather than swapping. `null` allowance
+  // means the class prepares from its whole list.
   const newLevel = targetClassLevel(character, state);
   const cantripAllowance = newCantripsAt(state.className, newLevel);
   const spellAllowance = newSpellsAt(state.className, newLevel);
-  // The allowance is per level, but the picker is split into one list per spell
-  // level, so it's spent across them: three 1st-level picks use up a three-spell
-  // allowance. Each list caps at what's left plus what it already holds.
+  // The allowance is per level but spent across the per-spell-level pickers;
+  // each list caps at what's left plus what it already holds.
   const spentOnLeveled = Object.entries(state.newSpells)
     .filter(([bucket]) => Number(bucket) > 0)
     .reduce((n, [, arr]) => n + arr.length, 0);
@@ -630,31 +599,26 @@ export function LevelUpSpellsStep({
         spentOnLeveled +
         (state.newSpells[numeric]?.length ?? 0);
 
-  // For a prepared caster the useful number isn't "spells learned" but "spells
-  // preparable" — read off the preview so it's the allowance at the *new* level.
+  // For a prepared caster, "spells preparable" at the new level.
   const preparedAllowance = targetKlass
     ? preparedSpellCount(preview, targetKlass)
     : null;
 
-  // The subclass may be chosen in this same run, so a pending pick wins over
-  // what's on the sheet — the same precedence `grantsForLevelUp` uses.
+  // A pending subclass pick in this same run wins over what's on the sheet.
   const secretsCount = additionalMagicalSecretsAt(
     state.className,
     newLevel,
     state.subclass ?? targetKlass?.subclass,
   );
 
-  // Spells already on the sheet for the leveled class, by name — the
-  // checklists drop them, since "learning" one again would waste the pick (the
-  // swap dropdown is the way to trade a known spell). Names, not indices: the
-  // sheet stores titles, and catalog-added spells keep the catalog name.
+  // Spells already known for the leveled class, by name (the sheet stores
+  // titles) — the checklists drop them so a pick can't waste itself.
   const knownNames = Object.values(character.spells).flatMap((list) =>
     (list ?? [])
       .filter((sp) => sp.spellcastingClass === targetKlass?.id)
       .map((sp) => sp.info.title),
   );
-  // Picks pending in this same run cross-exclude between the two allowances
-  // (class list vs Magical Secrets), so one spell can't be taken in both.
+  // Cross-exclude pending picks (class list vs Magical Secrets).
   const pendingNames = (indices: string[]) =>
     indices
       .map((i) => getCatalogSpell(i)?.name)
@@ -671,8 +635,6 @@ export function LevelUpSpellsStep({
             label: `${spell.info.title} (${spellLevelLabel(Number(bucket))})`,
             classId: spell.spellcastingClass,
           }))
-          // Only this class's spells — you can't trade a wizard spell away on a
-          // bard level-up.
           .filter((e) => e.classId === targetKlass?.id),
       )
     : [];
@@ -722,10 +684,6 @@ export function LevelUpSpellsStep({
           </Field>
         );
       })()}
-      {/* College of Lore's Additional Magical Secrets, at bard 6. Two spells
-          from *any* class's list, on top of the bard-list spell this level
-          already grants — so it's its own picker with its own cap, spanning
-          every spell level the bard can cast rather than one box per level. */}
       {secretsCount > 0 && (
         <Field
           label={`Additional Magical Secrets (choose ${secretsCount})`}
@@ -757,9 +715,8 @@ export function LevelUpSpellsStep({
           />
         </Field>
       )}
-      {/* An allowance of 0 means this level grants no cantrips — offering the
-          picker anyway showed a list of un-tickable checkboxes. `null` (a
-          homebrew caster the tables don't cover) still shows it, uncapped. */}
+      {/* Allowance 0 = no cantrips this level, so the picker is skipped;
+          null (homebrew caster) still shows it, uncapped. */}
       {classHasCantrips(state.className) && cantripAllowance !== 0 && (
         <Field
           label={
@@ -824,7 +781,6 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
     const feat = FEATS.find((f) => f.index === state.featIndex);
     if (feat) {
       rows.push(["Feat", feat.name]);
-      // Half-feat ability increase (the chosen stat, or the sole option).
       if (feat.abilityIncrease) {
         const stat = state.featAbilityChoice ?? feat.abilityIncrease.from[0];
         rows.push([
@@ -832,7 +788,6 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
           `+${feat.abilityIncrease.by} ${STAT_LABEL[stat]}`,
         ]);
       }
-      // Player choices the feat's grants required.
       if (state.featSkillChoices.length)
         rows.push(["Skill proficiency", state.featSkillChoices.join(", ")]);
       if (state.featExpertiseChoices.length)
@@ -855,9 +810,7 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
       state.secretSpells.map((i) => getCatalogSpell(i)?.name ?? i).join(", "),
     ]);
 
-  // What the level *gives* you, as opposed to what you chose above. Diffed off
-  // the same preview the wizard is about to commit, so it can't promise
-  // anything the confirm won't actually do.
+  // Diffed off the preview the wizard is about to commit.
   const summary = summarizeLevelUp(character, preview);
   const gains: [string, string[]][] = [
     ["Features", summary.features],

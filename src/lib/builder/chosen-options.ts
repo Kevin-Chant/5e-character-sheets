@@ -16,63 +16,49 @@ import {
   RUNE_KNIGHT_RUNES,
 } from "src/lib/data/class-option-lists";
 
-// The closed option lists a class lets you pick a fixed number of things from:
-// Metamagic, Battle Master maneuvers, Pact Boon. Distinct from `features`
-// (open-ended prose) and from limited-use pools (a resource) — what makes these
-// their own model is the pairing of a *closed list* with a *known count*, which
-// is what lets the sheet say "3 / 5 known" and offer only the rest.
+// Closed option lists a class picks a fixed number of things from (Metamagic,
+// Battle Master maneuvers, Pact Boon), paired with a known-count table.
 //
-// Licensing: Metamagic and Pact Boon are open-license SRD (both are base-class
-// features). The Battle Master is *not* in the SRD, so its maneuver summaries
-// below are original paraphrases of mechanical facts only — never published
-// prose. Same rule as `nonsrd-classes.ts` / `subclasses.ts`.
+// Licensing: Metamagic/Pact Boon are SRD. Battle Master is not SRD — its
+// maneuver summaries are original paraphrases of mechanical facts, never
+// published prose (same rule as nonsrd-classes.ts / subclasses.ts).
 
 export interface OptionDef {
   name: string;
-  // What this specific option does. Omitted for "pick a type" lists where every
-  // option has the same effect (a ranger's favored enemy) — those describe it
-  // once on the group instead.
+  // What this option does; omitted when every option in the group shares one
+  // effect, described once on the group's own `summary` instead.
   summary?: string;
-  // SRD spell indices this pick grants (always-prepared / known), gated by the
-  // owning class's level. This is what makes a *sub-choice inside a subclass*
-  // drive content: a Land druid's terrain sets its circle spells, a Genie
-  // warlock's kind sets its expanded list. `byLevel` unlocks spells as the class
-  // levels (Circle Spells at 3/5/7/9); `always` are granted the moment the
-  // option is picked. Spells absent from the bundled SRD are silently skipped
-  // (the prose feature still names them), exactly as `grants.spellIndices` does.
+  // SRD spell indices this pick grants, gated by owning class level. `byLevel`
+  // unlocks as the class levels (e.g. Circle Spells at 3/5/7/9); `always`
+  // grants immediately. Spells missing from the bundled SRD are silently
+  // skipped, same as `grants.spellIndices`.
   spellIndices?: {
     always?: string[];
     byLevel?: Record<number, string[]>;
   };
-  // Feature prose this pick grants — the counterpart to `spellIndices` for a
-  // sub-choice that confers a *feature* rather than a spell (a Totem Warrior's
-  // totem, a Genie's kind). Granted when the option is picked, de-duplicated by
-  // title against the character's features.
+  // Feature prose this pick grants — spellIndices' counterpart for a feature
+  // grant. De-duplicated by title against the character's features.
   features?: RaceTrait[];
-  // A resource this pick lets you spend, surfaced as a play-mode button. The
-  // pick becomes a `maxUses: 0` action host (the same shape a Lore bard's
-  // Cutting Words uses) titled after the option, so a chosen Metamagic or
-  // Elemental Discipline actually drains Sorcery Points or Ki instead of just
-  // naming a cost in prose. `pool` is the *other* ability's title.
+  // A resource this pick lets you spend, surfaced as a play-mode button (a
+  // `maxUses: 0` action host titled after the option). `pool` names the other
+  // ability it drains (Sorcery Points, Ki).
   action?: {
     cost: ActionCost;
     costNote?: string;
     pool: string;
-    // Fixed cost, or `"choose"` when only the player knows it (Twinned Spell
+    // Fixed cost, or "choose" when only the player knows it (Twinned Spell
     // costs the spell's level).
     amount?: number | "choose";
     roll?: { label: string; die: StandardDie; count?: number };
     note: string;
   };
   // Classifies the option for a group whose picks at one level must cover
-  // several kinds — a Kensei's first two weapons are one melee and one ranged.
-  // Read only via `OptionGroup.tagged`; ungrouped lists leave it unset.
+  // several kinds (a Kensei's first two weapons: one melee, one ranged). Read
+  // via `OptionGroup.tagged`.
   tag?: string;
-  // Features gated by the owning class's level — for a *single* sub-choice that
-  // then unlocks features across several levels (a Storm Herald's environment
-  // shapes its aura at 3rd, then Storm Soul/Shielding Storm/Raging Storm at
-  // 6th/10th/14th; an Armorer's model at 3rd, Perfected Armor at 15th). Granted
-  // idempotently as the class levels, like `spellIndices.byLevel`.
+  // Features gated by owning class level, for a single sub-choice that unlocks
+  // features across several levels. Granted idempotently as the class levels,
+  // like `spellIndices.byLevel`.
   featuresByLevel?: Record<number, RaceTrait[]>;
 }
 
@@ -81,50 +67,41 @@ export interface OptionGroup {
   category: string;
   // Shown as the section heading.
   label: string;
-  // The effect shared by every option in the group, when the options themselves
-  // are just values (see `OptionDef.summary`).
+  // Effect shared by every option, when options are just plain values.
   summary?: string;
-  // The class that grants the picks, and (for a subclass feature) which
-  // subclass — a fighter only gets maneuvers as a Battle Master. Exactly one of
+  // Class granting the picks, and (for a subclass feature) which subclass —
+  // e.g. a fighter only gets maneuvers as a Battle Master. Exactly one of
   // `className` / `race` is set.
   className?: OfficialClass;
   subclass?: string;
-  // A *fighting style* grants the picks instead of a subclass — Superior
-  // Technique's one maneuver, which any fighter can have. Gated on the style
-  // being taken (a feature titled with the style's name) rather than on a
-  // level, because the level it lands at is wherever the style was chosen:
-  // 1st for most fighters, 10th for a Champion's second pick.
+  // A fighting style grants the picks instead of a subclass (Superior
+  // Technique's one maneuver). Gated on the style being taken (a feature
+  // titled with the style's name) rather than a level, since the level it
+  // lands at varies by when the style was chosen.
   viaFightingStyle?: string;
-  // A *race* grants the picks instead (Simic Hybrid's Animal Enhancement).
-  // Matched against the character's base race name; the `known` thresholds are
-  // then read as total character levels rather than class levels, because
-  // that's what a racial feature advances on.
+  // A race grants the picks instead (Simic Hybrid's Animal Enhancement).
+  // Matched against the character's base race name; `known` thresholds are
+  // then read as total character level, not class level.
   race?: string;
   // How many you know at a given class level: the last threshold reached.
   // `[level, count]` pairs, ascending.
   known: [number, number][];
   options: OptionDef[];
-  // A damage resistance the pick confers, keyed by option name. Draconic
-  // Bloodline's ancestry and the Genie's kind both set a resistance.
+  // A damage resistance the pick confers, keyed by option name.
   resistances?: Record<string, DamageType>;
-  // The class level at which the `resistances` grant actually kicks in — both
-  // Draconic Bloodline (Elemental Affinity) and the Genie (Elemental Gift) grant
-  // theirs at 6th, though the ancestry/kind is chosen at 1st. Defaults to 1.
+  // Class level the `resistances` grant kicks in (the ancestry/kind is chosen
+  // at 1st, but the resistance itself is often 6th). Defaults to 1.
   resistanceLevel?: number;
-  // The picks made at one specific class level must cover each of these tags
-  // exactly once — the Kensei's 3rd-level pair is one melee weapon and one
-  // ranged weapon, not any two weapons. Only that level is constrained; the
-  // extra picks at 6th/11th/17th stay free, so this is a property of a level
-  // rather than of the group. The picker honours it by rendering one labelled
-  // single-choice per tag instead of a capped checkbox list, which enforces the
-  // split by construction rather than by validating after the fact.
+  // Picks at one specific class level must cover each of these tags exactly
+  // once (the Kensei's 3rd-level pair: one melee, one ranged weapon). Only
+  // that level is constrained. The picker renders one labelled single-choice
+  // per tag instead of a capped checkbox list.
   tagged?: { level: number; tags: { tag: string; label: string }[] };
 }
 
 // The per-tag choices a group owes at a class level, or undefined when this
-// level's picks are unconstrained. `count` is passed in so a level that grants
-// fewer picks than the group has tags (which no group does today, but a
-// multiclass dip could reach) falls back to the plain picker.
+// level's picks are unconstrained. `count` lets a level granting fewer picks
+// than the group has tags fall back to the plain picker.
 export const taggedPicksAt = (
   group: OptionGroup,
   classLevel: number,
@@ -136,8 +113,8 @@ export const taggedPicksAt = (
     ? group.tagged.tags
     : undefined;
 
-// The damage resistances a set of picks confers, via `OptionGroup.resistances`,
-// gated on the character having reached each group's `resistanceLevel`.
+// Damage resistances a set of picks confers, gated on the character having
+// reached each group's `resistanceLevel`.
 export function resistancesFromOptions(
   picks: ChosenOption[],
   character?: Character,
@@ -158,12 +135,11 @@ export function resistancesFromOptions(
   return out;
 }
 
-// The SRD spell indices a character's sub-choices grant at a given class level:
-// every `always` index of a picked option, plus each `byLevel` tier the class
-// level has reached. Only options whose group belongs to `className` count, so a
-// druid's terrain pick isn't consulted while leveling a warlock dip. The builder
-// grants these idempotently (`addCatalogSpellOnce`), so calling at each level-up is
-// safe — the list is cumulative and the same spell never lands twice.
+// SRD spell indices a character's sub-choices grant at a given class level:
+// every `always` index of a picked option plus each `byLevel` tier reached.
+// Only options whose group belongs to `className` count, so a druid's terrain
+// pick isn't consulted while leveling a warlock dip. Callers grant these
+// idempotently (`addCatalogSpellOnce`), safe to call on every level-up.
 export function optionSpellIndicesAt(
   picks: ChosenOption[],
   className: string,
@@ -183,10 +159,9 @@ export function optionSpellIndicesAt(
   return out;
 }
 
-// The feature prose a character's sub-choices grant at a given class level: the
-// flat `features` of each pick plus every `featuresByLevel` tier the level has
-// reached. Only options whose group belongs to `className` count. The builder
-// de-duplicates by title, so calling every level-up is safe.
+// Feature prose a character's sub-choices grant at a given class level. Only
+// options whose group belongs to `className` count; de-duplicated by title,
+// safe to call on every level-up.
 export function optionFeaturesFor(
   picks: ChosenOption[],
   className: string,
@@ -204,20 +179,16 @@ export function optionFeaturesFor(
   return out;
 }
 
-// The count from a step table at a level: the last entry the level has reached,
-// or 0 before the first. Mirrors `atLevel` in class-pools.ts, but zero-based —
-// "you don't have this feature yet" is a real answer here.
+// The count from a step table at a level: the last entry reached, or 0 before
+// the first. Mirrors `atLevel` in class-pools.ts but zero-based.
 const knownAt = (level: number, steps: [number, number][]): number => {
   let value = 0;
   for (const [at, count] of steps) if (level >= at) value = count;
   return value;
 };
 
-// A Land druid's terrain, chosen at 3rd — the worked example of a sub-choice
-// that *gates spell grants*: the pick sets which circle spells become
-// always-prepared, unlocking two at each of 3rd/5th/7th/9th level. The spells
-// land in the spellbook via `optionSpellIndicesAt`; the "Circle Spells" prose
-// row still names the whole progression. All eight are SRD, so all are granted.
+// A Land druid's terrain, chosen at 3rd: sets which circle spells become
+// always-prepared, unlocking two at each of 3rd/5th/7th/9th level.
 const LAND_TERRAIN: OptionDef[] = [
   {
     name: "Arctic",
@@ -309,10 +280,9 @@ const LAND_TERRAIN: OptionDef[] = [
   },
 ];
 
-// A Storm Herald's environment — one choice at 3rd that then shapes the aura,
-// the resistance, and the reaction across four levels: the level-gated
-// `features` case. Shielding Storm (10th) is the same regardless of
-// environment, so it stays a plain prose row rather than living here.
+// A Storm Herald's environment, chosen at 3rd: shapes the aura, resistance,
+// and reaction across 3rd/6th/14th. Shielding Storm (10th) doesn't vary by
+// environment, so it stays a plain prose row.
 const STORM_ENVIRONMENTS: OptionDef[] = [
   {
     name: "Desert",
@@ -394,10 +364,9 @@ const STORM_ENVIRONMENTS: OptionDef[] = [
   },
 ];
 
-// An Armorer's model — one choice at 3rd shaping the built-in weapon and a
-// special property, and again the capstone at 15th. Arcane Armor itself, Extra
-// Attack (5th) and Armor Modifications (9th) are the same for both models, so
-// they stay prose rows.
+// An Armorer's model, chosen at 3rd: shapes the built-in weapon and special
+// property, and the 15th-level capstone. Arcane Armor, Extra Attack (5th) and
+// Armor Modifications (9th) don't vary by model, so they stay prose rows.
 const ARMOR_MODELS: OptionDef[] = [
   {
     name: "Guardian",
@@ -439,10 +408,9 @@ const ARMOR_MODELS: OptionDef[] = [
   },
 ];
 
-// Path of the Totem Warrior's three totem choices, one per feature level. Each
-// re-picks a totem animal (you can choose the same one again or switch), so
-// they're three separate groups rather than one — the engine has no notion of
-// "same pick, later feature" reuse.
+// Path of the Totem Warrior's three totem choices, one per feature level
+// (3rd/6th/14th) — each re-picks a totem animal, so these are three separate
+// groups rather than one.
 const TOTEM_SPIRIT: OptionDef[] = [
   {
     name: "Bear",
@@ -602,9 +570,8 @@ const TOTEM_ATTUNEMENT: OptionDef[] = [
   },
 ];
 
-// Path of the Beast's natural weapon, chosen on entering rage. No attack object
-// is created for it — the sheet has no notion of a shapeshifted natural
-// weapon slot — so the prose is the honest representation of what it does.
+// Path of the Beast's natural weapon, chosen on entering rage. No attack
+// object is created for it: the sheet has no shapeshifted-weapon slot.
 const BEAST_WEAPON: OptionDef[] = [
   {
     name: "Bite",
@@ -638,11 +605,9 @@ const BEAST_WEAPON: OptionDef[] = [
   },
 ];
 
-// A Genie warlock's vessel kind, chosen at 1st level: it sets the damage type
-// of Genie's Wrath and the Elemental Gift resistance, and unlocks one
-// kind-specific spell per spell level (1st-5th) in the expanded list, on top
-// of the spells every genie kind shares (kept as prose — see
-// warlock.ts). All ten kind-specific spells are SRD.
+// A Genie warlock's vessel kind, chosen at 1st: sets Genie's Wrath's damage
+// type and the Elemental Gift resistance, and unlocks one kind-specific spell
+// per spell level (1st-5th) in the expanded list.
 const GENIE_KIND: OptionDef[] = [
   {
     name: "Dao",
@@ -722,9 +687,8 @@ const GENIE_KIND: OptionDef[] = [
   },
 ];
 
-// A Divine Soul's affinity, chosen at 1st level. Each one grants a single
-// always-known bonus spell that doesn't count against spells known — the only
-// mechanical difference between the five, so they carry no feature prose.
+// A Divine Soul's affinity, chosen at 1st: grants a single always-known bonus
+// spell that doesn't count against spells known.
 const DIVINE_SOUL_AFFINITY: OptionDef[] = [
   { name: "Good", spellIndices: { always: ["cure-wounds"] } },
   { name: "Evil", spellIndices: { always: ["inflict-wounds"] } },
@@ -757,9 +721,8 @@ export const OPTION_GROUPS: OptionGroup[] = [
     known: [[3, 1]],
     options: LAND_TERRAIN,
   },
-  // The two ranger lists are the only groups available at level 1, which makes
-  // them the only ones the character-creation wizard ever prompts for — the
-  // rest all start at class level 3.
+  // The two ranger lists are the only groups available at level 1; the rest
+  // all start at class level 3.
   {
     category: "favoredEnemy",
     label: "Favored Enemy",
@@ -821,7 +784,7 @@ export const OPTION_GROUPS: OptionGroup[] = [
     subclass: "Draconic Bloodline",
     known: [[1, 1]],
     resistanceLevel: 6,
-    // Shares the Dragonborn table (color → damage type) — see DRACONIC_ANCESTRIES.
+    // Shares the Dragonborn color → damage type table (DRACONIC_ANCESTRIES).
     resistances: Object.fromEntries(
       Object.entries(DRACONIC_ANCESTRIES).map(([color, info]) => [
         color,
@@ -975,8 +938,8 @@ export const OPTION_GROUPS: OptionGroup[] = [
           "Gain a Book of Shadows holding three cantrips from any class's list, castable at will.",
       },
       {
-        // Tasha's, so a paraphrase of mechanical facts only — and the
-        // prerequisite of three TCE invocations, which is why it matters here.
+        // Tasha's content: paraphrase of mechanical facts only. Requires three
+        // TCE invocations known.
         name: "Pact of the Talisman",
         summary:
           "Hang a talisman on a creature; while worn, it can add 1d4 to a failed ability check a number of times equal to your proficiency bonus per long rest.",
@@ -984,8 +947,8 @@ export const OPTION_GROUPS: OptionGroup[] = [
     ],
   },
   {
-    // Elemental Attunement is granted outright and isn't in the list, so these
-    // counts are the *additional* disciplines: one at 3rd, then 6/11/17.
+    // Elemental Attunement is granted outright and isn't in this list; these
+    // counts are the additional disciplines: one at 3rd, then 6/11/17.
     category: "elementalDiscipline",
     label: "Elemental Disciplines",
     className: OfficialClass.Monk,
@@ -1005,9 +968,8 @@ export const OPTION_GROUPS: OptionGroup[] = [
       "Your chosen weapons count as monk weapons, and gain the subclass's Kensei features.",
     className: OfficialClass.Monk,
     subclass: "Kensei",
-    // Two at 3rd, then one *more* kensei weapon at each of 6th, 11th, and 17th
-    // level (XGE) — five in all. The 3rd-level pair must be one melee and one
-    // ranged, which `tagged` enforces; the later picks are unrestricted.
+    // Two at 3rd, then one more at each of 6th/11th/17th (XGE). The 3rd-level
+    // pair must be one melee and one ranged, enforced by `tagged`.
     known: [
       [3, 2],
       [6, 3],
@@ -1023,14 +985,11 @@ export const OPTION_GROUPS: OptionGroup[] = [
     },
     options: KENSEI_WEAPONS,
   },
-  // The one *race*-granted pair of lists. Simic Hybrid's Animal Enhancement is
-  // two picks from two different menus — one at 1st level, a second at 5th — so
-  // it models as two groups rather than as one group with a growing count. That
-  // is the whole of the "two tiers": the lists don't overlap, and the 5th-level
-  // options are strictly the bulkier grafts.
+  // Simic Hybrid's Animal Enhancement: two picks from two different menus, one
+  // at 1st level and one at 5th, modeled as two separate groups.
   //
-  // Ravnica content, so these summaries are original paraphrases of the
-  // mechanical facts only — the same rule `nonsrd-races.ts` follows.
+  // Ravnica content: summaries are original paraphrases of mechanical facts
+  // only (same rule as nonsrd-races.ts).
   {
     category: "simicEnhancement1",
     label: "Animal Enhancement (1st level)",
@@ -1336,10 +1295,8 @@ export const OPTION_GROUPS: OptionGroup[] = [
     },
     options: GENIE_KIND,
   },
-  // Hunter's four tiered pick-one features. Each is a genuine choice among named
-  // sub-features at its level; the picked option's summary rides on the sheet.
-  // The numeric riders (e.g. Colossus Slayer's +1d8) stay prose, like most
-  // conditional once-per-turn effects.
+  // Hunter's four tiered pick-one features. Numeric riders (e.g. Colossus
+  // Slayer's +1d8) stay prose, like most conditional once-per-turn effects.
   {
     category: "huntersPrey",
     label: "Hunter's Prey",
@@ -1436,11 +1393,10 @@ export const OPTION_GROUPS: OptionGroup[] = [
   },
 ];
 
-// Superior Technique (Tasha's fighting style) teaches one maneuver from the
-// Battle Master list to a fighter of any subclass. Its own category rather than
-// a second "maneuvers" group: two groups sharing a category would render twice
-// on a Battle Master's sheet, both reading the same picks. The options are the
-// Battle Master's array itself, so a maneuver added there is offered here too.
+// Superior Technique (Tasha's fighting style) teaches one Battle Master
+// maneuver to a fighter of any subclass. Own category rather than a second
+// "maneuvers" group, since sharing a category would render twice on a Battle
+// Master's sheet. Reuses the Battle Master's options array directly.
 OPTION_GROUPS.push({
   category: "superiorTechnique",
   label: "Maneuver (Superior Technique)",
@@ -1454,9 +1410,8 @@ export const optionGroup = (category: string): OptionGroup | undefined =>
   OPTION_GROUPS.find((g) => g.category === category);
 
 // The groups this character has access to, with how many picks each allows at
-// their current level. A group whose class isn't on the sheet — or whose
-// subclass doesn't match, or whose level threshold isn't reached — is omitted,
-// so the sheet shows nothing until the choice is actually available.
+// their current level. A group whose class/subclass isn't on the sheet, or
+// whose level threshold isn't reached, is omitted.
 export function availableOptionGroups(
   character: Character,
 ): { group: OptionGroup; known: number }[] {
@@ -1496,10 +1451,10 @@ export function availableOptionGroups(
 const totalLevel = (character: Character): number =>
   character.class.reduce((sum, k) => sum + k.level, 0);
 
-// How many *new* picks reaching a total character level grants from each of a
-// race's groups. The race counterpart to `newOptionPicksAt` — kept separate
-// because the two count different levels, and conflating them would let a
-// multiclass dip re-award a racial pick.
+// How many new picks reaching a total character level grants from each of a
+// race's groups. Race counterpart to `newOptionPicksAt`, kept separate since
+// the two count different levels; conflating them would let a multiclass dip
+// re-award a racial pick.
 export function newRaceOptionPicksAt(
   raceName: string | undefined,
   totalCharacterLevel: number,
@@ -1513,9 +1468,8 @@ export function newRaceOptionPicksAt(
   });
 }
 
-// The feature prose a race's picks confer at a total character level. The race
-// counterpart to `optionFeaturesFor`; each Simic enhancement is a real feature,
-// so it belongs in the features list and not only in the options chip row.
+// Feature prose a race's picks confer at a total character level. Race
+// counterpart to `optionFeaturesFor`.
 export function raceOptionFeaturesFor(
   picks: ChosenOption[],
   raceName: string | undefined,
@@ -1532,26 +1486,20 @@ export function raceOptionFeaturesFor(
   return out;
 }
 
-// How many *new* picks reaching `level` in a class grants, per group: the
-// count at that level minus the count at the one below. Used by both wizards to
-// prompt only for what this level actually adds.
+// How many new picks reaching `level` in a class grants, per group: the count
+// at that level minus the count at the one below.
 //
-// Everything about the character that decides *which* lists are on the table.
-// Passed rather than read off the sheet because every one of them can be
-// chosen in the same step the picks are offered in — a fighter takes Battle
-// Master at 3rd and owes maneuvers immediately, a ranger swaps in Favored Foe
-// at 1st and is never asked for a favored enemy.
+// Everything that decides which lists are on the table, passed rather than
+// read off the sheet since all of it can be chosen in the same step the picks
+// are offered in — a fighter taking Battle Master at 3rd owes maneuvers
+// immediately.
 export interface PickContext {
   subclass?: string;
   fightingStyle?: string;
-  // Names of the Tasha's optional class features taken (`optional-class-
-  // features.ts`), earlier or in this very step.
+  // Names of Tasha's optional class features taken (optional-class-features.ts).
   optionalFeatures?: string[];
 }
 
-// `subclass` is passed separately rather than read off the character because
-// the subclass is often chosen in the *same* step — a fighter picking Battle
-// Master at 3rd gets their first three maneuvers immediately.
 export function newOptionPicksAt(
   className: string,
   level: number,
@@ -1562,12 +1510,11 @@ export function newOptionPicksAt(
   return OPTION_GROUPS.flatMap((group) => {
     if (group.className !== className) return [];
     if (group.subclass && group.subclass !== subclass) return [];
-    // A Tasha's swap can take a whole list off the table — a Favored Foe ranger
-    // is never asked for a favored enemy, at this level or at 6th and 14th.
+    // A Tasha's swap can take a whole list off the table (a Favored Foe ranger
+    // is never asked for a favored enemy).
     if (off.has(group.category)) return [];
     // A style-granted group is owed at whatever level the style is chosen, so
-    // it counts the style rather than a level threshold — `fightingStyle` is
-    // only ever the pick being made *now*.
+    // it counts the style rather than a level threshold.
     if (group.viaFightingStyle)
       return group.viaFightingStyle === fightingStyle
         ? [{ group, count: knownAt(level, group.known) }]
@@ -1577,7 +1524,7 @@ export function newOptionPicksAt(
   });
 }
 
-// The character's picks in one category, in catalog order.
+// A character's picks in one category, in catalog order.
 export const chosenIn = (
   character: Character,
   category: string,

@@ -73,7 +73,6 @@ describe("starting and ending combat", () => {
     encounter = setSpent(encounter, "a", "action", true);
     encounter = endCombat(encounter);
     const brakka = encounter.participants.find((p) => p.id === "a");
-    // A fight ending is not a rest — you're still poisoned afterwards.
     expect(brakka?.conditions.map((c) => c.name)).toEqual(["Poisoned"]);
     expect(brakka?.spent.action).toBe(false);
     expect(encounter.round).toBe(0);
@@ -101,10 +100,8 @@ describe("advancing turns", () => {
 
   it("refreshes the incoming participant's economy, including the reaction", () => {
     let encounter = startCombat(roster());
-    // Everything Maelina spent on her turn, reaction included.
     encounter = setSpent(encounter, "b", "action", true);
     encounter = setSpent(encounter, "b", "reaction", true);
-    // Brakka's turn, then round the order back to Maelina.
     let step = advanceTurn(encounter);
     step = advanceTurn(step.encounter);
     step = advanceTurn(step.encounter);
@@ -120,14 +117,12 @@ describe("advancing turns", () => {
     let encounter = startCombat(roster());
     encounter = addCondition(encounter, "a", { name: "Frightened", rounds: 2 });
 
-    // Brakka's turn: 2 → 1, still held.
     let step = advanceTurn(encounter);
     expect(
       step.encounter.participants.find((p) => p.id === "a")?.conditions,
     ).toEqual([{ name: "Frightened", rounds: 1 }]);
     expect(step.expired).toEqual([]);
 
-    // Round back to Brakka: 1 → 0, gone, and reported so the UI can say so.
     step = advanceTurn(step.encounter);
     step = advanceTurn(step.encounter);
     step = advanceTurn(step.encounter);
@@ -158,10 +153,8 @@ describe("advancing turns", () => {
 describe("roster edits mid-fight", () => {
   it("keeps the current turn on the same participant when an earlier one leaves", () => {
     let encounter = startCombat(roster());
-    // Order is Maelina, Brakka, Goblin — advance to Brakka.
     encounter = advanceTurn(encounter).encounter;
     expect(currentParticipant(encounter)?.name).toBe("Brakka");
-    // Maelina drops out from *before* the current turn.
     encounter = removeParticipant(encounter, "b");
     expect(currentParticipant(encounter)?.name).toBe("Brakka");
   });
@@ -192,9 +185,6 @@ describe("roster edits mid-fight", () => {
 });
 
 describe("contributing the same character twice", () => {
-  // A DM brings a party sheet into the order; its player then opens it. Both
-  // derive the participant id from the character uuid, and the fight should
-  // contain one of them.
   it("adds a duplicate id as a no-op", () => {
     const brought = addParticipant(EMPTY_ENCOUNTER, {
       id: "self:x",
@@ -212,9 +202,6 @@ describe("contributing the same character twice", () => {
     expect(again.participants).toHaveLength(1);
   });
 
-  // Ownership decides whose vitals are authoritative and who takes the
-  // participant with them on the way out, so it has to follow the open sheet
-  // rather than whoever happened to type the name in first.
   it("hands ownership to the client that opened the sheet", () => {
     const brought = addParticipant(EMPTY_ENCOUNTER, {
       id: "self:x",
@@ -224,15 +211,12 @@ describe("contributing the same character twice", () => {
     });
     const claimed = claimParticipant(brought, "self:x", "player");
     expect(claimed.participants[0].ownerClientId).toBe("player");
-    // Claiming what you already own changes nothing, so an effect can call it
-    // on every render without producing a broadcast.
+    // No-op when already owned, so a per-render effect can call it safely.
     expect(claimParticipant(claimed, "self:x", "player")).toBe(claimed);
   });
 });
 
 describe("clearing the fallen", () => {
-  // A character-backed row at 0 HP is a downed hero making death saves;
-  // the sweep is for the monsters the fight is finished with.
   it("removes only hand-typed combatants at zero HP", () => {
     let encounter = addParticipant(EMPTY_ENCOUNTER, {
       id: "self:x",
@@ -263,7 +247,6 @@ describe("clearing the fallen", () => {
     expect(swept.participants.map((p) => p.id)).toEqual(["self:x", "g2"]);
   });
 
-  // An untracked combatant has no HP anywhere, so it can't be "at zero".
   it("leaves untracked combatants alone", () => {
     const encounter = addParticipant(EMPTY_ENCOUNTER, {
       id: "g1",
@@ -287,14 +270,13 @@ describe("clearing the fallen", () => {
     });
     encounter = setVitals(encounter, "g1", { currHp: 0, maxHp: 7, ac: 0 });
     encounter = startCombat(encounter);
-    encounter = advanceTurn(encounter).encounter; // Brakka's turn (index 1)
+    encounter = advanceTurn(encounter).encounter;
     const swept = clearFallen(encounter);
     expect(currentParticipant(swept)?.id).toBe("a");
   });
 });
 
 describe("joining a fight already in progress", () => {
-  // Order after startCombat: Maelina 19, Brakka 12, Goblin 7.
   it("splices a newcomer into initiative position, not the end", () => {
     let encounter = startCombat(roster());
     encounter = addParticipant(encounter, {
@@ -308,13 +290,10 @@ describe("joining a fight already in progress", () => {
       "Brakka",
       "Goblin",
     ]);
-    // Nobody has acted past 15 yet, so the current turn is untouched.
     expect(currentParticipant(encounter)?.name).toBe("Maelina");
   });
 
   it("keeps the current actor current when the newcomer's count already passed", () => {
-    // Advance to Brakka (12) and add a 19 — a slot that came and went this
-    // round. Brakka keeps acting; the newcomer first acts next round.
     let encounter = advanceTurn(startCombat(roster())).encounter;
     expect(currentParticipant(encounter)?.name).toBe("Brakka");
     encounter = addParticipant(encounter, {
@@ -329,10 +308,9 @@ describe("joining a fight already in progress", () => {
       "Goblin",
     ]);
     expect(currentParticipant(encounter)?.name).toBe("Brakka");
-    // The round comes back around to the newcomer in its proper slot.
-    let step = advanceTurn(encounter); // Goblin
-    step = advanceTurn(step.encounter); // Maelina, new round
-    step = advanceTurn(step.encounter); // Assassin
+    let step = advanceTurn(encounter);
+    step = advanceTurn(step.encounter);
+    step = advanceTurn(step.encounter);
     expect(currentParticipant(step.encounter)?.name).toBe("Assassin");
   });
 
@@ -373,10 +351,9 @@ describe("joining a fight already in progress", () => {
 });
 
 describe("re-seating an initiative mid-fight", () => {
-  // Order after startCombat: Maelina 19, Brakka 12, Goblin 7.
   it("moves the row to where the new number says", () => {
     let encounter = startCombat(roster());
-    encounter = reseatParticipant(encounter, "c", 15); // Goblin 7 -> 15
+    encounter = reseatParticipant(encounter, "c", 15);
     expect(encounter.participants.map((p) => p.name)).toEqual([
       "Maelina",
       "Goblin",
@@ -386,8 +363,8 @@ describe("re-seating an initiative mid-fight", () => {
   });
 
   it("keeps the current actor current when a row moves past them", () => {
-    let encounter = advanceTurn(startCombat(roster())).encounter; // Brakka acting
-    encounter = reseatParticipant(encounter, "c", 21); // Goblin to the top
+    let encounter = advanceTurn(startCombat(roster())).encounter;
+    encounter = reseatParticipant(encounter, "c", 21);
     expect(encounter.participants.map((p) => p.name)).toEqual([
       "Goblin",
       "Maelina",
@@ -397,8 +374,8 @@ describe("re-seating an initiative mid-fight", () => {
   });
 
   it("keeps the moved row current when it is the one acting", () => {
-    let encounter = advanceTurn(startCombat(roster())).encounter; // Brakka acting
-    encounter = reseatParticipant(encounter, "a", 1); // Brakka to the bottom
+    let encounter = advanceTurn(startCombat(roster())).encounter;
+    encounter = reseatParticipant(encounter, "a", 1);
     expect(encounter.participants.map((p) => p.name)).toEqual([
       "Maelina",
       "Goblin",
@@ -412,7 +389,6 @@ describe("re-seating an initiative mid-fight", () => {
     expect(encounter.participants.find((p) => p.id === "c")?.initiative).toBe(
       21,
     );
-    // Out of combat array position is meaningless; views sort for display.
     expect(encounter.participants.map((p) => p.id)).toEqual(["a", "b", "c"]);
   });
 });
@@ -425,7 +401,6 @@ describe("staging hidden combatants", () => {
     expect(
       visibleParticipants(encounter.participants).map((p) => p.id),
     ).toEqual(["a", "b"]);
-    // The order itself is untouched — a hidden ambusher keeps its slot.
     expect(encounter.participants.map((p) => p.id)).toEqual(["a", "b", "c"]);
     encounter = setHidden(encounter, "c", false);
     expect(visibleParticipants(encounter.participants)).toHaveLength(3);
@@ -450,7 +425,6 @@ describe("which side a row fights for", () => {
 
   it("lets the DM's explicit side override the heuristic both ways", () => {
     let encounter = roster();
-    // The hand-typed NPC ally, and the villain with a full sheet.
     encounter = setSide(encounter, "c", "party");
     const ally = encounter.participants.find((p) => p.id === "c")!;
     expect(isFoe(ally)).toBe(false);

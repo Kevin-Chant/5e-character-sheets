@@ -49,19 +49,16 @@ export default function UpdateField({
   const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();
 
-  // Resolve the value currently persisted for this (field, subField), falling
-  // back to the optional-field initializer when nothing is stored yet.
   let currentValue =
     targetedField && character ? getFieldValue(targetedField, character) : "";
   if (subField) currentValue = traverse(subField, currentValue);
-  // Only genuinely-absent values fall back to the initializer — a stored 0,
-  // "", or false is a real value the user set, not a gap to fill.
+  // 0/""/false are real values, not gaps; only null/undefined fall back.
   if (currentValue == null && character) {
     currentValue = getOptionalInitializer(targetedField, subField, character);
   }
 
-  // Local state so the input can be freely edited (including cleared to empty)
-  // even when `setValue` declines to persist an empty/invalid required value.
+  // Local state lets the input clear to empty even when `setValue` declines
+  // to persist an invalid required value.
   const [localValue, setLocalValue] = useState<string>(
     String(currentValue ?? ""),
   );
@@ -73,9 +70,6 @@ export default function UpdateField({
 
   const setValue = (value: string) => {
     if (!value && !allowUndefined) return;
-    // Coerce/validate the raw input to the type this field expects before it
-    // enters the character model; reject values that don't fit rather than
-    // storing a mistyped (or out-of-enum) value.
     let sanitizedValue: any;
     if (modalType === "number") {
       sanitizedValue = parseInt(value);
@@ -107,8 +101,7 @@ export default function UpdateField({
   };
 
   const optionalData = EDITABLE_FIELD_OPTIONAL_DATA[targetedField];
-  // Drop a trailing array index (e.g. "languages.3" -> "languages") from the
-  // title; the specific entry being edited isn't meaningful to the user.
+  // Drop a trailing array index (e.g. "languages.3" -> "languages") from the title.
   const labelSubField = subField?.replace(/\.\d+$/, "");
   const heading =
     optionalData?.title ??
@@ -118,8 +111,6 @@ export default function UpdateField({
     !allowUndefined &&
     (localValue.trim() === "" || isNaN(parseInt(localValue, 10)));
 
-  // Suggestions offered as a typeahead for free-text (string) fields; arbitrary
-  // custom input is still accepted.
   let knownOptions: OptionsList | undefined;
   if (targetedField === FIELD.otherProficiencies) {
     const section = subField?.split(".")[0];

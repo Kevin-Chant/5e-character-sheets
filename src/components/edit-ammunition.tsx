@@ -7,11 +7,9 @@ import { randomUUID } from "src/lib/browser";
 import { Ammunition } from "src/lib/types";
 import { useSave } from "./modals/modal-container";
 
-// Add or edit one ammunition pool. Opened with subField "new" (append a fresh
-// pool) or a numeric index (edit that pool). The pool owns which weapons it
-// feeds via `weaponIds` (checkboxes over the character's attacks), so the table
-// picks its own taxonomy. The whole entry is committed as one targeted action on
-// save, so cancelling an add discards it rather than orphaning a blank pool.
+// Add or edit one ammunition pool. subField "new" appends, a numeric index
+// edits that pool. `weaponIds` links the pool to attacks via checkboxes. The
+// whole entry commits as one action on save, so cancelling discards it.
 export default function EditAmmunition() {
   const { character } = useLoadedCharacter();
   const { subField } = useTargetedField();
@@ -43,9 +41,6 @@ export default function EditAmmunition() {
         character.attacks.some((a) => a.id === id),
       ) as Ammunition["weaponIds"],
     };
-    // `append()` serializes to the "new" routing sentinel, not a real index, so
-    // a new entry rebuilds the whole array (matching the add-attack pattern);
-    // an edit targets its index surgically.
     const action = isNew
       ? updateAt(charPath(FIELD.ammunition), [...ammo, entry])
       : updateAt(charPath(FIELD.ammunition).at(index), entry);
@@ -64,8 +59,7 @@ export default function EditAmmunition() {
           value={name}
           autoFocus
           placeholder="e.g. Arrows, Crossbow Bolts"
-          // Keep password managers off this free-text field — "Name" gets
-          // mistaken for a contact/identity field otherwise (1Password, LastPass).
+          // Keep password managers off this field; they mistake "Name" for identity.
           autoComplete="off"
           data-1p-ignore="true"
           data-lpignore="true"

@@ -239,14 +239,10 @@ describe("rollFormula", () => {
 
 describe("formatRollBreakdown", () => {
   it("names the flat modifier instead of leaving it implied", () => {
-    // 2d6+5 landing 4 and 6: the old display showed "(4 + 6)" against a total
-    // of 15, leaving the +5 to be inferred.
     expect(formatRollBreakdown(15, [4, 6])).toBe("4 + 6 + 5");
   });
 
   it("always adds up to the total it explains", () => {
-    // The property the whole helper rests on — it derives the flat term rather
-    // than tracking it, so the parts can never disagree with the number above.
     const sumOf = (parts: string) => eval(parts.replace(/×/g, "*")) as number;
     const cases: [number, number[]][] = [
       [15, [4, 6]],
@@ -268,8 +264,6 @@ describe("formatRollBreakdown", () => {
   });
 
   it("factors out the multiplier under the double-the-total crit flavor", () => {
-    // 2d6+5 rolling 4 and 6 = 15, doubled to 30. Showing "4 + 6 + 20" would be
-    // arithmetically true and completely misleading.
     expect(formatRollBreakdown(30, [4, 6], { mode: "total" })).toBe(
       "(4 + 6 + 5) \u00d72",
     );

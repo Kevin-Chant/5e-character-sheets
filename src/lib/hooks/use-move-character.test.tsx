@@ -16,10 +16,8 @@ import {
 import { readLocalStorage, removeLocalStorage } from "src/lib/local-storage";
 import { Character, Datastore } from "src/lib/types";
 
-// The hook decides *whether* the open character can move, *where to*, and runs
-// the Drive → browser direction inline. The browser → Drive direction only
-// hands an intent to /auth here; its completion is gapi-bound and verified
-// in-browser like the rest of the Drive code.
+// Drive → browser runs inline; browser → Drive only hands an intent to /auth
+// here, since completion is gapi-bound and verified in-browser.
 
 function Probe() {
   const { target, handleMove } = useMoveCharacter();
@@ -31,7 +29,6 @@ function Probe() {
   );
 }
 
-// Where the move navigated to, with the intent it carried.
 function LocationProbe() {
   const location = useLocation();
   return (
@@ -89,8 +86,7 @@ function renderHook({
 
 const storedCharacters = () => readLocalStorage("characters", {});
 
-// `isShared` is optional on `Datastore`, which trips vi.spyOn's typing; pin it
-// down to the concrete shape the Drive store actually has.
+// `isShared` is optional on `Datastore`, which trips vi.spyOn's typing.
 const spyIsShared = (value: boolean) =>
   vi
     .spyOn(
@@ -151,8 +147,6 @@ describe("useMoveCharacter", () => {
     expect(driveDelete).toHaveBeenCalledWith(character.uuid);
     expect(setDatastore).toHaveBeenCalledWith(LocalDatastore);
     expect(readLocalStorage("lastDatastore")).toBe("local");
-    // Reopens by uuid on the far side — the swap closes the sheet, and the
-    // uuid in the URL is what opens it again.
     expect(screen.getByTestId("location").textContent).toBe(
       `/sheet/${character.uuid}:null`,
     );
@@ -169,7 +163,6 @@ describe("useMoveCharacter", () => {
       screen.getByText("move").click();
     });
 
-    // Flushed so the completion effect can read it back after the auth trip.
     await waitFor(() =>
       expect(storedCharacters()[character.uuid]?.uuid).toBe(character.uuid),
     );
@@ -180,18 +173,15 @@ describe("useMoveCharacter", () => {
   });
 });
 
-// The completion half of browser → Drive. The Drive write itself is gapi-bound
-// (verified in-browser); what's pinned here is the *ordering* the flow promises:
-// the sheet opens before the write round-trips, and the browser copy survives
-// until Drive actually confirms.
+// Pins the ordering: sheet opens before the write round-trips, and the
+// browser copy survives until Drive confirms.
 describe("useCompleteMoveToDrive", () => {
   function CompletionProbe() {
     useCompleteMoveToDrive();
     return <LocationProbe />;
   }
 
-  // Drives `characterLoading` true → false so the hook sees the Drive init
-  // start and finish (its guard against writing into a mid-reset cache).
+  // Drives characterLoading true → false so the hook sees Drive init start/finish.
   function renderCompletion({
     character,
     persistCharacter,
@@ -244,8 +234,6 @@ describe("useCompleteMoveToDrive", () => {
       screen.getByText("init-done").click();
     });
 
-    // The sheet opened (and the intent was stripped) while the Drive write is
-    // still in flight — and the browser copy is still there.
     await waitFor(() => expect(dispatch).toHaveBeenCalled());
     expect(dispatch.mock.calls[0][0].type).toBe("load_character");
     expect(persistCharacter).toHaveBeenCalled();

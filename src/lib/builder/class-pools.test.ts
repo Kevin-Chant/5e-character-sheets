@@ -86,8 +86,7 @@ describe("syncClassPools", () => {
     c.class = [monk];
     syncClassPools(c, monk);
     const ki = pool(c, "Ki").save!;
-    // 8 + PB + WIS, live rather than baked — and no fixed ability, since each
-    // ki feature names its own save.
+    // 8 + PB + WIS, live rather than baked.
     expect(calculateCustomFormula(ki.dc, c)).toBe(14);
     expect(ki.stat).toBeUndefined();
 
@@ -290,9 +289,7 @@ describe("syncClassPools", () => {
     });
     const fire = pool(c, "Fire Rune");
     const mechanics = mechanicsForAbility(fire);
-    // The 2d6 belongs to the attack roll, so the row is a signpost: a
-    // remind-only action (no spend — the dialog's tick takes the use) that
-    // makes the rune visible on the play board at all.
+    // The 2d6 belongs to the attack roll; this row is a signpost only.
     const [signpost] = mechanics?.actions ?? [];
     expect(signpost.name).toBe("Invoke Fire Rune");
     expect(signpost.effects).toHaveLength(1);
@@ -342,8 +339,7 @@ describe("syncClassPools", () => {
         amount: [number, StandardDie, unknown];
         uses?: { pool: string };
       };
-      // The damage tick costs nothing — RAW, only marking spends. The rider
-      // used to own the spend, which double-charged a tick on turn two.
+      // The damage tick costs nothing — RAW, only marking spends.
       expect(rider.uses).toBeUndefined();
       return rider.amount[1];
     };
@@ -547,11 +543,7 @@ describe("builder integration", () => {
   });
 
   it("every action-host pool (maxUses 0) carries an action, and any spend names another pool", () => {
-    // A maxUses-0 pool owns no charges, so it's only meaningful as a carrier
-    // for actions. Two kinds qualify: a cross-pool spender (Cutting Words
-    // draining Bardic Inspiration) and an at-will feature that spends nothing
-    // and just rolls (Halo of Spores). What must never happen is a spend with
-    // no `pool` — that would silently drain the empty host itself.
+    // A spend with no `pool` would silently drain the empty host itself.
     for (const [subclass, defs] of Object.entries(SUBCLASS_POOLS))
       for (const def of defs) {
         const k = klass(OfficialClass.Bard, 20);
@@ -1046,8 +1038,7 @@ describe("syncMartialArts", () => {
 });
 
 // Pool-less at-will features: no charges of their own, no shared pool to
-// drain, just a level-scaled die. These had nowhere to live while every
-// limited-use ability was assumed to have a finite maximum.
+// drain, just a level-scaled die.
 describe("at-will action hosts", () => {
   // Build at level 1 and advance, so the result reflects what a real sheet
   // gets: pools synced *and* the feature prose the same levels grant.

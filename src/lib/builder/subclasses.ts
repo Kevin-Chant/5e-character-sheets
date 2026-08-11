@@ -8,9 +8,8 @@ export { SUBCLASSES };
 export const subclassesForClass = (classIndex?: string): CatalogSubclass[] =>
   classIndex ? SUBCLASSES.filter((s) => s.classIndex === classIndex) : [];
 
-// Look up a subclass by the (class index, subclass name) pair. The character
-// stores the subclass by *name*, so this is how the build path recovers its
-// mechanics.
+// Look up a subclass by (class index, subclass name) — Character stores the
+// subclass by name.
 export const getSubclassByName = (
   classIndex?: string,
   name?: string,
@@ -19,9 +18,8 @@ export const getSubclassByName = (
     ? SUBCLASSES.find((s) => s.classIndex === classIndex && s.name === name)
     : undefined;
 
-// The feature prose a subclass confers on reaching `level` — the subclass half
-// of `classFeaturesAt`. Empty for a class level the subclass grants nothing at,
-// which is most of them.
+// Feature prose a subclass confers on reaching `level`; empty for levels it
+// grants nothing at.
 export const subclassFeaturesAt = (
   classIndex?: string,
   name?: string,
@@ -31,10 +29,9 @@ export const subclassFeaturesAt = (
     ? getSubclassByName(classIndex, name)?.levelFeatures?.[level]
     : undefined) ?? [];
 
-// The spell indices a subclass grants by the time `level` is reached: every
-// `grants.spellIndicesByLevel` tier at or below it (an oath's spells unlock at
-// 3/5/9/13/17). Cumulative, so the builder can grant idempotently every
-// level-up without missing a tier reached in one jump.
+// Spell indices a subclass grants by `level`: every tier at or below it
+// (e.g. an oath's spells unlock at 3/5/9/13/17), cumulative so a jump in
+// levels doesn't skip a tier.
 export const subclassSpellIndicesAt = (
   classIndex?: string,
   name?: string,
@@ -47,9 +44,7 @@ export const subclassSpellIndicesAt = (
           .filter(([lvl]) => level >= Number(lvl))
           .flatMap(([, indices]) => indices)
       : [];
-  // Inline `grants.spellIndicesByLevel` plus the per-class registry, which is
-  // where most subclass spell lists live (one file per class, for parallel
-  // authoring).
+  // Inline `grants.spellIndicesByLevel` plus the per-class registry.
   return [
     ...tiersOf(
       getSubclassByName(classIndex, name)?.grants?.spellIndicesByLevel,

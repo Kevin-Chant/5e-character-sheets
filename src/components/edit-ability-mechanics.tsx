@@ -34,11 +34,9 @@ const DICE = [
   StandardDie.d12,
 ];
 
-// Editor for an ability's structured mechanics — the homebrew path. Authors
-// compose actions from the same closed effect set the catalog uses; `choose`
-// is derived from the effects on every edit, never hand-managed. Rider
-// authoring is data-only for now (no UI). All edits write the whole
-// `mechanics` value through the modal draft, like every other field.
+// Editor for an ability's homebrew mechanics: actions composed from the same
+// closed effect set the catalog uses. `choose` is derived from effects on
+// every edit, never hand-managed. Rider authoring is data-only (no UI yet).
 export default function EditAbilityMechanics({
   ability,
   cursor,
@@ -283,8 +281,8 @@ function EffectParams({
   }
 }
 
-// The amount sub-editor: Number / Dice (N dM + K) / Player picks. Catalog
-// shapes the simple codec can't express render read-only.
+// Number / Dice (N dM + K) / Player picks. Catalog shapes the simple codec
+// can't express render read-only.
 function AmountEditor({
   amount,
   update,

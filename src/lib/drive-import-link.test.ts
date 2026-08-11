@@ -21,8 +21,6 @@ describe("importLinkFor", () => {
     expect(link).toBe(
       "https://example.com/import/abc?name=Sir%20Reg%2C%20II.5echar",
     );
-    // The route reads it back through URLSearchParams, so a round-trip is what
-    // actually matters — not the exact escaping.
     const parsed = new URL(link);
     expect(parsed.searchParams.get("name")).toBe("Sir Reg, II.5echar");
     expect(parsed.pathname).toBe("/import/abc");
@@ -42,8 +40,6 @@ describe("pickerQueryFor", () => {
 
   it("is undefined when there is nothing worth searching for", () => {
     expect(pickerQueryFor(undefined)).toBeUndefined();
-    // A file named only by our extension would otherwise narrow the picker to
-    // nothing, which is worse than not narrowing it at all.
     expect(pickerQueryFor(".5echar")).toBeUndefined();
     expect(pickerQueryFor("  ")).toBeUndefined();
   });

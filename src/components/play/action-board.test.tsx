@@ -9,9 +9,8 @@ import { availableSpellSlots } from "src/lib/rules";
 import ActionBoard from "./action-board";
 import { usePlayTurn } from "src/lib/play/use-turn";
 
-// The board is a projection, and `turn-actions.test.ts` covers the projection.
-// What's worth testing here is the part only the component knows: that the
-// controls it renders reach the real reducer, and that using one marks the turn.
+// turn-actions.test.ts covers the projection; this covers that controls reach
+// the real reducer and mark the turn.
 
 function text(title: string) {
   return { title, titleFormulas: [] };
@@ -41,8 +40,6 @@ function characterWithSpells(): Character {
   return character;
 }
 
-// The board needs a turn; a tiny harness owns one so the test can drive the real
-// component rather than a stubbed prop.
 function BoardHarness() {
   const turn = usePlayTurn();
   return (
@@ -61,7 +58,6 @@ describe("the action board", () => {
     });
     const action = screen.getByRole("heading", { name: "Action" });
     const bonus = screen.getByRole("heading", { name: "Bonus Action" });
-    // Each heading leads its own section, so the spell is inside the right one.
     expect(
       within(action.parentElement as HTMLElement).getByText("Bless"),
     ).toBeTruthy();

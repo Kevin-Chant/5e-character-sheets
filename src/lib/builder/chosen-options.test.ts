@@ -91,8 +91,7 @@ describe("the option catalog", () => {
     for (const group of OPTION_GROUPS) {
       const names = group.options.map((o) => o.name);
       expect(new Set(names).size, group.category).toBe(names.length);
-      // Every option is described *somewhere*: either per-option, or once on
-      // the group for "pick a type" lists where they all do the same thing.
+      // Every option is described somewhere: per-option, or once on the group.
       expect(
         group.options.every((o) => !!o.summary?.length) || !!group.summary,
         group.category,
@@ -154,9 +153,8 @@ describe("optionSpellIndicesAt", () => {
 
 describe("optionFeaturesFor", () => {
   it("returns a pick's features only for its own class", () => {
-    // Draconic Ancestry carries no features, so this is a shape check against a
-    // real group: an unknown class yields nothing, the right class yields its
-    // (here empty) feature list without throwing.
+    // Draconic Ancestry carries no features; shape check that an unknown class
+    // yields nothing and the right class doesn't throw.
     const picks = [{ category: "draconicAncestry", name: "Red (fire)" }];
     expect(optionFeaturesFor(picks, OfficialClass.Wizard, 20)).toEqual([]);
     expect(optionFeaturesFor(picks, OfficialClass.Sorcerer, 20)).toEqual([]);
@@ -192,9 +190,7 @@ describe("chosenIn", () => {
   });
 });
 
-// The same join the subclass-spell registry is guarded on: an option that
-// grants spells by index hands out nothing at all if the index is misspelled,
-// and nothing else fails.
+// A misspelled spell index silently grants nothing, so the join is guarded here.
 describe("option spell grants", () => {
   it("only names spell indices that resolve in the bundled catalog", () => {
     for (const group of OPTION_GROUPS)
@@ -212,9 +208,8 @@ describe("option spell grants", () => {
   });
 });
 
-// An option that spends a resource names its pool by title. A typo there is
-// silent — `spendUses` finds no pool and the button does nothing — so the join
-// is guarded the same way the spell-index one is.
+// A typo in an option's pool title is silent (spendUses finds no pool), so
+// this join is guarded the same way the spell-index one is.
 describe("option action hosts", () => {
   const poolTitles = new Set(
     [
@@ -246,7 +241,6 @@ describe("option action hosts", () => {
   });
 });
 
-// The three lists added to close the "chosen options are inert" gap.
 describe("monk and fighter option lists", () => {
   it("offers the full Four Elements discipline list, gated to the subclass", () => {
     const group = optionGroup("elementalDiscipline")!;

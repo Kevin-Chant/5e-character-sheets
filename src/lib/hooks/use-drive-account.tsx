@@ -7,20 +7,15 @@ import {
   writeLastDriveAccount,
 } from "src/lib/last-drive-account";
 
-// Who we're signed in to Drive as, shared across every surface that asks.
-//
-// A module store rather than a per-component fetch because three places want
-// the same answer (the settings tab, the account-switch notice, anything that
-// names the account in an error) and it costs a round-trip. It also has to
-// survive a component unmounting: the "you're in a different account" notice is
-// computed exactly once per sign-in — the moment we write the new email down,
-// the evidence of the change is gone — so it can't live in a component that
-// closing the settings panel would throw away.
+// Who we're signed in to Drive as, shared across every surface that asks. A
+// module store (not per-component) since several places need the same
+// answer, and the "different account" notice is computed once per sign-in —
+// writing the new email down erases the evidence of the change, so it can't
+// live in a component that might unmount first.
 
 interface DriveAccountState {
   account?: DriveAccount;
-  // Set only when this sign-in is a *different* account from the one this
-  // browser last used, and only until dismissed. Undefined is the normal case.
+  // Set only when this sign-in differs from the browser's last-used account, until dismissed.
   switchedFrom?: string;
   loading: boolean;
   failed: boolean;
@@ -42,8 +37,7 @@ function subscribe(listener: () => void) {
   };
 }
 
-// `deliberate` marks a switch the user just asked for: the account did change,
-// but telling them so would be reporting their own click back at them.
+// `deliberate` suppresses the switch notice for a switch the user just asked for.
 function fetchAccount(deliberate: boolean): Promise<void> {
   inflight ??= getDriveAccount()
     .then((account) => {
@@ -76,7 +70,6 @@ export function loadDriveAccount(): Promise<void> {
   return fetchAccount(false);
 }
 
-// After an account switch the cached answer is about the account we left.
 export function reloadDriveAccount(): Promise<void> {
   inflight = undefined;
   setState({ account: undefined, switchedFrom: undefined, loading: true });
@@ -89,9 +82,7 @@ export function forgetDriveAccount() {
   listeners.forEach((listener) => listener());
 }
 
-// Sign-out clears the token but not the memory of which account it was —
-// that's the whole point. Revoking access is the one case where forgetting is
-// right: there's no grant left to come back to.
+// Unlike a plain sign-out, revoking access also clears the remembered account.
 export function forgetDriveAccountEntirely() {
   clearLastDriveAccount();
   forgetDriveAccount();

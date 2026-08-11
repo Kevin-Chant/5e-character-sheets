@@ -13,9 +13,8 @@ const saveCharacterFolder = (charFolder: Record<UUID, Character>) => {
   writeLocalStorage("characters", charFolder);
 };
 
-// Migrate every stored character up to the current schema version, dropping any
-// that no longer validate (corrupt). If anything was upgraded, persist the
-// folder back so the bump is durable.
+// Migrates every stored character to the current schema, dropping any that
+// no longer validate, and persists the folder if anything was upgraded.
 const readMigratedFolder = (): Record<UUID, Character> => {
   const charFolder = getOrInitializeCharacterFolder();
   const migrated: Record<UUID, Character> = {};

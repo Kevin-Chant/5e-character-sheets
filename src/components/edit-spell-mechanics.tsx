@@ -19,17 +19,13 @@ const ordinal = (n: number) =>
 
 interface Props {
   mechanics?: SpellMechanics;
-  // Base spell level, derived from where the spell sits (0 = cantrip).
-  level: number;
-  // The spell's current spellcasting class id — stamped into any "+ spell mod".
-  spellcastingClass: UUID;
+  level: number; // Base spell level (0 = cantrip).
+  spellcastingClass: UUID; // Stamped into any "+ spell mod".
   onChange: (mechanics: SpellMechanics | undefined) => void;
 }
 
-// Structured-mechanics editor embedded in the spell modal. Lets a hand-authored
-// spell declare how it resolves and what it rolls, so it gets a play-mode roll
-// button (and level scaling) just like a spell added from the catalog. See
-// `.claude/docs/spell-scaling.md`.
+// Structured-mechanics editor for a hand-authored spell: declares resolution
+// and rolls so it gets a play-mode roll button and level scaling.
 export default function EditSpellMechanics({
   mechanics,
   level,
@@ -41,8 +37,6 @@ export default function EditSpellMechanics({
   );
   const isCantrip = level === 0;
 
-  // Every edit funnels through here so the derived model stays in lock-step with
-  // the form without a mount-time write.
   const apply = (next: MechForm | null) => {
     setForm(next);
     onChange(
@@ -108,7 +102,6 @@ export default function EditSpellMechanics({
         Base level: {isCantrip ? "cantrip" : `${ordinal(level)} level`}
       </p>
 
-      {/* Resolution */}
       <div className="spell-mechanics-controls">
         <label>
           How it hits
@@ -171,7 +164,6 @@ export default function EditSpellMechanics({
         </label>
       )}
 
-      {/* Damage */}
       <div className="spell-mechanics-block">
         <div className="row space-between">
           <strong>Damage</strong>
@@ -248,7 +240,6 @@ export default function EditSpellMechanics({
         ))}
       </div>
 
-      {/* Healing */}
       <div className="spell-mechanics-block">
         <strong>Healing</strong>
         {form.healing ? (
@@ -311,7 +302,6 @@ export default function EditSpellMechanics({
         )}
       </div>
 
-      {/* Separate rolls */}
       <label className="spell-mechanics-instances">
         Separate rolls
         <input
@@ -328,7 +318,6 @@ export default function EditSpellMechanics({
         </span>
       </label>
 
-      {/* Higher-level scaling */}
       <details className="spell-mechanics-scaling" open={!!scaling}>
         <summary>Higher-level scaling</summary>
         <label className="spell-mechanics-enable">

@@ -27,8 +27,7 @@ import { publishTabEdit, subscribeTabEdits } from "src/lib/tab-sync";
 // One reversible edit: the action applied and the action that undoes it.
 type HistoryEntry = { action: Action; inverse: Action };
 
-// Undo history is per-tab and in-memory; cap it so a long editing session
-// doesn't accumulate unboundedly (each entry holds two full field values).
+// Cap per-tab in-memory undo history (each entry holds two full field values).
 const MAX_HISTORY = 100;
 import { useLazyEffect } from "./use-lazy-effect";
 import { useDatastore } from "./use-datastore";
@@ -49,21 +48,14 @@ interface CharacterContextData {
   canRedo: boolean;
   unsavedChanges: boolean;
   setUnsavedChanges: (isUnsaved: boolean) => void;
-  // false when the last save landed; "auth" when it failed because the Google
-  // Drive session needs a sign-in click (so the indicator can offer one
-  // instead of a generic warning); "error" for everything else.
+  // false when saved; "auth" when a Drive sign-in click is needed; "error" otherwise.
   saveError: false | "auth" | "error";
   saveNow: () => void;
-  // Persist an explicit character in the background — for flows that just
-  // dispatched a whole character (wizard finishes, moves between backends) and
-  // shouldn't block their UI on the write. Stages the entry into the reactive
-  // character list immediately, then resolves true once the backend confirms
-  // (or the character isn't ours to persist), false on a failed write — with
-  // the same dirty/error indicators as autosave either way.
+  // Persist an explicit character without blocking the caller (wizard finishes,
+  // moves between backends). Stages into the reactive list immediately, resolves
+  // true once confirmed (or not ours to persist), false on failed write.
   persistCharacter: (character: Character) => Promise<boolean>;
-  // Start hosting a live session for the open character. `silent` suppresses the
-  // failure alert (used by the auto-bootstrap, which should stay solo quietly if
-  // the sidecar is unreachable).
+  // `silent` suppresses the failure alert (used by the auto-bootstrap).
   openSharingSession: (options?: { silent?: boolean }) => Promise<void>;
   closeSharingSession: () => void;
 }
@@ -89,15 +81,12 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [character, dispatch] = useReducer(reducer, undefined);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [saveError, setSaveError] = useState<false | "auth" | "error">(false);
-  // Per-tab undo/redo history of this user's own edits. Read the latest
-  // character through a ref so an edit's "before" value is captured reliably.
   const [past, setPast] = useState<HistoryEntry[]>([]);
   const [future, setFuture] = useState<HistoryEntry[]>([]);
   const characterRef = useRef(character);
   characterRef.current = character;
-  // Bumped on every dispatch. Lets an async save know whether a newer edit
-  // landed while its write was in flight — the reducer clones the character,
-  // so object identity can't answer that.
+  // Bumped on every dispatch so an in-flight async save can tell whether a
+  // newer edit landed (the reducer clones, so object identity can't tell).
   const editSeq = useRef(0);
   const { save, stageCharacter } = useDatastore();
   const { datastore } = useDatastoreSelector();
@@ -107,23 +96,12 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   }, [character]);
 
   const { broadcast, getRole, isBorrowed } = useSharingSessions();
-  // The stored-copy pair lets the sharing layer keep a session alive for a
-  // character this tab isn't looking at: it folds arriving edits into the saved
-  // sheet and serves it to joiners. Both go straight to the datastore, on
-  // purpose — this context holds one character, and these are about the others.
-  //
-  // **The read goes to the raw backend, not `useDatastore`'s `load`.** That
-  // wrapper clears `characterLoading` as a side effect, which is right for a
-  // character the user asked for and wrong for one a peer edited in the
-  // background: a joiner's `FULL_SYNC` or a folded edit landing mid-list-fetch
-  // would put the picker's spinner down and flash "No characters yet" over a
-  // store that was still loading, and could convince `sheet-container`'s
-  // stale-uuid branch to navigate away from a deep link that was about to
-  // resolve. Reading a stored sheet is not a statement about the list.
-  //
-  // The *write* deliberately stays `save`: its side effects — the reactive list
-  // entry, clearing the unsynced badge, the `saving` flag — are all true of a
-  // background fold, which really is this app writing to storage.
+  // Lets the sharing layer keep a session alive for a character this tab isn't
+  // looking at (folds arriving edits into storage, serves them to joiners).
+  // Read goes to the raw backend, not `useDatastore`'s `load`, because that
+  // wrapper's `characterLoading` side effect is only correct for a
+  // user-requested load. Write stays `save` so the reactive list/dirty state
+  // stay correct for a background fold.
   const storage = useMemo(
     () =>
       datastore
@@ -140,10 +118,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     storage,
   );
 
-  // Persist the current character now. A character we joined remotely is owned
-  // (and persisted) by the host, so we must not write a divergent copy — and a
-  // sheet borrowed from a DM in a play session is the same situation with a
-  // different transport.
+  // A remote-joined or DM-borrowed character is owned/persisted elsewhere; skip.
   const persist = useCallback(() => {
     if (
       !character ||
@@ -154,33 +129,21 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     const seq = editSeq.current;
     save(character)
       .then(() => {
-        // Only clear the dirty flag if no newer edit landed while the write
-        // was in flight — clearing unconditionally would erase that edit's
-        // unsaved marker.
+        // Only clear dirty if no newer edit landed while this write was in flight.
         if (editSeq.current === seq) setUnsavedChanges(false);
         setSaveError(false);
       })
       .catch((error) => {
-        // Keep unsavedChanges true so the edit isn't silently treated as
-        // persisted; surface the failure via the save indicator — and say
-        // *which* failure, because "sign in again" and "check your
-        // connection" call for different clicks.
         console.error("Failed to save character", error);
         setSaveError(isDriveAuthError(error) ? "auth" : "error");
       });
   }, [character, getRole, isBorrowed, save]);
 
-  // Persist an explicit character without blocking on the write. The wizards
-  // and the between-backend moves dispatch a whole character and used to hold
-  // their modal (or the picker) hostage until the datastore round-trip came
-  // back — seconds, on Drive. Instead: the entry is staged into the reactive
-  // list immediately, the dirty flag goes up, and the same indicators autosave
-  // uses report the write's fate.
+  // Stages into the reactive list immediately rather than blocking the caller
+  // on the datastore round-trip.
   const persistCharacter = useCallback(
     async (next: Character): Promise<boolean> => {
-      // Same ownership rule as `persist`: a remote or borrowed sheet is
-      // persisted by its host, so there's nothing for us to write — report
-      // "done" rather than failure.
+      // Same ownership rule as `persist`; report "done" since there's nothing to write.
       if (getRole(next.uuid) === "remote" || isBorrowed(next.uuid)) return true;
       stageCharacter(next);
       setUnsavedChanges(true);
@@ -199,10 +162,8 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     [getRole, isBorrowed, save, stageCharacter],
   );
 
-  // Debounced autosave (when enabled). Only persist genuine edits — loading an
-  // already-persisted character leaves unsavedChanges false, so opening a sheet
-  // doesn't trigger a redundant write. With autosave off, edits stay dirty until
-  // a manual save (⌘S / the save button).
+  // Debounced autosave. Loading a character leaves unsavedChanges false, so
+  // opening a sheet doesn't trigger a redundant write.
   useLazyEffect(
     () => {
       if (settings.autosave && unsavedChanges) persist();
@@ -211,8 +172,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     settings.autosaveDelay,
   );
 
-  // Warn before leaving with unsaved work (e.g. a failed save), editor-style.
-  // Only armed while dirty so a clean sheet closes without a prompt.
+  // Warn before leaving with unsaved work; only armed while dirty.
   useEffect(() => {
     if (!unsavedChanges) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -223,18 +183,15 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [unsavedChanges]);
 
-  // Mirror the in-app save indicator in the tab title: a leading dot marks
-  // unsaved changes, editor-style.
+  // Mirror the save indicator in the tab title with a leading dot.
   useEffect(() => {
     document.title = character
       ? `${unsavedChanges ? "● " : ""}${character.name}`
       : "5e Character Sheets";
   }, [character, unsavedChanges]);
 
-  // Remember the sheet for the front door's "pick up where you left off". Only
-  // sheets this browser can actually reopen: a remotely joined character is the
-  // host's, and a borrowed one belongs to a DM whose table may be over, so
-  // offering either as a shortcut would be offering a dead link.
+  // Remember the sheet for "pick up where you left off" — only sheets this
+  // browser owns; a remote or borrowed one belongs to someone else's table.
   useEffect(() => {
     if (!character || !datastore) return;
     if (getRole(character.uuid) === "remote" || isBorrowed(character.uuid))
@@ -248,8 +205,7 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     });
   }, [character?.uuid, character?.name, datastore]);
 
-  // Whether the sheet on screen has edits that haven't reached storage, read
-  // synchronously from inside the dispatcher below.
+  // Read synchronously from inside the dispatcher below.
   const unsavedRef = useRef(unsavedChanges);
   unsavedRef.current = unsavedChanges;
   const persistableRef = useRef((_uuid: UUID) => false as boolean);
@@ -258,26 +214,12 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const saveRef = useRef(save);
   saveRef.current = save;
 
-  // Write the *outgoing* character before another one takes its place.
-  //
-  // Autosave is debounced and keyed on the character, and its flush reads
-  // whichever sheet is current when the timer fires — so switching sheets
-  // inside the debounce window (or with autosave off) simply dropped the edits
-  // you had just made. That was always a quiet data loss; with sessions that
-  // outlive the sheet it is also a *shared* one, and worse for being invisible.
-  // Those edits went out over the realm the moment they were made, so peers
-  // have them, but the stored copy — which is now what `FULL_SYNC` serves and
-  // what arriving edits are folded into — does not. The next joiner to
-  // reconnect adopts a copy of the sheet that has silently rolled back.
-  //
-  // **Only on `load_character`, never on `reset_character`.** A reset means the
-  // sheet is going away, and the three things that close one are all reasons
-  // *not* to write it: the character was just deleted (a save would resurrect
-  // it), the datastore was just swapped (the save would land in the backend the
-  // user walked away from — the very cross-backend write the swap-reset exists
-  // to prevent), or the user asked for the picker. Switching sheets is the case
-  // where the outgoing character still exists, in the store it came from, and
-  // is the one thing on screen that just changed.
+  // Force-write the outgoing character before another replaces it, since
+  // debounced autosave would otherwise drop edits made inside the debounce
+  // window when switching sheets. Only on `load_character`, never
+  // `reset_character` — a reset means the character was deleted, the
+  // datastore was swapped, or the picker was opened, and writing in any of
+  // those cases would resurrect/cross-write the sheet.
   const flushOutgoing = useCallback(() => {
     const outgoing = characterRef.current;
     if (!outgoing || !unsavedRef.current) return;
@@ -288,8 +230,8 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     });
   }, []);
 
-  // Stable via characterRef, so undo/redo (and the keydown effect below) don't
-  // have to rebind on every character change.
+  // Stable via characterRef, so undo/redo and the keydown effect don't rebind
+  // on every character change.
   const dispatchAndBroadcast = useCallback(
     (
       action: Action,
@@ -297,14 +239,10 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       suppressBroadcast: boolean = false,
       record: boolean = true,
     ) => {
-      // Loading an already-persisted character isn't a user edit, so it must
-      // not flag unsaved changes (see loadPersistedCharacter).
       const isDirty = dirtyAction && action.type !== "load_character";
-      // Record only genuine local edits, so undo/redo covers this tab's own
-      // changes; remote echoes (suppressed) and replays (record=false) stay out.
-      // A `replace_character` (e.g. a level-up) is recorded too — its inverse is
-      // another replace carrying the current whole character, so one undo
-      // reverts the entire change.
+      // Record only genuine local edits (not remote echoes or replays), so
+      // undo/redo covers this tab's own changes. `replace_character`'s
+      // inverse carries the whole prior character, so one undo reverts it.
       if (record && isDirty && !suppressBroadcast && characterRef.current) {
         let entry: HistoryEntry | undefined;
         if (isUpdateAction(action))
@@ -322,17 +260,14 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
           setFuture([]);
         }
       }
-      // A *different* sheet is about to take this one's place — see
-      // `flushOutgoing`. Loading the same uuid is a re-adoption, not a switch
-      // (the Drive bootstrap pulling the host's copy over our solo edits), and
-      // there the user has just been asked and has said to discard them.
+      // Same-uuid load is a re-adoption (e.g. Drive bootstrap discarding solo
+      // edits after confirmation), not a sheet switch — skip the flush.
       if (
         action.type === "load_character" &&
         action.payload.uuid !== characterRef.current?.uuid
       ) {
         flushOutgoing();
       }
-      // A new character context has no history to carry over.
       if (
         action.type === "load_character" ||
         action.type === "reset_character"
@@ -342,10 +277,8 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       }
       editSeq.current++;
       dispatch(action);
-      // Dirty only ever *rises* here: a non-dirty dispatch landing while edits
-      // are unsaved (a cross-tab apply, a remote echo) must not clear the flag
-      // — only a completed save may, or closing the character context, which
-      // retires the flag with the sheet it described.
+      // Dirty only ever rises here: only a completed save (or closing the
+      // context) may clear it.
       if (
         action.type === "load_character" ||
         action.type === "reset_character"
@@ -354,15 +287,9 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       } else if (isDirty) {
         setUnsavedChanges(true);
       }
-      // Only genuine edits travel, and now on *both* transports. Loads and
-      // resets are tab-local navigation, and the uuid here is the
-      // **pre-dispatch** character's — the one a load has already left. That
-      // asymmetry (tab-sync excluded them, the realm didn't) is how a
-      // `load_character` carrying a whole *other* sheet got published into a
-      // realm it had nothing to do with: the outgoing uuid still matched the
-      // session, so the guard in `broadcast` waved it through and every peer
-      // loaded somebody else's character. `replace_character` is a real edit —
-      // a rest, a level-up — and still travels.
+      // Loads/resets are tab-local navigation and never broadcast; the uuid
+      // used here is the pre-dispatch character's, since a load has already
+      // left it.
       if (
         characterRef.current &&
         !suppressBroadcast &&
@@ -380,17 +307,10 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     [broadcast, flushOutgoing],
   );
 
-  // Edits arriving from this browser's other tabs. Applied like a remote edit
-  // (no re-publish, no undo entry) and **not dirty** — the tab the edit was
-  // made in owns the write to storage, and marking it dirty here would race
-  // two tabs' autosaves against each other over the same file. The next local
-  // edit in this tab saves the whole character, sibling edits included.
-  //
-  // Forwarding a sibling's edit into a live realm is **not** done here: that
-  // belongs to the sessions provider, which knows about the realms this browser
-  // holds for characters it isn't looking at (this context, by construction,
-  // only knows about the one it is). This subscriber's whole job is the sheet on
-  // screen.
+  // Edits arriving from this browser's other tabs: applied not-dirty since
+  // the originating tab owns the write to storage; marking dirty here would
+  // race two tabs' autosaves over the same file. Forwarding into a live realm
+  // is the sessions provider's job, not this one's.
   const dispatchAndBroadcastRef = useRef(dispatchAndBroadcast);
   dispatchAndBroadcastRef.current = dispatchAndBroadcast;
   useEffect(
@@ -456,26 +376,15 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
   const reset = useCallback(() => {
     setPast([]);
     setFuture([]);
-    // Closing the character retires its dirty/error state with it. These drive
-    // the nav save indicator, the "● " title prefix and the beforeunload
-    // guard, all of which would otherwise keep warning about unsaved work on a
-    // character that is no longer open — and can no longer be saved, since
-    // `persist` no-ops without one.
     setUnsavedChanges(false);
     setSaveError(false);
     dispatch(resetCharacter());
   }, []);
 
-  // Swapping storage backends closes the open character. This lives here rather
-  // than at the call sites because it was a convention there, and conventions
-  // get missed: the Drive sign-in path (`google-auth-initializer`) sets the
-  // datastore without resetting, so signing into Drive with a local sheet open
-  // left it open — and autosave then wrote that local character into Drive.
-  //
-  // Only a defined→defined swap resets. Clearing on *any* change would break
-  // the remote joiner, who is deliberately handed a character with no datastore
-  // at all (see the guard in `sheet-container.tsx`), and the session lobby,
-  // which adopts a datastore from `undefined` while the lobby is on screen.
+  // Reset only on a defined→defined datastore swap, so signing into Drive
+  // with a local sheet open closes it instead of autosaving it into Drive.
+  // Skipping undefined transitions leaves the remote joiner (no datastore)
+  // and session lobby unaffected.
   const previousDatastore = useRef(datastore);
   useEffect(() => {
     const previous = previousDatastore.current;
@@ -483,17 +392,13 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     if (previous && datastore && previous !== datastore) reset();
   }, [datastore]);
 
-  // startSession/endSession are recreated by their hook on every render; mirror
-  // them in refs so the context-facing wrappers can stay stable.
   const startSessionRef = useRef(startSession);
   startSessionRef.current = startSession;
   const endSessionRef = useRef(endSession);
   endSessionRef.current = endSession;
 
-  // Resolves when the session is live and **rejects with a readable message**
-  // when it isn't, so the caller can render an error inline. `silent` is for
-  // the automatic Drive bootstrap, which starts a session nobody asked for —
-  // there's no UI waiting on it, so it logs instead of surfacing.
+  // `silent` is for the automatic Drive bootstrap, which has no UI waiting
+  // on it, so it logs instead of throwing.
   const openSharingSession = useCallback(
     async (options?: { silent?: boolean }): Promise<void> => {
       try {
@@ -513,8 +418,6 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     endSessionRef.current();
   }, []);
 
-  // Memoized so consumers re-render on real changes (character, history,
-  // dirty/save state) rather than on every provider render.
   const providerData = React.useMemo(
     () => ({
       character,
@@ -560,23 +463,12 @@ export function useCharacter() {
   return useContext(CharacterContext);
 }
 
-// `useCharacter()` with `character` narrowed to non-undefined.
-//
-// Inside the sheet a character is always loaded — `sheet-container.tsx` mounts
-// `CharSheet` only when there is one, and `charsheet.tsx` gates its whole
-// subtree on it again. Every component below that was nonetheless repeating
-// `if (!character) return <></>` purely to satisfy the type-checker: ~37 copies
-// of a branch that can't be taken, and whose behaviour if it ever *were* taken
-// (a panel silently vanishing) is worse than the bug it hides.
-//
-// So the invariant is asserted once, here. A violation means a component was
-// mounted outside the sheet, which is a wiring mistake rather than a data
-// problem — and it surfaces as the `ErrorBoundary` in `sheet-container.tsx`
-// naming it, with the raw-JSON download and a way back to the character list,
-// instead of an empty rectangle with no explanation.
-//
-// Use plain `useCharacter()` where "no character" is a real state to render:
-// the nav's presence roster, the sheet container itself, effects that no-op.
+// `useCharacter()` with `character` narrowed to non-undefined. Inside the
+// sheet a character is always loaded, so this asserts the invariant once
+// instead of every component repeating an unreachable `if (!character)`
+// branch. A violation surfaces via the ErrorBoundary in `sheet-container.tsx`.
+// Use plain `useCharacter()` where "no character" is a real state (nav,
+// sheet container, effects).
 export function useLoadedCharacter(): CharacterContextData & {
   character: Character;
 } {

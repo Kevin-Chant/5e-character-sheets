@@ -12,34 +12,22 @@ import { RollSpec, useRoller } from "src/lib/hooks/use-roller";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 
 interface RollButtonProps {
-  // Shown as the roll dialog's heading, e.g. the attack or spell name.
   label: string;
-  // A d20 + flat modifier check (skills, ability checks, initiative).
   check?: number;
-  // A saving throw's modifier — same dialog, but the save `RollKind`, so
-  // save-only riders apply. Mutually exclusive with `check`.
+  // Mutually exclusive with `check`; uses save-only riders.
   savingThrow?: number;
-  // A single dice formula rolled on its own.
   formula?: CustomFormula;
-  // Spend a hit die of this size: roll it, apply healing, expend the die.
   hitDie?: StandardDie;
-  // Roll a death saving throw and mark the pip it lands on.
   deathSave?: boolean;
-  // An attack: a to-hit modifier and/or damage, resolved together. `spell`
-  // supplies level-scaled damage; `damage` is a fixed map. `save` replaces
-  // `toHit` when the target rolls to avoid rather than the character rolling to
-  // hit (a breath weapon, a poison).
+  // `spell` gives level-scaled damage; `damage` is a fixed map. `save`
+  // replaces `toHit` when the target rolls to avoid.
   toHit?: number;
   save?: SaveEffect;
   damage?: CustomFormulaWithDamage;
   spell?: Spell;
-  // The sheet entry a weapon attack came from — supplies the weapon properties
-  // that decide which riders apply. See `RollSpec`'s attack variant.
   attack?: Attack;
 }
 
-// A reusable die-icon button that opens the roll dialog. Works in play mode — it
-// doesn't touch the edit-gated targeted-field stack.
 export default function RollButton({
   label,
   check,
@@ -55,8 +43,6 @@ export default function RollButton({
 }: RollButtonProps) {
   const { openRoller } = useRoller();
   const { editMode } = useEditMode();
-  // Rolling is a play-mode action; in edit mode the row shows edit/delete
-  // instead, so the die button takes their place rather than adding clutter.
   if (editMode) return <></>;
 
   const isAttack =
@@ -80,10 +66,6 @@ export default function RollButton({
   return (
     <button
       type="button"
-      // Rank the sheet's ~30 roll buttons rather than offering them all at the
-      // same weight: an ability check is the quiet default (there are twenty of
-      // them down the left rail), while an attack or a hit die is a deliberate,
-      // consequential roll and keeps the accent.
       className={classNames("icon-btn roll-btn", {
         check: spec.kind === "check",
       })}

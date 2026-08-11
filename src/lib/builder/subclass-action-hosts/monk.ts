@@ -1,19 +1,11 @@
 import { StandardDie } from "src/lib/data/data-definitions";
 import { HostTable } from "./types";
 
-// Shared-pool action hosts for monk subclasses (see ./types). Mechanical facts
-// with original wording only.
-//
-// Only genuine Ki spenders are hosted here — a discrete action whose use
-// always costs a fixed number of Ki. Features that are free to use and only
-// optionally boosted by extra Ki (Breath of the Dragon, Aspect of the Wyrm,
-// Searing Sunburst) are left as prose in subclass-features/monk.ts, since this
-// shape can't represent "0 Ki, or more for a bigger effect." Same reasoning
-// keeps all of Ascendant Dragon and Four Elements out of this file — their
-// Ki-adjacent features are per-long-rest resources with Ki only as overflow,
-// or (for Four Elements) a closed pick-list handled elsewhere. Passives with
-// no cost, and Wholeness of Body (a once-per-long-rest self-heal, not a Ki
-// spend), are likewise left as prose.
+// Shared-pool action hosts for monk subclasses (see ./types). Only genuine Ki
+// spenders (a fixed-cost discrete action) are hosted here; features that are
+// free and only optionally boosted by extra ki, or are per-long-rest
+// resources with ki as overflow, stay as prose in subclass-features/monk.ts —
+// this shape can't represent "0 ki, or more for a bigger effect."
 export const MONK_ACTION_HOSTS: HostTable = {
   "Astral Self": [
     {

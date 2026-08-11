@@ -96,35 +96,30 @@ const ordinalSlot = (n: number) =>
 
 const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
-// The " — 4 + 3 + 2" suffix on a result line, or nothing when the total needs
-// no explaining.
+// Formats the dice breakdown suffix (" — 4 + 3 + 2"), or "" when there's nothing to explain.
 const breakdown = (total: number, dice: number[], crit?: CritSpec) => {
   const parts = formatRollBreakdown(total, dice, crit);
   return parts ? ` — ${parts}` : "";
 };
 
-// "We know nothing about the weapon" — a stable identity so the memoized rider
-// lists in the controls don't churn on every render.
+// Stable empty identity so memoized rider lists don't churn on every render.
 const NO_CONTEXT: AttackContext = {};
 
-// Short in-dialog wording for each crit flavor, so the player can see which
-// house rule is in force without opening Settings.
+// In-dialog wording for each crit flavor.
 const CRIT_MODE_LABELS: Record<CritMode, string> = {
   raw: "double the damage dice",
   maxDice: "maximize the dice, then roll again",
   total: "double the total, modifiers included",
 };
 
-// The roll dialog. Read-only: it reuses the modal CSS but not ModalContainer (no
-// draft reducer / targeted-field coupling). An "attack" surfaces a to-hit roll
-// and its damage together, so one button handles both steps of an attack.
+// The roll dialog. Reuses modal CSS but not ModalContainer (no draft/targeted-field
+// coupling). An "attack" surfaces its to-hit and damage together.
 export default function RollModal() {
   const { character } = useCharacter();
   const { request, closeRoller } = useRoller();
   if (!request || !character) return <></>;
-  // Keyed on the opening, not the shape: two attacks in a row land on the same
-  // component instances, and without this the second one opens showing the
-  // first one's result.
+  // key={request.id} forces a remount so a second attack in a row doesn't
+  // show the first one's result.
   return (
     <Shell key={request.id} label={request.label} close={closeRoller}>
       <RollBody request={request} character={character} />
@@ -140,16 +135,12 @@ function RollBody({
   character: Character;
 }) {
   const spec = request.spec;
-  // Shared between the two halves of an attack: the to-hit roll sets it when the
-  // kept d20 lands in the crit range, and the damage half inflates its dice.
-  // Kept manually overridable — the sheet can't see the many other ways a hit
-  // crits (a paralyzed target, an assassin's surprise round). `extraSets` is the
-  // exploding-crits count carried over from the to-hit roll.
+  // Shared between the two halves of an attack: to-hit sets it on a crit range hit,
+  // damage inflates its dice. Manually overridable since not every crit condition
+  // (paralyzed target, surprise round) is tracked. extraSets = exploding-crits count.
   const [critical, setCritical] = useState(false);
   const [extraSets, setExtraSets] = useState(0);
-  // The weapon properties the rider conditions read. Derived once for both
-  // halves of an attack, so the to-hit and damage sections agree about which
-  // riders are in play.
+  // Weapon properties for rider conditions, derived once so to-hit and damage agree.
   const context = useMemo(
     () =>
       spec.kind === "attack" && spec.attack
@@ -159,22 +150,17 @@ function RollBody({
   );
 
   const isHealing = spec.kind === "attack" && !!spec.spell?.mechanics?.healing;
-  // One `SaveEffect` whichever way it was authored: a weapon or ability
-  // carries its own `save`, a spell carries `resolution: {kind: "save"}` in
-  // the catalog's shape — which this dialog used to ignore entirely, so
-  // Fireball showed no DC at all.
+  // A weapon/ability carries its own `save`; a spell's DC comes from spellSaveEffect.
   const saveEffect =
     spec.kind === "attack"
       ? (spec.save ?? spellSaveEffect(character, spec.spell))
       : undefined;
-  // The condition this cast puts on its targets (Bless, Hideous Laughter) —
-  // looked up by title at cast time (see spell-conditions.ts for why it's an
-  // overlay, not a mechanics field).
+  // The condition this cast applies to targets (Bless, Hideous Laughter), looked
+  // up by spell title.
   const conditionGrant =
     spec.kind === "attack" ? spellConditionFor(spec.spell) : undefined;
-  // A save-based or condition-granting effect targets a *set* (everyone in
-  // the blast, the three allies Bless touches); an attack roll targets
-  // exactly one creature.
+  // Save/condition effects target a set (everyone in the blast); an attack
+  // roll targets exactly one creature.
   const multiTarget =
     spec.kind === "attack" &&
     spec.toHit === undefined &&
@@ -184,23 +170,19 @@ function RollBody({
     request.id,
     spec.kind === "attack",
     multiTarget,
-    // You can aim a heal at yourself — and a save-less condition (Bless is a
-    // buff; a save means the target resists, i.e. not you).
+    // Self-targetable: healing, or a save-less condition (a buff).
     isHealing || (!!conditionGrant && !saveEffect),
     request.attemptBase,
   );
   const { targetId, report } = targeting;
-  // The chosen target's row, when a single one is chosen — what pays out the
-  // marks *on* it (Hex's d6 to its hexer, Faerie Fire's advantage to anyone)
-  // and the advisory notes about its state (attacking someone Prone).
+  // Target row for single-target marks (Hex, Faerie Fire) and advisory notes.
   const targetParticipant =
     !multiTarget && targetId
       ? targeting.targets.find((t) => t.id === targetId)
       : undefined;
   const mechanics = spec.kind === "attack" ? spec.spell?.mechanics : undefined;
-  // Whether there are dice on this side of the screen at all. Without any
-  // (Hideous Laughter), the act still has to reach the DM — that's the
-  // announce path below.
+  // Whether there's anything to roll; no-dice effects (Hideous Laughter) use
+  // the announce path below.
   const hasRollableEffect =
     spec.kind === "attack" &&
     !!(
@@ -210,9 +192,7 @@ function RollBody({
       mechanics?.healing
     );
 
-  // The save a target rolls, as a number the DM can rule with. It never used
-  // to leave this dialog — a save-based spell's damage arrived at the seat as
-  // a bare total, and the DC had to be said out loud.
+  // The save DC/stat, formatted so the DM can rule without asking.
   const save = saveEffect
     ? {
         dc: calculateCustomFormula(saveEffect.dc, character),
@@ -220,8 +200,8 @@ function RollBody({
         ...(saveEffect.onSuccess ? { onSuccess: saveEffect.onSuccess } : {}),
       }
     : undefined;
-  // Rides every report of this exchange; the table-talk layer turns it into
-  // per-target consent prompts, and the DM card into apply buttons.
+  // Rides every report of this exchange; table-talk turns it into consent
+  // prompts and apply buttons.
   const reportedCondition = conditionGrant
     ? {
         condition: {
@@ -235,12 +215,7 @@ function RollBody({
 
   return (
     <>
-      {/* Who this is aimed at, asked *before* the dice — which is the whole
-          reordering. The old flow rolled first and picked a target last, so
-          every stage of an attack reached the DM as one anonymous number
-          after the fact, if at all. Picking first means the to-hit and the
-          damage both arrive addressed, and the damage roll needs no second
-          answer to a question already answered. */}
+      {/* Target chosen before any dice, so to-hit and damage both arrive addressed. */}
       {targeting.enabled &&
         (multiTarget ? (
           <TargetMultiPicker
@@ -270,8 +245,6 @@ function RollBody({
               report({ stage: "check", label: request.label, ...rolled }, false)
             }
           />
-          {/* "Your DM says: that's a success" — the check's counterpart to
-              the attack dialog's hit/miss line. */}
           <VerdictLine exchangeId={request.id} />
         </>
       )}
@@ -282,9 +255,7 @@ function RollBody({
         <HitDieControls
           character={character}
           die={spec.die}
-          // Untargeted healing: nothing for the DM to apply (the HP write is
-          // the player's own and syncs through the projection) — this is the
-          // "why" arriving next to it.
+          // Untargeted healing: HP write is local, this just reports why.
           onRolled={(rolled) =>
             report({ stage: "healing", label: request.label, ...rolled }, false)
           }
@@ -322,8 +293,7 @@ function RollBody({
           {saveEffect && (
             <SaveControls character={character} save={saveEffect} />
           )}
-          {/* What the cast leaves on its targets, said before anything rolls
-              — the same slot the save DC occupies for the other family. */}
+          {/* Condition granted, shown before rolling. */}
           {conditionGrant && (
             <p className="muted font-small roll-applies">
               Applies <strong>{conditionGrant.name}</strong>
@@ -364,17 +334,15 @@ function RollBody({
                 spec.toHit !== undefined
                   ? (crit) => {
                       setCritical(crit);
-                      // Un-ticking drops any exploding stack with it; ticking by
-                      // hand is a plain crit until a roll says otherwise.
+                      // Un-ticking drops any exploding stack with it.
                       setExtraSets(0);
                     }
                   : undefined
               }
             />
           ) : (
-            // No dice at all — Hideous Laughter, a stunning gaze: the target
-            // rolls, this side only declares. The announcement is the whole
-            // act, so it gets an explicit button rather than riding a roll.
+            // No dice at all (Hideous Laughter, a stunning gaze): the target
+            // rolls, this side only declares.
             <CastAnnounce
               enabled={targeting.enabled}
               targeted={targeting.targeted}
@@ -392,9 +360,6 @@ function RollBody({
               }
             />
           )}
-          {/* The answer that used to be a sentence across the table. Purely
-              informational here: the damage button never waited on it, and
-              still doesn't. */}
           <VerdictLine exchangeId={request.id} />
           {targeting.enabled && (
             <p className="muted font-small">
@@ -409,19 +374,16 @@ function RollBody({
   );
 }
 
-// What the dialog needs to report its rolls: the chosen target(s), and a
-// `report` that stamps each roll with the exchange and its attempt number.
-// `multi` is the save-based shape — the *target* rolls, so a Fireball names
-// every creature in the blast where an attack roll names exactly one.
+// Tracks the chosen target(s) and reports rolls stamped with exchange + attempt
+// number. `multi` is the save-based shape (a Fireball names every creature in
+// the blast; an attack roll names exactly one).
 function useTargeting(
   exchangeId: string,
   isAttack: boolean,
   multi: boolean,
-  // Healing may aim at yourself — the most common cure there is. Attacks
-  // never list you.
+  // Healing may target yourself; attacks never list you.
   includeSelf: boolean,
-  // Attempts already sent under this exchange before the dialog opened — see
-  // `RollRequest.attemptBase`.
+  // Attempts already sent under this exchange before the dialog opened.
   attemptBase = 0,
 ) {
   const { encounter, self } = useEncounter();
@@ -436,12 +398,11 @@ function useTargeting(
       ),
     [encounter.participants, selfId, includeSelf],
   );
-  // The goblins above the party: the picker groups by side so eight rows of
-  // mixed friends and monsters read as a choice rather than a roster dump.
+  // Grouped by side (foes/party) rather than one flat roster.
   const foes = useMemo(() => targets.filter(isFoe), [targets]);
   const party = useMemo(() => {
     const rest = targets.filter((t) => !isFoe(t));
-    // Yourself first when you're offered at all — a heal's likeliest target.
+    // Yourself first when offered — a heal's likeliest target.
     return includeSelf && selfId
       ? [
           ...rest.filter((t) => t.id === selfId),
@@ -450,11 +411,8 @@ function useTargeting(
       : rest;
   }, [targets, includeSelf, selfId]);
   const enabled = isAttack && reportsEnabled && targets.length > 0;
-  // The last thing this player swung at, which in a fight is very often the
-  // next thing too. Dropped if it has left the order. Only an attack opens
-  // pre-aimed: a plain check or a hit die must not inherit the goblin from
-  // your last swing and report itself as aimed at it (which is exactly what
-  // happened before this gate).
+  // Pre-fills the last target, attacks only (a check/hit die must not inherit
+  // it), and only if still in the order.
   const [targetId, setTargetId] = useState(() =>
     isAttack &&
     !multi &&
@@ -473,9 +431,8 @@ function useTargeting(
   const targetIdsRef = useRef(targetIds);
   targetIdsRef.current = targetIds;
   const targeted = multi ? targetIds.length > 0 : !!targetId;
-  // Attempts per stage, counted locally. Rolling three times before naming a
-  // target and then naming one must not report "attempt 1" — the point of the
-  // number is that a re-roll can't hide behind the moment it was sent.
+  // Attempts counted locally per stage, so re-rolls before a target is named
+  // still number correctly once it's sent.
   const attempts = useRef<Record<string, number>>({});
   const held = useRef<Record<string, OutgoingRoll>>({});
 
@@ -506,9 +463,7 @@ function useTargeting(
             ? { targetId: targetRef.current }
             : {}),
       };
-      // Rolled before choosing: hold it rather than drop it, and send it the
-      // moment a target is named. Rolling first and picking after is otherwise
-      // the way to make a bad roll disappear.
+      // Rolled before a target is named: held, then sent once one is picked.
       if (needsTarget && !chosen) {
         held.current[roll.stage] = full;
         return;
@@ -557,8 +512,7 @@ function useTargeting(
   };
 }
 
-// The two sides in picking order: what you're attacking first, unless you're
-// healing — then your own people lead.
+// Enemies first, unless healing (then party first).
 function targetGroups(
   healing: boolean,
   foes: Participant[],
@@ -572,9 +526,8 @@ function targetGroups(
   return groups.filter(([, list]) => list.length > 0);
 }
 
-// Exported for the ability action rows, which need the same grouped pick when
-// an ability puts a condition on someone (Stunning Strike, Inspire) — `verb`
-// replaces the attack/heal wording there ("Stunning Strike" isn't either).
+// Exported for ability action rows (Stunning Strike, Inspire); `verb`
+// overrides the attack/heal wording there.
 export function TargetPicker({
   healing,
   verb,
@@ -605,10 +558,8 @@ export function TargetPicker({
         }
         placeholder="Choose a target…"
         value={targetId}
-        // Each row carries what's already on the creature, because that is
-        // what you pick between two Goblins on — the one that's Restrained,
-        // the one that already has your Hex. HP stays out: how much of it the
-        // table can see is the DM's call, and this picker isn't holding it.
+        // Row hint shows existing conditions (to tell two Goblins apart); HP
+        // is deliberately omitted — visibility is the DM's call.
         options={targetGroups(healing, foes, party).flatMap(([label, list]) =>
           list.map((p) => ({
             value: p.id,
@@ -625,10 +576,8 @@ export function TargetPicker({
   );
 }
 
-// The save-based counterpart: checkboxes, because "Orc 1 and 2 are in the
-// blast" is a set, not a pick. Same grouping as the single-target select.
-// Exported for the ability rows' save-the-room uses (Turn the Unholy) the
-// same way TargetPicker is for their single-target ones.
+// Save-based counterpart to TargetPicker: checkboxes for a set of targets,
+// same grouping. Exported for ability rows' save-the-room uses (Turn the Unholy).
 export function TargetMultiPicker({
   selfId,
   foes,
@@ -684,9 +633,7 @@ function VerdictLine({ exchangeId }: { exchangeId: string }) {
   );
 }
 
-// The manual half of every roll surface: real dice were rolled off-screen, and
-// this is where the result comes in. One input and a submit, because the player
-// is mid-turn with dice in one hand.
+// Manual entry for physical dice: one input + submit.
 export function ManualRollInput({
   prompt,
   buttonLabel = "Enter",
@@ -732,10 +679,8 @@ export function ManualRollInput({
   );
 }
 
-// "I cast Hideous Laughter on Goblin 1", as a button. Only rendered when the
-// effect has no dice of its own; only sendable once it's aimed at someone,
-// because the address *is* the message. Re-announcing is numbered like any
-// re-roll, never blocked.
+// Announce-only button for no-dice effects; only enabled once targeted.
+// Re-announcing is numbered like a re-roll, never blocked.
 function CastAnnounce({
   enabled,
   targeted,
@@ -771,9 +716,7 @@ function CastAnnounce({
   );
 }
 
-// A save-based attack's header: the DC the *target* rolls against. Read-only —
-// the target's roll happens on the other side of the table, so there's nothing
-// here to roll, only the number to call out and what a success does.
+// Save DC display only — the target's own roll happens elsewhere.
 function SaveControls({
   character,
   save,
@@ -799,11 +742,9 @@ function SaveControls({
   );
 }
 
-// The crit callout for the kept d20, or undefined when none applies. Attack
-// to-hit rolls always show it (a die at/above the crit threshold — usually a
-// nat 20, wider with Improved Critical — is a "Critical Hit", nat 1 a
-// "Critical Miss"); other checks only when the global setting is on, with a
-// nat 20 = "Critical Success" and a nat 1 = "Critical Fail".
+// Crit label for the kept d20: attacks always show it (nat 20, or higher with
+// Improved Critical), other checks only when the "criticals on all rolls"
+// setting is on.
 function critLabelFor(
   kept: number,
   isAttack: boolean,
@@ -817,9 +758,9 @@ function critLabelFor(
   return undefined;
 }
 
-// A d20 + modifier roll with advantage/disadvantage. Reused as a standalone
-// check and as the "To Hit" half of an attack. Riders for the roll kind
-// (rerolls, minimum dice, crit range) come from the character's features.
+// d20+modifier roll with advantage/disadvantage; reused for a standalone
+// check and the "To Hit" half of an attack. Riders (rerolls, min dice, crit
+// range) come from character features.
 function CheckControls({
   character,
   modifier,
@@ -836,24 +777,18 @@ function CheckControls({
   modifier: number;
   label?: string;
   isAttack?: boolean;
-  // A saving throw rather than an ability/skill check — the kind save-only
-  // riders (Bless's d4, Dwarven Resilience's note) key off.
+  // Saving throw vs. ability/skill check — save-only riders key off this.
   isSave?: boolean;
-  // The chosen target's row, for the marks *on it* (True Strike's advantage
-  // for its caster, Faerie Fire's for anyone) and the advisory notes about
-  // its state. `selfId` is who is rolling, for the caster-only ones.
+  // Target row for marks on it (True Strike, Faerie Fire) and advisory notes;
+  // selfId is who is rolling, for caster-only marks.
   target?: Participant;
   selfId?: string;
-  // The weapon being attacked with, as the rider conditions see it. Empty for a
-  // plain check (and for a spell attack), which leaves every weapon condition
-  // undecided — the pre-tags behaviour.
+  // Weapon context for rider conditions; empty for a plain/spell check.
   context?: AttackContext;
-  // Reports whether this roll was a critical hit (and how many exploding-crit
-  // repeats followed), so the damage half can inflate its dice. Re-rolling
-  // reports the new verdict (including "not a crit").
+  // Reports crit + exploding-crit count so the damage half can inflate dice;
+  // re-rolling reports the new verdict.
   onCrit?: (crit: boolean, explosions: number) => void;
-  // Every d20 that lands here, on its way to the table. Called for re-rolls
-  // too — that's the point of it.
+  // Called for every d20, including re-rolls.
   onRolled?: (
     rolled: Pick<
       OutgoingRoll,
@@ -874,17 +809,14 @@ function CheckControls({
   const { rollMode } = useRollMode();
   const manual = rollMode === "manual";
   const { selfConditions: conditions } = useEncounter();
-  // Riders the weapon rules out (Archery on a greatsword, Reckless Attack's
-  // note on a bow) are dropped before anything else looks at them. What's *on*
-  // you joins what you *are*: active conditions (Bless) contribute riders of
-  // their own, resolved by name from the bundled catalog — no weapon gating,
-  // a condition doesn't care what you swing.
+  // Riders the weapon rules out are dropped first; active conditions (Bless)
+  // add their own riders regardless of weapon.
   const d20Kind = isAttack ? "attack" : isSave ? "save" : "check";
   const riders = useMemo(
     () => [
       ...applicableRiders(ridersFor(character, d20Kind), context),
       ...conditionRiders(conditions, d20Kind),
-      // The marks on the chosen target, cashing out for this roller.
+      // Marks on the chosen target, cashing out for this roller.
       ...ridersAgainst(target?.conditions ?? [], selfId, d20Kind),
     ],
     [character, d20Kind, context, conditions, target, selfId],
@@ -895,11 +827,9 @@ function CheckControls({
       })
     | null
   >(null);
-  // Bonus *dice* riders (Bless's d4) — rolled with the check, not folded into
-  // the modifier: the whole point is real randomness, and the result line
-  // shows the die it came from. Optional ones wait for a tick (the sheet
-  // can't tell a save from a skill check); in manual mode the app still rolls
-  // them — only the d20 itself belongs to the physical roller.
+  // Bonus dice riders (Bless's d4) roll separately from the modifier and show
+  // their own die. Optional ones need a tick; rolled by the app even in
+  // manual mode — only the d20 itself is physical.
   const bonusDice = useMemo(
     () =>
       riders.flatMap((r) =>
@@ -924,8 +854,7 @@ function CheckControls({
   const bonusSum = (
     bonus: { source: string; die: StandardDie; rolled: number[] }[],
   ) => bonus.reduce((sum, b) => sum + b.rolled.reduce((s, v) => s + v, 0), 0);
-  // The same bonus dice, in wire shape — itemised by source so the seat reads
-  // "+5 — Bless (4, 1)" instead of an unexplained total.
+  // Bonus dice in wire shape, itemised by source ("+5 — Bless (4, 1)").
   const reportedBonuses = (
     bonus: { source: string; die: StandardDie; rolled: number[] }[],
   ) =>
@@ -938,10 +867,8 @@ function CheckControls({
           })),
         }
       : {};
-  // Flat `bonus` riders fold into the modifier rather than the total — a d20
-  // check's total can legitimately be negative, so `applyTotalRiders` (which
-  // floors at 0) is the wrong tool here. Ones the weapon settles apply on their
-  // own (Archery, once the bow is tagged); the rest wait for a tick.
+  // Flat bonus riders fold into the modifier, not the total: applyTotalRiders
+  // floors at 0, but a d20 total can legitimately be negative.
   const { always, optional } = useMemo(
     () => flatBonusRiders(riders, context),
     [riders, context],
@@ -1025,9 +952,8 @@ function CheckControls({
           </label>
         ))}
       {manual ? (
-        // The die face rather than the total: the app still does the
-        // arithmetic (so the ticked bonuses above count) and can call the
-        // crit. Advantage happened at the table — type the die you kept.
+        // Enters the die face, not the total — app still computes bonuses
+        // and crit; advantage was resolved at the table.
         <ManualRollInput
           prompt="What did the d20 show?"
           min={1}
@@ -1078,15 +1004,11 @@ function CheckControls({
           </button>
         </div>
       )}
-      {/* Feature riders and active conditions say the same kind of thing — "this
-          roll may have advantage, you decide" — so they share one list rather
-          than arriving as two competing sets of small print. Conditions come
-          from the encounter, which is empty on the sheet and outside a fight. */}
+      {/* Feature riders and active conditions share one notes list. */}
       {[
         ...advantageNotes(riders),
         ...conditionRollNotes(conditions, d20Kind),
-        // What the target's state means for this roll — attacking someone
-        // Prone or Restrained is the advantage a table most often forgets.
+        // Target's state (Prone, Restrained) affects this roll too.
         ...conditionTargetNotes(
           (target?.conditions ?? []).map((c) => c.name),
           d20Kind,
@@ -1164,23 +1086,20 @@ function EffectControls({
   character: Character;
   damage?: CustomFormulaWithDamage;
   spell?: Spell;
-  // Present on a save-based attack; used only to show what a successful save
-  // leaves of the rolled damage.
+  // Present on a save-based attack; shows what a successful save leaves.
   save?: SaveEffect;
-  // The weapon being attacked with, as the rider conditions see it.
+  // Weapon context for rider conditions.
   context?: AttackContext;
-  // The chosen target's row — the marks on it (Hex's d6) pay out here.
+  // Target row — marks on it (Hex's d6) pay out here.
   target?: Participant;
   selfId?: string;
   titled?: boolean;
   critical?: boolean;
   extraSets?: number;
-  // Omitted when the effect can't crit (a save-based spell) — which also hides
-  // the toggle.
+  // Omitted when the effect can't crit (a save-based spell) — hides the toggle.
   setCritical?: (crit: boolean) => void;
-  // The rolled effect, on its way to the table: itemised by damage type (the
-  // DM rules resistance, and can't from a lump sum) and by rider source (a
-  // second Sneak Attack in one round is visible rather than folded in).
+  // Rolled effect itemised by damage type (for resistance rulings) and rider
+  // source (so a second Sneak Attack in one round is visible, not folded in).
   onRolled?: (rolled: {
     stage: Extract<RollStage, "damage" | "healing">;
     total: number;
@@ -1189,8 +1108,7 @@ function EffectControls({
     manual?: boolean;
     // The slot the spell went out at, so the label can say so.
     castLevel?: number;
-    // A landed extra's condition (Fire Rune's Restrained) — see the
-    // `extraDamage` rider's `applies`.
+    // A landed extra's condition (Fire Rune's Restrained).
     condition?: { name: string; rounds?: number };
   }) => void;
 }) {
@@ -1206,22 +1124,17 @@ function EffectControls({
   const charLevel = totalLevel(character.class);
   const [slotLevel, setSlotLevel] = useState<number | undefined>(undefined);
 
-  // Extra-damage riders apply only to a weapon attack (a fixed `damage` map, no
-  // spell) — never to spell damage or healing. `before-attack` riders would be
-  // declared alongside the to-hit roll, so they're excluded here (none exist
-  // yet). The rest are declared on the hit, i.e. with the damage roll.
+  // Extra-damage riders apply only to a weapon attack (a fixed `damage` map),
+  // never to spell damage or healing.
   const extras = useMemo(
     () => [
       ...extrasForAttack(character, damage, spell, context),
-      // Spell-damage bonuses (Potent Spellcasting, Empowered Evocation) ride the
-      // same rendering/resolution; `extrasForAttack` is empty for a spell and
-      // this is empty for a weapon, so the two never overlap.
+      // Spell-damage bonuses (Potent Spellcasting); extrasForAttack and this
+      // never overlap (weapon vs. spell).
       ...spellExtrasForCast(character, spell, isCantrip),
-      // What's *on* the bearer joins in (Divine Favor's radiant d4) — not
-      // weapon-gated, since a self-buff rides whatever the bearer swings.
+      // What's on the bearer joins in (Divine Favor's radiant d4), not weapon-gated.
       ...conditionExtras(selfConditions),
-      // And the marks on the *target* cash out (Hex's necrotic d6, for the
-      // hexer only).
+      // Marks on the target cash out too (Hex's necrotic d6, hexer only).
       ...conditionExtrasAgainst(target?.conditions ?? [], selfId),
     ],
     [
@@ -1235,15 +1148,14 @@ function EffectControls({
       selfId,
     ],
   );
-  // Opt-in extras (Sneak Attack, Divine Smite, Rage) start unchecked; the ones
-  // the weapon's tags fully settle apply on their own. Keyed by source.
+  // Opt-in extras (Sneak Attack, Divine Smite, Rage) start unchecked; ones the
+  // weapon's tags fully settle apply on their own. Keyed by source.
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const { dispatch } = useCharacter();
 
-  // A slot-powered extra (Divine Smite): the player picks a slot level (which
-  // scales the dice) and may toggle a situational bonus, then expends the slot
-  // with an explicit button — kept off the re-rollable damage roll, like a hit
-  // die spend. At most one is expected, so its state is scalar.
+  // Slot-powered extra (Divine Smite): slot level + optional bonus, expended
+  // via its own button (like a hit-die spend). At most one expected, so state
+  // is scalar.
   const slotExtra = extras.find(({ rider }) => rider.slot);
   const [smiteLevel, setSmiteLevel] = useState<number | undefined>(undefined);
   const [smiteBonus, setSmiteBonus] = useState(false);
@@ -1262,11 +1174,8 @@ function EffectControls({
   const smiteActive =
     !!slotExtra && chosen.has(slotExtra.source) && effSmiteLevel !== undefined;
 
-  // Pool-powered extras (a Rune Knight's Fire Rune): the dice ride the damage
-  // roll like any other extra, and the use is spent by its own button afterwards
-  // — the same separation as the smite's slot, so re-rolling costs nothing.
-  // Unlike the smite these aren't assumed unique (a character can know several
-  // runes), so the spent ones are tracked as a set of sources.
+  // Pool-powered extras (Fire Rune): dice roll with the damage, use spent via
+  // its own button after. Tracked as a set since a character can know several.
   const [usesSpent, setUsesSpent] = useState<Set<string>>(new Set());
   const usesRemaining = (pool: string) =>
     usesPoolState(character, pool)?.remaining ?? 0;
@@ -1280,8 +1189,7 @@ function EffectControls({
     setUsesSpent((prev) => new Set(prev).add(entry.source));
   };
 
-  // Only offer slot levels the character actually has unspent (and at/above the
-  // spell's base level). Cantrips use no slots, so this is empty for them.
+  // Only offer slot levels the character has unspent; empty for cantrips.
   const availableLevels = useMemo(
     () =>
       !mechanics || isCantrip
@@ -1305,8 +1213,8 @@ function EffectControls({
     [mechanics, castLevel],
   );
 
-  // The crit flavor is kept *with* the result, so toggling the checkbox
-  // afterwards doesn't relabel a total that's already been rolled.
+  // Crit flavor is kept with the result so toggling the checkbox afterward
+  // doesn't relabel an already-rolled total.
   const [damageResult, setDamageResult] = useState<DamageResolution | null>(
     null,
   );
@@ -1321,20 +1229,17 @@ function EffectControls({
     );
 
   const hasDamage = Object.keys(map).length > 0;
-  // A crit inflates every damage die in the table's chosen flavor — the
-  // weapon/spell's own dice and the dice of any extra-damage rider riding along
-  // on the hit (Sneak Attack, Divine Smite) alike.
+  // A crit inflates every damage die — the weapon/spell's own and any
+  // extra-damage rider riding along (Sneak Attack, Divine Smite) alike.
   const crit: CritSpec | undefined =
     setCritical && critical
       ? { mode: criticalDamageMode, extraSets }
       : undefined;
-  // The spell's slot, when there was one — a cantrip and a weapon go out at no
-  // level, and labelling either "(1st)" would be a lie.
+  // Undefined for a cantrip/weapon, which go out at no slot level.
   const reportedLevel = spell && !isCantrip ? castLevel : undefined;
   const rollDamageEffect = () => {
-    // Condition riders join here too, so a condition's flat damage bonus
-    // (Magic Weapon's +1) folds through `applyTotalRiders` like a feature's —
-    // own conditions and the target's marks alike.
+    // Condition riders join here too (Magic Weapon's +1 folds through
+    // applyTotalRiders like a feature's).
     const damageRiders = [
       ...applicableRiders(ridersFor(character, "damage"), context),
       ...conditionRiders(selfConditions, "damage"),
@@ -1358,10 +1263,8 @@ function EffectControls({
       applyTotals: (t) => applyTotalRiders(t, damageRiders, character, context),
     });
     setDamageResult(resolution);
-    // A landed extra may carry a condition (Fire Rune's Restrained, Eldritch
-    // Smite's Prone): resolved off the extras that actually rode this roll,
-    // so an unticked rune stamps nothing. One condition per report — two
-    // condition-riders on one swing is unheard of, and the first wins.
+    // A landed extra may carry a condition (Fire Rune's Restrained), resolved
+    // only from extras that actually rolled. First one wins if several.
     const granted = resolution.extras
       .map((e) => extras.find((x) => x.source === e.source)?.rider.applies)
       .find(Boolean);
@@ -1393,8 +1296,7 @@ function EffectControls({
         : {}),
     });
   };
-  // Spend the chosen slot that powers the smite (an explicit, one-time commit,
-  // mirroring the hit-die apply — so it syncs/undoes like any edit).
+  // Explicit one-time commit, mirroring the hit-die apply.
   const expendSmite = () => {
     if (!smiteActive || smiteSpent || effSmiteLevel === undefined) return;
     const { updates } = resolveEffects([{ effect: "expendSlot" }], {
@@ -1421,8 +1323,7 @@ function EffectControls({
       {titled && (
         <p className="roll-section-title">{isHealing ? "Healing" : "Damage"}</p>
       )}
-      {/* A `span`, not a `label`: what it names is a button now, and a label
-          that wraps a button forwards no click. */}
+      {/* span, not label: a label wrapping this Select forwards no click. */}
       {spell && mechanics && !isCantrip && !noSlots && (
         <span className="row roll-level-select">
           Cast at:{" "}
@@ -1489,9 +1390,7 @@ function EffectControls({
               ? formatCustomFormulaWithDamage(map, character, false)
               : "No damage dice"}
           </p>
-          {/* With real dice the entered total is the authority, so the extras
-              become reminders of what to add at the table instead of
-              checkboxes that would change nothing. */}
+          {/* Manual mode: extras become reminders, not checkboxes — the entered total is authoritative. */}
           {manual && extras.length > 0 && (
             <div className="column roll-extras">
               {extras.map(({ source, rider }) => (
@@ -1586,9 +1485,8 @@ function EffectControls({
                     </div>
                   );
                 }
-                // Pool-powered extra (a Rune Knight's Fire Rune): the same
-                // checkbox, labelled with what's left in the pool and unticked
-                // once it's empty. The use itself is spent after the roll.
+                // Pool-powered extra (Fire Rune): checkbox labelled with pool
+                // remaining; use is spent after the roll.
                 const pool = rider.uses?.pool;
                 const left = pool ? usesRemaining(pool) : undefined;
                 const label =
@@ -1618,12 +1516,7 @@ function EffectControls({
               })}
             </div>
           )}
-          {/* With real dice the crit stays a reminder, not a checkbox — the
-              entered total is the authority, so the app's only job is to say
-              which house rule the player should be applying to their own
-              dice. Without this line a manual nat 20 said "Critical Hit" in
-              the to-hit half and then asked for damage as if nothing had
-              happened. */}
+          {/* Manual mode: crit is a reminder text, not a checkbox — the entered total is authoritative. */}
           {manual && crit && hasDamage && (
             <p className="muted font-small">
               Critical hit — {CRIT_MODE_LABELS[criticalDamageMode]} — apply it
@@ -1682,9 +1575,7 @@ function EffectControls({
                     : ""}
                 </span>
               )}
-              {/* The save itself is the DM's roll, so the sheet just reports
-                  the outcome's number: full damage on a failed save, and the
-                  reduced figure on a success (5e rounds down). */}
+              {/* The save roll happens elsewhere; this just reports both outcomes (5e rounds down on success). */}
               {save?.onSuccess && (
                 <span className="roll-part muted">
                   Failed save: {damageResult.total} — Successful save:{" "}
@@ -1730,10 +1621,7 @@ function EffectControls({
                     Expend {ordinalSlot(effSmiteLevel!)}-level slot
                   </button>
                 ))}
-              {/* The pool cost, paid on its own button — so a re-roll is free,
-                  and a feature whose use survives the hit (a ranger's already
-                  marked Favored Foe) simply isn't charged again. With real dice
-                  there's no checkbox to tick, so every candidate is offered. */}
+              {/* Pool cost paid on its own button, so a re-roll is free. */}
               {extras
                 .filter(
                   ({ source, rider }) =>
@@ -1762,11 +1650,8 @@ function EffectControls({
   );
 }
 
-// Spend a hit die: roll 1d<die> + CON, then apply — heal current HP (clamped to
-// max HP, with any minimum-total rider like Durable) and mark one die expended.
-// The apply step goes through the mechanics resolver, so the writes are the
-// same effect data any catalog action produces — and they sync/undo like any
-// edit (play-mode dispatching is fine; the limited-use pips already do it).
+// Spend a hit die: roll 1d<die>+CON, then apply heals HP (clamped to max,
+// Durable minimum) and marks the die spent via the mechanics resolver.
 function HitDieControls({
   character,
   die,
@@ -1774,9 +1659,8 @@ function HitDieControls({
 }: {
   character: Character;
   die: StandardDie;
-  // The roll on its way to the table, healing riders included — reported as
-  // it lands, like every other roll, so the DM's queue explains the HP change
-  // the projection is about to show them.
+  // Reported as it lands, like every other roll, so the DM's queue explains
+  // the HP change the projection is about to show.
   onRolled?: (rolled: Pick<OutgoingRoll, "total" | "manual">) => void;
 }) {
   const { dispatch } = useCharacter();
@@ -1809,9 +1693,8 @@ function HitDieControls({
     ? Math.min(maxHpValue(character), character.currHp + healing) -
       character.currHp
     : 0;
-  // Only full HP makes applying pointless. `gained` alone can't gate the
-  // button: a negative CON floors a hit die at 0 healing, and that die was
-  // still rolled and still needs spending.
+  // `gained` alone can't gate the button: a negative CON floors healing at 0,
+  // but the die was still rolled and still needs spending.
   const atFullHp = character.currHp >= maxHpValue(character);
 
   const apply = () => {
@@ -1884,15 +1767,8 @@ function HitDieControls({
   );
 }
 
-// A death saving throw. Flat d20 — no modifier, no advantage buttons, because
-// nothing in 5e improves this roll and offering the choice would imply
-// otherwise.
-//
-// The dialog reads the outcome rather than leaving the player to: a nat 1
-// costs two failures, a nat 20 skips the track entirely and puts you back up
-// at 1 hit point, and three of either ends it. Applying is still a separate,
-// deliberate press, like the hit-die spend — the app never marks your own
-// death saves for you.
+// Death saving throw: flat d20, no modifiers/advantage (5e has none). Nat 1 =
+// two failures, nat 20 = revive at 1 HP; applying is a separate press.
 function DeathSaveControls({
   character,
   onRolled,

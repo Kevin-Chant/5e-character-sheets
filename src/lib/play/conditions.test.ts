@@ -14,7 +14,6 @@ describe("condition roll notes", () => {
   });
 
   it("says nothing on a roll kind it doesn't touch", () => {
-    // Blinded is an attack-roll clause; it has nothing to say about damage.
     expect(conditionRollNotes(["Blinded"], "damage")).toEqual([]);
     expect(conditionRollNotes(["Blinded"], "check")).toEqual([]);
   });
@@ -31,8 +30,6 @@ describe("condition roll notes", () => {
     expect(conditionRollNotes(["Poisoned", "Prone"], "attack")).toHaveLength(2);
   });
 
-  // The notes are player-facing prose, so a missing full stop or a name that
-  // doesn't match the chip in the rail is a visible defect.
   it("keys every effect to a real condition and ends each note as a sentence", () => {
     Object.entries(CONDITION_ROLL_EFFECTS).forEach(([name, effect]) => {
       expect(CONDITION_NAMES).toContain(name);

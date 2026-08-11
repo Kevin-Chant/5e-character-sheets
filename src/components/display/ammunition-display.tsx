@@ -6,11 +6,8 @@ import { charPath, updateAt } from "src/lib/cursor";
 import StepperInput from "../stepper-input";
 import { FaXmark } from "react-icons/fa6";
 
-// The Ammunition sub-section of Equipment: one row per pool (name + remaining
-// count). The count is editable at all times — you spend ammo as you shoot, so
-// it matters in play mode — while the name and which weapons a pool feeds are
-// edited in the modal (edit mode only). Gated by the `trackAmmunition` setting
-// at the call site; `ammunition` is the single source of truth for counts.
+// Ammunition sub-section: one row per pool (name + remaining count). Count is
+// editable in play mode too; name and weapon links are edit-mode only.
 export default function AmmunitionDisplay() {
   const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
@@ -19,9 +16,6 @@ export default function AmmunitionDisplay() {
   const ammo = character.ammunition;
   const path = charPath(FIELD.ammunition);
 
-  // No pools tracked: in play mode the heading labels nothing and there's no way
-  // to add one, so it goes — the same rule Attunement and every section in the
-  // right-hand column already follow.
   if (ammo.length === 0 && !editMode) return <></>;
 
   const setCount = (index: number, value: number) =>

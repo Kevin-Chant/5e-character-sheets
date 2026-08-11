@@ -11,14 +11,10 @@ interface StepperInputProps {
   className?: string;
 }
 
-// A compact numeric field with custom increment/decrement chevrons that match
-// the sheet's accent + radius, replacing the browser's default spin buttons
-// (which don't theme). Native spinners are suppressed in CSS; typing still works
-// and the chevrons clamp to [min, max]. Used for the small inline counts in the
-// equipment box (item quantity, ammunition).
-//
-// Typed edits commit on blur/Enter rather than per keystroke — setting a stack
-// of 50 arrows used to write 5 and then 50. See `useDeferredNumber`.
+// Numeric field with themed increment/decrement chevrons (native spinners are
+// suppressed in CSS). Chevrons clamp to [min, max]; typed edits commit on
+// blur/Enter, not per keystroke. Used for small inline counts (item quantity,
+// ammunition).
 export default function StepperInput({
   value,
   onChange,

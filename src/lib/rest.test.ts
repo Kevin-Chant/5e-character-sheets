@@ -38,9 +38,8 @@ const classed = (
   c.currHp = 20;
   c.tempHp = 0;
   c.limitedUseAbilities = [];
-  // The fixture is a played-in multiclass sample: it has a hit-dice override and
-  // ships mid-day (spent slots, a level of exhaustion). Reset all of that so
-  // each test states its own starting resources.
+  // Reset the fixture's played-in state (hit-dice override, spent slots,
+  // exhaustion) so each test states its own starting resources.
   delete c.totalHitDice;
   c.expendedHitDice = {};
   c.spellSlots = Object.fromEntries(
@@ -113,8 +112,6 @@ describe("formatRecharge", () => {
   });
 
   it("leaves homebrew triggers exactly as they were written", () => {
-    // "Dawn" may well be a proper noun at someone's table, and the sheet has no
-    // way to tell — so it isn't the sheet's business to recase it.
     expect(formatRecharge("Dawn")).toBe("Dawn");
     expect(formatRecharge("short or long rest")).toBe("short or long rest");
     expect(formatRecharge("")).toBe("");
@@ -201,7 +198,6 @@ describe("planRest — short rest", () => {
     expect(plan.duration).toBe("1 hour");
     expect(wrote(plan, "update_pactSlots", "expended")).toBe(0);
     expect(wrote(plan, "update_limitedUseAbilities", "0.expended")).toBe(0);
-    // The long-rest pool, the spell slots and the HP are all untouched.
     expect(
       wrote(plan, "update_limitedUseAbilities", "1.expended"),
     ).toBeUndefined();
@@ -263,8 +259,6 @@ describe("planRest — a rest that spans dawn", () => {
     expect(plan.followUps).toEqual([]);
   });
 
-  // Spanning dawn is the table's call about the fiction, not a property of the
-  // rest's length — a gritty-realism short rest is a full night.
   it("fires on a short rest too", () => {
     const plan = planRest(withDawnPool(), "short", rules(), {
       spansDawn: true,
@@ -306,8 +300,6 @@ describe("planRest — a rest that spans dawn", () => {
     const plan = planRest(withIntervalPool(), "long", rules(), {
       spansDawn: true,
     });
-    // The pool stays spent; the countdown seeds from the interval and ticks
-    // one dawn, and the receipt says how long is left.
     expect(
       wrote(plan, "update_limitedUseAbilities", "0.expended"),
     ).toBeUndefined();
@@ -317,7 +309,6 @@ describe("planRest — a rest that spans dawn", () => {
     expect(plan.unchanged.map((c) => c.detail)).toContain(
       "1 use spent — 6 days until recharge",
     );
-    // Ticking is the rest's job now — no manual follow-up.
     expect(plan.followUps).toEqual([]);
   });
 
@@ -332,7 +323,6 @@ describe("planRest — a rest that spans dawn", () => {
     expect(changeKeys(plan.changes)).toContain("pool:0");
   });
 
-  // Gritty realism's long rest is 7 days, so it spans the whole interval.
   it("spans every dawn of a gritty-realism long rest", () => {
     const plan = planRest(
       withIntervalPool(),
@@ -376,7 +366,6 @@ describe("planRest — long rest", () => {
 
     expect(wrote(plan, "update_currHp")).toBe(50);
     expect(wrote(plan, "update_tempHp")).toBe(0);
-    // Half of 8 total dice = 4 back, so 2 remain spent.
     expect(wrote(plan, "update_expendedHitDice", "d10")).toBe(2);
     expect(plan.hitDiceBudget).toBe(4);
     expect(plan.hitDiceRecovered).toEqual({ d10: 4 });
@@ -440,7 +429,6 @@ describe("planRest — long rest", () => {
     );
     expect(wrote(plan, "update_currHp")).toBeUndefined();
     expect(changeKeys(plan.unchanged)).toContain("hp");
-    // Dice recovered by the rest are spendable in the same rest.
     expect(plan.followUps).toContainEqual({
       kind: "spendHitDice",
       missingHp: 40,
@@ -464,7 +452,7 @@ describe("planRest — long rest", () => {
     const plan = planRest(c, "long", rules(), {
       hitDiceRecovery: { d8: 3, d10: 3 },
     });
-    // Budget is 4 (half of 8); the d8s are honored first as asked, then one d10.
+    // Budget is 4 (half of 8); d8s honored first, then one d10.
     expect(plan.hitDiceRecovered).toEqual({ d10: 1, d8: 3 });
   });
 
@@ -518,8 +506,7 @@ describe("applyRestPlan", () => {
     expect(rested.expendedHitDice.d10).toBe(2);
     expect(rested.spellSlots[1]?.expended).toBe(0);
     expect(rested.limitedUseAbilities[0].expended).toBe(0);
-    // The original is untouched, so the reducer's inverse still captures the
-    // pre-rest state for undo.
+    // Original untouched, so undo still captures the pre-rest state.
     expect(c.currHp).toBe(10);
     expect(c.expendedHitDice.d10).toBe(6);
   });

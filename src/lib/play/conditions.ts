@@ -1,14 +1,9 @@
 import { RollKind } from "src/lib/types";
 
-// The fourteen conditions of 5e, plus what each one means for a d20 roll.
-//
-// **Advisory only.** Nothing here is applied to a roll: a condition contributes
-// a note beside the advantage/disadvantage buttons and lets the player press the
-// right one. That's deliberate and matches how the rest of the app treats rules
-// it can't see the whole of — half of these are conditional on something the
-// sheet has no access to ("while the source of your fear is in sight", "against
-// a creature you can't see"), and silently applying disadvantage to a roll that
-// didn't deserve it is worse than saying nothing.
+// The fourteen conditions of 5e, plus what each means for a d20 roll.
+// Advisory only: a condition surfaces a note beside the advantage/
+// disadvantage buttons rather than applying anything, since many clauses
+// depend on facts the sheet can't see (line of sight, etc).
 
 export const CONDITION_NAMES = [
   "Blinded",
@@ -29,19 +24,14 @@ export const CONDITION_NAMES = [
 
 export type StandardCondition = (typeof CONDITION_NAMES)[number];
 
-// Open to homebrew, the same convention as `ClassName` and `RechargeCriteria`.
+// Open to homebrew, like `ClassName` and `RechargeCriteria`.
 export type ConditionName = StandardCondition | string;
 
 interface ConditionEffect {
-  // Which rolls the note is worth showing on. A condition that says nothing
-  // about d20s (Deafened, Petrified's damage clauses) simply has no entry.
   appliesTo: RollKind[];
   note: string;
 }
 
-// What the roll dialog says when you're rolling under a condition. Phrased as
-// what's true, not as an instruction — the player is the one who knows whether
-// the clause applies.
 export const CONDITION_ROLL_EFFECTS: Partial<
   Record<StandardCondition, ConditionEffect>
 > = {
@@ -83,10 +73,8 @@ export const CONDITION_ROLL_EFFECTS: Partial<
   },
 };
 
-// The other side of the table: what a condition on your *target* means for
-// your roll against it. Advisory like the bearer-side table above, and for
-// the same reason — half the clauses hinge on facts the sheet can't see
-// (distance for Prone, whether the attacker can see the Invisible bearer).
+// What a condition on the target means for a roll against it. Advisory,
+// same reasoning as above.
 export const CONDITION_TARGET_EFFECTS: Partial<
   Record<StandardCondition, ConditionEffect>
 > = {
@@ -124,8 +112,6 @@ export const CONDITION_TARGET_EFFECTS: Partial<
   },
 };
 
-// Notes about the chosen target's conditions, for a roll of this kind against
-// it. Same "Source: note" shape as `conditionRollNotes`.
 export function conditionTargetNotes(
   conditions: ConditionName[],
   kind: RollKind,
@@ -138,9 +124,8 @@ export function conditionTargetNotes(
   });
 }
 
-// Conditions that stop you acting at all. Surfaced as a banner on the board
-// rather than by disabling anything — the same advisory rule as everywhere else,
-// and a stunned character still has a DM who might rule otherwise.
+// Conditions that stop you acting. Surfaced as a banner rather than by
+// disabling anything, same advisory rule as above.
 export const INCAPACITATING_CONDITIONS: StandardCondition[] = [
   "Incapacitated",
   "Paralyzed",
@@ -149,9 +134,8 @@ export const INCAPACITATING_CONDITIONS: StandardCondition[] = [
   "Unconscious",
 ];
 
-// Notes to show for a roll of this kind, given the conditions in play. Shaped to
-// match `advantageNotes` output ("Source: note") so the roll dialog can render
-// one list without caring which half it came from.
+// Shaped to match `advantageNotes` output ("Source: note") so the roll
+// dialog can render one list regardless of source.
 export function conditionRollNotes(
   conditions: ConditionName[],
   kind: RollKind,

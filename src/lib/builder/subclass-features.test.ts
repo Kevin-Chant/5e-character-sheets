@@ -12,9 +12,9 @@ import { buildCharacter } from "src/lib/builder/build-character";
 import { defaultBuilderState } from "src/lib/builder/types";
 import { applyLevelUp, defaultLevelUpState } from "src/lib/builder/level-up";
 
-// The subclass feature tables are keyed by subclass *name* and merged onto the
-// catalog in `subclasses.ts`. A typo in either key resolves to nothing at all
-// and fails silently on the sheet, so the join is what these tests guard.
+// Subclass feature tables are keyed by subclass name and merged onto the
+// catalog in `subclasses.ts`; a typo in either key silently resolves to
+// nothing, so the join is what these tests guard.
 
 const norm = (s: string) => s.trim().toLowerCase();
 
@@ -65,9 +65,6 @@ describe("subclass feature tables", () => {
         }
   });
 
-  // The whole point of the level table: `grants` fires once at the choice
-  // level, so before this existed a Berserker got Frenzy at 3rd and then
-  // nothing at 6th, 10th or 14th.
   it("grants a subclass feature at a level after the subclass was chosen", () => {
     let c = buildCharacter({
       ...defaultBuilderState(),
@@ -84,7 +81,6 @@ describe("subclass feature tables", () => {
       });
     }
     const titles = c.features.map((f) => f.title);
-    // 3rd from `grants`, 6th from the level table — both present.
     expect(titles).toContain("Frenzy");
     expect(titles).toContain("Mindless Rage");
   });
@@ -107,10 +103,8 @@ describe("subclass feature tables", () => {
     expect(c.features.map((f) => f.title)).not.toContain("Mindless Rage");
   });
 
-  // A feature the sheet already grants as a pool, as base-class prose, or from
-  // the subclass's own choice-level `grants` would otherwise be listed twice.
-  // `applyClassLevel` de-duplicates by title as a safety net; this keeps the
-  // data honest so the net never has to catch anything.
+  // Guards against a title already granted via a pool, base-class prose, or
+  // the subclass's choice-level `grants` being listed twice.
   it("does not duplicate a title the class already grants", () => {
     for (const [classIndex, table] of Object.entries(SUBCLASS_FEATURES)) {
       const oc = Object.values(OfficialClass).find(

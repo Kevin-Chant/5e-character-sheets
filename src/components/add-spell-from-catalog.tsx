@@ -14,14 +14,9 @@ import {
 } from "src/lib/spells/spell-catalog";
 import Select from "src/components/select";
 
-// The `subField` targeting this picker is `<level>.new`, e.g. "0.new" (cantrips)
-// or "3.new" — the numeric-level list the chosen spell should land in.
+// `subField` is `<level>.new`, e.g. "0.new" (cantrips) or "3.new".
 const numericLevelFor = (levelKey: string): number => Number(levelKey);
 
-// Spell analog of AddAttack: browse the bundled catalog, filtered to the spell
-// level of the list you opened it from (and, when multiclassing, filterable by
-// class). Picking one appends a pre-populated—but fully editable—Spell and swaps
-// straight into its editor, so backing out without saving discards it.
 export default function AddSpellFromCatalog() {
   const { character, dispatch } = useLoadedCharacter();
   const { subField, replaceCursor } = useTargetedField();
@@ -31,26 +26,21 @@ export default function AddSpellFromCatalog() {
   const levelKey = (subField ?? "").replace(/\.new$/, "");
   const level = numericLevelFor(levelKey);
 
-  // The character's spellcasting classes as {id, name} pairs: the *name* drives
-  // the class filter (catalog spells list classes by name); the *id* is what a
-  // newly-added spell is tagged with.
+  // name drives the class filter (catalog spells list classes by name); id is
+  // what a newly-added spell is tagged with.
   const scPairs = character
     ? character.spellcastingClasses.map((sc) => ({
         id: sc.classId,
         name: classNameForId(character, sc.classId) ?? "",
       }))
     : [];
-  // Tag the new spell to the filtered class if one is chosen, else the first
-  // spellcasting class (falling back to the first class / a fresh id).
   const tagClassId =
     scPairs.find((p) => p.name === classFilter)?.id ??
     scPairs[0]?.id ??
     character?.class[0]?.id ??
     randomUUID();
 
-  // Restrict to spells one of the character's official spellcasting classes can
-  // cast (a pure Sorcerer shouldn't see Cure Wounds). Empty — e.g. only custom
-  // classes — means don't restrict, since we can't know their lists.
+  // Empty (e.g. only custom classes) means don't restrict.
   const castableClasses = character
     ? officialSpellcastingClasses(character)
     : [];
@@ -68,8 +58,6 @@ export default function AddSpellFromCatalog() {
   );
 
   const add = (entry: CatalogSpell) => {
-    // `levelKey` is a runtime string (the bucket the picker was opened from), so
-    // re-enter the typed world with the documented downcast.
     const bucket = fromStack<Spell[]>(FIELD.spells, levelKey);
     const list: Spell[] = getFieldValue(bucket.toString(), character) ?? [];
     const newList = list.concat(buildSpellFromCatalog(entry, tagClassId));

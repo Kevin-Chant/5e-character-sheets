@@ -35,8 +35,7 @@ export default function EditSpell() {
 
   const isSpellTarget =
     !!character && targetedField === FIELD.spells && !!subField;
-  // Cantrips are always available and never prepared. The storage bucket also
-  // drives the base spell level (numeric: cantrip = "0", 1st = "1"…).
+  // Bucket key is the spell level (numeric: cantrip = "0", 1st = "1"…).
   const bucketKey = subField?.split(".")[0] ?? "";
   const isCantrip = bucketKey === "0";
 
@@ -44,12 +43,9 @@ export default function EditSpell() {
     ? traverse(subField!, getFieldValue(FIELD.spells, character!))
     : undefined;
 
-  // The "+" add button opens the editor on the next (not-yet-created) index.
-  // Seed a blank spell into the *modal draft* so there's something to edit;
-  // because it lives only in the draft, nothing is persisted until the user
-  // saves and backing out discards it. The seed replaces the whole bucket with
-  // the pre-seed list plus one default, so it stays idempotent under
-  // StrictMode's double-invoked effects (running it twice yields the same list).
+  // Seeds a blank spell into the modal draft when opened on a not-yet-created
+  // index; replaces the whole bucket so it stays idempotent under StrictMode's
+  // double-invoked effects.
   useEffect(() => {
     if (!isSpellTarget || spell) return;
     const defaultSpellClass =
@@ -80,23 +76,19 @@ export default function EditSpell() {
   const spellLevel = Number(bucketKey);
 
   const spellCursor = fromStack<Spell>(targetedField, subField);
-  // `detailFormulas` lives only on the with-details TextComponent variant;
-  // used solely from the branch where details already exist.
   const infoDetail = fromStack<TextComponentWithDetails>(
     targetedField,
     `${subField}.info`,
   );
 
-  // Leaf fields whose parent (the spell object) already exists can be written
-  // directly; `components` is rebuilt wholesale because it may not exist yet and
-  // the reducer requires the parent of a written path to be present.
+  // `components` is rebuilt wholesale since it may not exist yet, and the
+  // reducer requires the parent of a written path to be present.
   const updateSpellField = <K extends keyof Spell>(key: K, value: Spell[K]) =>
     dispatch(updateAt(spellCursor.k(key), value));
 
   const updateCastingClass = (value: string) =>
     updateSpellField("spellcastingClass", value as UUID);
 
-  // --- Components ---
   const components: SpellComponents = spell.components ?? {};
   const material: MaterialComponent[] | undefined = components.material;
   const updateComponents = (newComponents: SpellComponents) =>
@@ -115,7 +107,6 @@ export default function EditSpell() {
       ),
     );
 
-  // --- info (name/description) handlers, delegated to ControlledEditTextLine ---
   const setTitle = (text: string, formulas: CustomFormula[]) =>
     updateSpellField("info", {
       ...textComponent,
@@ -150,9 +141,6 @@ export default function EditSpell() {
     saveData();
   };
 
-  // Class options as {id, name}: the spell stores the id, the dropdown shows the
-  // name. Sourced from the character's classes so a spell can only be tagged to a
-  // class it actually has.
   const classOptions = character.class.map((klass) => ({
     id: klass.id,
     name: klass.name,

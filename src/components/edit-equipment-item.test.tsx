@@ -10,13 +10,11 @@ import {
 } from "src/lib/fixtures/render-with-character";
 import EditEquipmentItem from "./edit-equipment-item";
 
-// The Add Item modal. Its new-item name field is a type-ahead over the built-in
-// catalog: picking an entry prefills mechanics, while free text just names a
-// custom item. What these tests pin: what each kind of pick writes to the
-// character and the +N bonus application. A weapon pick stores its Attack *on
-// the item* (`item.weapon`) and starts equipped, so saving must write the
-// attack row alongside the item (the replace_character path); thereafter the
-// sheet's equip toggle owns the pairing (see display.test).
+// The Add Item modal's name field is a type-ahead over the built-in catalog:
+// a pick prefills mechanics, free text names a custom item. Pins what each
+// kind of pick writes and the +N bonus application. A weapon pick stores its
+// Attack on the item (`item.weapon`) and starts equipped, so saving must write
+// the attack row alongside the item via the replace_character path.
 
 const renderNewItem = () => {
   const character = aCharacter();
@@ -60,7 +58,7 @@ describe("EditEquipmentItem (new item)", () => {
     expect(item.weapon?.attack.name).toBe("Longsword");
     expect(item.equipped).toBe(true);
     expect(item.weight).toBe(3);
-    // The attack row lands in `attacks` at save time, not at pick time.
+    // Attack row lands in `attacks` at save time, not pick time.
     expect(harness.character.attacks).toHaveLength(baseAttacks);
   });
 

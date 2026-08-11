@@ -36,18 +36,15 @@ import { ControlledEditTextLine } from "./edit-text-line";
 import StepperInput from "./stepper-input";
 import Select from "src/components/select";
 
-// Default DEX contribution for a freshly-picked category — decoupled from the
-// stored `dex` so a special armor can override it after selection.
+// Default DEX contribution for a freshly-picked category; overridable after selection.
 const DEFAULT_DEX: Record<ArmorCategory, ArmorMechanics["dex"]> = {
   light: "full",
   medium: "capped",
   heavy: "none",
 };
 
-// The name field for a *new* item: a type-ahead over the built-in catalog that
-// doubles as the plain name input. Picking an entry prefills mechanics; typing
-// anything else just names a custom item. Enter on an exact catalog match picks
-// it (instead of saving the modal), so "shield⏎" behaves like clicking Shield.
+// Type-ahead over the built-in catalog that doubles as the plain name input.
+// Enter on an exact catalog match picks it instead of saving the modal.
 function CatalogNameInput({
   value,
   pickedName,
@@ -130,19 +127,11 @@ function CatalogNameInput({
 }
 
 // Add or edit one equipment item. Opened with subField "new" (append a fresh
-// item, seeded into the modal draft) or a numeric index (edit that item). The
-// name/description reuse `ControlledEditTextLine` (so embedded {{}} formulas keep
-// working); the structured fields — quantity, weight, equipped, and whether the
-// item requires attunement — are edited here. Whether the character is currently
-// *attuned* is a play-mode toggle on the sheet row, not part of item setup.
-//
-// For a new item the name input is a catalog type-ahead: picking a built-in
-// armor/shield prefills its AC mechanics and weight, and picking a weapon
-// stores a ready-to-roll Attack *on the item* (`item.weapon`). The item is the
-// source of truth for what fights: its attack sits in the Attacks section only
-// while the item is equipped (see `EquipmentDisplay.setEquipped`), the same way
-// armor only counts toward AC while worn. A weapon pick starts equipped, so the
-// attack row appears the moment the item saves.
+// item) or a numeric index (edit that item). A weapon pick stores a
+// ready-to-roll Attack on the item (`item.weapon`); its row sits in the
+// Attacks section only while the item is equipped (see
+// `EquipmentDisplay.setEquipped`), the same way armor only counts toward AC
+// while worn.
 export default function EditEquipmentItem() {
   const { character, dispatch } = useLoadedCharacter();
   const { targetedField, subField, pushCursor } = useTargetedField();
@@ -154,28 +143,26 @@ export default function EditEquipmentItem() {
   const isEquipmentTarget =
     !!character && targetedField === FIELD.equipment && subField !== undefined;
 
-  // "new" appends after the current list; a numeric subField edits that index.
-  // The append index is captured once at mount — recomputing `equipment.length`
-  // each render would chase the list after the seed lands and re-seed forever.
+  // Append index captured once at mount; recomputing `equipment.length` each
+  // render would chase the list after the seed lands and re-seed forever.
   const equipment: EquipmentItem[] = character?.equipment ?? [];
   const [newIndex] = useState(equipment.length);
   const isNew = subField === "new";
   const index = isNew ? newIndex : Number(subField);
   const item: EquipmentItem | undefined = equipment[index];
 
-  // The catalog entry the type-ahead picked (new items only) and the +N magic
-  // bonus applied to it — kept so a bonus change re-applies the same pick.
+  // Catalog entry the type-ahead picked (new items only) and the +N magic
+  // bonus applied to it, so a bonus change re-applies the same pick.
   const [picked, setPicked] = useState<EquipmentCatalogEntry>();
   const [bonus, setBonus] = useState(0);
 
-  // Ability ids removed in this modal session (the "grants an ability" box was
+  // Ability ids removed this session (the "grants an ability" box was
   // unchecked); their live Limited-Use rows are dropped on save.
   const [droppedAbilityIds, setDroppedAbilityIds] = useState<UUID[]>([]);
 
-  // Seed a blank item into the *modal draft* when there's nothing at the target
-  // index yet (the "new" add path). Living only in the draft, it's discarded if
-  // the user backs out and persisted on save. The concat-replace keeps the effect
-  // idempotent under StrictMode's double-invoked effects.
+  // Seed a blank item into the modal draft when there's nothing at the target
+  // index yet. Concat-replace keeps the effect idempotent under StrictMode's
+  // double-invoked effects.
   useEffect(() => {
     if (!isEquipmentTarget || item) return;
     dispatch(
@@ -197,8 +184,7 @@ export default function EditEquipmentItem() {
   if (!isTextComponent(textComponent)) return <></>;
 
   const itemCursor = fromStack<EquipmentItem>(FIELD.equipment, String(index));
-  // `detailFormulas` lives only on the with-details TextComponent variant; this
-  // narrower cursor unlocks that slot from the branch where details exist.
+  // `detailFormulas` lives only on the with-details TextComponent variant.
   const textDetail = fromStack<TextComponentWithDetails>(
     FIELD.equipment,
     `${index}.text`,
@@ -207,7 +193,6 @@ export default function EditEquipmentItem() {
   const setText = (patch: Partial<TextComponentWithDetails>) =>
     dispatch(updateAt(itemCursor.k("text"), { ...textComponent, ...patch }));
 
-  // --- name/description handlers, delegated to ControlledEditTextLine ---
   const updateTitle = (text: string, formulas: CustomFormula[]) =>
     setText({ title: text, titleFormulas: formulas });
   const editTitleFormula = (i: number) =>
@@ -220,7 +205,6 @@ export default function EditEquipmentItem() {
   const clearDetails = () =>
     setText({ detail: undefined, detailFormulas: undefined });
 
-  // --- structured fields ---
   const setQuantity = (value: number) =>
     dispatch(updateAt(itemCursor.k("quantity"), Math.max(0, value || 0)));
   // Weights are stored in pounds; convert from the display unit on write.
@@ -243,9 +227,8 @@ export default function EditEquipmentItem() {
   const setEquippable = (value: boolean) =>
     dispatch(updateAt(itemCursor.k("equippable"), value || undefined));
 
-  // --- granted limited-use ability (magic items) ---
-  // Unchecking parks nothing — it deletes: remember the id so `save` can drop
-  // any live row the ability had in the Limited-Use list.
+  // Unchecking deletes: remember the id so `save` can drop any live row the
+  // ability had in the Limited-Use list.
   const setGrantsAbility = (granted: boolean) => {
     if (granted) {
       dispatch(
@@ -256,8 +239,6 @@ export default function EditEquipmentItem() {
             title: item.text.title || "New ability",
             titleFormulas: [],
           },
-          // The magic-item default; class-feature pools live in the
-          // Limited-Use section proper, not on an item.
           recharge: "Dawn",
         } satisfies LimitedUseAbility),
       );
@@ -277,10 +258,8 @@ export default function EditEquipmentItem() {
       );
   };
 
-  // --- armor / shield mechanics (mutually exclusive) ---
-  // Armor, shield and weapon items are inherently equippable (their mechanics
-  // only apply while equipped), so the "can be equipped" flag is forced on and
-  // locked for them.
+  // Armor, shield and weapon items are inherently equippable, so the "can be
+  // equipped" flag is forced on and locked for them.
   const isGear = !!item.armor || !!item.shield || !!item.weapon;
   const gearType = item.shield
     ? "shield"
@@ -322,10 +301,8 @@ export default function EditEquipmentItem() {
       updateAt(itemCursor.k("shield"), { bonus: Math.max(0, bonus || 0) }),
     );
 
-  // Prefill the item from a catalog pick at a given magic bonus. Re-runs when
-  // either changes, so it always writes the full picture — name, weight, and
-  // exactly one of the armor/shield/weapon mechanics — replacing whatever a
-  // previous pick wrote.
+  // Writes the full picture — name, weight, and exactly one of the
+  // armor/shield/weapon mechanics — replacing whatever a previous pick wrote.
   const applyCatalogEntry = (entry: EquipmentCatalogEntry, plus: number) => {
     setText({ title: catalogItemName(entry, plus), titleFormulas: [] });
     dispatch(updateAt(itemCursor.k("weight"), entry.weight));
@@ -342,10 +319,8 @@ export default function EditEquipmentItem() {
         entry.shield ? shieldWithBonus(entry.shield, plus) : undefined,
       ),
     );
-    // The weapon's attack lives on the item, and a fresh weapon starts
-    // equipped — you picked it to fight with it — so its attack row appears as
-    // soon as the item saves (see `save` below). Armor keeps the unequipped
-    // default: worn gear changes AC, so donning it is the deliberate act.
+    // A fresh weapon starts equipped, so its attack row appears as soon as
+    // the item saves (see `save` below); armor keeps the unequipped default.
     dispatch(
       updateAt(
         itemCursor.k("weapon"),
@@ -366,16 +341,13 @@ export default function EditEquipmentItem() {
     if (picked) applyCatalogEntry(picked, plus);
   };
 
-  // Typing in the type-ahead just renames the item; a picked entry's mechanics
-  // stay (rename your +1 longsword freely).
+  // Typing just renames the item; a picked entry's mechanics stay.
   const typeName = (name: string) =>
     setText({ title: name, titleFormulas: [] });
 
-  // Saving an *equipped* weapon must also put its attack row in `attacks`, and
-  // saving an *active* item ability must put (or refresh) its row in the
-  // Limited-Use list — those pairings are the invariants the sheet's toggles
-  // maintain, and the default save copies only the equipment field. Build the
-  // final state here and persist it as one edit.
+  // Saving an equipped weapon must also put its attack row in `attacks`, and
+  // an active item ability must put (or refresh) its row in the Limited-Use
+  // list; the default save copies only the equipment field.
   const save = (e?: React.SyntheticEvent) => {
     e?.preventDefault();
     let attacks = character.attacks;
@@ -392,9 +364,8 @@ export default function EditEquipmentItem() {
     const ability = item.ability;
     if (ability?.id && itemAbilityActive(item)) {
       const live = abilities.find((a) => a.id === ability.id);
-      // Refresh a live row with the modal's edits, but keep its play state —
-      // the item's parked copy can hold a stale `expended` from before the
-      // last equip, and a rename shouldn't refill the pool.
+      // Refresh a live row with the modal's edits but keep its play state —
+      // a rename shouldn't refill the pool.
       abilities = live
         ? abilities.map((a) =>
             a.id === ability.id
@@ -407,8 +378,7 @@ export default function EditEquipmentItem() {
           )
         : abilities.concat(ability);
     } else if (ability?.id) {
-      // The ability exists but isn't active (e.g. attunement was just made
-      // required): its live row leaves the list, edits already on the item.
+      // Ability exists but isn't active (e.g. attunement just made required).
       abilities = abilities.filter((a) => a.id !== ability.id);
     }
     if (droppedAbilityIds.length > 0)
@@ -468,10 +438,9 @@ export default function EditEquipmentItem() {
     <form
       className="edit-equipment column"
       onSubmit={(e) => e.preventDefault()}
-      // The modal container's global Enter-saves shortcut runs the default save,
-      // which would persist an equipped weapon without its attack row; intercept
-      // and route through our save. Same exclusion set as the container: only
-      // plain text inputs submit on Enter.
+      // Intercept the modal container's Enter-saves shortcut and route through
+      // our save, which also writes the attack row. Same exclusion set as the
+      // container: only plain text inputs submit on Enter.
       onKeyDown={(e) => {
         if (e.key !== "Enter") return;
         if ((e.target as HTMLElement).tagName !== "INPUT") return;
@@ -609,11 +578,9 @@ export default function EditEquipmentItem() {
         )}
       </fieldset>
 
-      {/* A magic item's charges: a limited-use ability the item owns. It shows
-          in the Limited-Use Abilities section while the item is active —
-          equipped and/or attuned, whichever gates apply — and leaves with it.
-          Fine-grained editing (formulas, save DC, structured mechanics) happens
-          on the live row's own editor once it's on the sheet. */}
+      {/* Shows in Limited-Use Abilities while the item is active (equipped
+          and/or attuned) and leaves with it. Fine-grained editing happens on
+          the live row's own editor once it's on the sheet. */}
       <fieldset className="equipment-ability">
         <legend className="field-label">
           Limited-use ability (magic items)
@@ -655,10 +622,8 @@ export default function EditEquipmentItem() {
         )}
       </fieldset>
 
-      {/* Capabilities of the item (not its live state). Whether it's *currently*
-          equipped or attuned is a direct toggle on the sheet row; here we set
-          only whether those toggles apply. Armor, shields and weapons are
-          always equippable, so the flag is forced on and locked for them. */}
+      {/* Whether it's currently equipped/attuned is a toggle on the sheet
+          row; here we set only whether those toggles apply. */}
       <label
         className="settings-checkbox"
         title={

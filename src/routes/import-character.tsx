@@ -9,19 +9,11 @@ import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useDriveImport } from "src/lib/hooks/use-drive-import";
 
 // `/import/<fileId>?name=<file name>` — where the Drive share email lands.
-//
-// This is the sibling of `/join/<code>`: a link someone was sent, which asks
-// them nothing they can't answer and ends with the thing they were sent. The
-// import it drives already existed, buried in the nav overflow menu behind a
-// picker listing everything ever shared with the account; what was missing was
-// a way to arrive at it already pointed at the right file.
-//
-// It cannot import unattended, and that's a scope decision rather than an
-// oversight — see `src/lib/drive-import-link.ts`. The user's click in the
-// Picker *is* the grant. So the route's job is to remove every step around
-// that click: sign in if needed, wait for Drive to finish listing, then open
-// the Picker already narrowed to one file. A second visit to the same link
-// skips the Picker entirely, because by then we have the file.
+// Sibling of `/join/<code>`. Cannot import unattended (see
+// `src/lib/drive-import-link.ts` — the Picker click is the grant), so this
+// route removes every step around that click: sign in if needed, wait for
+// Drive's listing, then open the Picker already narrowed to one file. A
+// second visit skips the Picker since we already have the file.
 export default function ImportCharacter() {
   const { fileId } = useParams();
   const [searchParams] = useSearchParams();
@@ -30,8 +22,7 @@ export default function ImportCharacter() {
   const { datastore } = useDatastoreSelector();
   const { characterLoading } = useDatastore();
   const { handleImport, busy } = useDriveImport();
-  // The Picker is a one-shot errand, not a render-driven one: without this it
-  // would reopen on every re-render the datastore causes while initializing.
+  // Without this, the Picker would reopen on every re-render during init.
   const started = useRef(false);
   const [cancelled, setCancelled] = useState(false);
 
@@ -43,8 +34,6 @@ export default function ImportCharacter() {
     if (!fileId || !ready || started.current) return;
     started.current = true;
     handleImport({ fileId, name }).then((imported) => {
-      // `handleImport` navigates to the sheet on success; the only thing left
-      // to say is what happened when it didn't.
       if (!imported) setCancelled(true);
     });
   }, [fileId, ready]);
@@ -68,10 +57,6 @@ export default function ImportCharacter() {
     );
   }
 
-  // Drive is where the file is, so there's no backend choice to offer here —
-  // unlike the front door, this link already knows where it's going. Sending
-  // the current path as `returnTo` is what makes the OAuth round-trip land
-  // back on the import rather than dumping the user on their sheet list.
   if (!onDrive) {
     return (
       <div className="session-resolving">

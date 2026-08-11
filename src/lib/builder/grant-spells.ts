@@ -7,10 +7,8 @@ import { buildSpellFromCatalog } from "src/lib/spells/spell-adapter";
  * Push a catalog spell (by index) into the right `character.spells` bucket,
  * attributed to `className` when the character has it.
  *
- * Lives in its own module because both the grant path (`level-grants.ts`, for a
- * subclass's domain spells) and the level-up wizard (for feat- and
- * level-granted spells) need it — putting it in either would make the two
- * import each other.
+ * Own module to avoid `level-grants.ts` and the level-up wizard importing
+ * each other.
  */
 export function addCatalogSpell(
   char: Character,
@@ -19,8 +17,7 @@ export function addCatalogSpell(
 ): void {
   const entry = getCatalogSpell(index);
   if (!entry) return;
-  // Resolve the class name to its stable id (spells reference classes by id),
-  // falling back to the character's first class when the name doesn't match.
+  // Spells reference classes by id, not name; fall back to the first class.
   const classId =
     char.class.find((c) => c.name === className)?.id ??
     char.class[0]?.id ??
@@ -31,10 +28,9 @@ export function addCatalogSpell(
 }
 
 /**
- * Like `addCatalogSpell`, but a no-op if the spell is already in its bucket for this
- * class. Used by the sub-choice spell grants (a Land druid's terrain spells),
- * which are re-evaluated on every level-up — so re-running a level can't stack
- * duplicate copies the way a plain `addCatalogSpell` would.
+ * Like `addCatalogSpell`, but a no-op if the spell is already in its bucket.
+ * For sub-choice spell grants (a Land druid's terrain spells) that are
+ * re-evaluated on every level-up.
  */
 export function addCatalogSpellOnce(
   char: Character,

@@ -7,11 +7,8 @@ import { inviteLink } from "src/lib/play/session";
 import { FaCopy, FaCircleExclamation } from "react-icons/fa6";
 import IdentityFields from "src/components/identity-fields";
 
-// Starting a live session is a network call that can fail — a wrong host, a
-// sidecar that's down — and it used to be a toggle switch, which has nowhere to
-// put "connecting" or "that didn't work": the switch would flip, the session
-// wouldn't open, and the only feedback was a `window.alert`. A button models
-// the three real states (idle / connecting / failed) honestly.
+// Starting a live session is a network call that can fail (wrong host, sidecar
+// down); the button models idle/connecting/failed states.
 export default function SharingToggle() {
   const { datastore } = useDatastoreSelector();
   const { getRole } = useSharingSessions();
@@ -19,13 +16,10 @@ export default function SharingToggle() {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  // Hide for sheets we don't own locally, including ones we've joined remotely
-  // (a joiner can't re-host the realm they're connected to).
+  // A joiner can't re-host the realm they're connected to.
   if (!character || !datastore || getRole(character.uuid) === "remote")
     return <></>;
 
-  // Reflect the actual session state for this character, so the button stays
-  // accurate across character switches and external teardown (e.g. delete).
   const sharingSessionOpen = getRole(character.uuid) === "host";
 
   const start = async () => {
@@ -47,8 +41,6 @@ export default function SharingToggle() {
     closeSharingSession();
   };
 
-  // A link, not a code: it lands on the same `/join/<code>` door a game invite
-  // uses, and the probe there works out that this one opens a sheet.
   const copyCode = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const link = inviteLink(window.location.origin, character.uuid);
@@ -81,8 +73,6 @@ export default function SharingToggle() {
         </button>
       )}
       {error && (
-        // `role="alert"` rather than `status`: this is the result of an action
-        // the user explicitly took and it needs to interrupt.
         <p className="row font-small text-error" role="alert">
           <FaCircleExclamation />
           <span>

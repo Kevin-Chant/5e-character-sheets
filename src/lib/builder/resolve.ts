@@ -8,9 +8,8 @@ import {
   CatalogSubrace,
 } from "src/lib/builder/types";
 
-// The racial bonuses a race+subrace grant by default: the fixed increases, plus
-// one unassigned +1 placeholder per "choose N" option (Half-Elf). Used to seed
-// the editable list; the player can then reassign any of them.
+// Default racial bonuses: fixed increases plus one unassigned +1 placeholder
+// per "choose N" option (Half-Elf). Seeds the editable list.
 export function defaultRaceBonuses(
   race?: CatalogRace,
   subrace?: CatalogSubrace,
@@ -26,9 +25,7 @@ export function defaultRaceBonuses(
   return [...fixed, ...floating];
 }
 
-// The bonuses actually in effect: the player's edited list when present, else
-// the race defaults (so build-character stays correct even if the UI never
-// seeded them, e.g. in tests).
+// Bonuses in effect: the player's edited list when present, else race defaults.
 export function resolvedRaceBonuses(state: BuilderState): RaceBonus[] {
   if (state.raceBonuses.length) return state.raceBonuses;
   return defaultRaceBonuses(

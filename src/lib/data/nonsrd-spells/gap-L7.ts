@@ -1,13 +1,9 @@
 import type { CatalogSpell } from "src/lib/spells/spell-catalog";
 
 // Completeness-audit gap fill: official (non-UA) level-7 spells the initial
-// authoring pass missed (the mega-page enumeration was lossy). Mechanical facts
-// with ORIGINAL paraphrased descriptions only — never published prose.
-//
-// Level 7 turned out to already be essentially complete (the PHB's 20 spells
-// plus the de-branded "Arcane Sword" and the Xanathar's/Tasha's/Fizban's/
-// Frostmaiden additions were all already present) — "Tether Essence" (from
-// Explorer's Guide to Wildemount) was the one genuine gap found.
+// authoring pass missed. Mechanical facts with ORIGINAL paraphrased
+// descriptions only — never published prose. "Tether Essence" (Explorer's
+// Guide to Wildemount) was the one gap found at this level.
 export const GAP_SPELLS_L7: CatalogSpell[] = [
   {
     index: "tether-essence",

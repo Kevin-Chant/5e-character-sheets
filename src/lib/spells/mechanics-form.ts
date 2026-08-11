@@ -16,12 +16,10 @@ import {
 } from "src/lib/types";
 import { UUID } from "crypto";
 
-// Bridges the structured `SpellMechanics` model (see spell-scaling.md) and the
-// plain text inputs the spell editor exposes. The editor only offers the two
-// shapes that cover almost every rollable spell — bare dice ("8d6") and dice
-// plus the caster's spellcasting modifier ("1d8 + spell mod") — and treats
-// anything richer (imported `damageTable`s, hand-built formulas) as read-only so
-// it is never silently clobbered.
+// Converts between the structured `SpellMechanics` model and the plain text
+// inputs the spell editor exposes: bare dice ("8d6") or dice plus the caster's
+// spellcasting modifier ("1d8 + spell mod"). Anything richer (imported
+// `damageTable`s, hand-built formulas) is passed through as read-only.
 
 const DIE_BY_FACES: Record<number, StandardDie> = {
   4: StandardDie.d4,
@@ -32,7 +30,7 @@ const DIE_BY_FACES: Record<number, StandardDie> = {
   20: StandardDie.d20,
 };
 
-// "8d6" (whitespace-tolerant, case-insensitive) → a roll DieExpression.
+// "8d6" (whitespace-tolerant, case-insensitive) -> a roll DieExpression.
 export function parseDice(text: string): DieExpression | undefined {
   const match = /^\s*(\d+)\s*d\s*(\d+)\s*$/i.exec(text);
   if (!match) return undefined;
@@ -42,8 +40,8 @@ export function parseDice(text: string): DieExpression | undefined {
   return [count, die, DieOperation.roll];
 }
 
-// A roll DieExpression → "8d6". Non-roll operations (average/max) aren't
-// representable as plain dice text, so they return undefined.
+// A roll DieExpression -> "8d6". Non-roll operations (average/max) return
+// undefined; they aren't representable as plain dice text.
 export function formatDice(d: DieExpression): string | undefined {
   const [count, def, op] = d;
   if (op !== DieOperation.roll) return undefined;
@@ -59,9 +57,8 @@ export interface DiceFormulaInput {
   addSpellMod: boolean;
 }
 
-// Best-effort parse of a stored formula into the simple editor shape. Returns
-// undefined for anything that isn't "dice" or "dice + spellMod" so callers can
-// fall back to a read-only display rather than lose data on round-trip.
+// Parses a stored formula into the simple editor shape. Returns undefined for
+// anything that isn't "dice" or "dice + spellMod".
 export function formulaToDiceInput(
   f: CustomFormula,
 ): DiceFormulaInput | undefined {
@@ -85,8 +82,8 @@ export function formulaToDiceInput(
   return undefined;
 }
 
-// Build a stored formula from the editor shape. Returns undefined when the dice
-// text is unparseable (so the caller can keep the field empty / drop the row).
+// Builds a stored formula from the editor shape. Returns undefined when the
+// dice text is unparseable.
 export function diceInputToFormula(
   input: DiceFormulaInput,
   classId: UUID,
@@ -100,14 +97,10 @@ export function diceInputToFormula(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Whole-mechanics <-> editor-form conversion.
-//
-// The editor holds a flat, text-friendly `MechForm` (so mid-typing invalid dice
-// don't corrupt the model) and derives `SpellMechanics` from it on each change.
-// Shapes the simple inputs can't express (imported `damageTable`s, non-dice
-// scaling) are stashed as `raw*`/`damageTable` and passed through untouched.
-// ---------------------------------------------------------------------------
+// Whole-mechanics <-> editor-form conversion. The editor holds a flat,
+// text-friendly `MechForm` and derives `SpellMechanics` from it on each change.
+// Shapes the simple inputs can't express are stashed as `raw*`/`damageTable`
+// and passed through untouched.
 
 export interface DamageRowForm {
   damageType: DamageType;
@@ -234,8 +227,7 @@ export function formToMechanics(
   };
 }
 
-// A fresh mechanics block seeded when the user first marks a spell rollable: a
-// ranged spell attack dealing 1d6 fire, ready to edit.
+// Seeded when a spell is first marked rollable: ranged attack, 1d6 fire.
 export function defaultMechanics(level: number): SpellMechanics {
   return {
     level,

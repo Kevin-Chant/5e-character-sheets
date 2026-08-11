@@ -3,9 +3,8 @@ import { SUBCLASS_SPELLS } from "src/lib/data/subclass-spells";
 import { getSubclassByName, subclassSpellIndicesAt } from "./subclasses";
 import { getCatalogSpell } from "src/lib/spells/spell-catalog";
 
-// The by-level subclass spell registry is keyed by subclass name and grants by
-// spell index — a typo in either silently hands out nothing, so both joins are
-// guarded here.
+// The registry is keyed by subclass name and grants by spell index; a typo in
+// either silently hands out nothing, so both joins are guarded here.
 
 describe("subclass spell grants", () => {
   it("keys every entry by a subclass that exists in that class", () => {

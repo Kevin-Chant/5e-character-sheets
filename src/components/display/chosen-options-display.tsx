@@ -10,9 +10,7 @@ import {
 } from "src/lib/builder/chosen-options";
 import ComponentWithPopover from "./component-with-popover";
 
-// The options a character has picked from their class's closed lists, grouped
-// by category with a "picked / allowed" count. Renders nothing at all until a
-// class actually offers such a choice, so most sheets never see this section.
+// Options picked from a class's closed lists, grouped with a "picked / allowed" count.
 export default function ChosenOptionsDisplay() {
   const { character } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();

@@ -6,15 +6,11 @@ import {
   HealthResult,
 } from "src/lib/sidecar-health";
 
-// "Test connection" for the sharing host. The host is free text and the only
-// previous way to discover a bad one was to open a live session and watch it
-// fail, so this is the cheap check that answers "is the address right, and is
-// the thing at the other end alive?".
+// "Test connection" for the sharing host.
 export default function SidecarHealthCheck({ host }: { host: string }) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<HealthResult | undefined>();
-  // A result describes the host it was fetched for; once the field is edited
-  // it's stale and saying "Connected" about a different address would be a lie.
+  // A result describes the host it was fetched for; clear it once host is edited.
   const testedHost = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (testedHost.current !== undefined && testedHost.current !== host)

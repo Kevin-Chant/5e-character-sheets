@@ -18,8 +18,8 @@ import InspirationDisplay from "./display/inspiration-display";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
 import { FaPencil } from "react-icons/fa6";
 
-// The proficiency contribution to a d20 modifier: double PB for expertise, PB
-// for proficiency, half PB (rounded down) for Jack of All Trades, else nothing.
+// Proficiency contribution to a d20 modifier: double PB for expertise, PB for
+// proficiency, half PB (rounded down) for Jack of All Trades, else nothing.
 function proficiencyBonus(
   pb: number,
   proficient: boolean,
@@ -53,8 +53,7 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
             const cursor = charPath(FIELD.proficiencies)
               .k("savingThrows")
               .k(statKey);
-            // A flat bonus applied to every save (Paladin's Aura of Protection,
-            // a Cloak of Protection, …).
+            // Flat bonus applied to every save (Aura of Protection, Cloak of Protection).
             const saveBonus = character.savingThrowBonus
               ? calculateCustomFormula(character.savingThrowBonus, character)
               : 0;
@@ -98,8 +97,7 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
             const bonus = bonusFormula
               ? calculateCustomFormula(bonusFormula, character)
               : 0;
-            // Cycle none → proficient → expert → none, keeping expertise ⊆
-            // proficiency so an invalid combo can't be reached from the UI.
+            // Cycles none → proficient → expert → none, keeping expertise ⊆ proficiency.
             const cycle = () => {
               if (expert) {
                 dispatch(updateAt(skillsCursor, false));
@@ -183,9 +181,7 @@ export default function StatAndSkillPanel() {
   return (
     <div className="stat-and-skill-panel">
       <StatsAndSkills pb={pb} jack={jack} />
-      {/* Optional override formula; when unset, the SingleValueDisplay falls back
-          to the computed default (getPassivePerceptionFormula). Editable so a
-          player can set a passive-only adjustment (e.g. Observant's +5). */}
+      {/* Optional override; unset falls back to getPassivePerceptionFormula. */}
       <SingleValueDisplay
         name="Passive Wisdom (Perception)"
         cursor={charPath(FIELD.passivePerception)}

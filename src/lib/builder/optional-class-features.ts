@@ -2,50 +2,42 @@ import { OfficialClass } from "src/lib/data/data-definitions";
 import { Character } from "src/lib/types";
 import type { LevelEffects, RaceTrait } from "src/lib/builder/types";
 
-// Tasha's optional class features — the ones that *replace* a feature rather
-// than add to it. A swap is offered at the level the feature it replaces would
-// arrive, taken per character (two tables can disagree about editions, and one
-// player can have a 2014 ranger and a Tasha's one), and remembered as the
-// granted feature row itself: `takenOptionalFeatures` reads them back off the
-// sheet, which is what lets a swap chosen at 1st still suppress a pick at 14th
-// without a new field on `Character`.
+// Tasha's optional class features: swaps that replace a feature rather than
+// add to it. Taken per character, remembered as the granted feature row
+// itself (`takenOptionalFeatures` reads it back), so no new `Character` field
+// is needed.
 //
-// Licensing, as everywhere outside the SRD JSON: mechanical facts with terse
-// original summaries, never published prose.
+// Non-SRD content: mechanical facts with terse original summaries, never
+// published prose.
 
 interface OptionalFeatureGrant {
-  // Prose rows added at this class level (Deft Explorer's later halves).
+  // Prose rows added at this class level.
   features?: RaceTrait[];
-  // Fields written (speeds, senses) — the same applier a class level uses.
+  // Fields written (speeds, senses) — same applier a class level uses.
   effects?: LevelEffects;
-  // Flat walking-speed bonus in feet. Separate from `effects.speeds`, which
-  // only ever *raises to* a number: Roving's +5 is additive, so a wood elf's
-  // 35 becomes 40 rather than staying put. Applied once, when the feature row
-  // it comes with is added.
+  // Flat walking-speed bonus in feet; additive, unlike `effects.speeds` which
+  // only raises to a number.
   speedBonus?: number;
-  // Spells granted (always prepared). Absent indices are skipped, as ever —
-  // Beast Sense isn't in the bundled catalog, and the prose still names it.
+  // Spells granted (always prepared). Absent indices are skipped.
   spellIndices?: string[];
-  // Expertise picks owed (Canny's one skill), offered by the same picker the
-  // rogue and bard use.
+  // Expertise picks owed, offered by the same picker rogue/bard use.
   expertise?: number;
 }
 
 export interface OptionalClassFeature {
   name: string;
   className: OfficialClass;
-  // The class level at which the swap is offered — always the level the
-  // replaced feature arrives at, so the player chooses between them once.
+  // Class level the swap is offered at — the level the replaced feature
+  // arrives at.
   level: number;
   summary: string;
-  // Feature titles it replaces, matched by prefix so the SRD's parenthesised
-  // "Favored Enemy (1 type)" is caught by "Favored Enemy".
+  // Feature titles replaced, matched by prefix (SRD's "Favored Enemy (1
+  // type)" is caught by "Favored Enemy").
   replaces: string[];
-  // Option-group categories it switches off — including the *later* picks the
-  // replaced feature would have granted (Favored Enemy's at 6th and 14th).
+  // Option-group categories switched off, including later picks the replaced
+  // feature would have granted.
   replacesOptions?: string[];
-  // What the swap grants, keyed by class level. The choice level is one of
-  // them; the rest arrive as the class levels, applied idempotently.
+  // Grants keyed by class level; applied idempotently as the class levels.
   byLevel?: Record<number, OptionalFeatureGrant>;
 }
 
@@ -58,8 +50,7 @@ export const OPTIONAL_CLASS_FEATURES: OptionalClassFeature[] = [
       "When you hit a creature with an attack roll, you can expend a use to mark it as your favored foe for a minute — while you keep concentration, the first time you hit it each turn it takes extra damage from your Favored Foe die.",
     replaces: ["Favored Enemy"],
     replacesOptions: ["favoredEnemy"],
-    // The die and the uses are a limited-use pool, so they scale in
-    // `class-pools.ts` alongside every other pool rather than here.
+    // Die and uses scale as a pool in `class-pools.ts`.
   },
   {
     name: "Deft Explorer",
@@ -83,8 +74,8 @@ export const OPTIONAL_CLASS_FEATURES: OptionalClassFeature[] = [
         effects: { speeds: { climb: "walk", swim: "walk" } },
       },
       10: {
-        // Tireless is a pool (temp HP, PB uses) — see `class-pools.ts`. Only
-        // its rest-side half is prose, since no pool models it.
+        // Tireless's temp-HP/PB-uses half is a pool in `class-pools.ts`; only
+        // the rest-side half is modelled as prose here.
         features: [
           {
             title: "Tireless (exhaustion)",
@@ -117,12 +108,11 @@ export const OPTIONAL_CLASS_FEATURES: OptionalClassFeature[] = [
     summary:
       "As a bonus action, magically become invisible — along with anything you wear or carry — until the end of your next turn.",
     replaces: ["Hide in Plain Sight"],
-    // The uses are a pool; see `class-pools.ts`.
+    // Uses are a pool; see `class-pools.ts`.
   },
 ];
 
-// The swaps `className` offers on reaching `level` — the question the wizards
-// ask, and the only level at which each can be taken.
+// Swaps `className` offers on reaching `level`.
 export const optionalFeaturesAt = (
   className: string,
   level: number,
@@ -131,9 +121,8 @@ export const optionalFeaturesAt = (
     (f) => f.className === className && f.level === level,
   );
 
-// The swaps a character has already taken, read back off the feature rows they
-// granted. Feature titles are the record, so this survives a save from before
-// optional features existed and needs no field of its own.
+// Swaps already taken, read back off the granted feature rows (no field of
+// its own).
 export const takenOptionalFeatures = (
   character: Character,
 ): OptionalClassFeature[] => {
@@ -148,8 +137,7 @@ export const takenOptionalFeatures = (
 const byName = (names: string[]): OptionalClassFeature[] =>
   OPTIONAL_CLASS_FEATURES.filter((f) => names.includes(f.name));
 
-// Whether a feature title is replaced by one of `names` — a prefix match, so
-// the SRD's "Favored Enemy (1 type)" is caught by "Favored Enemy".
+// Whether a feature title is replaced by one of `names` (prefix match).
 export function isReplacedFeature(title: string, names: string[]): boolean {
   const lc = title.trim().toLowerCase();
   return byName(names).some((f) =>
@@ -157,12 +145,11 @@ export function isReplacedFeature(title: string, names: string[]): boolean {
   );
 }
 
-// The option-group categories `names` switch off.
+// Option-group categories `names` switch off.
 export const replacedOptionCategories = (names: string[]): string[] =>
   byName(names).flatMap((f) => f.replacesOptions ?? []);
 
-// Everything the taken swaps grant at one class level, flattened — the caller
-// applies them next to the ordinary class grants.
+// Grants from taken swaps at one class level, flattened.
 export const optionalGrantsAt = (
   names: string[],
   className: string,

@@ -11,16 +11,15 @@ import { useCharacter } from "src/lib/hooks/use-character";
 import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { ShareGrant } from "src/lib/types";
 
-// Controls for promoting a Google Drive character into a first-class, shareable
-// document and granting other people access to it by email. Only rendered when
-// the active datastore supports promotion (currently Google Drive).
+// Promotes a Drive character into a shareable document and grants access by
+// email. Only rendered when the active datastore supports promotion.
 export default function DriveShareControls() {
   const { datastore } = useDatastoreSelector();
   const { character } = useCharacter();
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
-  // Promotion mutates datastore-internal state; bump to re-read isShared.
+  // Bump to re-read isShared after promotion mutates datastore state.
   const [, refresh] = useReducer((x) => x + 1, 0);
   const [grants, setGrants] = useState<ShareGrant[]>();
 
@@ -29,9 +28,7 @@ export default function DriveShareControls() {
     ? (datastore?.isShared?.(uuid) ?? false)
     : false;
 
-  // Who has access is a network read, so it's fetched when the dialog opens
-  // and after every grant or revoke — the list is the receipt for those, and a
-  // stale one would be worse than none.
+  // Refetched after every grant/revoke so the list stays accurate.
   const loadGrants = useCallback(async () => {
     if (!uuid || !datastore?.listShares || !isSharedDocument) return;
     try {
@@ -65,10 +62,8 @@ export default function DriveShareControls() {
 
   const importLink = datastore.getImportLink?.(character.uuid);
 
-  // Granting access and telling someone about it are the same act here — the
-  // email Drive sends carries this link. But that mail is easy to lose, so the
-  // link is copyable too; it opens the add-this-sheet flow for anyone who has
-  // already been granted access, and goes nowhere for anyone who hasn't.
+  // Drive's notification email carries this link too; copyable since mail is
+  // easy to lose. Opens the add-sheet flow for someone already granted access.
   const copyImportLink = () => {
     if (!importLink) return;
     copyToClipboard(importLink);
@@ -116,8 +111,7 @@ export default function DriveShareControls() {
   };
 
   const documentLink = datastore.getDocumentLink?.(character.uuid);
-  // The owner's own grant is always present and never removable, so a list of
-  // just that says "shared with nobody" more honestly than an empty list does.
+  // Exclude the owner's own (always-present, non-removable) grant.
   const others = (grants ?? []).filter((grant) => !grant.isOwner);
 
   return (
@@ -130,8 +124,6 @@ export default function DriveShareControls() {
       </p>
       {!shared ? (
         <button onClick={handlePromote} disabled={busy}>
-          {/* Promotion is several Drive round-trips; show progress rather
-              than a button that just goes dead. */}
           {busy ? (
             <>
               Making shareable <Spinner />
@@ -198,9 +190,6 @@ export default function DriveShareControls() {
             </ul>
           )}
 
-          {/* A promoted character is a real file in the user's Drive, and
-              nothing in the app has ever said where. This is the answer to
-              "so what did it actually make?" */}
           {documentLink && (
             <a
               className="link-button"

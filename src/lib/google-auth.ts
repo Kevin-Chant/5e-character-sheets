@@ -1,25 +1,15 @@
-// Google Drive auth as a module singleton, not a route.
+// Google Drive auth as a module singleton, not a route: any surface can call
+// `ensureDriveToken()`, and `/auth` is only the interactive consent UI.
 //
-// This used to live inside the `/auth` route component, which meant the gapi
-// and GIS scripts — and the token client — only existed while the user was
-// physically parked on that page. Every path into Drive therefore detoured
-// through `/auth`, even when a perfectly valid token sat in localStorage. As a
-// module, any surface can call `ensureDriveToken()` and keep rendering itself
-// while the silent resume happens; `/auth` shrinks to the interactive consent
-// UI for the one case that genuinely needs a click.
-//
-// The hard constraint shaping all of this: with no backend, we're on the GIS
-// implicit token flow. Access tokens last ~1h and there are no refresh tokens
-// client-side — a cached grant only lets us *ask again without UI*, and that
-// silent ask can still fail (signed out of Google, third-party-context
-// blocking). So every silent path here has an interactive fallback, and the
-// fallback can never be deleted.
+// GIS implicit token flow: no backend, so no refresh tokens. Access tokens
+// last ~1h; a cached grant only lets us ask again without UI, and that silent
+// ask can still fail (signed out, third-party-context blocking) — so every
+// silent path here needs an interactive fallback.
 
 import { useSyncExternalStore } from "react";
 
-// These are shipped to the browser by design (the app talks to Google Drive
-// client-side), so they are not secrets. They are configurable per-deployment
-// via env vars; the defaults point at the project's own Google Cloud app.
+// Shipped to the browser by design — not secrets. Configurable per-deployment
+// via env vars; defaults point at the project's own Google Cloud app.
 export const CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ??
   "998156536896-4j4rbhlb39epi0t6vlia682lbjlk9tia.apps.googleusercontent.com";
@@ -30,17 +20,14 @@ export const API_KEY =
 export const DISCOVERY_DOC =
   "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest";
 
-// drive.appdata: private per-user storage (the default backend).
+// drive.appdata: private per-user storage (default backend).
 // drive.file: per-file access to documents this app creates or the user opens
-// via the Picker — used for promoted/shared first-class character documents.
-// Both are non-sensitive scopes, so they avoid restricted-scope verification.
+// via the Picker — used for promoted/shared documents. Both non-sensitive scopes.
 export const SCOPES =
   "https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file";
 
-// GIS access tokens are short-lived (~1h) and held only in memory, so a fresh
-// page load would otherwise re-prompt for consent. We cache the granted token
-// (with its expiry + scopes) so returning users can resume silently until it
-// expires, then refresh without UI.
+// Cache the granted token (expiry + scopes) so a fresh page load can resume
+// silently instead of re-prompting for consent.
 const TOKEN_STORAGE_KEY = "googleDriveToken";
 
 interface StoredToken {
@@ -79,9 +66,8 @@ function clearStoredToken() {
   localStorage.removeItem(TOKEN_STORAGE_KEY);
 }
 
-// True when the user has granted access before with the scopes we need — even
-// if the cached token has since expired. Used to decide whether a silent
-// (no-UI) token refresh is worth attempting.
+// True when access was granted before with the required scopes, even if the
+// cached token has since expired.
 export function hasStoredGrant(): boolean {
   const stored = readStoredToken();
   if (!stored) return false;
@@ -92,9 +78,8 @@ export function hasStoredGrant(): boolean {
   return true;
 }
 
-// If a still-valid cached token covering the required scopes exists, prime gapi
-// with it and return true so the consent flow can be skipped. A 60s buffer
-// avoids restoring a token that would expire mid-request.
+// Primes gapi with a still-valid cached token, if any. 60s buffer avoids
+// restoring a token that would expire mid-request.
 function restoreToken(): boolean {
   const stored = readStoredToken();
   if (!stored) return false;
@@ -107,15 +92,12 @@ function restoreToken(): boolean {
   return true;
 }
 
-// ---------------------------------------------------------------------------
 // Status, observable from React via useDriveAuthStatus().
-//
-//   uninitialized → the Google scripts haven't been asked for
+//   uninitialized → Google scripts not yet requested
 //   initializing  → scripts loading / gapi client init in flight
-//   restoring     → a silent, no-UI token refresh is being attempted
+//   restoring     → silent, no-UI token refresh in progress
 //   ready         → gapi holds a token covering our scopes
-//   needs-auth    → silent paths are exhausted; only a user click can proceed
-// ---------------------------------------------------------------------------
+//   needs-auth    → silent paths exhausted; only a user click can proceed
 
 export type DriveAuthStatus =
   | "uninitialized"
@@ -152,10 +134,6 @@ export function useDriveAuthStatus(): DriveAuthStatus {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Script loading + token client
-// ---------------------------------------------------------------------------
-
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
@@ -163,8 +141,7 @@ function loadScript(src: string): Promise<void> {
     script.src = src;
     script.onload = () => resolve();
     script.onerror = () => {
-      // Remove the failed tag so a retry can inject a fresh one.
-      script.remove();
+      script.remove(); // let a retry inject a fresh tag
       reject(new Error(`Failed to load ${src}`));
     };
     document.body.appendChild(script);
@@ -183,19 +160,14 @@ function onTokenResponse(resp: google.accounts.oauth2.TokenResponse) {
   const resolve = pendingTokenRequest;
   pendingTokenRequest = undefined;
   if (resp.error !== undefined) {
-    // A silent refresh (prompt: "") fails like this when interaction is
-    // required; the caller decides whether to escalate to a prompt.
+    // A silent refresh (prompt: "") fails like this when interaction is required.
     console.warn("Google token request failed", resp);
     setStatus("needs-auth");
     resolve?.(false);
     return;
   }
   persistToken(resp);
-  // GIS and gapi are separate clients: issuing a token doesn't hand it to
-  // gapi, and every Drive call reads it from there. This used to be done only
-  // by `restoreToken` on a later pass, so a freshly granted token reached gapi
-  // by luck of ordering. Switching accounts has no such later pass — the whole
-  // point is to use the *new* token immediately.
+  // GIS and gapi are separate clients; every Drive call reads the token from gapi.
   window.gapi.client.setToken({ access_token: resp.access_token });
   scheduleProactiveRefresh();
   setStatus("ready");
@@ -203,8 +175,7 @@ function onTokenResponse(resp: google.accounts.oauth2.TokenResponse) {
 }
 
 function onTokenError(error: unknown) {
-  // Popup closed, or failed to open at all (blocker). Not a crash — the
-  // Authorize affordances stay available.
+  // Popup closed, or failed to open at all (blocker).
   console.warn("Google token request could not complete", error);
   const resolve = pendingTokenRequest;
   pendingTokenRequest = undefined;
@@ -237,8 +208,7 @@ async function loadGoogleLibraries(): Promise<void> {
   try {
     await librariesPromise;
   } catch (err) {
-    // A failed load (offline) must not poison every later attempt.
-    librariesPromise = undefined;
+    librariesPromise = undefined; // don't let a failed load poison later attempts
     throw err;
   }
 }
@@ -247,8 +217,7 @@ function requestToken(
   prompt: "" | "consent" | "select_account",
 ): Promise<boolean> {
   if (!tokenClient) return Promise.resolve(false);
-  // One request at a time; a concurrent caller shares the in-flight answer.
-  if (inflightTokenRequest) return inflightTokenRequest;
+  if (inflightTokenRequest) return inflightTokenRequest; // one request at a time
   inflightTokenRequest = new Promise<boolean>((resolve) => {
     pendingTokenRequest = (ok) => {
       inflightTokenRequest = undefined;
@@ -259,14 +228,9 @@ function requestToken(
   return inflightTokenRequest;
 }
 
-// ---------------------------------------------------------------------------
-// The two entry points
-// ---------------------------------------------------------------------------
-
-// Everything that can happen without the user: load the libraries, restore a
-// still-valid cached token, else (if they've granted before) attempt a silent
-// refresh. Resolves true when gapi holds a usable token. Safe to call from
-// anywhere, any number of times.
+// Everything that can happen without the user: load libraries, restore a
+// still-valid cached token, else attempt a silent refresh if previously
+// granted. Resolves true when gapi holds a usable token. Safe to call anytime.
 export async function ensureDriveToken(): Promise<boolean> {
   if (status === "uninitialized") setStatus("initializing");
   try {
@@ -289,10 +253,8 @@ export async function ensureDriveToken(): Promise<boolean> {
   return false;
 }
 
-// The interactive path — call from a user gesture (the Authorize button, the
-// save indicator's re-auth click). Tries the quiet prompt first for returning
-// users, escalating to the full consent dialog only when that fails or when
-// there's no prior grant to lean on.
+// Interactive path — call from a user gesture. Tries the quiet prompt first
+// for returning users, escalating to full consent otherwise.
 export async function requestDriveToken(): Promise<boolean> {
   try {
     await loadGoogleLibraries();
@@ -305,11 +267,9 @@ export async function requestDriveToken(): Promise<boolean> {
   return requestToken("consent");
 }
 
-// Deliberately ask Google which account to use. Signing out and back in isn't
-// the same thing: the silent-first path in `requestDriveToken` exists precisely
-// to avoid a chooser, so a user with two Google accounts would be handed the
-// same one back and conclude their characters were gone. This is the only way
-// to reach the other account, so it has to be its own entry point.
+// Explicitly asks Google which account to use. `requestDriveToken`'s
+// silent-first path would hand back the same account, so a two-account user
+// needs this separate entry point to reach the other one.
 export async function switchDriveAccount(): Promise<boolean> {
   try {
     await loadGoogleLibraries();
@@ -317,18 +277,13 @@ export async function switchDriveAccount(): Promise<boolean> {
     console.error("Failed to load the Google Drive libraries", err);
     return false;
   }
-  // The current token is left alone until a new one arrives: a cancelled
-  // chooser should be a no-op, not a sign-out.
+  // Current token left alone until a new one arrives — a cancelled chooser is a no-op.
   return requestToken("select_account");
 }
 
-// ---------------------------------------------------------------------------
-// Keeping the token fresh while the app is open
-// ---------------------------------------------------------------------------
-
 // Refresh a few minutes before expiry instead of letting the first save after
-// the hour mark 401. Best-effort: a failed background refresh just flips
-// status to needs-auth, and the next failed write surfaces the click.
+// the hour mark 401. Best-effort: a failed refresh just flips status to
+// needs-auth, surfaced on the next write.
 const REFRESH_LEAD_MS = 5 * 60_000;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -351,12 +306,8 @@ function scheduleProactiveRefresh() {
   }, delay);
 }
 
-// ---------------------------------------------------------------------------
-// Sign-out / revoke
-// ---------------------------------------------------------------------------
-
-// Signs this browser out of Drive by dropping the token (in-memory + cached).
-// The OAuth grant itself persists, so a later sign-in can be silent.
+// Drops the token (in-memory + cached); the OAuth grant persists, so a later
+// sign-in can be silent.
 export function signOutOfDrive() {
   cancelProactiveRefresh();
   if (window.gapi?.client?.getToken()) {
@@ -366,7 +317,7 @@ export function signOutOfDrive() {
   setStatus("needs-auth");
 }
 
-// Fully revokes the app's OAuth grant; the next sign-in requires re-consent.
+// Fully revokes the OAuth grant; the next sign-in requires re-consent.
 export function revokeDriveAccess(): Promise<void> {
   cancelProactiveRefresh();
   return new Promise((resolve) => {
@@ -382,12 +333,8 @@ export function revokeDriveAccess(): Promise<void> {
   });
 }
 
-// ---------------------------------------------------------------------------
-// The 401-retry wrapper for Drive calls
-// ---------------------------------------------------------------------------
-
-// For the fetch-based Drive calls, which don't reject on HTTP errors the way
-// gapi does — this carries the status somewhere isAuthFailure can read it.
+// Carries HTTP status for fetch-based Drive calls, which don't reject on HTTP
+// errors the way gapi does, so isAuthFailure can read it.
 export class DriveRequestError extends Error {
   constructor(
     message: string,
@@ -398,9 +345,9 @@ export class DriveRequestError extends Error {
   }
 }
 
-// Thrown when a Drive call failed for auth reasons and the silent refresh
-// couldn't fix it — only a user click can. The save path uses this to show a
-// re-auth affordance instead of a generic "check your connection".
+// Thrown when a Drive call failed for auth reasons and silent refresh
+// couldn't fix it — only a user click can, so the save path shows a re-auth
+// affordance instead of a generic error.
 export class DriveAuthError extends Error {
   constructor() {
     super("Google Drive sign-in has expired and needs a click to renew.");
@@ -421,9 +368,8 @@ function isAuthFailure(err: unknown): boolean {
   return gapiStatus === 401 || bodyCode === 401;
 }
 
-// Runs a Drive call; on a 401, silently refreshes the token once and retries.
-// If the refresh (or the retry) still fails on auth, throws DriveAuthError so
-// callers can tell "needs a sign-in click" apart from "network is down".
+// Runs a Drive call; on a 401, silently refreshes the token once and retries,
+// throwing DriveAuthError if that still fails.
 export async function withDriveAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();

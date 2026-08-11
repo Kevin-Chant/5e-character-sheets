@@ -62,8 +62,6 @@ describe("participantLiveness", () => {
     ).toBe("gone");
   });
 
-  // A solo DM prepping an encounter has no session and no roster; every row
-  // would otherwise read "Away", which is a drop that never happened.
   it("says nothing at all with no session open", () => {
     expect(
       participantLiveness(row(), context({ connected: false, presentIds: [] })),

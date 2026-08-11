@@ -5,14 +5,8 @@ import {
 } from "src/lib/hooks/use-drive-account";
 import { useSettingsPanel } from "src/lib/hooks/use-settings-panel";
 
-// "Where did my characters go?"
-//
-// They're in the other Google account. This is the only failure in the app that
-// presents as data loss while nothing is wrong, it can't be fixed by retrying,
-// and every affordance the user has — reload, sign out, sign back in — silently
-// returns them to the same account. So it gets an explanation rather than an
-// empty list, and the explanation names both accounts, because knowing which
-// one you *were* in is what makes the fix obvious.
+// Shown when the signed-in Drive account changed: characters didn't
+// disappear, they're under the other account. Names both accounts.
 export default function DriveAccountNotice() {
   const { account, switchedFrom } = useDriveAccount();
   const { openSettings } = useSettingsPanel();

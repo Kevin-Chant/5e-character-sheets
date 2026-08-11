@@ -1,20 +1,16 @@
 // Lightweight "someone else is editing this file" awareness for shared Google
-// Drive characters that have no live WAMP session (e.g. two recipients editing
-// while the owner is offline — see the auto-bootstrap doc). Presence can't help
-// there because it only exists inside a session, so we piggy-back on the one
-// channel every collaborator shares before any session: the Drive file's
-// `appProperties`. Each open client stamps a heartbeat key and reads the others'.
-//
-// This module is the pure, unit-tested core; the datastore wraps it around the
-// gapi calls that read/patch the metadata.
+// Drive characters with no live WAMP session. Piggy-backs on the Drive file's
+// `appProperties`: each open client stamps a heartbeat key and reads the
+// others'. Pure, unit-tested core; the datastore wraps it around the gapi
+// calls that read/patch the metadata.
 
 // One heartbeat key per client, e.g. "editor_<clientId>" -> "<epochMs>|<name>".
 export const EDITOR_PREFIX = "editor_";
 
-// An editor counts as "here" if seen within this window; a heartbeat older than
-// the TTL is pruned so stale keys don't accumulate toward Drive's per-file
-// appProperties cap. FRESH is comfortably larger than the poll cadence so one
-// slow round-trip doesn't flap an active editor out of view.
+// An editor counts as "here" if seen within FRESH; a heartbeat older than TTL
+// is pruned so stale keys don't accumulate toward Drive's appProperties cap.
+// FRESH is comfortably larger than the poll cadence so one slow round-trip
+// doesn't flap an active editor out of view.
 export const PRESENCE_FRESH_MS = 60_000;
 export const PRESENCE_TTL_MS = 10 * 60_000;
 
@@ -30,12 +26,10 @@ export interface SharePresenceSelf {
 }
 
 /**
- * Given the file's current `appProperties`, compute (a) the metadata patch to
- * apply — our own refreshed heartbeat plus null-outs for any heartbeat past the
- * TTL — and (b) the list of *other* editors seen within the fresh window. Never
- * touches non-`editor_` keys (so the SHARED_* markers are preserved) and never
- * prunes a peer that is merely stale-but-not-expired, avoiding races with a
- * heartbeat that peer just wrote.
+ * Given the file's current `appProperties`, compute (a) the metadata patch —
+ * our refreshed heartbeat plus null-outs for any heartbeat past TTL — and (b)
+ * other editors seen within the fresh window. Never touches non-`editor_`
+ * keys, and never prunes a peer that's merely stale-but-not-expired.
  */
 export function computePresenceUpdate(
   appProperties: Record<string, string>,

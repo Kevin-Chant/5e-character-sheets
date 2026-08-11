@@ -1,15 +1,11 @@
 import { PB, StatKey } from "src/lib/data/data-definitions";
 import { Feat } from "src/lib/builder/types";
 
-// The official 5e feat catalog. Only Grappler ships in the open SRD, so — as
-// with the subclass and non-SRD race catalogs — we store only mechanical facts
-// and write original short summaries/effect paraphrases, never published prose.
-// `abilityIncrease` marks a half-feat (raise one of `from` by `by`); `grants`
-// carries the mechanically-enforced parts. Situational combat rules (GWM's
-// -5/+10, Sentinel's reactions, …) have no home in the sheet model and stay as
-// `effect` prose only. A few feats with a concrete but unmodelled effect
-// (Durable's hit-die minimum, Observant's passive bonus, Heavy Armor Master's
-// damage reduction) likewise remain text until the sheet grows a home for them.
+// Official 5e feats. Only Grappler is SRD; the rest store mechanical facts
+// only, with original summaries/effect paraphrases, never published prose.
+// `abilityIncrease` marks a half-feat; `grants` carries the mechanically
+// enforced parts. Situational rules (GWM's -5/+10, Sentinel's reactions, …)
+// have no sheet-model home and stay as `effect` prose only.
 
 const ALL_STATS = [
   StatKey.str,

@@ -33,10 +33,7 @@ import {
   spellcastingAbilityFor,
 } from "./rules";
 
-// The spell save DC for a class on this character, as a formula: the per-class
-// `saveDcOverride` if set, else the standard 8 + PB + spellcasting ability.
-// Mirrors the default the spellcasting card shows — the roll dialog uses it to
-// put a save-based spell's DC in front of the caster (and on the wire).
+// Spell save DC for a class: `saveDcOverride` if set, else 8 + PB + spellcasting ability.
 export function getSpellSaveDcFormula(
   character: Character,
   classId: UUID,
@@ -50,9 +47,7 @@ export function getSpellSaveDcFormula(
   );
 }
 
-// The spell attack bonus for a class on this character: the per-class
-// `attackBonusOverride` if set, else PB + the class's spellcasting modifier.
-// Mirrors the default the spellcasting card shows (see OPTIONAL_FIELD_INITIALIZERS).
+// Spell attack bonus for a class: `attackBonusOverride` if set, else PB + spellcasting modifier.
 export function getSpellAttackBonus(
   character: Character,
   classId: UUID,
@@ -68,12 +63,7 @@ export function getSpellAttackBonus(
   );
 }
 
-/**
- * A formatted piece of a formula, carrying the structural context a parent
- * expression needs to combine it correctly. Returning these instead of bare
- * strings is what lets the formatter parenthesize by precedence, flip the sign
- * of negative terms, and fold constant subtrees together.
- */
+/** A formatted formula piece, carrying the precedence a parent needs to combine it correctly. */
 export interface FormattedPart {
   text: string;
   /** Binding strength, used to decide when a parent must wrap this in parens. */
@@ -102,10 +92,7 @@ function paren(part: FormattedPart, threshold: number): string {
   return part.precedence < threshold ? `(${part.text})` : part.text;
 }
 
-/**
- * Like {@link paren} but also wraps equal-precedence children — needed on the
- * right side of non-associative operators (`a - (b - c)`, `a / (b * c)`).
- */
+/** Like {@link paren}, but also wraps equal-precedence children (right side of `-`, `/`). */
 function parenStrict(part: FormattedPart, threshold: number): string {
   return part.precedence <= threshold ? `(${part.text})` : part.text;
 }
@@ -165,12 +152,7 @@ export const OPERATORS: Record<Operation, OperatorDescriptor> = {
   },
 };
 
-/**
- * Edit-mode chrome (the labels rendered between operand inputs in the formula
- * builder). Kept separate from the display formatter above so the two don't
- * have to share one vocabulary — the builder shows raw structure, the display
- * formatter shows polished prose.
- */
+/** Labels between operand inputs in the formula builder; separate vocabulary from the display formatter. */
 export const EDITOR_SYNTAX: Record<
   Operation,
   { startStr: string; connector: string; endStr: string }
@@ -189,16 +171,12 @@ export function withoutZero(num: number) {
   return num !== 0 ? num.toString() : "";
 }
 
-/**
- * Render an addition, collapsing all constant terms into a single number and
- * flipping the sign of negative terms (`a + -1` becomes `a - 1`).
- */
+/** Render an addition, folding constants and flipping negatives (`a + -1` → `a - 1`). */
 function formatAdditive(parts: FormattedPart[]): string {
   const constSum = parts
     .filter((p) => p.numericValue !== undefined)
     .reduce((acc, p) => acc + (p.numericValue as number), 0);
   const ordered = parts.filter((p) => p.numericValue === undefined);
-  // Keep a folded constant only when it carries weight (or is all we have).
   if (constSum !== 0 || ordered.length === 0)
     ordered.push(numberPart(constSum));
 
@@ -226,12 +204,9 @@ export function calculateAtomicVariable(
   atomicVariable: AtomicVariable,
   character: Character,
 ): number {
-  // Numbers are already calculated
   if (isNumber(atomicVariable)) return atomicVariable;
-  // StatKeys pull the modifier for the specified stat
   if (isStatKey(atomicVariable))
     return modifier(character.stats[atomicVariable]);
-  // Die expressions run the specified operation on the given die multiplied by the number specified
   if (isDieExpression(atomicVariable))
     return (
       atomicVariable[0] * getDieOperation(atomicVariable[2])(atomicVariable[1])
@@ -239,17 +214,14 @@ export function calculateAtomicVariable(
   if (isPb(atomicVariable)) {
     return getPB(character);
   }
-  // A spellMod resolves to the modifier of its class's spellcasting ability.
   if (isSpellMod(atomicVariable))
     return modifier(
       character.stats[
         spellcastingAbilityFor(character, atomicVariable.spellMod)
       ],
     );
-  // A classLevel leaf pulls the character's level in the referenced class.
   if (isClassLevel(atomicVariable))
     return levelOfClassId(character, atomicVariable.classLevel);
-  // The equippedArmor leaf resolves to the AC from equipped armor + shields.
   if (isEquippedArmor(atomicVariable)) return equippedArmorAC(character);
   throw new Error(
     "Reached unreachable code in calculateAtomicVariable due to" +
@@ -262,14 +234,12 @@ function formatAtomicVariablePart(
   character: Character,
   evaluateReferences: boolean,
 ): FormattedPart {
-  // Numbers are constants and fold like any other resolved value.
   if (isNumber(atomicVariable)) return numberPart(atomicVariable);
-  // StatKeys pull the modifier for the specified stat.
   if (isStatKey(atomicVariable))
     return evaluateReferences
       ? numberPart(modifier(character.stats[atomicVariable]))
       : { text: `${atomicVariable} mod`, precedence: PREC_ATOM };
-  // Die expressions render in the form xdy and never resolve to a constant.
+  // Die expressions render as xdy and never resolve to a constant.
   if (isDieExpression(atomicVariable))
     return {
       text: `${atomicVariable[0]}${
@@ -283,7 +253,6 @@ function formatAtomicVariablePart(
     return evaluateReferences
       ? numberPart(getPB(character))
       : { text: "PB", precedence: PREC_ATOM };
-  // A spellMod renders as its resolved number, or "spellcasting mod" symbolically.
   if (isSpellMod(atomicVariable))
     return evaluateReferences
       ? numberPart(
@@ -294,7 +263,6 @@ function formatAtomicVariablePart(
           ),
         )
       : { text: "spellcasting mod", precedence: PREC_ATOM };
-  // A classLevel leaf resolves to the class level, or renders "<Class> level".
   if (isClassLevel(atomicVariable))
     return evaluateReferences
       ? numberPart(levelOfClassId(character, atomicVariable.classLevel))
@@ -302,7 +270,6 @@ function formatAtomicVariablePart(
           text: `${classNameForId(character, atomicVariable.classLevel) ?? "Class"} level`,
           precedence: PREC_ATOM,
         };
-  // The equippedArmor leaf resolves to its AC number, or "armor" symbolically.
   if (isEquippedArmor(atomicVariable))
     return evaluateReferences
       ? numberPart(equippedArmorAC(character))
@@ -331,9 +298,7 @@ function formatCustomFormulaPart(
 /**
  * Recognize the clamp idiom — `max(lo, min(hi, x))` or `min(hi, max(lo, x))`
  * with constant bounds — and render it as "x, between lo and hi". Returns
- * undefined for any shape that isn't a clamp (3+ operands, symbolic bounds, or
- * a value that would itself fold to a constant), so callers fall back to the
- * generic functional `min(...)`/`max(...)` form.
+ * undefined otherwise, so callers fall back to the generic `min`/`max` form.
  */
 function asClamp(
   expr: Expression,
@@ -373,12 +338,10 @@ function asClamp(
         character,
         evaluateReferences,
       );
-      // A constant value should fold to a number rather than read as a clamp.
       if (valuePart.numericValue !== undefined) continue;
       // `max` supplies the lower bound, `min` the upper bound.
       const lo = outer === "maximum" ? outerBound : innerBound;
       const hi = outer === "maximum" ? innerBound : outerBound;
-      // Bounds print literally — a 0 bound is meaningful, unlike additive terms.
       return {
         text: `${valuePart.text}, between ${lo} and ${hi}`,
         precedence: PREC_CLAMP,
@@ -457,10 +420,8 @@ export function formatCustomFormulaWithDamage(
     .join(", ");
 }
 
-// "DC 15 DEX" — the at-a-glance form of a `SaveEffect`, used everywhere one is
-// shown (the attacks table, a limited-use pool's header, the roll dialog). The
-// ability is dropped when the effect doesn't fix one (a Ki DC backs several
-// features with different saves), leaving a bare "DC 15".
+// "DC 15 DEX" — the at-a-glance form of a `SaveEffect`. Ability is omitted
+// when the effect doesn't fix one, leaving a bare "DC 15".
 export function formatSaveEffect(
   save: SaveEffect,
   character: Character,
@@ -469,8 +430,7 @@ export function formatSaveEffect(
   return save.stat ? `DC ${dc} ${save.stat.toUpperCase()}` : `DC ${dc}`;
 }
 
-// The longer prose form: the DC, what a success does, and any advisory note.
-// Used where there's room for a sentence (the roll dialog), not in a table cell.
+// Longer prose form: the DC, what a success does, and any advisory note.
 export function describeSaveEffect(
   save: SaveEffect,
   character: Character,

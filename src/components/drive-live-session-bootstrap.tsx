@@ -13,14 +13,9 @@ import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 // How often a recipient re-attempts to join while the owner isn't online yet.
 const JOIN_RETRY_MS = 15_000;
 
-// Auto-connects the two sides of a shared Google Drive character into one live
-// session, so co-editing "just works" the way Drive users expect — no manual
-// toggle, no code exchange. The WAMP realm is the character uuid, so both sides
-// already address the same realm; we only decide who hosts:
-//   - "owner"     (a shareable doc we created) auto-hosts the realm.
-//   - "recipient" (a doc shared *with* us)     auto-joins, retrying until the
-//                                              owner comes online.
-// Renders nothing. Mirrors the renderless-effect pattern of PresenceBroadcaster.
+// Auto-connects both sides of a shared Google Drive character into one live
+// session. Realm = character uuid. "owner" auto-hosts; "recipient" auto-joins,
+// retrying until the owner comes online. Renders nothing.
 export default function DriveLiveSessionBootstrap() {
   const { character, dispatch, openSharingSession, unsavedChanges } =
     useCharacter();
@@ -35,20 +30,18 @@ export default function DriveLiveSessionBootstrap() {
   const shareRole = uuid ? datastore?.getShareRole?.(uuid) : undefined;
   const autoEnabled = settings.autoLiveSession;
 
-  // Characters we've already auto-acted on, so we don't re-host after a manual
-  // opt-out (flipping the share toggle off) or fire twice for the same uuid.
+  // Characters already auto-acted on, so we don't re-host after opt-out or fire twice.
   const handledRef = useRef<Set<string>>(new Set());
   // Latest unsavedChanges, readable synchronously inside the async join flow.
   const unsavedRef = useRef(unsavedChanges);
   unsavedRef.current = unsavedChanges;
-  // Which sheet is open *now* — for the deferred confirm below, which can
-  // outlive the character it was raised for.
+  // Which sheet is open now, for the deferred confirm below (can outlive the character it was raised for).
   const openUuidRef = useRef(uuid);
   openUuidRef.current = uuid;
 
   useEffect(() => {
     if (!uuid || !autoEnabled || !shareRole) return;
-    // A character we've joined remotely is owned by the host — never re-host it.
+    // A character joined remotely is host-owned — never re-host it.
     if (getRole(uuid) === "remote") return;
 
     if (shareRole === "owner") {
@@ -59,8 +52,7 @@ export default function DriveLiveSessionBootstrap() {
       return;
     }
 
-    // Recipient: keep probing until the owner's realm exists, then pull their
-    // current character over the session.
+    // Recipient: poll until the owner's realm exists, then pull their character.
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -72,19 +64,15 @@ export default function DriveLiveSessionBootstrap() {
         console.error("Joined character failed validation", result.errors);
         return;
       }
-      // **Re-checked at the moment it runs, not at the moment it was offered.**
-      // The prompt below waits on a human, and the sheet can change underneath
-      // it — pick another character while "Rejoin live session?" is up and a
-      // confirm would load the host's copy over whatever is now on screen. The
-      // `cancelled` guard covers the effect being torn down, which is a
-      // different question from what the user is looking at right now.
+      // Re-checked when it runs, not when offered: the confirm below waits on
+      // a human and the open sheet can change meanwhile. `cancelled` only
+      // covers the effect unmounting, hence the separate openUuidRef check.
       const load = () => {
         if (cancelled || openUuidRef.current !== uuid) return;
         dispatch(loadPersistedCharacter(result.character));
       };
-      // Joining replaces the in-memory character with the host's copy. If we
-      // made solo edits while the owner was offline, confirm before discarding
-      // them; otherwise join silently.
+      // Joining replaces the in-memory character; confirm first if we made
+      // solo edits while the owner was offline.
       if (unsavedRef.current) {
         show({
           title: "Rejoin live session?",
@@ -105,13 +93,9 @@ export default function DriveLiveSessionBootstrap() {
       if (cancelled) return;
       try {
         await joinSession(uuid);
-        // The join can resolve *after* this effect was torn down (character
-        // switched mid-flight) — at which point it has just claimed the
-        // one-session-at-a-time slot for a character no longer on screen.
-        // The cleanup below already ran and found nothing to disconnect, so
-        // this is the only hand left holding the orphan. `getRole` scopes the
-        // check to our uuid: a session the user opened meanwhile answers
-        // `undefined` here and is left alone.
+        // The join can resolve after this effect tore down (character switched
+        // mid-flight); getRole scopes the disconnect to our uuid so a session
+        // opened meanwhile is left alone.
         if (cancelled) {
           if (getRole(uuid) === "remote") disconnect(uuid);
           return;
@@ -130,8 +114,7 @@ export default function DriveLiveSessionBootstrap() {
       // Leave the owner's session when switching away or unmounting.
       if (getRole(uuid) === "remote") disconnect(uuid);
     };
-    // getRole/dispatch/session helpers are stable enough; re-running only on the
-    // character or the auto-session toggle is intended (exhaustive-deps is off).
+    // Deps intentionally limited to uuid/shareRole/autoEnabled (exhaustive-deps is off).
   }, [uuid, shareRole, autoEnabled]);
 
   return null;

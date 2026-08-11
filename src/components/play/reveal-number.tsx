@@ -1,21 +1,10 @@
 import { ReactNode, useState } from "react";
 import { useDeferredNumber } from "src/lib/hooks/use-deferred-number";
 
-// The play surface's third numeric shape, declared once so it stops being
-// re-invented: a value that reads as text until you click it, then becomes a
-// deferred number field that closes when the edit ends.
-//
-// It exists for corrections rather than for play — setting hit points to exactly
-// 14 after a stat-block fix, changing how long a condition has left. Those are
-// rare enough that a permanent input beside every number would be five controls
-// competing for the eye with the one you actually reach for, and important
-// enough that they can't live in a menu. Hiding them behind the number they
-// edit puts them exactly where you'd look.
-//
-// Commit semantics come from `useDeferredNumber` (blur or Enter commits,
-// Escape reverts, empty reverts rather than writing 0); the only addition is
-// that all three of those also *close* the editor, because a revealed field
-// with no way back is a trap.
+// A value that reads as text until clicked, then becomes a deferred number
+// field (for corrections — e.g. setting HP exactly after a stat-block fix).
+// Commit semantics come from useDeferredNumber (blur/Enter commits, Escape
+// reverts); blur/Enter/Escape here also close the editor.
 export default function RevealNumber({
   value,
   onCommit,
@@ -33,15 +22,12 @@ export default function RevealNumber({
   onCommit: (value: number) => void;
   min?: number;
   max?: number;
-  // The button announces the act ("Set Grish hit points directly"); the input
-  // announces the field ("Grish hit points"). Same control, two moments.
   buttonLabel: string;
   inputLabel: string;
   title?: string;
   className?: string;
   inputClassName?: string;
-  // Show a stored 0 as an empty box — for fields where zero means "unset"
-  // rather than the number zero. Typing 0 still says zero unambiguously.
+  // Shows a stored 0 as an empty box (zero means "unset"); typing 0 still commits as zero.
   blankZero?: boolean;
   children: ReactNode;
 }) {
@@ -75,9 +61,7 @@ export default function RevealNumber({
   );
 }
 
-// A separate component so the draft state inside `useDeferredNumber` is born
-// with the editor and dies with it — mounting it alongside the button would
-// leave a stale draft waiting for the next reveal.
+// Separate component so useDeferredNumber's draft state is born/dies with the editor.
 function RevealedInput({
   value,
   onCommit,

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// The memory it tests lives in `window.localStorage`.
 import { UUID } from "crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -23,8 +22,6 @@ function entry(code: string, at: number): SessionMemory {
 
 describe("recordSession", () => {
   it("merges into the entry for a code instead of replacing it", () => {
-    // Two surfaces know two different halves: the connect effect knows the code
-    // and the sheet, the lobby knows the seat.
     const first = recordSession([], {
       code: CODE,
       lastJoined: 1,

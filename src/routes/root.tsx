@@ -57,12 +57,9 @@ function Sidebar({ close }: { close: () => void }) {
   const { openBuilder } = useCharacterBuilder();
 
   const deleteCharacterAndRefocus = (uuid: UUID) => {
-    // End any live session for this character before removing it, so we don't
-    // leave a dangling realm open on the server.
     teardownSession(uuid);
     deleteCharacter(uuid);
-    // Only deleting the *open* sheet closes it — deleting some other entry
-    // from the drawer shouldn't dump you back on the picker.
+    // Only deleting the open sheet closes it.
     if (uuid === character?.uuid) dispatch(resetCharacter());
   };
 
@@ -71,8 +68,6 @@ function Sidebar({ close }: { close: () => void }) {
     : datastore.savedSheetsCopy;
 
   return (
-    // The drawer is a temporary overlay, so a click anywhere outside it means
-    // "I'm done here" — same dismissal the modals offer.
     <>
       <div id="sidebar-scrim" onClick={close} />
       <div id="sidebar">
@@ -91,23 +86,15 @@ function Sidebar({ close }: { close: () => void }) {
                 <li key={characterEntry.uuid} className="row space-between">
                   <Link
                     className="no-underline font-black"
-                    // The uuid makes the href a real destination, so opening
-                    // it in a new tab lands on this character (the sheet's
-                    // cold-start bootstrap re-selects the backend and, for
-                    // Drive, resumes the session silently).
                     to={`/sheet/${characterEntry.uuid}`}
                     onClick={(e) => {
-                      // A modified click (ctrl/cmd/shift) is "open in a new
-                      // tab" — the Link already leaves navigation to the
-                      // browser, and this tab must not switch sheets or close
-                      // the drawer underneath it.
+                      // A modified click is "open in a new tab": leave
+                      // navigation to the browser, don't switch sheets here.
                       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
                         return;
                       if (!isSameCharacter) {
                         dispatch(loadPersistedCharacter(characterEntry));
                       }
-                      // Picking a sheet is the drawer's whole job — leaving it
-                      // open just covers the sheet you asked for.
                       close();
                     }}
                   >
@@ -220,8 +207,7 @@ export default function Root() {
           setImportErrorMessage("Failed to import, invalid file chosen");
           return;
         }
-        // One file or a whole backup — the same dialog reads both, so
-        // restoring an account isn't a second import flow to discover.
+        // One file or a whole backup — the same dialog reads both.
         const { characters, errors } = parseCharacterFile(JSON.parse(content));
         if (characters.length === 0) {
           console.error("Failed to load character data", errors);
@@ -230,11 +216,9 @@ export default function Root() {
           );
           return;
         }
-        // A multi-character file is a restore, so its sheets are written to
-        // storage rather than merely opened — otherwise nineteen of twenty
-        // would vanish the moment you opened the one on screen. Staging first
-        // puts them in the list immediately, badged unsynced until each write
-        // lands.
+        // A multi-character file is a restore: write every sheet to storage,
+        // not just the one that opens. Staging puts them in the list
+        // immediately, badged unsynced until each write lands.
         if (characters.length > 1) {
           characters.forEach((imported) => {
             stageCharacter(imported);
@@ -258,11 +242,8 @@ export default function Root() {
     };
   }, [fileSelected, dispatch, save, stageCharacter]);
 
-  // A save stuck on an expired Google session isn't a connection problem, and
-  // pretending it is costs the user their unsaved edits: the fix is one
-  // consent click, so the indicator *is* the button. requestDriveToken must be
-  // called from the gesture itself (popup blockers), then the retried save
-  // clears the indicator through the normal path.
+  // requestDriveToken must be called from the click itself (popup blockers);
+  // the retried save then clears the indicator through the normal path.
   const reauthorizeAndSave = () => {
     void requestDriveToken().then((ok) => {
       if (ok) saveNow();
@@ -307,23 +288,18 @@ export default function Root() {
       </Tooltip>
     );
 
-  // Still needed locally: this one control's icon and label depend on which of
-  // the two character surfaces you're looking at, not just on whether it shows.
   const onPlaySurface =
     location.pathname === "/play" || location.pathname.startsWith("/play/");
   const pageTitle = navTitle(location.pathname, character?.name);
 
-  // Not for a sheet you joined remotely or borrowed from a DM — sharing is the
-  // owner's call, and neither of those copies is yours to offer.
+  // Not for a sheet joined remotely or borrowed from a DM — sharing is the owner's call.
   const canShare =
     !!character &&
     !!datastore &&
     getRole(character.uuid) !== "remote" &&
     !isBorrowed(character.uuid);
 
-  // Which controls this surface gets. The matrix — and the reasoning for it —
-  // lives in `lib/nav-controls.ts`, so a new route declares itself in one place
-  // instead of in eight scattered conditions.
+  // The matrix lives in `lib/nav-controls.ts`.
   const controls = navControls({
     pathname: location.pathname,
     hasCharacter: !!character,
@@ -332,9 +308,6 @@ export default function Root() {
     autosave: settings.autosave,
   });
 
-  // "Share a character" on the sessions page is an intent, not a destination:
-  // it lands on /sheet, which shows the picker when no character is open, and
-  // the modal opens as soon as there is one to share.
   const shareIntent = (location.state as { share?: boolean } | null)?.share;
   useEffect(() => {
     if (shareIntent && canShare) setShareModalOpen(true);
@@ -344,8 +317,6 @@ export default function Root() {
     <>
       <div id="nav">
         <nav id="main-nav">
-          {/* The drawer lists saved characters, so with no datastore it opens
-              on "Not connected to saved characters" and nothing to click. */}
           {controls.characterDrawer && (
             <button
               className="icon-btn"
@@ -355,9 +326,6 @@ export default function Root() {
               <FaBars />
             </button>
           )}
-          {/* Home is the hub — characters, games, and the way back into either
-              — so this is a plain link now. It used to have to carry state to
-              stop home from redirecting straight back to where you came from. */}
           <Link to="/">
             <button
               className="icon-btn"
@@ -370,12 +338,6 @@ export default function Root() {
         </nav>
         <div id="right-nav-components">
           <PresenceRoster />
-          {/* There is no Sessions button here any more. It existed because the
-              front door couldn't answer "who am I playing with", and a second
-              icon that lands where Home already lands is the duplicate door the
-              sessions page was written to argue against. */}
-          {/* Play is a place you go, not a state the sheet is in — so it's a
-              link, and the button says where it takes you. */}
           {controls.playToggle && (
             <Link to={onPlaySurface ? "/sheet" : "/play"}>
               <button
@@ -387,10 +349,7 @@ export default function Root() {
               </button>
             </Link>
           )}
-          {/* App dice or real dice, for every roll surface at once. A table
-              posture rather than a setting: in-memory on purpose, and the
-              roll dialogs read it to decide between rolling for you and
-              asking what your dice said. */}
+          {/* In-memory table posture, not a persisted setting. */}
           {controls.rollMode && (
             <button
               className="icon-btn"
@@ -436,9 +395,6 @@ export default function Root() {
             onExportFile={saveCharacter}
             hasCharacter={!!character}
           />
-          {/* A toggle, not a destination. Settings used to be the one
-              interruption you couldn't dismiss — you had to navigate away from
-              it, losing wherever you'd been. */}
           <button
             className="icon-btn"
             onClick={settingsOpen ? closeSettings : openSettings}
@@ -450,11 +406,6 @@ export default function Root() {
           </button>
           {controls.saveIndicator && (
             <div id="save-container">
-              {/* Undo/redo stay in the nav rather than moving somewhere more
-                  sheet-local: they have keyboard shortcuts, so this is the only
-                  place anyone discovers they exist. They edit the sheet, so
-                  they're scoped to it — on the board they'd invite the
-                  expectation that they undo the *fight*, which has no undo. */}
               {controls.undoRedo && (
                 <>
                   <button
@@ -475,13 +426,7 @@ export default function Root() {
                   </button>
                 </>
               )}
-              {/* Status, not an action — worth seeing on the board too, where a
-                  failed save is exactly the thing you'd want to know about. */}
               <p>{saveIndicator}</p>
-              {/* With autosave on (the default) this button duplicates what the
-                  indicator beside it already says, and ⌘S covers the impatient.
-                  It's the only way to save with autosave *off*, so it follows
-                  that setting rather than disappearing outright. */}
               {controls.saveButton && (
                 <button
                   className="icon-btn"
@@ -518,8 +463,6 @@ export default function Root() {
       {shareModalOpen && (
         <ShareModal onClose={() => setShareModalOpen(false)} />
       )}
-      {/* About a character that is, by definition, not the one on screen — so
-          it belongs here rather than inside the sheet. */}
       <BackgroundSaveWarning />
       <div className="flex">
         {showSidebar && <Sidebar close={() => setShowSidebar(false)} />}

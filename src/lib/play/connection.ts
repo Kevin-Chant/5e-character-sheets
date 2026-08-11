@@ -1,77 +1,33 @@
 import { EMPTY_ENCOUNTER, Encounter } from "src/lib/play/encounter";
 
-// Being in a session, as a state machine.
-//
-// This is the part of the party session that kept producing bugs, and the
-// reason was always the same shape: a boolean ref, armed at one moment and
-// cleared at another, where the clearing moment was assumed to arrive.
-//
-//   - `adoptNextStateRef` was armed on join and cleared by the room's reply. An
-//     empty room sends no reply, so on a table nobody else was at it stayed
-//     armed for the rest of the evening — ready to swallow the next arrival's
-//     stale encounter on top of the fight in progress.
-//   - The DM seat was reclaimed only when a peer's state arrived, for the same
-//     reason, so a DM walking back into their own quiet table was seated as a
-//     player.
-//   - Which table the stored encounter belonged to was a separate localStorage
-//     key with its own lifetime rule, so a brand-new game opened onto last
-//     week's fight.
-//
-// The fix is not a better flag. It is that **"I am synced" has to be an event
-// with an outcome**, and an empty room is one of the outcomes — the one that
-// could never be observed before, because the only two things that could
-// happen were "a reply arrived" and "nothing has happened yet", and those look
-// identical from the inside.
-//
-// So: a joiner asks the room (`syncRequest`), the room answers
-// (`syncResponse`), and if nobody answers inside `SYNC_WINDOW_MS` the state
-// machine says so out loud. Adoption is scoped to one request id, which is
-// what makes a stray state broadcast — from a latecomer, from a peer's ordinary
-// edit — no longer adoptable at all. The window ends the *waiting*, never the
-// listening: a late answer still merges the ordinary way.
+// State machine for a party session's sync handshake: a joiner asks the room
+// (`syncRequest`), the room answers (`syncResponse`), and if nobody answers
+// inside `SYNC_WINDOW_MS` the machine transitions to "live" anyway. Adoption
+// is scoped to one request id, so a stray state broadcast can't be adopted.
+// The window ends the waiting, not the listening — a late answer still merges.
 
-// How long to wait for anyone to answer before concluding the room is empty.
-//
-// This is a "give up" timer, not a "collect the best answer" timer: the first
-// answer wins the adoption and ends the wait, so a busy table pays nothing for
-// this number and only an empty one pays it in full. That's what lets it be
-// generous enough to survive a slow broker round trip without anyone noticing.
-//
-// It used to be 750ms, which is a number measured on a LAN. A phone on mobile
-// data can take longer than that to hear back, and the old cost of being late
-// was severe: the joiner concluded the room was empty, stopped adopting, and
-// then *merged* the answer when it arrived — where a long-lived local encounter
-// can win the revision race and push last week's fight over the live one. The
-// window is more generous now, and missing it is no longer fatal: adoption
-// stays available to the answer to *this* request however late it lands, until
-// a local edit makes our own state something worth keeping (see below).
+// Timeout before concluding the room is empty. The first answer wins and ends
+// the wait, so only an empty room pays this cost. 1500ms to survive a slow
+// mobile round trip (was 750ms, measured on LAN, too tight for mobile data).
 export const SYNC_WINDOW_MS = 1_500;
 
 export type SessionIntent =
-  // Opening a table. A brand-new code, or reopening one that went quiet.
   | { kind: "host"; reopening: boolean }
-  // Walking into somebody else's — the case with an unrelated local history.
   | { kind: "join" };
 
 export type ConnectionState =
   | { phase: "offline"; error?: string }
   | { phase: "connecting"; intent: SessionIntent }
-  // Connected, and waiting to hear what the room holds.
   | {
       phase: "syncing";
       code: string;
       requestId: string;
-      // Whether the answer replaces our state or merely merges with it. Only a
-      // joiner adopts: it has an unrelated local history that would otherwise
-      // race the room's on a revision number neither side shares. A host *is*
-      // the room.
+      // Only a joiner (or a host reopening) adopts the answer wholesale; a
+      // fresh host's state is the room's, so it merges.
       adopting: boolean;
     }
-  // Connected and done waiting. `pendingRequestId` is the sync request whose
-  // answer never came inside the window — still adoptable if it turns up,
-  // because "the room was slow" and "the room is empty" only became
-  // distinguishable when the answer arrived, and we shouldn't have to have
-  // guessed right.
+  // `pendingRequestId`: the sync request whose answer missed the window but
+  // is still adoptable if it turns up late.
   | {
       phase: "live";
       code: string;
@@ -84,8 +40,7 @@ export type ConnectionEvent =
   | { type: "opened"; code: string; requestId: string }
   | { type: "sync-response"; requestId: string }
   | { type: "sync-window-closed"; requestId: string }
-  // Somebody edited the encounter here. What we hold is no longer merely a
-  // stale copy of the room's, so a late answer must merge rather than replace.
+  // A local edit means a late answer must merge, not replace.
   | { type: "local-change" }
   | { type: "closed"; error?: string };
 
@@ -103,44 +58,27 @@ export function connectionReducer(
         phase: "syncing",
         code: event.code,
         requestId: event.requestId,
-        // A joiner adopts — its local history is unrelated to the room's. So
-        // does a host *reopening* a code, and for the same reason: an answer
-        // means the table is live without them (their own drop, a second
-        // device), and their stored copy — possibly high-revision solo prep —
-        // must not win the document race against a fight in progress. The
-        // empty-room case costs a reopening DM nothing: no answer, no
-        // adoption, their prep stands. Only a *fresh* host never adopts —
-        // a brand-new code has no room to defer to.
         adopting:
           state.phase === "connecting" &&
           (state.intent.kind === "join" || state.intent.reopening),
       };
-    // Somebody answered. Whatever it was, the waiting is over — a second answer
-    // is an ordinary merge, which is what stops two peers' replies fighting over
-    // which one gets adopted.
     case "sync-response":
       if (
         state.phase === "live" &&
         state.pendingRequestId === event.requestId
       ) {
-        // The late answer, now consumed: a second one merges like any other
-        // state.
+        // Late answer, consumed; any further answer merges normally.
         return { phase: "live", code: state.code };
       }
       if (state.phase !== "syncing" || state.requestId !== event.requestId) {
         return state;
       }
       return { phase: "live", code: state.code };
-    // Nobody did. The room is empty and our state stands — which for the DM
-    // walking back into their own table is not an edge case but the ordinary
-    // Thursday.
     case "sync-window-closed":
       if (state.phase !== "syncing" || state.requestId !== event.requestId) {
         return state;
       }
-      // The waiting ends; the *offer* to adopt does not. Carried into `live`
-      // so an answer that arrives a second later still replaces a newcomer's
-      // unrelated history rather than racing it.
+      // Waiting ends but the offer to adopt carries into `live`, for a late answer.
       return {
         phase: "live",
         code: state.code,
@@ -155,9 +93,8 @@ export function connectionReducer(
   }
 }
 
-// Whether an arriving answer should replace our state rather than merge with
-// it. Scoped to the request it answers, so an answer to *last* join — or a
-// stray one addressed to us after we stopped waiting — cannot.
+// Whether an arriving answer should replace our state rather than merge.
+// Scoped to the request it answers.
 export function adoptsResponse(
   state: ConnectionState,
   requestId: string,
@@ -165,9 +102,6 @@ export function adoptsResponse(
   if (state.phase === "syncing") {
     return state.requestId === requestId && state.adopting;
   }
-  // The late answer to the request we gave up on. Still ours to adopt, because
-  // nothing has happened here since that would be worth keeping — the first
-  // local edit clears this.
   return (
     state.phase === "live" &&
     !!state.adopting &&
@@ -175,19 +109,10 @@ export function adoptsResponse(
   );
 }
 
-// What a table opens with.
-//
-// The encounter is stored per *browser* while a code names a *table*, so the
-// two need pairing: `belongsTo` is the code the stored encounter came from.
-// Without it, starting a brand-new game opened straight onto the previous
-// game's order, round and monsters — the app looking like it had reopened the
-// old session rather than started a new one.
-//
-// Reopening a code keeps what it has, because that *is* walking back into the
-// fight you left. The carve-out is prep: an encounter built with no session
-// open belongs to nobody but this browser, so a local edit made while
-// disconnected clears `belongsTo` and hosting then keeps the six goblins you
-// just lined up.
+// The stored encounter is per-browser while a code names a table; `belongsTo`
+// pairs them so a brand-new game doesn't open onto the previous one's fight.
+// Reopening a code keeps its encounter. An encounter with no `belongsTo`
+// (built while disconnected) is local prep and carries into a fresh host too.
 export function encounterForTable(
   stored: Encounter,
   belongsTo: string | undefined,

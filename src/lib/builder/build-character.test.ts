@@ -26,9 +26,7 @@ import {
   resistancesFromOptions,
 } from "src/lib/builder/chosen-options";
 
-// A High Elf Wizard with a Sage background — exercises racial ASIs (race +
-// subrace), class saving throws / skill choices, level-1 spellcasting, and a
-// background's skills/feature/equipment/gold.
+// A High Elf Wizard with a Sage background.
 const highElfWizard = (): BuilderState => ({
   ...defaultBuilderState(),
   mode: "guided",
@@ -91,8 +89,6 @@ describe("buildCharacter — guided High Elf Wizard", () => {
   });
 
   it("adds the chosen spells with roll-ready mechanics", () => {
-    // The spellcasting entry references the Wizard class by its id, and the
-    // spells are tagged to that same id.
     const wizardId = char.class.find((c) => c.name === "Wizard")!.id;
     expect(char.spellcastingClasses).toEqual([{ classId: wizardId }]);
     expect(char.spells[0]?.every((s) => s.spellcastingClass === wizardId)).toBe(
@@ -106,7 +102,6 @@ describe("buildCharacter — guided High Elf Wizard", () => {
       "Magic Missile",
       "Shield",
     ]);
-    // Fire Bolt deals damage → should carry structured mechanics (roll button).
     expect(char.spells[0]?.[0].mechanics).toBeDefined();
   });
 
@@ -118,7 +113,6 @@ describe("buildCharacter — guided High Elf Wizard", () => {
   });
 
   it("seeds darkvision into senses from the race's Darkvision trait", () => {
-    // The elf's "Darkvision" trait puts the 60ft range in the detail prose.
     expect(char.senses.darkvision).toBe(60);
   });
 
@@ -153,9 +147,6 @@ describe("buildCharacter — custom race & class", () => {
 });
 
 describe("buildCharacter — subrace speed & tool dedup", () => {
-  // Wood Elf Rogue: Fleet of Foot raises speed to 35, and the Rogue's
-  // "Thieves' Tools" + a Criminal background's "Thieves' tools" must not both
-  // land on the sheet.
   const char = buildCharacter({
     ...defaultBuilderState(),
     mode: "guided",
@@ -197,7 +188,6 @@ describe("buildCharacter — class equipment choices, attacks & AC", () => {
     expect(items).not.toContain("any martial melee weapon");
     // Option 1: "(a) two handaxes or (b) any simple weapon" defaults to (a).
     expect(items).toContain("Handaxe (2)");
-    // Concrete weapons become rollable attacks.
     expect(char.attacks.map((a) => a.name)).toEqual(
       expect.arrayContaining(["Glaive", "Handaxe", "Javelin"]),
     );
@@ -227,9 +217,8 @@ describe("buildCharacter — class equipment choices, attacks & AC", () => {
 });
 
 describe("buildCharacter — starting equipment weights", () => {
-  // Encumbrance is on by default but read 0 lb for every builder-made character,
-  // because nothing ever set `weight`. Carried weight is Σ weight × quantity, so
-  // a multi-item grant needs its count in `quantity`, not just in its name.
+  // Carried weight is Σ weight × quantity, so a multi-item grant needs its
+  // count in `quantity`, not just in its name.
   it("gives granted gear its SRD weight, and lifts a bundled count into quantity", () => {
     const char = buildCharacter({
       ...defaultBuilderState(),
@@ -262,8 +251,6 @@ describe("buildCharacter — starting equipment weights", () => {
   });
 
   it("leaves flavour items unweighted rather than pretending they weigh zero", () => {
-    // An absent weight contributes nothing to the total — same as before — but
-    // it also isn't a claim that the item is weightless.
     expect(weightForItem("A token to remember your parents")).toBeUndefined();
     expect(weightForItem("Explorer's Pack")).toBe(59);
     // SRD prose uses curly apostrophes; the hand-authored lists use straight.
@@ -329,7 +316,6 @@ describe("buildCharacter — level-1 subclass mechanics", () => {
         subclass: "Champion",
       }),
     ]);
-    // No spurious subclass feature is added for a name-only subclass.
     expect(char.features.map((f) => f.title)).not.toContain("Champion");
   });
 });
@@ -353,7 +339,7 @@ describe("buildCharacter — non-SRD race", () => {
 });
 
 describe("buildCharacter — escape hatches", () => {
-  it("blank mode returns an empty scaffold free of joke data", () => {
+  it("blank mode returns an empty scaffold", () => {
     const char = buildCharacter({ ...defaultBuilderState(), mode: "blank" });
     expect(char.class).toEqual([]);
     expect(char.attacks).toEqual([]);
@@ -556,8 +542,8 @@ describe("level-1 chosen options", () => {
 describe("the unified grant path", () => {
   it("doesn't list a pool-backed feature twice", () => {
     const c = level1("barbarian");
-    // Rage is a limited-use pool with its own description; before the two
-    // wizards shared a grant path, creation also pushed it into Features.
+    // Rage is a limited-use pool with its own description; must not also
+    // appear in Features.
     expect(c.limitedUseAbilities.map((a) => a.info.title)).toContain("Rage");
     expect(c.features.map((f) => f.title)).not.toContain("Rage");
   });
@@ -597,8 +583,6 @@ describe("Custom Lineage's darkvision-or-skill choice", () => {
       raceSkillChoices: [SkillName.Arcana],
     });
     expect(char.proficiencies.skills[SkillName.Arcana]).toBe(true);
-    // The trait prose mentions darkvision as one of the two options, so
-    // scanning it used to hand the sense out to everyone.
     expect(char.senses.darkvision).toBeUndefined();
   });
 

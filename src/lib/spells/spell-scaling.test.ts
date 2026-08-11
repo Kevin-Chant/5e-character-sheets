@@ -130,8 +130,7 @@ describe("spellDamageAtLevel", () => {
   });
 
   it("scales a dice increment by its count, not by multiplying one roll", () => {
-    // Non-collapsing scaling (mixed dice) must add *more dice*, so an actual
-    // roll rolls them — 1d8 + 2·1d6 → 1d8 + a 2d6 term, not 2×(one d6).
+    // Mixed dice: 1d8 + 2·1d6 -> 1d8 + a 2d6 term, not 2x(one d6).
     const oddball: SpellMechanics = {
       level: 1,
       resolution: { kind: "auto" },

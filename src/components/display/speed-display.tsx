@@ -13,10 +13,8 @@ const MODE_LABELS: Array<[keyof Speeds, string]> = [
   ["burrow", "Burrow"],
 ];
 
-// The Speed box: shows walking speed on the sheet, with the full set of movement
-// modes revealed on hover. Clicking (in edit mode) opens the speeds editor. Walk
-// is the quick-access view of `character.speeds`; all editing goes through the
-// one editor, keeping `speeds` the single source of truth.
+// Shows walking speed, with the full set of movement modes on hover.
+// Clicking in edit mode opens the speeds editor.
 export default function SpeedDisplay() {
   const { character } = useLoadedCharacter();
   const { editMode } = useEditMode();
@@ -30,10 +28,7 @@ export default function SpeedDisplay() {
 
   const setModes = MODE_LABELS.filter(([mode]) => speeds[mode] !== undefined);
 
-  // Markup deliberately mirrors SingleValueDisplay's `vertical` form, down to
-  // the `margin-small` on the value: Speed sits between Armor Class and
-  // Initiative, and without that margin its number, underline and label all rode
-  // half a rem higher than theirs.
+  // Mirrors SingleValueDisplay's `vertical` form's margin-small, to align with neighboring AC/Initiative boxes.
   const box = (
     <div className="column">
       <p
@@ -50,7 +45,6 @@ export default function SpeedDisplay() {
     </div>
   );
 
-  // Only bother with the hover popover when there's more than the walk speed.
   if (setModes.length <= 1) {
     return <div className="column rounded-border-box margin-small">{box}</div>;
   }

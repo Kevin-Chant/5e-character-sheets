@@ -12,26 +12,19 @@ interface DatastoreContextData {
   createCharacter: () => Promise<Character | undefined>;
   importCharacter: (hint?: ImportHint) => Promise<Character | undefined>;
   deleteCharacter: (uuid: UUID) => void;
-  // Put a character into the reactive list *now*, before any write confirms.
-  // The entry is marked unsynced until a `save` for its uuid succeeds, so the
-  // picker and sidebar can show it immediately (a wizard finish, a move
-  // between backends) while being honest that storage hasn't caught up yet.
+  // Put a character into the reactive list before any write confirms; marked
+  // unsynced until `save` for its uuid succeeds.
   stageCharacter: (character: Character) => void;
-  // Uuids whose staged list entry has not yet been confirmed written to the
-  // active backend.
+  // Uuids whose staged entry has not yet been confirmed written.
   unsynced: Set<UUID>;
   debounceWait: number;
   characterLoading: boolean;
   setCharacterLoading: (newValue: boolean) => void;
-  // True when the backend couldn't be read at all (offline, expired Drive
-  // session). Distinct from an empty list: "you have no characters" and "we
-  // couldn't find out" look identical on screen but mean opposite things, and
-  // only one of them should be offering you a Create button.
+  // True when the backend couldn't be read at all — distinct from an empty
+  // list, so the picker can offer retry instead of "create new".
   loadError: boolean;
-  // Re-run the backend's init and re-read its list. The list is otherwise
-  // fetched exactly once per datastore selection, which leaves no way back
-  // from a failed load, and no way to pick up an account switch — the Drive
-  // datastore object is the same object either side of one.
+  // Re-run init and re-read the list (otherwise fetched once per datastore
+  // selection); also how a Drive account switch is picked up.
   refresh: () => void;
 }
 
@@ -91,10 +84,8 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     setSaving(true);
     try {
       await datastore.saveToDatastore(character);
-      // Functional update: overlapping saves must not clobber each other's
-      // list entries via a stale closure snapshot.
+      // Functional update: overlapping saves must not clobber each other via a stale snapshot.
       setLocalCharacters((prev) => ({ ...prev, [character.uuid]: character }));
-      // The backend now holds this entry, so any staged badge comes down.
       clearUnsynced(character.uuid);
     } finally {
       setSaving(false);
@@ -146,11 +137,7 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
 
   const deleteCharacter = (uuid: UUID) => {
     if (!datastore) return;
-    // Optimistic: the row disappears immediately (deleting is near-instant for
-    // localStorage and usually succeeds for Drive). If the backend delete does
-    // fail, the entry is restored and the failure surfaced — before this, a
-    // failed Drive delete pretended to succeed and the character quietly
-    // resurrected on the next reload.
+    // Optimistic removal; restore and surface the error if the backend delete fails.
     const removed = localCharacters[uuid];
     setLocalCharacters((prev) => {
       const next = { ...prev };
@@ -171,28 +158,21 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
   };
 
   useEffect(() => {
-    // Drop the outgoing store's list *before* fetching the new one, whatever
-    // we're moving to. The sidebar and picker render this list directly, and a
-    // Drive init is several network round-trips — long enough to click a
-    // localStorage character out of a list captioned "saved in Google Drive"
-    // and have autosave write it into Drive. Clear first, populate after.
+    // Clear the outgoing store's list before fetching the new one — a Drive
+    // init is several round-trips, long enough for autosave to write a
+    // stale-labeled local character into Drive otherwise.
     setLocalCharacters({});
-    // Staged-but-unconfirmed markers belonged to the outgoing store's list.
     setUnsynced(new Set());
     setLoadError(false);
     if (!datastore) {
-      // Cleared selection (e.g. joining a remote session): nothing to fetch,
-      // and any in-flight spinner must come down with the list it belonged to.
       setCharacterLoading(false);
       return;
     }
-    // Mark loading while the (possibly async, e.g. Drive) list is fetched so
-    // the picker can show a spinner instead of flashing its empty state.
     setCharacterLoading(true);
-    // A swap mid-fetch must not let the store we left win the race. Local
-    // resolves synchronously while Drive takes a round-trip, so a drive→local
-    // swap would otherwise see Drive's promise land last and repopulate the
-    // list with characters from the backend the user just walked away from.
+    // Guard against a swap mid-fetch: local resolves synchronously while
+    // Drive takes a round-trip, so a drive→local swap could otherwise let
+    // Drive's promise land last and repopulate the list from the backend the
+    // user left.
     let cancelled = false;
     datastore
       .initializeDatastore()
@@ -207,10 +187,6 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
         setCharacterLoading(false);
       })
       .catch((error) => {
-        // A failed init (expired Drive token, offline) must not strand the
-        // spinner. It must also not be mistaken for an empty account: the
-        // flag is what lets the picker say "couldn't load" and offer a retry
-        // instead of inviting a new character into a store it can't read.
         if (cancelled) return;
         console.error("Failed to initialize datastore", error);
         setLoadError(true);
@@ -221,9 +197,6 @@ export function DatastoreContextProvider(props: React.PropsWithChildren) {
     };
   }, [datastore, reloadKey]);
 
-  // Memoized so consumers only re-render on real state changes; the callbacks
-  // above close over `datastore` (a dep) and use functional setState, so the
-  // captured instances stay correct between rebuilds.
   const providerData = React.useMemo(
     () => ({
       saving,

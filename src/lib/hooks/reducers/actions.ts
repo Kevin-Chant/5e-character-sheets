@@ -8,11 +8,6 @@ export type ACTION =
   | "reset_character"
   | `update_${FIELD}`;
 
-// `load_character`/`replace_character` carry a bare Character (the reducer
-// spreads it); `update_*` carries a `{ value }` wrapper plus a dot-path
-// `subField`; `reset_character` carries nothing. Discriminating on `type` lets
-// the reducer and the path helpers narrow to the update variant instead of
-// trusting `any`.
 export type UpdateAction = {
   type: `update_${FIELD}`;
   payload: { value: unknown };
@@ -33,14 +28,11 @@ export function isUpdateAction(action: Action): action is UpdateAction {
   );
 }
 
-// Actions that *change which character is open* rather than edit one. They are
-// tab-local navigation and must never travel on either sync transport: the uuid
-// a dispatch is published under is the **pre-dispatch** character's — the one a
-// load has already left — so a broadcast `load_character` arrives at peers as
-// "here is a whole different sheet, adopt it", still stamped with the uuid of
-// the sheet they were editing. That is how a table ended up all looking at one
-// player's character. `replace_character` is deliberately *not* here: a rest or
-// a level-up is a real edit to the character that is open, and it syncs.
+// Actions that change which character is open rather than edit one; must
+// never travel on either sync transport (the dispatch's uuid is the
+// pre-dispatch character's, so broadcasting a load would adopt a peer onto a
+// different sheet stamped with the wrong uuid). `replace_character` (a rest,
+// a level-up) is a real edit and does sync.
 export function isNavigationAction(action: Action): boolean {
   return action.type === "load_character" || action.type === "reset_character";
 }

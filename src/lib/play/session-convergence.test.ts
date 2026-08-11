@@ -19,11 +19,8 @@ import {
   startCombat,
 } from "src/lib/play/encounter";
 
-// What several browsers converge on, run in one process against a fake broker.
-//
-// These are the tests that would have caught the bugs the two-browser harness
-// found the hard way. Everything here is about the merge rules; the transport
-// itself is `pnpm session-smoke`.
+// Multi-client convergence against a fake broker (merge rules only; transport
+// is covered by `pnpm session-smoke`).
 
 const ALICE = "11111111-1111-1111-1111-111111111111" as UUID;
 const BOB = "22222222-2222-2222-2222-222222222222" as UUID;
@@ -59,8 +56,6 @@ describe("a table converging", () => {
   });
 
   it("settles rather than echoing forever", () => {
-    // Two peers each re-publishing what the other sent is a real failure mode
-    // and looks identical to success unless the traffic is counted.
     const { broker } = table();
     const before = broker.traffic.length;
     expect(before).toBeLessThan(30);
@@ -74,17 +69,14 @@ describe("a table converging", () => {
     expect(bob.encounter.round).toBe(1);
   });
 
-  // The bug the two-browser harness kept half-finding: a joiner's local
-  // encounter is an unrelated history that routinely lands on the same revision
-  // as the room's, and the clientId tiebreak then threw one of them away.
   it("does not let a joiner's local state discard the room", () => {
     const broker = new Broker();
     const master = dm();
     master.host(broker, "dm-token");
     master.edit(startCombat);
 
-    // Carol has been running her own local encounter — same revision count,
-    // completely unrelated history, and a clientId that sorts above the DM's.
+    // Carol's local encounter shares the room's revision count but has an
+    // unrelated history, and her clientId sorts above the DM's.
     const carol = new SimClient({
       clientId: "zzz-carol-tab",
       characterUuid: CAROL,
@@ -127,8 +119,6 @@ describe("the DM seat", () => {
     expect(alice.encounter.dmClientId).toBe(master.clientId);
   });
 
-  // `clientId` is per-tab. Before the token, this was the common case that took
-  // the DM's seat away — not a sleeping laptop, just a refresh.
   it("survives the DM reloading their tab", () => {
     const { broker, master, alice } = table();
     master.edit(startCombat);
@@ -145,7 +135,6 @@ describe("the DM seat", () => {
   it("does not gate the table while the DM is away", () => {
     const { master, alice } = table();
     master.leave();
-    // Seat put down, key kept: nobody is locked out in the meantime.
     expect(alice.encounter.dmClientId).toBeUndefined();
     expect(alice.encounter.dmToken).toBe("dm-token");
   });
@@ -160,7 +149,6 @@ describe("the DM seat", () => {
     expect(stranger.encounter.dmClientId).toBeUndefined();
   });
 
-  // Releasing is a decision, unlike leaving, so it gives up the key too.
   it("is gone for good once released", () => {
     const { broker, master, alice } = table();
     master.edit(releaseDmSeat);
@@ -178,9 +166,8 @@ describe("the DM overseeing vitals", () => {
   const hpOf = (client: SimClient, id: string) =>
     client.encounter.participants.find((p) => p.id === id)?.vitals?.currHp;
 
-  // The subtle half of "the DM can set your HP": the participant is only a
-  // projection of the sheet, so the edit has to land on the character or the
-  // sheet's next change publishes the old number straight back.
+  // The participant row is a projection of the sheet, so the edit must land
+  // on the character or the sheet's next change overwrites it back.
   it("lands a DM's HP edit on the player's sheet", () => {
     const { master, alice, bob } = table();
     master.edit((current) =>
@@ -208,27 +195,21 @@ describe("the DM overseeing vitals", () => {
     master.edit((current) =>
       setVitals(current, aliceId, { currHp: 4, maxHp: 10, ac: 12 }),
     );
-    // One edit, one acceptance ripple — not an unbounded exchange.
     expect(broker.traffic.length - before).toBeLessThan(8);
   });
 
-  // The reason "accept whatever copy of you arrives" was never an option: a
-  // room can hold last week's you, if that tab died without a leave message.
   it("does not let the room's stale copy overwrite a rejoining sheet", () => {
     const { broker, master, alice } = table();
     alice.setCharacterHp(44);
     alice.crash();
 
-    // Life goes on offline: the character rests, HP changes, and this browser's
-    // fresh local encounter has a tiny vitalsRev next to the room's.
+    // Offline HP change gives this browser a tiny vitalsRev next to the room's.
     const rested = alice.reopenAs("alice-tab-2");
     rested.setCharacterHp(50);
 
     rested.join(broker);
     expect(rested.characterHp).toBe(50);
     expect(hpOf(rested, aliceId)).toBe(50);
-    // And the correction reaches the room, rather than sitting local until the
-    // sheet next changes.
     expect(hpOf(master, aliceId)).toBe(50);
   });
 });
@@ -236,8 +217,7 @@ describe("the DM overseeing vitals", () => {
 describe("an offered sheet", () => {
   const sheetId = `self:${CAROL}`;
 
-  // The DM brings a companion sheet and offers it; a player picks it up (in
-  // the app, ownership moves when they open the arriving character).
+  // Ownership moves when a player opens the arriving character.
   function tableWithOffer() {
     const fixture = table();
     fixture.master.edit((current) =>
@@ -266,9 +246,8 @@ describe("an offered sheet", () => {
 
     player.leave();
 
-    // Bob typed nothing in; the DM brought the sheet — so unlike Bob's own
-    // character, it stays in the fight and reverts to the DM's client, still
-    // offered for the next pickup.
+    // DM-brought sheet, unlike a player's own character: stays in the fight,
+    // reverts to the DM's client, still offered for the next pickup.
     const reverted = master.encounter.participants.find(
       (p) => p.id === sheetId,
     );
@@ -283,8 +262,6 @@ describe("an offered sheet", () => {
   it("is treated differently from the player's own character", () => {
     const { master, bob } = tableWithOffer();
     bob.leave();
-    // Bob's own character goes with him; the offered companion is the DM's and
-    // stays regardless of who leaves.
     expect(master.participantNames).not.toContain("Bob");
     expect(master.participantNames).toContain("Carol the Companion");
   });
@@ -304,8 +281,6 @@ describe("leaving", () => {
       addParticipant(current, { id: "goblin", name: "Goblin", initiative: 3 }),
     );
     alice.leave();
-    // Alice's character goes; the goblin stays, because the fight still
-    // contains it and somebody else is tracking it.
     expect(master.participantNames).toEqual(["Bob", "Goblin"]);
   });
 
@@ -319,14 +294,8 @@ describe("leaving", () => {
   });
 });
 
-// Two people writing to the same row at the same moment.
-//
-// This is not an exotic race — it is the ordinary shape of a fight. The DM
-// types "you take 9" while the player, hearing the same sentence, ticks the
-// spell they're holding. Both writes start from the same revision, so a
-// document-level last-write-wins is a coin flip that silently discards one of
-// them; found in the two-browser harness, where the concentration vanished in
-// two runs and the DM's damage vanished in the third.
+// Per-lane merge: two writes to the same row from the same revision must
+// both survive rather than one clobbering the other.
 describe("simultaneous writes to one participant", () => {
   const aliceRow = `self:${ALICE}`;
   const hurt = (c: Parameters<typeof setVitals>[0]) =>
@@ -360,18 +329,14 @@ describe("simultaneous writes to one participant", () => {
   });
 
   it("does not start an endless exchange to get there", () => {
-    // The loser of a document race now speaks up instead of staying quiet,
-    // which is the fix — but its reply carries a higher revision, so the peer's
-    // next receive is a plain win and the conversation stops.
     const { broker } = crossed();
     const settled = broker.traffic.length;
     expect(settled).toBeLessThan(30);
     expect(broker.traffic.length).toBe(settled);
   });
 
+  // Same-lane writes are ambiguous; the only promise is everyone picks the same one.
   it("still lets the loser's lane lose when it is the same lane", () => {
-    // Two writes to the *same* lane are genuinely ambiguous, and one of them
-    // has to go. All that's promised there is that everyone picks the same one.
     const { broker, master, alice, bob } = table();
     broker.crossing(() => {
       master.edit((c) =>
@@ -384,7 +349,7 @@ describe("simultaneous writes to one participant", () => {
   });
 });
 
-// The combat lane: round and turnIndex, one atomic pair on `turnSeq`.
+// round + turnIndex are one atomic pair on `turnSeq`.
 describe("the fight's position under concurrent writes", () => {
   const fighting = () => {
     const t = table();
@@ -392,9 +357,6 @@ describe("the fight's position under concurrent writes", () => {
     return t;
   };
 
-  // Two people pressing "next turn" at the same moment is an ordinary table
-  // event — the DM and the player whose turn ended both reach for it. 5e has
-  // no additive turn advance: the correct outcome is *one* advance, not two.
   it("collapses two crossed turn advances into one", () => {
     const { broker, master, alice, bob } = fighting();
     const before = master.encounter.turnIndex;
@@ -410,8 +372,6 @@ describe("the fight's position under concurrent writes", () => {
     }
   });
 
-  // The DM fixes an initiative while somebody advances the turn: different
-  // lanes, so both writes must survive the crossing.
   it("keeps a reseat and an advance when they cross", () => {
     const { broker, master, alice, bob } = fighting();
     const bobRow = `self:${BOB}`;
@@ -431,9 +391,7 @@ describe("the fight's position under concurrent writes", () => {
   });
 });
 
-// Any two of a row's five lanes, written at the same instant, must both
-// survive — the vitals/status pair above found the bug; these pin the rule
-// for the pairs that got lanes in the same change.
+// Any two of a row's five lanes must both survive a simultaneous write.
 describe("other lane pairs crossing on one row", () => {
   const aliceRow = `self:${ALICE}`;
   const row = (c: SimClient) =>
@@ -466,12 +424,9 @@ describe("other lane pairs crossing on one row", () => {
   });
 });
 
-// Encounter-level lanes crossing each other.
 describe("policy racing the seat", () => {
   it("keeps both the sharing change and the released seat", () => {
     const { broker, master, alice, bob } = table();
-    // The DM releases the seat in the same instant a (currently DM'd) tab
-    // flips table policy — different lanes on the encounter itself.
     broker.crossing(() => {
       master.edit(releaseDmSeat);
       alice.edit((c) => setSharing(c, "exact"));
@@ -484,19 +439,19 @@ describe("policy racing the seat", () => {
   });
 });
 
-// Membership's bespoke merge: resurrection is scoped to your *own* rows.
+// Roster resurrection on rejoin is scoped to your own rows only.
 describe("the roster's resurrection boundary", () => {
   it("does not let a stale peer bring back a monster the DM removed", () => {
     const { broker, master, alice } = table();
     master.edit((c) =>
       addParticipant(c, { id: "goblin", name: "Goblin", initiative: 3 }),
     );
-    // A snapshot from before the removal, as a crashed tab would hold.
+    // Snapshot from before the removal, as a crashed tab would hold.
     const stale = alice.encounter;
     master.edit((c) => removeParticipant(c, "goblin"));
     expect(master.participantNames).not.toContain("Goblin");
 
-    // The stale copy comes back with a lower revision, and loses.
+    // Stale copy carries a lower revision and loses.
     broker.publish(
       stamp({ kind: "state", clientId: "stranger", encounter: stale }),
     );
@@ -513,8 +468,6 @@ describe("an economy edit crossing a leave", () => {
       master.edit((c) => setSpent(c, bobRow, "action", true));
       bob.leave();
     });
-    // The tick was to a row that left with its owner; the table agrees the
-    // row is gone rather than resurrecting it to carry the tick.
     expect(master.participantNames).toEqual(["Alice"]);
     expect(alice.participantNames).toEqual(["Alice"]);
     const settled = broker.traffic.length;
@@ -523,10 +476,10 @@ describe("an economy edit crossing a leave", () => {
   });
 });
 
-// The seat is its own lane, for the same reason vitals are one.
+// The seat is its own lane, same as vitals.
 describe("the DM seat against a peer who never heard of it", () => {
-  // What a second joiner holds in the moment before the room's first reply
-  // reaches it: everything else about the fight, and no idea there is a DM.
+  // A joiner's state before the room's first reply: everything else about the
+  // fight, no idea there's a DM.
   const seatless = (encounter: Encounter, revision: number) => ({
     ...encounter,
     dmClientId: undefined,
@@ -543,7 +496,7 @@ describe("the DM seat against a peer who never heard of it", () => {
       stamp({
         kind: "state",
         clientId: "stranger",
-        // A revision high enough to win the coarse race outright.
+        // High enough revision to win the coarse race outright.
         encounter: seatless(
           master.encounter,
           (master.encounter.revision ?? 0) + 5,
@@ -554,9 +507,8 @@ describe("the DM seat against a peer who never heard of it", () => {
     expect(alice.encounter.dmClientId).toBe(master.clientId);
   });
 
+  // reclaimDmSeat matches on dmToken; losing it is unrecoverable.
   it("keeps the token, so the seat stays recoverable rather than merely unheld", () => {
-    // Losing `dmToken` is the part that can't be undone: `reclaimDmSeat`
-    // matches on it, so a table that drops it has no way back to a DM at all.
     const { broker, master } = table();
     broker.publish(
       stamp({
@@ -571,9 +523,8 @@ describe("the DM seat against a peer who never heard of it", () => {
     expect(master.encounter.dmToken).toBe("dm-token");
   });
 
+  // A release carries a newer seatRev and wins the lane.
   it("still goes when its holder gives it up on purpose", () => {
-    // A release is a decision and carries a newer seatRev, so it wins the lane
-    // — the guard is against ignorance, not against intent.
     const { master, alice } = table();
     master.edit(releaseDmSeat);
     expect(master.isDm).toBe(false);

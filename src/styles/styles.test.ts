@@ -2,11 +2,9 @@ import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
 
-// The stylesheet is split into ordered parts and the sheet's responsiveness is
-// container-driven. Neither of those is visible from any single file, and both
-// break silently — a reordered import changes which rules win, and a stray
-// viewport media query reintroduces the bug class the container queries were
-// written to remove. So they're asserted here rather than left to review.
+// Pins two invariants invisible from any single file: the stylesheet import
+// order (later parts override earlier ones) and container-driven
+// responsiveness (no stray viewport media queries).
 
 const dir = join(__dirname);
 const index = readFileSync(join(dir, "..", "index.css"), "utf8");
@@ -30,8 +28,6 @@ describe("index.css as an ordered barrel", () => {
   });
 
   it("keeps the override parts last, in order", () => {
-    // These win by specificity alone; moving them earlier silently changes the
-    // rendering. See the header comment in index.css.
     const tail = imported.slice(-3);
     expect(tail).toEqual([
       "responsive-sheet.css",
@@ -62,9 +58,8 @@ describe("sheet responsiveness is container-driven", () => {
   });
 
   it("keeps exactly one viewport media query, for the container's own padding", () => {
-    // `#detail` is the query container, and an element can't be styled by a
-    // query against itself — so its padding is the one legitimate `@media`
-    // here. Any other means a viewport breakpoint has crept back in.
+    // #detail is the query container; an element can't be styled by a query
+    // against itself, so its padding is the one legitimate @media here.
     const rules = responsive.replace(/\/\*[\s\S]*?\*\//g, "");
     const medias = [...rules.matchAll(/@media[^{]+/g)].map((m) => m[0]);
     expect(medias).toHaveLength(1);
@@ -72,9 +67,6 @@ describe("sheet responsiveness is container-driven", () => {
   });
 
   it("keeps the panel grid floor and the panel restack threshold in step", () => {
-    // The layout must never hand a panel less room than its contents restack
-    // at, or a panel drops into its narrow form while the sheet has space
-    // spare. Both numbers are commented as a pair; this catches one moving.
     const restack = /@container panel \(max-width: (\d+)rem\)/.exec(responsive);
     expect(restack).not.toBeNull();
     expect(Number(restack![1])).toBeGreaterThanOrEqual(27);

@@ -30,25 +30,12 @@ import { syncClassPools } from "src/lib/builder/class-pools";
 import { optionGroup } from "src/lib/builder/chosen-options";
 import { UUID } from "crypto";
 
-// A Charisma-focused Hexadin: nine levels of Paladin for the aura, the smites,
-// and heavy armor; three of Hexblade Warlock for a Charisma-powered pact weapon
-// and short-rest slots. STR 8 with CHA 20 is the whole build — the pact weapon
-// attacks and damages off Charisma, so Strength is free to be the dump stat.
-//
-// PROVENANCE. This sheet is the output of the guided builder plus eleven
-// level-ups (Paladin 1→9, then multiclassing Warlock 1→3), driven through the
-// actual wizard UI — so every choice on it is one a player can make: the race
-// and its ability bonuses, the manual-entry stats, Soldier and its skill picks,
-// the Defense fighting style, Oath of Vengeance, both ASIs into Charisma,
-// Hexblade, Agonizing Blast + Improved Pact Weapon, Pact of the Blade, and
-// every spell. Features, pools, and the oath/patron spell grants below are read
-// from the same catalog accessors the wizard reads, so editing a catalog
-// updates this sheet for free.
-//
-// Then it was hand-edited the way a player edits a sheet after twelve levels of
-// play: magic items and coins the wizard has no step for, a named pact weapon
-// as a custom attack, and a half-spent adventuring day (see PLAY STATE below)
-// so a first-time visitor can take a short or long rest and watch it work.
+// Sample sheet: a Charisma Hexadin (Paladin 9 / Hexblade Warlock 3), STR 8 / CHA
+// 20 since the pact weapon attacks and damages off Charisma. Built via the
+// guided builder + level-up wizard, so features/pools/spells are read from the
+// same catalog accessors the wizard uses. Hand-edited afterward for magic items,
+// the named pact weapon attack, and a half-spent adventuring day (PLAY STATE
+// below) so a first-time visitor can try a rest.
 const defaultStats = {
   str: 8,
   dex: 14,
@@ -58,21 +45,16 @@ const defaultStats = {
   cha: 20,
 };
 
-// Stable class ids, referenced by the spellcasting entries, the spells, and the
-// class-level-scaled pools below.
 const paladinId = randomUUID();
 const warlockId = randomUUID();
 
-// Formula leaves reused across the sheet.
 const cha = StatKey.cha;
 
-// --- Built-in catalog data (the same sources the builder/picker read) --------
 const tiefling = getCatalogRace("tiefling");
 const hexblade = getSubclassByName("warlock", "Hexblade");
 const soldier = getBackground("Soldier");
 
-// A {title, detail} catalog entry (race trait, class feature, background
-// feature) as a sheet `TextComponent`.
+// Converts a {title, detail} catalog entry to a sheet `TextComponent`.
 const feature = (f?: { title: string; detail?: string }): TextComponent =>
   f?.detail
     ? {
@@ -88,10 +70,8 @@ const namedFeature = (
   title: string,
 ): TextComponent => feature(features?.find((f) => f.title === title));
 
-// Every feature a class and its subclass confer up to `maxLevel`, in level
-// order — `classFeaturesAt` + `subclassFeaturesAt` are exactly what the
-// level-up wizard grants at each level, so this can't drift from what the
-// wizard would produce for the same build.
+// All features a class + subclass confer up to `maxLevel`, via the same
+// accessors the level-up wizard uses.
 const featuresFor = (
   className: OfficialClass,
   maxLevel: number,
@@ -121,11 +101,9 @@ const invocation = (name: string): TextComponent => {
   );
 };
 
-// A ready-to-edit spell built from the bundled catalog entry, attributed to a
-// class — exactly what the level-up spell picker and "Browse Spells" produce (full
-// description, stat line, live base-damage roll, and scaling). `prepared` marks
-// a Paladin spell the character currently has prepared; Warlock spells are
-// "known", so they leave it unset.
+// A ready-to-edit spell built from the bundled catalog, attributed to a class.
+// `prepared` marks a currently-prepared Paladin spell; Warlock spells are
+// "known" and leave it unset.
 const catalogSpell = (index: string, classId: UUID, prepared?: boolean) => {
   const spell = buildSpellFromCatalog(getCatalogSpell(index)!, classId);
   if (prepared) spell.prepared = true;
@@ -145,7 +123,6 @@ const warlockClassEntry = {
   subclass: "Hexblade",
 };
 
-// The Pact Boon pick, with the catalog's own summary as its detail.
 const pactOfTheBlade = (() => {
   const group = optionGroup("pactBoon");
   const pick = group?.options.find((o) => o.name === "Pact of the Blade");
@@ -171,16 +148,13 @@ function buildDefaultCharacter(): Character {
     alignment: Alignment["Lawful Neutral"],
     exp: undefined,
     stats: defaultStats,
-    // A fresh sheet doesn't start with inspiration — the DM grants it. (This
-    // was `1` while it was a count, which `build-character` already contradicted
-    // by seeding 0.)
     inspiration: false,
     proficiencies: {
       // Saves from Paladin; skills from Soldier (Athletics, Intimidation) plus
-      // the two the class step offers (Persuasion, Religion).
+      // the class step's Persuasion, Religion.
       savingThrows: { wis: true, cha: true },
       skills: {
-        Athletics: true, // proficient, and still only +3 — the STR 8 tax
+        Athletics: true,
         Intimidation: true,
         Persuasion: true,
         Religion: true,
@@ -191,7 +165,7 @@ function buildDefaultCharacter(): Character {
     },
     otherProficiencies: {
       languages: ["Common", "Infernal"],
-      // Heavy armor from Paladin; medium and shields also from Hex Warrior.
+      // Heavy armor from Paladin; medium/shields also from Hex Warrior.
       armor: {
         [ArmorType.Light]: true,
         [ArmorType.Medium]: true,
@@ -204,26 +178,23 @@ function buildDefaultCharacter(): Character {
         feature({ title: "Vehicles (land)" }),
       ],
     },
-    // Tiefling: resistance to fire (Hellish Resistance). Divine Health (immunity
-    // to disease) lives in the features list, since disease isn't a damage type.
+    // Tiefling resistance to fire (Hellish Resistance). Divine Health (disease
+    // immunity) lives in the features list since disease isn't a damage type.
     damageModifiers: {
       resistances: ["Fire"],
       immunities: [],
       vulnerabilities: [],
     },
-    // Equipped armor resolves to Plate (18) + the +1 Shield (3) = 21. The two
-    // trailing +1s are the Defense fighting style (which the wizard folds in
-    // itself) and the hand-added Cloak of Protection, so AC reads 23 — and drops
-    // the moment you unequip the plate or the shield.
+    // Plate (18) + Shield +1 (3) = 21, plus Defense fighting style and the
+    // Cloak of Protection (+1 each) = 23; drops if plate/shield are unequipped.
     acFormula: {
       operation: Operation.addition,
       operands: [{ equippedArmor: true }, 1, 1],
     },
     speeds: { walk: 30 },
     senses: { darkvision: 60 },
-    // The level-up wizard's derived HP formula: a maxed d10 at Paladin 1, then
-    // the average per level for the other eight, plus 3 × average d8 for the
-    // Warlock levels — 97 in total, and it re-derives if a level changes.
+    // Maxed d10 at Paladin 1, average per level thereafter, plus 3 × average
+    // d8 for Warlock levels — 97 total, re-derives if level changes.
     maxHp: {
       operation: Operation.addition,
       operands: [
@@ -268,21 +239,18 @@ function buildDefaultCharacter(): Character {
     },
     // PLAY STATE — mid-adventuring-day, so a rest has something to do.
     currHp: 48,
-    // Armor of Agathys, still up.
-    tempHp: 5,
+    tempHp: 5, // Armor of Agathys, still up.
     totalHitDice: { d10: 9, d8: 3 },
-    // Seven of twelve dice spent. A long rest gives back half your *total*
-    // (six), so one stays spent — the rule the settings can override.
+    // Seven of twelve spent; a long rest gives back half of total (six), so
+    // one stays spent.
     expendedHitDice: { d10: 5, d8: 2 },
     exhaustion: 1,
     deathSaves: { successes: 0, failures: 0 },
     attacks: [
       {
-        // Hand-added: the homebrew centerpiece, a sentient greatsword that is
-        // also his Hexblade patron. Hex Warrior lets it attack and damage with
-        // Charisma; Improved Pact Weapon makes it a +1 weapon, and it hungers —
-        // hence the rider of necrotic damage. There is no attack step in the
-        // wizard, so this is the kind of thing you add on the sheet.
+        // Hand-added: sentient greatsword and Hexblade patron. Hex Warrior lets
+        // it attack/damage with Charisma; Improved Pact Weapon makes it +1; the
+        // necrotic rider is its hunger. No attack step in the wizard for this.
         id: randomUUID(),
         name: "Wormwood, the Last Argument",
         bonus: { operation: Operation.addition, operands: [PB, cha, 1] },
@@ -298,9 +266,7 @@ function buildDefaultCharacter(): Character {
         },
       },
       {
-        // Straight from the equipment step, and kept only to prove a point about
-        // the dump stat: a plain javelin, thrown with a Strength of 8, for a
-        // heroic 1d6 minus one.
+        // From the equipment step: a javelin, thrown with STR 8.
         id: randomUUID(),
         name: "Javelin",
         bonus: {
@@ -318,7 +284,6 @@ function buildDefaultCharacter(): Character {
       },
     ],
     ammunition: [],
-    // Hand-edited: the wizard's Soldier package starts you with 10 gp.
     coins: { PP: 4, GP: 340, SP: 12 },
     equipment: [
       {
@@ -429,7 +394,6 @@ function buildDefaultCharacter(): Character {
         equipped: false,
       },
     ],
-    // One line each, as typed into the wizard's finishing-details step.
     personality: {
       traits: [
         {
@@ -462,30 +426,23 @@ function buildDefaultCharacter(): Character {
       ],
     },
     features: [
-      // Racial traits (Tiefling), straight from the bundled SRD race data.
+      // Racial traits (Tiefling), from the bundled SRD race data.
       namedFeature(tiefling?.traits, "Darkvision"),
       namedFeature(tiefling?.traits, "Hellish Resistance"),
       namedFeature(tiefling?.traits, "Infernal Legacy"),
-      // Background feature (Soldier), from the bundled background data.
       feature(soldier?.feature),
-      // Paladin 1–9 and the Oath of Vengeance's own features (Oath Spells at 3,
-      // Relentless Avenger at 7) — read from the level tables, not retyped.
+      // Paladin 1–9 + Oath of Vengeance features, read from the level tables.
       ...featuresFor(OfficialClass.Paladin, 9, "Vengeance"),
       fightingStyle("Defense"),
-      // Warlock 1–3 and the Hexblade's (Expanded Spell List, Pact Boon).
       ...featuresFor(OfficialClass.Warlock, 3, "Hexblade"),
-      // The Hexblade's choice-level grants. Hexblade's Curse is deliberately
-      // skipped: it lands below as a limited-use pool, and listing it here too
-      // would show it twice.
+      // Hexblade's Curse is skipped here; it's listed below as a pool instead.
       namedFeature(hexblade?.grants?.features, "Hex Warrior"),
       invocation("Agonizing Blast"),
       invocation("Improved Pact Weapon"),
     ],
     spellcastingClasses: [
-      // Paladin casts on Charisma at the default DC/attack.
       { classId: paladinId },
-      // Warlock also casts on Charisma; the hand-added Rod of the Pact Keeper +1
-      // is folded into these overrides (base 8 + PB + CHA and PB + CHA, +1 each).
+      // Rod of the Pact Keeper +1 folded into these overrides.
       {
         classId: warlockId,
         saveDcOverride: {
@@ -498,11 +455,6 @@ function buildDefaultCharacter(): Character {
         },
       },
     ],
-    // Exactly the spells the wizard ended up with: the ones picked in each
-    // level-up's spell step, plus the ones the subclasses grant on their own —
-    // Bane and Hunter's Mark (oath, 3rd), Hold Person and Misty Step (oath,
-    // 5th), Haste and Protection from Energy (oath, 9th), and Shield, Wrathful
-    // Smite and Blur from the Hexblade's expanded list.
     spells: {
       // key 0 = cantrips; 1–9 = leveled spells.
       0: [
@@ -555,23 +507,17 @@ function buildDefaultCharacter(): Character {
       8: { expended: 0 },
       9: { expended: 0 },
     },
-    // Both pact slots spent — a short rest brings these back, a long rest isn't
-    // needed.
     pactSlots: { expended: 2 },
-    // Filled in below by `syncClassPools`.
-    limitedUseAbilities: [],
+    limitedUseAbilities: [], // filled in below by syncClassPools
     chosenOptions: [pactOfTheBlade],
   };
 
-  // The pools the classes and subclasses confer — Divine Sense, Lay on Hands,
-  // Channel Divinity and Hexblade's Curse, plus the two Channel Divinity option
-  // hosts that spend from that shared pool. Generated by the same function the
-  // level-up wizard calls, so their sizes, recharges and mechanics re-derive
-  // from `class-pools.ts` instead of being frozen here.
+  // Divine Sense, Lay on Hands, Channel Divinity, Hexblade's Curse, and the
+  // Channel Divinity option hosts, generated via the same function the
+  // level-up wizard uses so sizes/recharges re-derive from class-pools.ts.
   character.class.forEach((klass) => syncClassPools(character, klass));
 
-  // PLAY STATE — pools part-spent. Channel Divinity and Hexblade's Curse both
-  // recharge on a short rest; the other two need a long one.
+  // PLAY STATE — pools part-spent.
   const spend = (title: string, uses: number) => {
     const pool = character.limitedUseAbilities.find(
       (a) => a.info.title === title,
@@ -588,8 +534,7 @@ function buildDefaultCharacter(): Character {
 
 export const defaultCharacter: Character = buildDefaultCharacter();
 
-// A blank ability seeded into the modal draft when the user adds a new entry,
-// so the editor has a target; it's only persisted to the character on save.
+// Blank ability seeded into the modal draft for a new entry; persisted only on save.
 export const newLimitedUseAbility = (): LimitedUseAbility => ({
   info: { title: "New ability", titleFormulas: [] },
   maxUses: 1,

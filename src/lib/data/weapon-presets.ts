@@ -15,8 +15,7 @@ import {
   StatKey,
 } from "./data-definitions";
 
-// Which ability a weapon's attack/damage uses. "finesse" means the better of
-// STR or DEX and pre-populates as max(STR, DEX).
+// "finesse" means the better of STR or DEX.
 export type WeaponAbility = StatKey.str | StatKey.dex | "finesse";
 
 export interface WeaponPreset {
@@ -27,12 +26,10 @@ export interface WeaponPreset {
     count: number;
     die?: StandardDie;
     type: DamageType;
-    // Larger die when wielded two-handed (5e "versatile"). When set, the picker
-    // offers a separate two-handed attack alongside the one-handed default.
+    // Larger die when wielded two-handed (5e "versatile").
     versatileDie?: StandardDie;
   };
-  // Normal / long range in feet, for ranged and thrown weapons. Omitted for
-  // pure-melee weapons.
+  // Normal / long range in feet. Omitted for pure-melee weapons.
   range?: WeaponRange;
 }
 
@@ -263,12 +260,8 @@ export const WEAPON_PRESETS: GroupedOptionsList<WeaponPreset> = [
   },
 ];
 
-// The properties that can't be derived from a preset's other fields. Everything
-// else falls out: `melee`/`ranged` from the group the weapon sits in, `thrown`
-// from a melee weapon having a range, `finesse` from its ability, `versatile`
-// from having a second die. Kept as one table rather than a field on all 37
-// presets so the derivable majority stays noise-free — `weapon-presets.test.ts`
-// asserts every name here is a real weapon.
+// Properties that can't be derived from a preset's other fields (the rest —
+// melee/ranged, thrown, finesse, versatile — are derived in `weaponTags`).
 const EXTRA_PROPERTIES: Record<string, AttackTag[]> = {
   // Simple melee
   Club: ["light"],
@@ -301,21 +294,15 @@ const EXTRA_PROPERTIES: Record<string, AttackTag[]> = {
   Net: ["thrown"],
 };
 
-// Which group each weapon came from, so melee/ranged is derived from the SRD's
-// own categorisation rather than restated per weapon.
+// Melee/ranged is derived from the group each weapon sits in above.
 const RANGED_GROUPS = new Set(
   WEAPON_PRESETS.filter((g) => g.label.includes("Ranged")).flatMap((g) =>
     g.options.map((w) => w.name),
   ),
 );
 
-/**
- * The weapon properties an attack built from this preset carries.
- *
- * `twoHanded` is the versatile-weapon variant: wielding a longsword two-handed
- * makes that *attack* two-handed, which is what Great Weapon Fighting and
- * Dueling actually key off — so the tag belongs to the attack, not the weapon.
- */
+// The weapon properties an attack built from this preset carries. `twoHanded`
+// is the versatile variant (e.g. a longsword wielded two-handed).
 export function weaponTags(
   weapon: WeaponPreset,
   twoHanded = false,
@@ -323,8 +310,7 @@ export function weaponTags(
   const ranged = RANGED_GROUPS.has(weapon.name);
   const tags = new Set<AttackTag>(EXTRA_PROPERTIES[weapon.name] ?? []);
   tags.add(ranged ? "ranged" : "melee");
-  // A melee weapon with a range is one you can throw; a ranged weapon's range
-  // is just its range.
+  // A melee weapon with a range is one you can throw.
   if (!ranged && weapon.range) tags.add("thrown");
   if (weapon.ability === "finesse") tags.add("finesse");
   if (weapon.damage?.versatileDie) {
@@ -334,7 +320,7 @@ export function weaponTags(
   return [...tags];
 }
 
-// Weapon-proficiency typeahead: the broad categories plus every preset's name.
+// Weapon-proficiency typeahead: broad categories plus every preset's name.
 export const DEFAULT_WEAPONS: GroupedOptionsList<string> = [
   { label: "Weapon Types", options: ["Simple Weapons", "Martial Weapons"] },
   ...WEAPON_PRESETS.map((group) => ({
@@ -348,9 +334,8 @@ const abilityOperand = (ability: WeaponAbility): CustomFormula =>
     ? { operation: Operation.maximum, operands: [StatKey.str, StatKey.dex] }
     : ability;
 
-// Build a ready-to-edit Attack from a preset: to-hit = ability + PB, damage =
-// the weapon's die (if any) + ability, keyed by its damage type. Pass
-// `twoHanded` for a versatile weapon to use its larger die and a "(2H)" name.
+// Build a ready-to-edit Attack: to-hit = ability + PB, damage = die + ability.
+// `twoHanded` uses the versatile die and appends "(2H)" to the name.
 export function buildAttackFromPreset(
   weapon: WeaponPreset,
   twoHanded = false,

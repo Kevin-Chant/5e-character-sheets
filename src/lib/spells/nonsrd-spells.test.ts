@@ -6,11 +6,9 @@ import {
   getCatalogSpell,
 } from "src/lib/spells/spell-catalog";
 
-// Integrity guards for the hand-authored non-SRD catalog. These catch the
-// mechanical mistakes an authoring pass is prone to — a duplicate/colliding
-// index, a missing required fact, an out-of-range level — at CI time. The
-// *content* (are the mechanics faithful, is the prose original) is checked by a
-// separate verification pass, not here.
+// Integrity guards for the hand-authored non-SRD catalog: duplicate/colliding
+// index, missing required fact, out-of-range level. Content fidelity (mechanics
+// faithful, prose original) is checked by a separate verification pass.
 
 const KNOWN_CLASSES = new Set([
   "Artificer",
@@ -39,8 +37,8 @@ describe("the non-SRD spell catalog", () => {
 
   it("derives each index from the name as a slug", () => {
     for (const s of NONSRD_SPELLS) {
-      // Apostrophes are dropped rather than hyphenated, so "Aganazzar's
-      // Scorcher" → "aganazzars-scorcher" (the wikidot URL convention).
+      // Apostrophes are dropped rather than hyphenated: "Aganazzar's
+      // Scorcher" -> "aganazzars-scorcher" (wikidot URL convention).
       const slug = s.name
         .toLowerCase()
         .replace(/['’]/g, "")
@@ -70,8 +68,6 @@ describe("the non-SRD spell catalog", () => {
     for (const s of NONSRD_SPELLS) {
       if (!s.mechanics) continue;
       expect(s.mechanics.level, `${s.name} mechanics.level`).toBe(s.level);
-      // A structured block should model the damage/healing the flat facts claim
-      // (and vice versa — no phantom damage block on a utility spell).
       if (s.baseDamage)
         expect(
           s.mechanics.damage?.length || s.mechanics.damageTable,

@@ -23,9 +23,7 @@ function toGroups(options: OptionsList): GroupedOptionsList {
     : (options as GroupedOptionsList);
 }
 
-// Text values get a typeahead combobox: free text that doubles as a filter over
-// the known options, which are listed (grouped by their shared label) for quick
-// selection while still accepting arbitrary custom input.
+// Text values get a typeahead combobox: free text doubling as a filter over the known, grouped options.
 function Typeahead({
   value,
   setValue,
@@ -140,14 +138,10 @@ export default function OptionOrCustomValue({
     );
   }
 
-  // Numeric values keep the simple dropdown + custom-number entry.
   if (flat.includes(value) || (value === "undefined" && allowUndefined)) {
     return (
       <Select
         className="font-large"
-        // The help text is the only name this component is given ("Custom
-        // class:"), and an unnamed picker in a modal of pickers is unusable
-        // by anything that can't see the layout.
         label={customValueHelpText}
         value={value}
         options={[

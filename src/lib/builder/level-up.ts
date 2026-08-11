@@ -30,14 +30,11 @@ import { addCatalogSpell } from "src/lib/builder/grant-spells";
 import { getCatalogSpell } from "src/lib/spells/spell-catalog";
 import { applyFeat, getFeat } from "src/lib/builder/feats";
 
-// ---------------------------------------------------------------------------
-// 5e progression tables the level-up wizard needs but that aren't derivable
-// from the class list (unlike HP / hit dice / PB / spell slots, which rules.ts
-// already computes from `char.class[]`).
-// ---------------------------------------------------------------------------
+// 5e progression tables the level-up wizard needs that aren't derivable from
+// the class list (unlike HP/hit dice/PB/spell slots, computed in rules.ts).
 
-// Minimum ability scores to multiclass into / out of a class (non-blocking
-// warning only — homebrew and variant rules are common).
+// Minimum ability scores to multiclass into/out of a class (PHB p.163),
+// non-blocking warning only.
 export const MULTICLASS_PREREQS: Partial<Record<OfficialClass, string>> = {
   Artificer: "Intelligence 13",
   Barbarian: "Strength 13",
@@ -54,9 +51,9 @@ export const MULTICLASS_PREREQS: Partial<Record<OfficialClass, string>> = {
   Wizard: "Intelligence 13",
 };
 
-// Classes that gain spellcasting as the base class (subclass-only casters like
-// Eldritch Knight / Arcane Trickster are excluded — they cast from level 3 via
-// a subclass the level-1-oriented catalog doesn't model).
+// Classes that gain spellcasting as the base class. Subclass-only casters
+// (Eldritch Knight, Arcane Trickster) are excluded — the level-1-oriented
+// catalog doesn't model their level-3 subclass casting.
 const CASTER_CLASSES = new Set<OfficialClass>([
   OfficialClass.Artificer,
   OfficialClass.Bard,
@@ -79,9 +76,8 @@ export const isCasterClass = (className: string): boolean => {
   return !!oc && CASTER_CLASSES.has(oc);
 };
 
-// Classes the bundled spell catalog actually tags on its spells. Artificer
-// (and any homebrew class) isn't among them, so its spell picker must show the
-// full list rather than filter to a class that matches nothing.
+// Classes the bundled spell catalog tags on its spells. Artificer (and any
+// homebrew class) isn't among them, so its picker shows the full list.
 const SPELL_LIST_CLASSES = new Set<OfficialClass>([
   OfficialClass.Bard,
   OfficialClass.Cleric,
@@ -93,13 +89,12 @@ const SPELL_LIST_CLASSES = new Set<OfficialClass>([
   OfficialClass.Wizard,
 ]);
 
-// Bard levels whose newly-learned spells are Magical Secrets — chosen from
-// *any* class's spell list.
+// Bard levels whose newly-learned spells are Magical Secrets, chosen from any
+// class's spell list.
 const BARD_MAGICAL_SECRETS_LEVELS = new Set([10, 14, 18]);
 
-// The class name to filter the catalog spell list by — or undefined to show every
-// spell (Artificer / homebrew, which the catalog doesn't tag; and a bard's
-// Magical Secrets levels, which draw from every class list).
+// The class name to filter the catalog spell list by, or undefined to show
+// every spell (Artificer/homebrew, untagged; bard Magical Secrets levels).
 export const spellListFilterFor = (
   className: string,
   level?: number,
@@ -123,54 +118,42 @@ const NO_CANTRIP_CLASSES = new Set<OfficialClass>([
 
 export const classHasCantrips = (className: string): boolean => {
   const oc = asOfficialClass(className);
-  // Non-official (homebrew) casters: allow cantrips rather than assume none.
   return isCasterClass(className) && !(oc && NO_CANTRIP_CLASSES.has(oc));
 };
 
-// ---------------------------------------------------------------------------
 // Wizard working state.
-// ---------------------------------------------------------------------------
-
 export interface LevelUpState extends LevelChoices {
-  // The class being advanced. For a brand-new multiclass, `isNewMulticlass` is
-  // true and the class starts at level 1.
+  // For a brand-new multiclass, `isNewMulticlass` is true and starts at 1.
   className: string;
   isNewMulticlass: boolean;
-  // ASI vs feat at an ASI level.
   advancement: "asi" | "feat";
-  // How this level's hit points are determined. "average" is the fixed value
-  // most tables use by default; "roll" takes the player's rolled `hpRoll`.
+  // "average" is the fixed value most tables default to; "roll" takes `hpRoll`.
   hpMethod: "average" | "roll";
-  // The die result the player rolled, when `hpMethod` is "roll". Clamped to the
-  // hit die's faces on apply — a typo'd 40 on a d8 is a typo, not a house rule.
+  // Clamped to the hit die's faces on apply.
   hpRoll?: number;
-  // Ability-score deltas (an ASI spends +2 total). Keyed by stat.
+  // Ability-score deltas; an ASI spends +2 total.
   asi: Partial<Record<StatKey, number>>;
   featIndex?: string;
   // For a half-feat with a choice of stats, which one to raise.
   featAbilityChoice?: StatKey;
-  // Choices a chosen feat's grants require (see FeatGrants).
   featSkillChoices: SkillName[];
   featExpertiseChoices: SkillName[];
   featWeaponChoices: string[];
   featSpellChoices: Record<number, string[]>;
   // Newly learned spells, by numeric level (0 = cantrips).
   newSpells: Record<number, string[]>;
-  // Spells learned from an allowance that ignores the class's spell list —
-  // today only a Lore bard's Additional Magical Secrets at 6th. Held apart from
-  // `newSpells` because the two are capped separately: the bard still learns
-  // their ordinary spell that level, from the bard list. A flat list rather
-  // than a per-level map, because the allowance itself spans spell levels.
+  // Spells from a list-ignoring allowance (a Lore bard's Additional Magical
+  // Secrets at 6th). Held apart from `newSpells`, which the bard still fills
+  // from the bard list that same level; flat list since the allowance spans
+  // spell levels.
   secretSpells: string[];
-  // A known spell being swapped out this level. Known casters (bard, sorcerer,
-  // warlock, ranger) may replace one spell they know each time they level.
+  // A known spell swapped out this level (bard/sorcerer/warlock/ranger).
   // `"<bucketLevel>.<index>"` addresses the spell in `character.spells`.
   swapSpell?: string;
-  // The spell index a warlock picks for the Mystic Arcanum gained this level
-  // (a 6th/7th/8th/9th-level warlock spell at 11th/13th/15th/17th). Recorded on
-  // the matching limited-use "Mystic Arcanum" pool.
+  // Warlock's Mystic Arcanum spell index for this level (6th/7th/8th/9th-level
+  // spell at 11th/13th/15th/17th), recorded on the matching limited-use pool.
   mysticArcanum?: string;
-  // Free-text features the player adds for content we don't model.
+  // Free-text features the player adds for content not modelled.
   addedFeatures: { title: string; detail: string }[];
 }
 
@@ -184,11 +167,10 @@ export function mysticArcanumLevelAt(
   return { 11: 6, 13: 7, 15: 8, 17: 9 }[level];
 }
 
-// How many spells from *any* class's list a College of Lore bard learns on
-// reaching a given bard level — two at 6th, and never again. These sit on top of
-// the level's ordinary bard-list allowance rather than consuming it, which is
-// why they can't be folded into `spellListFilterFor`: that switches the whole
-// level between one filter and none, and 6th level needs both at once.
+// How many spells from any class's list a College of Lore bard learns on
+// reaching a given level: two at 6th, never again. Sits on top of the
+// ordinary bard-list allowance rather than consuming it, so it can't fold
+// into `spellListFilterFor` (6th level needs both a filter and no filter).
 export function additionalMagicalSecretsAt(
   className: string,
   level: number,
@@ -199,8 +181,8 @@ export function additionalMagicalSecretsAt(
     : 0;
 }
 
-// Cleared whenever the chosen feat (or the advancement mode) changes, so a
-// previous feat's picks don't leak into a different one.
+// Cleared when the chosen feat or advancement mode changes, so a previous
+// feat's picks don't leak into a different one.
 export const emptyFeatChoices = () => ({
   featSkillChoices: [] as SkillName[],
   featExpertiseChoices: [] as SkillName[],
@@ -225,8 +207,8 @@ export function defaultLevelUpState(character: Character): LevelUpState {
   };
 }
 
-// The class level this character will reach for `state`'s target class once the
-// level-up is applied.
+// The class level this character will reach for `state`'s target class once
+// applied.
 export function targetClassLevel(
   character: Character,
   state: LevelUpState,
@@ -236,10 +218,7 @@ export function targetClassLevel(
   return (existing?.level ?? 0) + 1;
 }
 
-// ---------------------------------------------------------------------------
 // Applying the level-up — pure, returns a new Character.
-// ---------------------------------------------------------------------------
-
 const text = (title: string, detail?: string): TextComponent =>
   detail
     ? { title, titleFormulas: [], detail, detailFormulas: [] }
@@ -263,7 +242,7 @@ export function applyLevelUp(
       existing.level += 1;
       klass = existing;
     } else {
-      // Advancing a class not yet on the sheet behaves like a fresh entry.
+      // Not yet on the sheet: behaves like a fresh entry.
       klass = { id: randomUUID(), name: state.className, level: 1 };
       char.class.push(klass);
     }
@@ -271,28 +250,24 @@ export function applyLevelUp(
 
   // 2. Everything reaching this class level grants — subclass, feature prose,
   //    pools, fighting style, expertise, tools, invocations, chosen options.
-  //    Shared with the creation wizard so the two can't drift.
   applyClassLevel(char, klass, state);
 
-  // 2a. Picks a *race* owes at the new total character level (Simic Hybrid's
-  //     second Animal Enhancement at 5th). Keyed to the total rather than to
-  //     this class's level, which is why it isn't part of `applyClassLevel`.
+  // 2a. Picks a race owes at the new total character level (Simic Hybrid's
+  //     second Animal Enhancement at 5th) — keyed to total, not class level.
   applyRaceOptions(
     char,
     state,
     char.class.reduce((sum, k) => sum + k.level, 0),
   );
 
-  // 3. Recompute derived numbers. HP/hit dice/PB/spell slots all read from the
-  //    updated class list, so we just refresh the stored formulas + bump the
-  //    current HP by this level's average gain.
+  // 3. Recompute derived numbers: HP/hit dice/PB/spell slots read from the
+  //    updated class list.
   const gainedDie =
     HIT_DICE[asOfficialClass(state.className) ?? OfficialClass.Fighter];
   const average = averageDie(gainedDie, Math.ceil);
-  // A rolled result is carried as a flat term on the HP formula, since the
-  // formula itself is average-based and gets rebuilt from the class list here.
-  // The running total from earlier rolls is read back off the old formula first
-  // — rebuilding without it would silently undo every previous roll.
+  // The HP formula is average-based and rebuilt from the class list here, so a
+  // rolled result is carried as a flat adjustment term; read the prior
+  // adjustment first or rebuilding silently undoes earlier rolls.
   const priorAdjustment = hpAdjustmentOf(char.maxHp);
   const rolled =
     state.hpMethod === "roll"
@@ -305,7 +280,7 @@ export function applyLevelUp(
   char.totalHitDice = getHitDice(char);
   char.currHp += Math.max(1, rolled + conMod);
 
-  // 4. Ensure the class is registered for spellcasting (new caster multiclass).
+  // 4. Register the class for spellcasting (new caster multiclass).
   if (
     isCasterClass(state.className) &&
     !char.spellcastingClasses.some((c) => c.classId === klass.id)
@@ -318,9 +293,7 @@ export function applyLevelUp(
 
   // 5. Ability Score Improvement or feat.
   if (state.advancement === "asi") {
-    // Capped at 20 — or higher where a feature says so (see `statCapFor`). The
-    // cap is applied here as well as in the picker so a stale state or a raise
-    // that lands in the same level-up can't push a score past its ceiling.
+    // Capped at 20, or higher where a feature says so (`statCapFor`).
     for (const [stat, delta] of Object.entries(state.asi)) {
       const key = stat as StatKey;
       char.stats[key] = Math.min(
@@ -333,18 +306,15 @@ export function applyLevelUp(
     if (feat) applyFeat(char, feat, state);
   }
 
-  // 6. A swapped-out known spell, removed before the new ones land so a
-  //    replace-then-learn in the same level reads naturally on the sheet.
+  // 6. Swapped-out known spell, removed before the new ones land.
   if (state.swapSpell) {
     const [bucket, index] = state.swapSpell.split(".");
     const list = char.spells[Number(bucket) as SpellLevelNum];
     if (list) list.splice(Number(index), 1);
   }
 
-  // 7. Newly learned spells — the class's own allowance, then any that came
-  //    from a list-ignoring allowance (Additional Magical Secrets). Both are
-  //    bard spells once learned, so they land the same way; only the picking
-  //    was different.
+  // 7. Newly learned spells: the class's own allowance, then any from a
+  //    list-ignoring allowance (Additional Magical Secrets).
   for (const indices of Object.values(state.newSpells))
     for (const index of indices) addCatalogSpell(char, index, state.className);
   if (additionalMagicalSecretsAt(state.className, klass.level, klass.subclass))
@@ -356,9 +326,8 @@ export function applyLevelUp(
     if (f.title.trim())
       char.features.push(text(f.title.trim(), f.detail.trim()));
 
-  // 9. Mystic Arcanum: name the warlock's chosen 6th–9th-level spell on the pool
-  //    `applyClassLevel` just created (it's cast once per long rest without a
-  //    slot, so it lives as a limited-use ability rather than in the repertoire).
+  // 9. Mystic Arcanum: name the warlock's chosen 6th-9th-level spell on the
+  //    pool `applyClassLevel` created (cast once per long rest, no slot spent).
   const arcanumLevel = mysticArcanumLevelAt(state.className, klass.level);
   if (arcanumLevel && state.mysticArcanum) {
     const ord = `${arcanumLevel}th`;
@@ -378,20 +347,10 @@ export function applyLevelUp(
   return char;
 }
 
-// ---------------------------------------------------------------------------
-// What the level actually gave you.
-//
-// The review step used to list only the *choices you made* — class, subclass,
-// ASI, feat — which is the smaller half of a level-up. Everything `applyLevelUp`
-// grants on your behalf (feature prose, a new pool, a bigger Rage die, spell
-// slots, expertise) went by unseen, so "Confirm level up" was a leap.
-//
-// It's a diff of the before/after character rather than a second reading of the
-// grant tables, which is the point: `applyClassLevel` grows, subclasses get
-// added, pools re-derive — and a diff reports all of it without being taught
-// about any of it. The cost is that it describes *outcomes*, not rules, which is
-// exactly what a review screen wants.
-// ---------------------------------------------------------------------------
+// What the level actually gave you, for the review step. A diff of the
+// before/after character rather than a second reading of the grant tables, so
+// it reports everything `applyClassLevel` grants without needing to know the
+// rules behind it.
 
 export interface LevelUpSummary {
   /** Feature prose that wasn't on the sheet before. */
@@ -413,8 +372,6 @@ export interface LevelUpSummary {
 const titlesOf = (items: { title: string }[]) =>
   items.map((i) => i.title.trim());
 
-// A pool's user-visible identity: title plus size, so a Rage that went 2 → 3
-// reads as a change rather than being silently equal.
 const poolLabel = (a: Character["limitedUseAbilities"][number]) =>
   `${a.info.title.trim()}`;
 
@@ -434,8 +391,8 @@ export function summarizeLevelUp(
     const label = poolLabel(a);
     const prior = beforePools.get(label);
     if (!prior) abilities.push(label);
-    // `maxUses` is a formula, so compare the stored expression: a pool whose
-    // size re-derived (Rage 2 → 3, superiority dice d8 → d10) shows up here.
+    // `maxUses` is a formula; compare the stored expression so a re-derived
+    // size (Rage 2 -> 3) shows up as changed.
     else if (JSON.stringify(prior.maxUses) !== JSON.stringify(a.maxUses))
       changedAbilities.push(label);
   }
@@ -460,8 +417,8 @@ export function summarizeLevelUp(
     )
       proficiencies.push(`${skill} (expertise)`);
   }
-  // The rest of `otherProficiencies` is four differently-shaped lists; flatten
-  // each to labelled strings so the diff is one set operation, not four.
+  // Flatten the four differently-shaped `otherProficiencies` lists to labelled
+  // strings so the diff is one set operation.
   const flattenOther = (p: Character["otherProficiencies"]): string[] => [
     ...p.languages.map((l) => `${l} (language)`),
     ...(Object.keys(p.armor) as ArmorType[])

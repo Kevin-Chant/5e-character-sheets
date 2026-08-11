@@ -3,27 +3,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useRealm } from "src/lib/realm/use-realm";
 
-// The transport's two pieces of connection hardening, which are invisible
-// until the connection is bad and then are the whole experience:
-//
-//  - a socket that died without saying so, and
-//  - a message published into one.
-//
-// Both are otherwise unreachable from a test — they need a broker that
-// misbehaves in a specific way — so the autobahn connection is mocked and
-// driven by hand, the same way `use-sharing-session.test.ts` drives it.
+// Tests the transport's connection hardening: a socket that died without
+// saying so, and a message published into one. The autobahn connection is
+// mocked and driven by hand since these need a broker that misbehaves.
 
 const mock = vi.hoisted(() => ({
   holder: { connection: null as any },
   published: [] as any[],
-  // What the liveness probe's self-call does. A dead socket is one where the
-  // call never answers.
+  // Dead socket: the liveness probe's self-call never answers.
   callAnswers: true,
-  // Whether the broker accepts our ping registration. A broker holding a stale
-  // registration under our name refuses with `procedure_already_exists`.
+  // A broker holding a stale registration under our name refuses with
+  // procedure_already_exists.
   registerAccepted: true,
-  // Whether an acknowledged publish gets its PUBLISHED confirmation. A zombie
-  // socket is one that accepts the publish and never confirms it.
+  // A zombie socket accepts the publish and never confirms it.
   ackAnswers: true,
 }));
 
@@ -116,7 +108,7 @@ describe("publishing into a socket that isn't there", () => {
 
     act(() => {
       result.current.publish({ kind: "edit", clientId: "me" });
-      // Not worth replaying: superseded by whatever comes next.
+      // "chatter" is superseded by whatever comes next, not worth replaying.
       result.current.publish({ kind: "chatter", clientId: "me" });
     });
     expect(mock.published).toHaveLength(0);
@@ -138,10 +130,6 @@ describe("publishing into a socket that isn't there", () => {
     expect(mock.published).toHaveLength(0);
   });
 
-  // The zombie window: a socket that died without a close frame accepts the
-  // publish without error, and everything "sent" through it used to be simply
-  // lost. The broker's PUBLISHED confirmation is the only proof of delivery,
-  // so a replayable message that never gets one is held for the reconnect.
   it("holds a publish the broker never confirmed, and replays it on reconnect", async () => {
     vi.useFakeTimers();
     const { result } = setup();
@@ -151,7 +139,6 @@ describe("publishing into a socket that isn't there", () => {
     act(() => {
       result.current.publish({ kind: "edit", clientId: "me" });
     });
-    // Sent, but into the void: the confirmation clock runs out.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(9_000);
     });
@@ -185,8 +172,6 @@ describe("publishing into a socket that isn't there", () => {
     expect(mock.published).toHaveLength(0);
   });
 
-  // Leaving on purpose: nothing held is worth replaying into a room we chose
-  // to walk out of.
   it("drops what it held when the session is closed deliberately", async () => {
     const { result } = setup();
     await openRealm(result);
@@ -209,12 +194,11 @@ describe("a socket that died without saying so", () => {
     await openRealm(result);
     expect(result.current.status).toBe("connected");
 
-    // The probe stops answering — the wifi handover case, where the browser
-    // still believes the connection is open and nothing ever arrives.
+    // Wifi-handover case: browser thinks it's open, nothing ever arrives.
     mock.callAnswers = false;
     await act(async () => {
-      // The beat, then both probes timing out: never on one failure, because a
-      // resumed tab fires its pending timers immediately.
+      // Beat, then both probes timing out — two failures required, since a
+      // resumed tab fires its pending timers all at once.
       await vi.advanceTimersByTimeAsync(21_000);
       await vi.advanceTimersByTimeAsync(9_000);
       await vi.advanceTimersByTimeAsync(9_000);
@@ -224,16 +208,11 @@ describe("a socket that died without saying so", () => {
     expect(result.current.status).toBe("offline");
   });
 
-  // A registration the broker refused means every probe would fail — instantly
-  // on a broker with no such procedure, by timeout on one holding a stale
-  // registration from our own dead predecessor. Either way the probe is
-  // reporting on the registration, not the socket, so it must not run: a
-  // heartbeat here declared a healthy connection dead twenty seconds after
-  // every reconnect, forever.
+  // A refused registration means every probe would fail regardless of socket
+  // health, so the probe must not run in that case.
   it("keeps a connection whose probe couldn't register, instead of probing a name it doesn't hold", async () => {
     vi.useFakeTimers();
     mock.registerAccepted = false;
-    // The stale-registration shape: a call under our name never answers.
     mock.callAnswers = false;
     const { result, onClosed } = setup();
     await openRealm(result);
@@ -262,9 +241,6 @@ describe("a socket that died without saying so", () => {
 });
 
 describe("an attempt superseded while still opening", () => {
-  // A connect() has nothing in the ref to close until its `onopen` fires, so
-  // superseding it is the generation counter's job: a slow first attempt that
-  // opens *after* its replacement must bow out, not steal the session back.
   it("does not let a slow first attempt steal the session from its replacement", async () => {
     const { result } = setup();
 
@@ -273,15 +249,12 @@ describe("an attempt superseded while still opening", () => {
     await act(async () => {
       firstResult = result.current.connect("one");
       first = mock.holder.connection;
-      // Before "one" ever opens, the caller moves on.
       const second = result.current.connect("two");
       mock.holder.connection.onopen(mock.holder.connection.session);
       await second;
     });
     expect(result.current.realm).toBe("two");
 
-    // The stragglers' turn: "one" finally opens. Its caller hears failure,
-    // and the session stays the replacement's.
     await act(async () => {
       first.onopen(first.session);
       expect((await firstResult).ok).toBe(false);

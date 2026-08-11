@@ -10,10 +10,7 @@ import { CritMode } from "src/lib/roll";
 import SettingsSection from "./settings-section";
 import Select from "src/components/select";
 
-// House rules and table variants: how much bookkeeping the sheet does, how
-// crits work, and what a rest gives back. Split out of General because these
-// are the settings a group agrees on together, rather than per-device
-// preferences like the theme or autosave.
+// House rules and table variants: bookkeeping, crits, rest recovery.
 export default function GameSettings() {
   const { settings, updateSetting } = useSettings();
   const {
@@ -28,8 +25,6 @@ export default function GameSettings() {
     setDeathSavesHidden,
   } = useEncounter();
   const canTakeOver = sessionStatus === "connected" && hasDm && !isDm;
-  // Whoever runs the table sets its policy — with no seat claimed that's
-  // everybody, same as every other run-combat control.
   const canSetSharing = canRun;
   return (
     <div className="settings-sections">
@@ -37,18 +32,13 @@ export default function GameSettings() {
         title="Rest pacing"
         description="How long a rest takes. This changes only the durations the sheet quotes — what a rest restores is the same either way. Epic Heroism and Gritty Realism are the Dungeon Master's Guide variants for faster and slower campaigns."
       >
-        {/* Every one of these settings names a variant and then explains it,
-            so the explanation moves to its own line as a `hint` — the labels
-            were single strings with an em dash doing the work of a layout. */}
         <span className="settings-select-inline">
           Rest lengths
           <Select
             label="Rest lengths"
             value={settings.restVariant}
             options={[
-              // `meta`, not `hint`: the durations are what you compare the
-              // three variants on, so they ride the trigger too rather than
-              // living only inside the open list.
+              // `meta`, not `hint`: durations ride the trigger, not just the open list.
               {
                 value: "standard",
                 label: "Standard",
@@ -261,10 +251,7 @@ export default function GameSettings() {
         </label>
       </SettingsSection>
 
-      {/* Table policy, not browser preference: this edits the *encounter*, so
-          it syncs to every client, and it only renders for whoever runs the
-          table. Mirrored on the DM board, where the mid-session "let's tighten
-          this" moment actually happens. */}
+      {/* Edits the encounter (syncs to every client); renders only for whoever runs the table. */}
       {canSetSharing && (
         <SettingsSection
           title="What players see"
@@ -291,11 +278,7 @@ export default function GameSettings() {
         </SettingsSection>
       )}
 
-      {/* The escape hatch for a DM who is genuinely never coming back. It lives
-          here rather than on the session bar deliberately: starting a game
-          claims the seat and a reload reclaims it, so the two everyday reasons
-          to press this are gone, and a button on the bar would read like
-          something to compete over at the start of every session. */}
+      {/* Escape hatch for a DM who is genuinely never coming back. */}
       {canTakeOver && (
         <SettingsSection
           title="Take over the DM seat"

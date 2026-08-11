@@ -16,11 +16,8 @@ import { fromStack, updateAt } from "src/lib/cursor";
 import { Attack, AttackTag, CustomFormula, SaveEffect } from "src/lib/types";
 import Select from "src/components/select";
 
-// The weapon properties the roll dialog reads to decide which features apply
-// (see `mechanics/conditions.ts`). Offered as chips rather than derived, because
-// a hand-authored attack has no preset to derive from — and leaving them all off
-// is a real answer: an attack with no tags stays "unknown", so every conditional
-// feature is offered as a tick, exactly as it was before tags existed.
+// Weapon properties the roll dialog reads to decide which features apply
+// (see `mechanics/conditions.ts`). No tags selected means "unknown", not "none".
 const TAG_LABELS: [AttackTag, string][] = [
   ["melee", "Melee"],
   ["ranged", "Ranged"],
@@ -55,8 +52,7 @@ export default function EditAttack() {
   )
     return <></>;
 
-  // Re-enter the typed world from the string stack: the modal knows it points at
-  // a single Attack (bare index subField, guarded above).
+  // subField is a bare index (guarded above), so this points at a single Attack.
   const attackCursor = fromStack<Attack>(targetedField, subField);
   const attack = getFieldValue(FIELD.attacks, character)[subField];
 
@@ -70,9 +66,7 @@ export default function EditAttack() {
     pushCursor(attackCursor.k("bonus"));
   };
 
-  // An attack resolves one of two ways: the character rolls to hit, or the
-  // target rolls to avoid. Switching clears the other side rather than leaving
-  // both set, so the sheet shows exactly one number per attack.
+  // Switching resolution mode clears the other side, so only one is ever set.
   const setResolution = (mode: "toHit" | "save") => {
     if (mode === "toHit") {
       dispatch(updateAt(attackCursor.k("save"), undefined));
@@ -83,8 +77,6 @@ export default function EditAttack() {
       if (!attack.save)
         dispatch(
           updateAt(attackCursor.k("save"), {
-            // Seeded like every other DC on the sheet — DEX is far and away the
-            // most common save for a damaging effect.
             dc: saveDcFormula(StatKey.con),
             stat: StatKey.dex,
             onSuccess: "half",
@@ -93,8 +85,7 @@ export default function EditAttack() {
     }
   };
 
-  // Whole-value updates, per the reducer's "an update carries the field's whole
-  // value" rule — so undo/redo and live-sync replay keep working.
+  // Whole-value update, per the reducer's convention.
   const updateSave = (patch: Partial<SaveEffect>) => {
     if (!attack.save) return;
     dispatch(updateAt(attackCursor.k("save"), { ...attack.save, ...patch }));
@@ -105,8 +96,7 @@ export default function EditAttack() {
     pushCursor(attackCursor.k("formula"));
   };
 
-  // Range is optional. Editing normal/long rebuilds the whole WeaponRange (or
-  // clears it when normal is blank), keeping the "whole value per update" rule.
+  // Rebuilds the whole WeaponRange; clears it when normal is blank.
   const setRange = (normal: string, long: string) => {
     const normalNum = normal === "" ? undefined : Number(normal);
     const longNum = long === "" ? undefined : Number(long);
@@ -120,9 +110,8 @@ export default function EditAttack() {
     dispatch(updateAt(attackCursor.k("range"), value));
   };
 
-  // Whole-value again: toggling a chip rewrites the list. Emptying it clears
-  // the field entirely rather than storing `[]`, so "no tags" and "unknown" stay
-  // the same state — an attack that says nothing about itself.
+  // Emptying the list clears the field entirely rather than storing [], so
+  // "no tags" and "unknown" stay the same state.
   const toggleTag = (tag: AttackTag) => {
     const current: AttackTag[] = attack.tags ?? [];
     const next = current.includes(tag)

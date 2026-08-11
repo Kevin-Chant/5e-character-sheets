@@ -21,28 +21,21 @@ import { HpTotal, VitalsEntry } from "./vitals-entry";
 
 const SLOT_LEVELS: LeveledSpellLevel[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-// Past this many uses a row of pips stops being countable at a glance, so the
-// pool shows its remaining count as a number instead. Same threshold the sheet's
-// limited-use list uses, for the same reason.
+// Above this many uses, a pool shows its remaining count as a number instead
+// of pips (matches the sheet's limited-use list threshold).
 const PIP_THRESHOLD = 6;
 
-// The numbers you need in your hand while the board has your attention: what's
-// keeping you alive, and what's left in the pools the board spends. Everything
-// else about the character stays on the sheet, one link away — this rail is not
-// a summary of the character, it's the working set for a fight.
+// HP, AC, and pool state for the fight in progress; the rest of the character
+// stays on the sheet.
 export default function PlayVitals() {
   const { character, dispatch } = useLoadedCharacter();
   const { self } = useEncounter();
-  // Down, or mid-way through saves that haven't been cleared: the moment
-  // death saves stop being sheet furniture and become the whole turn.
   const dying =
     character.currHp <= 0 ||
     character.deathSaves.successes > 0 ||
     character.deathSaves.failures > 0;
 
-  // `maxHp` is an optional override, so resolve it through the initializer the
-  // same way the sheet's HP box does — "unset" means "derive it", not "no
-  // maximum".
+  // Unset maxHp means "derive it", resolved via the same initializer as the sheet's HP box.
   const maxHpFormula =
     character.maxHp ??
     getOptionalInitializer(FIELD.maxHp, undefined, character);
@@ -51,8 +44,7 @@ export default function PlayVitals() {
     : 0;
   const currHp = character.currHp;
   const tempHp = character.tempHp;
-  // Clamped so an over-max heal or a lowered maximum can't push the bar past
-  // its track — the number beside it still tells the truth.
+  // Clamped so an over-max heal or lowered maximum can't push the bar past its track.
   const hpFraction = maxHp > 0 ? Math.min(1, Math.max(0, currHp / maxHp)) : 0;
 
   const ac = calculateCustomFormula(character.acFormula, character);
@@ -61,18 +53,14 @@ export default function PlayVitals() {
     character,
   );
 
-  // The same projection the DM's roster row edits, built from the sheet so the
-  // rail's HP control can be the identical widget. `applyHealing` clamps to the
-  // maximum, so an unset maximum has to read as "no ceiling" rather than as
-  // zero — the sheet's own HP box makes the same distinction.
+  // maxHp: MAX_SAFE_INTEGER when unset, so applyHealing's clamp reads as "no ceiling" not zero.
   const vitals: ParticipantVitals = {
     currHp,
     tempHp,
     ac,
     maxHp: maxHpFormula && maxHp > 0 ? maxHp : Number.MAX_SAFE_INTEGER,
   };
-  // Written to the character, not to the participant: the effect that publishes
-  // vitals to the session picks it up from there, so this stays one write.
+  // Written to the character; the session-publish effect picks vitals up from there.
   const applyVitals = (next: ParticipantVitals) => {
     if (next.currHp !== currHp)
       dispatch(updateAt(charPath(FIELD.currHp), next.currHp));
@@ -89,19 +77,11 @@ export default function PlayVitals() {
       index,
       total: calculateCustomFormula(ability.maxUses, character),
     }))
-    // A pool-less action host (`maxUses: 0`) has nothing to show here; its
-    // actions are already on the board.
     .filter((pool) => pool.total > 0);
 
   return (
     <aside className="play-vitals">
       <div className="play-hp">
-        {/* The DM's HP control, mounted on the player's own row. It used to be a
-            ±1 stepper here and a delta box there, so a hit for 9 was one
-            keystroke for the DM and nine clicks for the player — and the player
-            had to drain their own temporary hit points by hand, arithmetic the
-            shared widget already does. The total beside it is still the direct-set
-            escape hatch. */}
         <div className="play-hp-numbers">
           <HpTotal
             vitals={vitals}
@@ -132,10 +112,6 @@ export default function PlayVitals() {
         </div>
       </div>
 
-      {/* The sheet's own death-save tracker, surfaced the moment it's the only
-          thing that matters — and it brings its own die button, so the roll
-          sits on the pips it writes rather than beside them. A separate "Roll a
-          death save" button here was two buttons for one act. */}
       {dying && (
         <div className="play-death-saves">
           <DeathSavesDisplay />
@@ -189,9 +165,6 @@ export default function PlayVitals() {
         <div className="play-pool-group">
           <h2 className="play-rail-heading">
             Pools
-            {/* Dawn has no turn boundary to hang off, so it's a button — and
-                only for a character that actually has something that recharges
-                then, rather than a control that would always do nothing. */}
             {hasTriggerFor(character, "dawn") && (
               <button
                 type="button"

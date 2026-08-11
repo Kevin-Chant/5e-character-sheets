@@ -19,9 +19,8 @@ import {
   LevelUpSpellsStep,
 } from "./level-up-steps";
 
-// The wizard steps are plain props components — no context — so they render
-// directly. These cover the seam the unit tests can't: that a level's grants
-// actually reach the screen, and that picking one writes the right state.
+// Covers the seam unit tests can't: that a level's grants reach the screen,
+// and that picking one writes the right state.
 
 const level1 = (classIndex: string, extra = {}) =>
   buildCharacter({

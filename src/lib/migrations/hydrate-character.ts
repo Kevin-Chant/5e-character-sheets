@@ -7,12 +7,10 @@ export type HydrateResult =
   | { ok: true; character: Character; migrated: boolean }
   | { ok: false; errors: ReturnType<typeof validateCharacterData>[1] };
 
-// The single entry point for turning untrusted/stored JSON into a usable
-// Character: migrate to the current schema version, validate, then reconcile
-// catalog-derived content (pools/action hosts a sheet from before their
-// authoring never received). Never throws — callers branch on `ok`. `migrated`
-// reports whether either step changed anything, so owned datastores can
-// persist the upgrade back (write-on-read).
+// Entry point for turning untrusted/stored JSON into a Character: migrate,
+// validate, then reconcile catalog-derived content. Never throws — callers
+// branch on `ok`. `migrated` reports whether either step changed anything, so
+// callers can persist the upgrade (write-on-read).
 export function hydrateCharacter(raw: unknown): HydrateResult {
   const before =
     typeof (raw as any)?.schemaVersion === "number"

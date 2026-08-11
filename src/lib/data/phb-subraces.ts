@@ -1,11 +1,9 @@
 import { StatKey } from "src/lib/data/data-definitions";
 import { CatalogSubrace } from "src/lib/builder/types";
 
-// Player's Handbook subraces that the open-license SRD omits (the SRD ships
-// exactly one subrace per race). Keyed by race index and merged with the SRD
-// subraces at load time. As with the backgrounds, only mechanical facts are
-// stored and the trait descriptions are original short summaries, not the
-// published prose.
+// PHB subraces the open-license SRD omits (SRD ships one subrace per race).
+// Keyed by race index, merged with SRD subraces at load time. Trait
+// descriptions are original short summaries, not published prose.
 export const PHB_SUBRACES: Record<string, CatalogSubrace[]> = {
   dwarf: [
     {
@@ -217,8 +215,6 @@ export const PHB_SUBRACES: Record<string, CatalogSubrace[]> = {
       ],
     },
   ],
-  // Variant Human is deliberately *not* here: as the only entry under Human it
-  // became a forced choice, leaving no way to build a plain SRD human. It's a
-  // top-level race in `nonsrd-races.ts` instead — which also puts it where
-  // players look for it.
+  // Variant Human is deliberately not here (it'd be the only Human entry,
+  // forcing that choice); it's a top-level race in `nonsrd-races.ts` instead.
 };

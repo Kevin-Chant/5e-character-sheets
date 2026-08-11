@@ -28,8 +28,7 @@ export default function ComponentWithPopover({
   popoverClass = "popover-container padding-medium rounded-border-box",
   popoverChildren,
 }: ComponentWithPopoverProps) {
-  // Split hover into anchor + popover: with the portal the popover is no longer a
-  // DOM child of the anchor, so leaving the anchor for the popover must not hide.
+  // Split hover into anchor + popover since the portal makes the popover no longer a DOM child.
   const [anchorHovered, setAnchorHovered] = useState(false);
   const [popoverHovered, setPopoverHovered] = useState(false);
   const [pinned, setPinned] = useState(false);
@@ -80,10 +79,8 @@ export default function ComponentWithPopover({
       window.removeEventListener("scroll", compute, { capture: true });
       window.removeEventListener("resize", compute);
     };
-    // Re-measure whenever it opens or its content changes.
   }, [open, popoverChildren]);
 
-  // Reset transient drag/resize state whenever the popover fully closes.
   useEffect(() => {
     if (!open) {
       setDragOffset({ x: 0, y: 0 });
@@ -131,8 +128,7 @@ export default function ComponentWithPopover({
     popoverRef.current?.releasePointerCapture(e.pointerId);
   };
 
-  // Toggle pin. Freeze the current (hover) dimensions on pinning so the box keeps
-  // its size and only grows via the resize grip — pinning must not jump wider.
+  // Freeze current dimensions on pin so the box doesn't jump wider; only the resize grip grows it.
   const togglePin = () => {
     const popover = popoverRef.current;
     const next = !pinned;

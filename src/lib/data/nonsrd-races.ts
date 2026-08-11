@@ -1,23 +1,17 @@
 import { REAL_SKILLS, SkillName, StatKey } from "src/lib/data/data-definitions";
 import { CatalogRace } from "src/lib/builder/types";
 
-// Official 5e races that live outside the open-license SRD (Volo's Guide,
-// Mordenkainen's Tome / Monsters of the Multiverse, Eberron, Ravnica, Theros,
-// the Feywild books, …). They are merged into `ALL_RACES` at load time by
-// `race-catalog.ts`, so they surface in the guided builder alongside the SRD races.
+// Official 5e races outside the open-license SRD (Volo's Guide, Mordenkainen's,
+// Eberron, Ravnica, Theros, the Feywild books, …), merged into `ALL_RACES` at
+// load time by `race-catalog.ts`.
 //
-// As with `phb-subraces.ts`, only mechanical facts are stored (ability bonuses,
-// speed, proficiencies, the *names* of racial traits) and the trait details are
-// original short summaries, never the published prose. Fixed racial
-// spellcasting becomes limited-use abilities via `RACE_INNATE_SPELLS` (and
-// once-per-rest traits via `RACE_POOLS`) in `builder/class-pools.ts`, keyed by
-// the trait title — so a title edit here silently drops the grant. Chosen
-// cantrips (the SRD High Elf's) stay wizard choices.
+// Only mechanical facts are stored; trait details are original short
+// summaries, never published prose. Fixed racial spellcasting is keyed to
+// `RACE_INNATE_SPELLS`/`RACE_POOLS` in `builder/class-pools.ts` by trait
+// title — a title edit here silently drops the grant.
 //
-// A few post-2020 races (Fairy, Harengon, Owlin) only ever printed fully
-// "floating" ability increases. We seed a thematic default here; the builder's
-// ability step lets the player reassign racial bonuses freely (modern
-// floating-bonus rules), so nothing is lost.
+// Post-2020 races (Fairy, Harengon, Owlin) print fully "floating" ability
+// increases; we seed a thematic default, reassignable in the builder.
 
 const noProf = () => ({
   armor: [] as string[],
@@ -1311,18 +1305,14 @@ export const NONSRD_RACES: CatalogRace[] = [
     subraces: [],
   },
   // --------------------------------------------------------------- PHB
-  // Variant Human is a *race* here rather than a subrace of Human. As Human's
-  // only subrace it was effectively mandatory — picking Human handed you the
-  // variant with no way back to the SRD human — and it's the form most players
-  // go looking for by name anyway.
+  // Variant Human is a race here, not a subrace of Human, so picking Human
+  // still leaves the plain SRD human reachable.
   {
     index: "variant-human",
     name: "Variant Human",
     size: "Medium",
     speed: 30,
-    // Two +1s in different abilities. Seeded onto STR/DEX and freely
-    // reassignable in the builder's race-bonus editor, which is how every
-    // other racial bonus already works.
+    // Two +1s, seeded onto STR/DEX and reassignable in the builder.
     abilityBonuses: [
       { stat: StatKey.str, bonus: 1 },
       { stat: StatKey.dex, bonus: 1 },
@@ -1348,15 +1338,11 @@ export const NONSRD_RACES: CatalogRace[] = [
     name: "Custom Lineage",
     size: "Medium",
     speed: 30,
-    // A single +2 the player assigns; seeded onto STR and reassignable like
-    // every other racial bonus.
+    // A single +2, seeded onto STR and reassignable.
     abilityBonuses: [{ stat: StatKey.str, bonus: 2 }],
     languages: ["Common"],
     languageChoices: 1,
-    // "Darkvision 60 ft OR one skill proficiency" — a real either/or, so the
-    // wizard asks and grants exactly one. (It used to offer the skill *and*
-    // hand out darkvision anyway, since the trait text below mentions it and
-    // senses are seeded by scanning that text.)
+    // Darkvision OR one skill proficiency is a real either/or.
     skillChoices: { choose: 1, from: REAL_SKILLS },
     darkvisionOrSkill: 60,
     grantsFeat: true,

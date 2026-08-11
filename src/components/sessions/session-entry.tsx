@@ -14,12 +14,7 @@ import {
 import { Character } from "src/lib/types";
 
 // Becoming a participant: the lobby, then the connection, then the table.
-//
-// Both ways in share everything except the questions the lobby asks, so they
-// share this. It used to be a `stage` inside the sessions route; it's a
-// component behind a URL now, which is what makes an invite link a link and
-// makes the Drive round-trip a plain `returnTo` rather than router state
-// ferrying a lobby's worth of choices through an OAuth popup.
+// Both host and join share everything except the questions the lobby asks.
 
 interface SessionEntryProps {
   mode: "host" | "join";
@@ -38,22 +33,11 @@ export default function SessionEntry({ mode, code }: SessionEntryProps) {
     bringCharacters,
   } = useEncounter();
 
-  // Whether we're waiting on a connection. That used to be a copy of the sheets
-  // being brought, held for an effect that watched `sessionStatus` for the
-  // moment to use them — because `hostSession`/`joinSession` resolved as soon
-  // as the attempt had been *started*. They resolve when the realm is joined
-  // now, and say whether it was, so the whole flow is one function again.
   const [busy, setBusy] = useState(false);
 
   const confirm = async (selection: LobbySelection) => {
-    // What the lobby learned that the connection itself can't see: which seat
-    // this is, and which sheets were brought. Written to memory only once the
-    // connection succeeds, so a failed attempt doesn't teach the front door a
-    // shortcut that doesn't work.
-    //
-    // A DM's own sheets go in as brought characters, not as "the character I'm
-    // playing" — running the table is the job. That's true whether they're
-    // opening the realm tonight or rejoining the one they opened last week.
+    // Written to memory only once the connection succeeds, so a failed
+    // attempt doesn't teach the front door a shortcut that doesn't work.
     const remember: Partial<SessionMemory> = selection.runningTable
       ? {
           seat: "dm",
@@ -69,51 +53,39 @@ export default function SessionEntry({ mode, code }: SessionEntryProps) {
 
     if (mode === "join" && !code) return;
     setBusy(true);
-    // Nothing is brought when *joining*: the room already holds whatever this
-    // browser put there, and re-adding would re-snapshot vitals from full-health
-    // sheets onto monsters the party has spent three rounds wearing down.
+    // Nothing is brought when joining: the room already holds whatever this
+    // browser put there.
     let bring: Character[] = [];
 
     if (mode === "join") {
-      // Joining "as" a character is opening it: the participant effect keeps
-      // whatever sheet is open in step with the order.
       if (selection.playAs) {
         dispatch(loadPersistedCharacter(selection.playAs));
       } else if (!selection.runningTable) {
-        // A DM rejoining keeps whatever sheet they happen to have open; only a
-        // player who chose "no sheet" is asking for the sheet to be cleared.
+        // A DM rejoining keeps whatever sheet is open; only a player who
+        // chose "no sheet" wants it cleared.
         reset();
       }
     } else {
       bring = selection.bring;
     }
 
-    // With a code, hosting is reopening a table that went quiet rather than
+    // With a code, hosting reopens a table that went quiet rather than
     // starting a new one — the group's existing invite link keeps working.
     const result =
       mode === "host"
         ? await hostSession(code)
         : await joinSession(code!, selection.displayName);
     setBusy(false);
-    // The lobby stays put and shows `sessionError`. Nothing has been recorded,
-    // which is the point: a code that didn't work must not become a shortcut on
-    // the front door.
     if (!result.ok) return;
 
     if (bring.length > 0) bringCharacters(bring);
-    // The code comes back with the connection rather than being read off the
-    // context, which is a render behind — and a host doesn't know it in advance
-    // at all, since the transport mints it.
+    // `result.code`, not the context's — the context is a render behind, and
+    // a host doesn't know the code until the transport mints it.
     rememberSessionLocally({
       ...remember,
       code: result.code,
       lastJoined: Date.now(),
     });
-    // The table goes in the URL, not just into the session state: a phone
-    // that loses this tab to a background eviction comes back to a code it
-    // can reconnect from. `result.code` rather than the context's, which is a
-    // render behind — and which a host doesn't have until the transport mints
-    // it.
     navigate(playPathFor(result.code));
   };
 

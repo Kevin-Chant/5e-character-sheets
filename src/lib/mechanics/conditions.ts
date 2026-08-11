@@ -12,21 +12,11 @@ import {
 } from "src/lib/types";
 import { ActiveRider } from "./types";
 
-// ---------------------------------------------------------------------------
-// Does this rider apply to *this* attack?
-//
-// The riders in `catalog.ts` all carry real 5e conditions ("melee weapon attack
-// using Strength", "ranged weapons only"), and the sheet used to answer "I can't
-// tell" for every one of them — so Archery was a checkbox you ticked on every
-// bow shot, and Rage damage was added to a longbow. Attacks now carry the weapon
-// properties (`Attack.tags`) that decide most of those conditions.
-//
-// The answer is deliberately three-valued. An attack with no tags — every
-// hand-authored one, and every attack made before tags existed — is `unknown`,
-// which restores exactly the old behaviour (offer it, let the player say) rather
-// than guessing. Only a decidable `no` hides a rider, and only a decidable `yes`
-// applies one silently.
-// ---------------------------------------------------------------------------
+// Whether a rider's condition (from catalog.ts) applies to a given attack,
+// based on the attack's weapon tags (`Attack.tags`). Three-valued: an attack
+// with no tags is `unknown` (offer it, let the player decide) rather than
+// guessing; only a decidable `no` hides a rider and only `yes` applies one
+// silently.
 
 export type Eligibility = "yes" | "no" | "unknown";
 
@@ -38,9 +28,8 @@ export interface AttackContext {
   ability?: StatKey;
 }
 
-// The stat leaves a to-hit formula mentions. A weapon built from a preset is
-// `ability + PB`, so a single stat means the attack unambiguously uses it;
-// finesse is `max(STR, DEX)`, which yields two and is correctly unknowable.
+// The stat leaves a to-hit formula mentions. A preset weapon is `ability +
+// PB` (one stat); finesse is `max(STR, DEX)` (two stats, unknowable).
 function statsIn(formula: unknown, out: Set<StatKey>): Set<StatKey> {
   if (formula === undefined || formula === null) return out;
   if (isDieExpression(formula)) return out;
@@ -59,14 +48,9 @@ function statsIn(formula: unknown, out: Set<StatKey>): Set<StatKey> {
   return out;
 }
 
-/**
- * The context an attack presents to the conditions.
- *
- * `ability` is read off the to-hit formula rather than stored: the editor lets
- * you build any expression, so the formula is the only truth, and a finesse
- * `max(STR, DEX)` names two stats and so stays undefined — which is right, since
- * "which one did you use" is a per-swing decision.
- */
+// `ability` is read off the to-hit formula rather than stored, since the
+// formula is the only source of truth; a finesse weapon (two stats) stays
+// undefined.
 export function attackContext(attack: Attack | undefined): AttackContext {
   if (!attack) return {};
   const stats = [...statsIn(attack.bonus, new Set<StatKey>())];
@@ -76,14 +60,8 @@ export function attackContext(attack: Attack | undefined): AttackContext {
   };
 }
 
-/**
- * Whether a condition holds for an attack.
- *
- * A missing clause is satisfied. A clause the context has no information for is
- * `unknown` — and one decidable failure beats any number of unknowns, so a rider
- * that plainly doesn't apply (Archery on a greatsword) is still hidden even when
- * the ability is ambiguous.
- */
+// A missing clause is satisfied; a clause with no info is `unknown`. A
+// decidable `no` beats any number of unknowns.
 export function conditionEligibility(
   condition: RiderCondition | undefined,
   context: AttackContext,
@@ -109,32 +87,20 @@ export function conditionEligibility(
   return unknown ? "unknown" : "yes";
 }
 
-/** The eligibility of one collected rider against the attack being rolled. */
 export const riderEligibility = (
   rider: ActiveRider,
   context: AttackContext,
 ): Eligibility => conditionEligibility(rider.rider.requires, context);
 
-/**
- * Drop the riders that plainly don't apply to this attack.
- *
- * The single filter every roll path runs its collected riders through: an
- * ineligible rider is not merely unticked, it isn't offered at all — a longbow
- * shot shouldn't mention Rage.
- */
+// Riders that plainly don't apply (eligibility "no") are dropped entirely,
+// not just unticked.
 export const applicableRiders = (
   riders: ActiveRider[],
   context: AttackContext,
 ): ActiveRider[] => riders.filter((r) => riderEligibility(r, context) !== "no");
 
-/**
- * Whether a rider needs the player to opt in, or applies on its own.
- *
- * Two things force the prompt: an explicit `optional` (a condition that isn't
- * about the weapon — "while raging", "against a favored enemy"), and a weapon
- * condition the attack's tags can't settle. Everything else the sheet can now
- * see for itself, and applies silently.
- */
+// Prompts when a rider is explicitly optional (non-weapon condition, e.g.
+// "while raging"), or when the weapon condition is unknown.
 export const needsOptIn = (
   rider: ActiveRider,
   context: AttackContext,

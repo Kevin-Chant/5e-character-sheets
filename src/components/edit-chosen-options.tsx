@@ -10,9 +10,8 @@ import { ChosenOption } from "src/lib/types";
 import { useSave } from "./modals/modal-container";
 
 // Picker for the closed option lists a class offers (Metamagic, maneuvers, Pact
-// Boon). A checkbox per option, with the group's remaining picks enforced by
-// disabling the unpicked ones once you're at the limit — the count is the whole
-// point of the model, so the editor shouldn't let you quietly exceed it.
+// Boon). A checkbox per option; unpicked ones disable once the group's pick
+// limit is reached.
 export default function EditChosenOptions() {
   const { character, dispatch } = useLoadedCharacter();
   const { targetedField } = useTargetedField();
@@ -20,8 +19,7 @@ export default function EditChosenOptions() {
   if (targetedField !== FIELD.chosenOptions) return <></>;
 
   const all = character.chosenOptions ?? [];
-  // Whole-list updates, per the reducer's "an update carries the field's whole
-  // value" rule — which is what makes undo/redo and live-sync replay work.
+  // Update carries the field's whole value, per reducer convention.
   const setAll = (next: ChosenOption[]) =>
     dispatch(updateAt(charPath(FIELD.chosenOptions), next));
 
@@ -47,8 +45,6 @@ export default function EditChosenOptions() {
             <legend className="field-label">
               {group.label} — {picked.length} / {known} known
             </legend>
-            {/* "Pick a type" lists share one effect, described once here rather
-                than repeated against every option. */}
             {group.summary && <p className="field-help">{group.summary}</p>}
             {group.options.map((option) => {
               const checked = picked.some((o) => o.name === option.name);
@@ -57,8 +53,7 @@ export default function EditChosenOptions() {
                   <input
                     type="checkbox"
                     checked={checked}
-                    // Only unpicked options lock at the limit, so you can always
-                    // un-pick one to swap.
+                    // Only unpicked options lock, so you can always un-pick to swap.
                     disabled={!checked && atLimit}
                     onChange={(e) =>
                       toggle(

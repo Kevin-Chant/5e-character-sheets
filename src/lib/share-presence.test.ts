@@ -28,9 +28,7 @@ describe("computePresenceUpdate", () => {
     expect(others).toEqual([
       { clientId: "alice", name: "Alice", at: NOW - 5_000 },
     ]);
-    // The SHARED_* marker must be left untouched (absent from the patch).
     expect(patch).not.toHaveProperty("fiveECharacter");
-    // A fresh peer is not pruned.
     expect(patch).not.toHaveProperty(key("alice"));
   });
 
@@ -51,7 +49,6 @@ describe("computePresenceUpdate", () => {
       NOW,
     );
     expect(others).toHaveLength(0);
-    // Not fresh, but not past the TTL — leave it alone (avoid racing Bob's write).
     expect(patch).not.toHaveProperty(key("bob"));
   });
 
@@ -80,9 +77,6 @@ describe("computePresenceUpdate", () => {
 });
 
 describe("computePresenceUpdate — window boundaries", () => {
-  // The freshness and TTL edges decide whether a peer flickers out of the
-  // roster or a heartbeat gets pruned out from under a peer that just wrote it,
-  // so pin them rather than leaving the comparison operators to inference.
   const peerAt = (at: number) => ({ [key("them")]: `${at}|Them` });
 
   it("counts a peer seen exactly at the freshness edge as present", () => {

@@ -13,8 +13,8 @@ import {
   updateData,
 } from "./actions";
 
-// Applying an edit then its inverse should leave the character untouched.
-// This is the guarantee undo/redo relies on.
+// Applying an edit then its inverse should leave the character untouched —
+// the guarantee undo/redo relies on.
 describe("invertAction round-trips through the reducer", () => {
   const original = () =>
     JSON.parse(JSON.stringify(martialFighter)) as Character;
@@ -54,9 +54,6 @@ describe("invertAction round-trips through the reducer", () => {
   }
 });
 
-// A level-up is applied as a single recorded `replace_character` edit; its
-// inverse (built in the dispatch wrapper) is a `replace_character` carrying the
-// pre-level-up character. One undo must restore the sheet exactly.
 describe("replace_character round-trips (level-up undo)", () => {
   it("one inverse replace restores the pre-level-up character", () => {
     const start = JSON.parse(JSON.stringify(martialFighter)) as Character;
@@ -65,8 +62,6 @@ describe("replace_character round-trips (level-up undo)", () => {
       className: "Fighter",
     });
 
-    // Forward: apply the level-up. Inverse: replace with the prior character,
-    // exactly as the hook records it from the live character ref.
     const forward = replaceCharacter(leveled);
     const inverse = replaceCharacter(start);
 
@@ -79,12 +74,8 @@ describe("replace_character round-trips (level-up undo)", () => {
   });
 });
 
-// Which actions are allowed onto the sync transports. The uuid a dispatch is
-// published under is the *pre-dispatch* character's, so broadcasting a
-// `load_character` sent a whole different sheet into the realm stamped with the
-// uuid of the one peers were editing — and they adopted it. Navigation stays
-// local; real edits, including a whole-character `replace_character` from a
-// rest or a level-up, still travel.
+// Navigation actions stay off the sync transports; real edits (including a
+// whole-character replace_character from a rest/level-up) still travel.
 describe("isNavigationAction", () => {
   it("excludes the two actions that change which character is open", () => {
     expect(isNavigationAction(loadPersistedCharacter({} as Character))).toBe(

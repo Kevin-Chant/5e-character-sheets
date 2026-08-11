@@ -32,6 +32,11 @@ import { RestProvider } from "./lib/hooks/use-rest";
 import { EncounterContextProvider } from "./lib/hooks/use-encounter";
 import { RollModeContextProvider } from "./lib/hooks/use-roll-mode";
 
+// Provider order matters: SharingSessions sits above Datastore/Character so
+// broadcast/role state is reachable; EncounterContext sits above the routes
+// (not just the play surface) so it survives navigation and the roll dialog
+// can read conditions from the sheet; SettingsPanelProvider is innermost so
+// it overlays every surface and survives the /auth round-trip.
 const router = createBrowserRouter([
   {
     path: "/",
@@ -41,12 +46,7 @@ const router = createBrowserRouter([
           <DatastoreSelectorContextProvider>
             <DatastoreContextProvider>
               <CharacterContextProvider>
-                {/* Above the routes, not inside the play surface: the roll
-                      dialog reads conditions from the sheet too, and the
-                      encounter has to survive navigating between them. */}
                 <EncounterContextProvider>
-                  {/* Above Root so the nav toggle and every roll surface
-                        share the same app-dice/real-dice switch. */}
                   <RollModeContextProvider>
                     <EditModeContextProvider>
                       <ConfirmProvider>
@@ -54,9 +54,6 @@ const router = createBrowserRouter([
                           <CharacterBuilderProvider>
                             <LevelUpProvider>
                               <RestProvider>
-                                {/* Innermost, so the panel overlays every
-                                      surface and survives navigating between
-                                      them (the Drive tab leaves for /auth). */}
                                 <SettingsPanelProvider>
                                   <Root />
                                 </SettingsPanelProvider>
@@ -80,9 +77,6 @@ const router = createBrowserRouter([
         path: "/",
         element: <Home />,
       },
-      // Settings is an overlay, not a page — this keeps the old path working
-      // for a stray bookmark, and gives the Drive round-trip somewhere honest
-      // to return to.
       {
         path: "/settings",
         element: <SettingsAlias />,
@@ -91,8 +85,6 @@ const router = createBrowserRouter([
         path: "/sheet",
         element: <SheetContainer />,
       },
-      // The same surface with a character named in the URL, which is what
-      // lets a refresh land back on the sheet it left instead of the menu.
       {
         path: "/sheet/:uuid",
         element: <SheetContainer />,
@@ -101,11 +93,6 @@ const router = createBrowserRouter([
         path: "/play",
         element: <PlaySurface />,
       },
-      // The same surface with the table named in the URL — the session's
-      // equivalent of `/sheet/<uuid>`, and for a sharper reason: a phone
-      // browser drops a background tab out of memory without asking, and what
-      // comes back is a cold page load. A code in the address bar is what
-      // turns that into a reconnect instead of a hunt for the invite link.
       {
         path: "/play/:code",
         element: <PlaySurface />,
@@ -118,18 +105,12 @@ const router = createBrowserRouter([
         path: "/host",
         element: <HostGame />,
       },
-      // The invite link. Both kinds of code land here and are told apart by a
-      // probe — see `join-session.tsx`.
+      // Both kinds of code land here, told apart by a probe (join-session.tsx).
       { path: "/join/:code", element: <JoinSession /> },
-      // Manual entry of a character-sharing code, and where `/join/:code`
-      // forwards one that turns out to be a shared sheet.
+      // Manual code entry, and where `/join/:code` forwards a shared sheet.
       { path: "/join", element: <RemoteConnectionInitializer /> },
-      // Where the Drive share email lands. The invite link for a *document*,
-      // as `/join/:code` is for a table.
+      // Where the Drive share email lands — the invite link for a document.
       { path: "/import/:fileId", element: <ImportCharacter /> },
-      // Sessions used to be a page of its own, behind a nav icon; the front
-      // door does that job now. Kept as a redirect for anyone holding the old
-      // link (and for the muscle memory of the people who built it).
       { path: "/sessions", element: <Navigate to="/" replace /> },
     ],
   },

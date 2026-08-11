@@ -6,14 +6,11 @@ interface ModalProps {
   title?: string;
   onClose: () => void;
   children: ReactNode;
-  // Sizing for dialogs that aren't a short form — the settings panel is a
-  // tabbed surface and wants more room than the default.
-  className?: string;
+  className?: string; // For dialogs needing more room than the default size.
 }
 
-// Reusable modal shell. Owns the backdrop, the centered content box, and the
-// corner close button; callers supply a title and the body content. Closes on
-// backdrop click and on Escape.
+// Modal shell: backdrop, centered content box, corner close button. Closes
+// on backdrop click and on Escape.
 export default function Modal({
   title,
   onClose,

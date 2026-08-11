@@ -17,18 +17,13 @@ interface ProficiencyDisplayProps {
   subtext?: string;
   transform?: (value: any, character: Character) => string | number;
   readOnly?: boolean;
-  // When set, show a d20 roll button that rolls (this row's value) + d20 — used
-  // for skills and saving throws, whose transformed value is the modifier.
+  // Shows a d20 roll button (this row's value + d20) for skills/saving throws.
   rollLabel?: string;
-  // This row is a saving throw, not an ability/skill check — the roll opens
-  // under the save `RollKind`, so save-only riders (Bless) reach it.
+  // Saving throw, not a skill check — routes to the save RollKind so save-only riders (Bless) reach it.
   rollIsSave?: boolean;
-  // Advance the proficiency state on click. Saving throws cycle none↔proficient;
-  // skills cycle none→proficient→expert→none (see the parent). The control shows
-  // a ✓ for proficiency and a stylized "e" for expertise.
+  // Cycles proficiency state: saves none<->proficient, skills none->proficient->expert->none.
   onToggle: () => void;
-  // Skills only: open the per-skill bonus formula editor. Shown in edit mode;
-  // `hasBonus` styles it as active when a bonus is set.
+  // Skills only: opens the per-skill bonus formula editor.
   onEditBonus?: () => void;
   hasBonus?: boolean;
 }

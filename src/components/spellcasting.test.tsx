@@ -9,15 +9,9 @@ import { Character } from "src/lib/types";
 import { OfficialClass } from "src/lib/data/data-definitions";
 import Spellcasting from "./spellcasting";
 
-// Whether the spellcasting section appears at all. A Champion Fighter has no
-// spellcasting, and used to be shown an empty "Cantrips" card regardless —
-// scaffolding for something the character can never do. The rule is that the
-// section is present when the character casts, and that "casts" includes spells
-// picked up outside a spellcasting class (a feat, a race, an item).
-
 // The default character is a Paladin/Warlock, and `Spellcasting` back-fills a
-// spellcasting entry for any casting class on the sheet — so a genuine
-// non-caster has to be a non-casting *class*, not just an emptied list.
+// spellcasting entry for any casting class on the sheet, so a non-caster
+// needs a non-casting class, not just an emptied list.
 const nonCaster = (): Character => {
   const character = aCharacter();
   character.class = [
@@ -50,7 +44,6 @@ describe("Spellcasting visibility", () => {
     expect(
       screen.getByRole("button", { name: "Add spellcasting class" }),
     ).toBeInTheDocument();
-    // No empty spell furniture behind it.
     expect(screen.queryByText("Cantrips")).not.toBeInTheDocument();
   });
 
@@ -62,7 +55,6 @@ describe("Spellcasting visibility", () => {
   });
 
   it("shows the spell area for a spell learned outside a casting class", () => {
-    // A Fighter with Magic Initiate has cantrips but no spellcasting class.
     const character = nonCaster();
     character.spells = {
       0: [
@@ -79,8 +71,6 @@ describe("Spellcasting visibility", () => {
 });
 
 describe("spell slot captions", () => {
-  // A wizard with a single 5th-level slot, which is the case the plural caption
-  // got wrong ("1 SLOTS").
   const caster = (level: number, slots: number): Character => {
     const character = nonCaster();
     character.class = [
@@ -91,8 +81,7 @@ describe("spell slot captions", () => {
       },
     ];
     character.spellcastingClasses = [{ classId: character.class[0].id }];
-    // `SpellSlots` is keyed for every level, so override the one under test
-    // rather than replacing the whole record.
+    // Override just the level under test; `SpellSlots` is keyed per level.
     character.spellSlots = {
       ...character.spellSlots,
       [level]: { totalOverride: slots, expended: 0 },
@@ -113,8 +102,6 @@ describe("spell slot captions", () => {
       character: caster(5, 2),
       editMode: false,
     });
-    // A 9th-level wizard has slots at every level up to 5, so the plural is
-    // everywhere; what matters is that nothing has gone singular.
     expect(screen.getAllByText("Slots").length).toBeGreaterThan(0);
     expect(screen.queryByText("Slot")).not.toBeInTheDocument();
   });

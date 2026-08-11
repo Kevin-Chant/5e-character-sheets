@@ -14,9 +14,7 @@ const COIN_ORDER: CoinType[] = [
   CoinType.CP,
 ];
 
-// One denomination's field. It's a component rather than an inline <input> so
-// each denomination owns its own draft state — edits commit on blur/Enter, not
-// per keystroke, so entering 150 gp writes once instead of 1, then 15, then 150.
+// Own component so each denomination owns its own draft state; commits on blur/Enter, not per keystroke.
 function CoinField({
   type,
   value,
@@ -41,10 +39,8 @@ function CoinField({
   );
 }
 
-// A compact currency strip across the top of the equipment box. Edit mode shows
-// every denomination as a small typed field; play mode collapses to the coins
-// you actually hold (falling back to GP) so the purse doesn't shout zeroes. The
-// gold-value total sits at the end as a muted readout.
+// Currency strip: edit mode shows every denomination; play mode collapses to
+// the coins actually held (falling back to GP).
 export default function CoinsDisplay() {
   const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
@@ -62,10 +58,7 @@ export default function CoinsDisplay() {
   const readonlyCoins = held.length ? held : [CoinType.GP];
 
   return (
-    // Edit mode always shows all five denominations, which is a fixed shape and
-    // so gets a five-track grid that shares the width evenly — as a flex row the
-    // fields were content-sized and copper wrapped onto a line of its own. Play
-    // mode shows only what you hold, a variable count, so it stays a flex row.
+    // Edit mode: fixed 5-denomination grid. Play mode: flex row for a variable count.
     <div className={editMode ? "coins-strip coins-strip-grid" : "coins-strip"}>
       {editMode
         ? COIN_ORDER.map((type) => (

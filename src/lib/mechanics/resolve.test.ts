@@ -26,14 +26,11 @@ const classed = (name: OfficialClass, level: number): Character => {
   const id = randomUUID();
   c.class = [{ id, name, level }];
   c.spellcastingClasses = [{ classId: id }];
-  // The fixture's HP fields would confound heal tests; pin them.
   c.maxHp = 50;
   c.currHp = 30;
   c.tempHp = 0;
-  // `defaultCharacter` is a *played-in* sample sheet — it deliberately ships
-  // mid-adventuring-day (spent slots, spent hit dice, a level of exhaustion) so
-  // the rest flow has something to restore. Reset the resource state these
-  // tests assert on, so they describe their own starting point.
+  // defaultCharacter ships mid-adventuring-day (spent slots/hit dice,
+  // exhaustion); reset the resource state these tests assert on.
   c.spellSlots = Object.fromEntries(
     Object.keys(c.spellSlots).map((level) => [level, { expended: 0 }]),
   ) as Character["spellSlots"];
@@ -56,7 +53,6 @@ const ctxFor = (
   extra?: Partial<EffectContext>,
 ): EffectContext => ({ character, ability, abilityIndex: 0, ...extra });
 
-// The update targeting a dot-path, for asserting on resolver output.
 const updateFor = (
   updates: { type: string; subField?: string; payload: { value: unknown } }[],
   type: string,
@@ -274,8 +270,8 @@ describe("resolveEffects", () => {
   });
 
   describe("cross-pool spend", () => {
-    // A Cutting Words-shaped action: the owning ability is a pool-less action
-    // host, and the spend drains a *different* pool named by title.
+    // Cutting Words-shaped: the owning ability is a pool-less action host,
+    // and the spend drains a different pool named by title.
     const withPools = (): { c: Character; host: LimitedUseAbility } => {
       const c = classed(OfficialClass.Bard, 5);
       const bardic: LimitedUseAbility = {

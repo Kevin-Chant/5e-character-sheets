@@ -17,18 +17,11 @@ import EditSkills from "./edit-skills";
 import EditSpeeds from "./edit-speeds";
 import UpdateField from "./update-field";
 
-// The sheet's edit modals. Each is a small form over one slice of the
-// character, and they split into two save styles that are easy to confuse:
-//
-// - **Live**: every keystroke dispatches, and the modal's Save button just
-//   closes (speeds, race, armor proficiencies, hit dice). Cancelling does *not*
-//   discard — the modal container's draft buffer handles that.
-// - **Deferred**: local state, committed as one action on save (senses), or
-//   save-on-change through `commit` (skills).
-//
-// So what these tests pin is which of the two each modal is, and that the
-// action it produces carries the field's whole new value — the invariant undo,
-// redo and live-sync all rest on.
+// Edit modals split into two save styles: live (every keystroke dispatches;
+// speeds, race, armor proficiencies, hit dice) and deferred (local state,
+// committed as one action on save — senses — or via `commit` — skills). These
+// tests pin which style each modal uses, and that the action carries the
+// field's whole new value.
 
 describe("EditSpeeds", () => {
   it("writes the walking speed as you type", async () => {
@@ -175,7 +168,6 @@ describe("EditRace", () => {
     await userEvent.clear(subrace);
     await userEvent.type(subrace, "Feral");
     expect(harness.character.race.subrace).toBe("Feral");
-    // Untouched by the subrace edit.
     expect(harness.character.race.name).toBe("Tiefling");
   });
 });
@@ -194,8 +186,7 @@ describe("EditSkills", () => {
     await userEvent.click(
       within(row).getByRole("button", { name: "Proficient" }),
     );
-    // Proficiency and expertise are separate fields, so the state change is two
-    // whole-value updates rather than one — both must fire, or the two drift.
+    // Proficiency and expertise are separate fields, so this is two whole-value updates.
     expect(harness.commit).toHaveBeenCalledTimes(2);
     const values = harness.commit.mock.calls.map(
       (c) => (c[0] as { payload: { value: unknown } }).payload.value,
@@ -250,9 +241,7 @@ describe("EditChosenOptions", () => {
 
 describe("UpdateField headings", () => {
   // A field with no entry in EDITABLE_FIELD_OPTIONAL_DATA falls back to
-  // `humanize()`ing its key, which prints the *model's* vocabulary at the
-  // player — "Exp", "Curr Hp". Nothing in the game is called "curr hp", so the
-  // heading is checked here against the words a player would actually use.
+  // humanize()ing its key ("Curr Hp"); check against the player-facing wording.
   const headingFor = (field: FIELD) =>
     renderWithCharacter(<UpdateField modalType="number" />, {
       targetedField: field,

@@ -13,60 +13,40 @@ export type Theme = "system" | "light" | "dark";
 export interface Settings {
   liveEditHost: string;
   theme: Theme;
-  // Whether edits persist automatically, and how long (ms) to wait after the
-  // last edit before doing so. Manual save (⌘S / the save button) works either
-  // way.
+  // Whether edits autosave, and the debounce delay (ms). Manual save works either way.
   autosave: boolean;
   autosaveDelay: number;
-  // Whether sheets open ready to edit (vs. locked for play).
+  // Whether sheets open ready to edit vs. locked for play.
   openInEditMode: boolean;
-  // Whether opening a shared Google Drive character automatically starts/joins a
-  // live co-editing session (owner hosts, recipient joins). Off falls back to the
-  // manual share toggle.
+  // Whether opening a shared Drive character auto-starts/joins a live
+  // co-editing session; off falls back to the manual share toggle.
   autoLiveSession: boolean;
-  // Whether to track ammunition. Off hides the Ammunition section and the
-  // per-weapon remaining-ammo count — many tables don't bother with it.
+  // Off hides the Ammunition section and per-weapon remaining-ammo count.
   trackAmmunition: boolean;
-  // Whether to track encumbrance. Off hides the per-item weight column and the
-  // carrying-capacity readout — many tables ignore encumbrance entirely.
+  // Off hides the per-item weight column and carrying-capacity readout.
   trackEncumbrance: boolean;
-  // Whether personality traits, ideals, bonds and flaws are part of this
-  // table's game. Off hides all four from the sheet *and* stops the creation
-  // wizard asking for them — it's one question about how a group plays, not a
-  // per-character or per-surface choice, which is why it lives here rather than
-  // as a toggle on the sheet. Anything already recorded is kept, just not shown.
+  // Off hides personality traits/ideals/bonds/flaws from the sheet and the
+  // creation wizard; existing data is kept, just not shown.
   trackPersonality: boolean;
-  // Display unit for weights. Values are always STORED in pounds (5e carrying
-  // capacity is defined in lb); "kg" only converts at render time.
+  // Display unit; values are always stored in pounds, "kg" only converts at render.
   weightUnit: "lb" | "kg";
-  // Whether a natural 1/20 shows as "Critical Fail"/"Critical Success" on *every*
-  // d20 check. Off (default), the crit callout only appears on attack to-hit
-  // rolls (as "Critical Fail"/"Critical Hit").
+  // Off (default): crit callout only on attack to-hit rolls. On: every d20 check.
   criticalsOnAllRolls: boolean;
-  // How a critical hit inflates damage — RAW (double the dice) plus the two
-  // most common house rules. See `CritMode` in `src/lib/roll.ts`.
+  // RAW (double dice) plus two common house rules. See `CritMode` in `src/lib/roll.ts`.
   criticalDamageMode: CritMode;
-  // Exploding crits: after a critical hit, reroll the d20 and stack another set
-  // of critical dice for each repeat crit. Compounds with `criticalDamageMode`.
+  // Reroll the d20 after a crit and stack another set of crit dice per repeat;
+  // compounds with criticalDamageMode.
   explodingCriticals: boolean;
-  // --- Rests (see `src/lib/rest.ts`; the four `longRest*` keys and the
-  // variant together are the `RestRules` the planner reads) ---
-  // Rest lengths: the DMG's Epic Heroism / Gritty Realism pacing variants. This
-  // only changes the durations the rest UI announces — the mechanical effects of
-  // a rest are identical.
+  // Rests: see `src/lib/rest.ts`; these plus restVariant form the `RestRules` the planner reads.
+  // DMG Epic Heroism/Gritty Realism pacing; only affects announced durations, not mechanics.
   restVariant: RestVariant;
-  // How many spent hit dice a long rest gives back: RAW is half your total
-  // (minimum one), and "all" is the near-universal house rule.
+  // RAW is half total hit dice (min one); "all" is a common house rule.
   longRestHitDiceRecovery: "half" | "all" | "none";
-  // Whether a long rest restores all HP (RAW) or none — the DMG's Slow Natural
-  // Healing variant, where you spend hit dice at the end of a long rest instead.
+  // "none" is the DMG Slow Natural Healing variant (hit dice spent instead).
   longRestHpRecovery: "full" | "none";
-  // How much exhaustion a long rest sheds: one level (RAW), all of it, or none.
   longRestExhaustionRecovery: "one" | "all" | "none";
-  // Whether temporary HP expire at the end of a long rest (RAW).
   longRestClearsTempHp: boolean;
-  // Whether a long rest prompts prepared casters to re-pick their prepared
-  // spells. Off skips straight to the summary.
+  // Off skips straight to the rest summary instead of prompting spell re-prep.
   promptSpellPreparation: boolean;
 }
 

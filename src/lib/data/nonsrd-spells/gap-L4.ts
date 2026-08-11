@@ -3,16 +3,13 @@ import { DamageType, StatKey } from "src/lib/data/data-definitions";
 import { spellMech, save, auto } from "src/lib/spells/nonsrd-mechanics";
 
 // Completeness-audit gap fill: official (non-UA) level-4 spells the initial
-// authoring pass missed (the mega-page enumeration was lossy). Mechanical facts
-// with ORIGINAL paraphrased descriptions only — never published prose.
+// authoring pass missed. Mechanical facts with ORIGINAL paraphrased
+// descriptions only — never published prose.
 //
-// A few of these (Elemental Bane, Storm Sphere, Vitriolic Sphere) have a damage
-// component this file deliberately leaves out of `mechanics`: Elemental Bane's
-// damage type is chosen at cast time (no single `DamageType` fits, same call as
-// Absorb Elements), and Storm Sphere/Vitriolic Sphere each layer a second
-// damage trigger with its own resolution/scaling on top of the one modelled
-// here — described in `desc`, not forced into a shape the helper doesn't
-// support.
+// Elemental Bane, Storm Sphere, and Vitriolic Sphere each have a damage
+// component left out of `mechanics`: Elemental Bane's type is chosen at
+// cast time (no single `DamageType` fits), and Storm Sphere/Vitriolic Sphere
+// each layer a second damage trigger the helper can't express — see `desc`.
 export const GAP_SPELLS_L4: CatalogSpell[] = [
   {
     index: "aura-of-purity",

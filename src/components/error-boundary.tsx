@@ -1,8 +1,8 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
-  // Re-mounting key: when it changes (e.g. a different character is opened) the
-  // boundary clears a previously-caught error and retries rendering.
+  // Changing this key (e.g. a different character opened) clears a caught
+  // error and retries rendering.
   resetKey?: unknown;
   fallback: (error: Error, reset: () => void) => ReactNode;
   children: ReactNode;
@@ -12,8 +12,8 @@ interface State {
   error: Error | null;
 }
 
-// Contains render-time crashes (e.g. the formula engine throwing on a malformed
-// character) so one bad character can't white-screen the whole app.
+// Contains render-time crashes (e.g. the formula engine throwing on a
+// malformed character).
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
 

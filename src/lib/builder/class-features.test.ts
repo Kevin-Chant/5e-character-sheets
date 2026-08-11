@@ -29,8 +29,7 @@ describe("fighting styles", () => {
   });
 
   it("hands out Tasha's styles by class, not to everyone", () => {
-    // Superior Technique is the fighter's alone; the other three Tasha's
-    // styles are shared out — and neither half-caster gets both.
+    // Superior Technique is fighter-only; neither half-caster gets both.
     const fighter = fightingStyleDueAt(OfficialClass.Fighter, 1)!;
     expect(fighter).toContain("Superior Technique");
     expect(fighter).toContain("Unarmed Fighting");
@@ -101,8 +100,6 @@ describe("per-level class features", () => {
   });
 
   it("pool-backed features stay out of the prose table", () => {
-    // Rage/Second Wind/Ki etc. land as limited-use pools with their own
-    // descriptions; duplicating them here would double them on the sheet.
     for (const cls of [
       OfficialClass.Barbarian,
       OfficialClass.Fighter,
@@ -140,7 +137,6 @@ describe("spells known / cantrips known progression", () => {
   it("walks the known-caster spell tables one level at a time", () => {
     expect(newSpellsAt(OfficialClass.Sorcerer, 1)).toBe(2);
     expect(newSpellsAt(OfficialClass.Sorcerer, 2)).toBe(1);
-    // The sorcerer's repertoire stops growing at 17th.
     expect(newSpellsAt(OfficialClass.Sorcerer, 18)).toBe(0);
     expect(newSpellsAt(OfficialClass.Bard, 10)).toBe(2); // 12 → 14
     expect(newSpellsAt(OfficialClass.Warlock, 11)).toBe(1);
@@ -164,7 +160,6 @@ describe("spells known / cantrips known progression", () => {
       OfficialClass.Paladin,
     ])
       expect(newSpellsAt(c, 5)).toBeNull();
-    // …and an unknown/homebrew class too.
     expect(newSpellsAt("Blood Hunter", 5)).toBeNull();
   });
 
@@ -177,12 +172,9 @@ describe("spells known / cantrips known progression", () => {
   });
 });
 
-// Invocations moved out to `src/lib/data/invocations/` (per-book files, merged
-// and alphabetised). The list is the warlock's whole character-building
-// surface, so its size and shape are worth pinning.
 describe("eldritch invocations", () => {
   it("carries the full PHB + XGE/TCE catalog, not just the SRD subset", () => {
-    // 32 PHB + 22 XGE/TCE. The old hand-written list held 15.
+    // 32 PHB + 22 XGE/TCE.
     expect(ELDRITCH_INVOCATIONS.length).toBe(54);
   });
 

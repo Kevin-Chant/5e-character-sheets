@@ -103,8 +103,6 @@ describe("checkSidecarHealth", () => {
           .status,
         host,
       ).toBe("invalid-url");
-    // A bare hostname would otherwise resolve against the app's own origin and
-    // "succeed" against the SPA itself, which is a confusing way to fail.
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

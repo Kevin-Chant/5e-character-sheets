@@ -4,17 +4,10 @@ import {
   writeLocalStorage,
 } from "./local-storage";
 
-// The Google account this browser last saw characters in.
-//
-// This exists for one failure that looks like data loss and isn't: someone with
-// a work and a personal Google account signs in as the other one and finds an
-// empty (or unfamiliar) character list. Nothing is wrong, nothing is recoverable
-// by retrying, and the app has no way to say so — the account is the one piece
-// of context that explains it, and until now it was never shown or remembered.
-//
-// Deliberately a plain string in localStorage rather than anything derived: the
-// comparison has to survive the sign-out that clears the token, since the whole
-// point is to notice a *change* across sessions.
+// The Google account this browser last saw characters in — used to detect a
+// switch (e.g. work vs. personal account) that would otherwise look like data
+// loss. Plain string in localStorage so the comparison survives a sign-out
+// that clears the token.
 
 const LAST_DRIVE_ACCOUNT_KEY = "lastDriveAccount";
 
@@ -31,8 +24,8 @@ export function clearLastDriveAccount() {
   removeLocalStorage(LAST_DRIVE_ACCOUNT_KEY);
 }
 
-// Whether `email` is a different account from the one this browser was last
-// using. A first-ever sign-in is not a mismatch — there's nothing to contradict.
+// Whether `email` differs from the last account used. A first-ever sign-in
+// is not a mismatch.
 export function isAccountSwitch(email: string | undefined): boolean {
   if (!email) return false;
   const last = readLastDriveAccount();

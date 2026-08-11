@@ -31,10 +31,8 @@ import Select from "../select";
 import StepperInput from "../stepper-input";
 
 // Play-mode action rows for limited-use abilities the mechanics catalog knows
-// (Second Wind, Font of Magic, Lay on Hands, …). Everything rendered here is
-// driven by the ability's `AbilityAction` data — choice pickers, enablement,
-// the action-cost badge — so a new special ability is a catalog entry, not a
-// component. Writes go through `resolveEffects` → ordinary dispatches.
+// (Second Wind, Font of Magic, Lay on Hands, …), driven by each ability's
+// AbilityAction data. Writes go through resolveEffects -> ordinary dispatches.
 export default function AbilityActions({
   index,
   ability,
@@ -58,12 +56,9 @@ export default function AbilityActions({
   );
 }
 
-// One action: [level picker] [amount input] [button + cost badge], and the
-// outcome line (reminders / display rolls) from its last use.
-//
-// Exported because the play surface's action board renders these individually,
-// regrouped by action-economy cost rather than by the pool they belong to — a
-// Ki pool is three different things you can do, at two different costs.
+// One action: [level picker] [amount input] [button + cost badge], plus the
+// outcome line from its last use. Exported so the play surface's action board
+// can render these individually, regrouped by action-economy cost.
 export function ActionRow({
   index,
   ability,
@@ -80,19 +75,14 @@ export function ActionRow({
   const [level, setLevel] = useState<LeveledSpellLevel>(1);
   const [amount, setAmount] = useState(1);
   const [outcome, setOutcome] = useState<string | null>(null);
-  // Real-dice mode: the totals typed in so far, in ask order; null when no
-  // entry is underway.
+  // Real-dice mode: totals typed so far, in ask order; null when no entry is underway.
   const [manualTotals, setManualTotals] = useState<number[] | null>(null);
   const [targetId, setTargetId] = useState("");
   const [targetIds, setTargetIds] = useState<string[]>([]);
 
-  // A condition-applying action (Stunning Strike, Inspire) asks whom, the same
-  // grouped pick the roll dialog makes — only at a table, since the condition
-  // lands on an encounter row and solo there is no row to land on. A
-  // single-target use leaves your own row out (a strike, an inspiration for
-  // someone else — neither ever names you); a save-the-room `multi` use
-  // includes it, because "creatures of your choice within 30 ft." routinely
-  // does.
+  // A condition-applying action (Stunning Strike, Inspire) asks whom, only at a
+  // table (needs an encounter row to land on). Single-target excludes your own
+  // row; multi-target (e.g. "creatures of your choice") includes it.
   const applies = action.applies;
   const selfId = self?.id;
   const targetable =
@@ -121,32 +111,19 @@ export function ActionRow({
   };
   const blocked = actionBlocked(action, ctx);
 
-  // Most pools carry a single action named after the pool, so the button just
-  // repeated the name already printed above it — "Divine Sense" under "Divine
-  // Sense", and three rows of "Channel Divinity: …" under three pools called
-  // exactly that. Where the name restates the ability it says nothing the
-  // player can't already see, so the button becomes a plain "Use" and the cost
-  // badge beside it carries the rest.
-  //
-  // Where the action name is *not* the ability name it's doing real work — a
-  // Ki pool's "Flurry of Blows" / "Patient Defense" / "Step of the Wind", or
-  // Hexblade's "Curse a target" — so it keeps its label. The ability's own name
-  // is never abbreviated: "Channel Divinity: Vow of Enmity" is what the feature
-  // is called, and those entries share one pool.
+  // If the action name just restates the ability name, the button says "Use"
+  // instead (the cost badge carries the rest); otherwise it keeps its own label.
   const abilityName = ability.info.title.trim();
   const restatesAbility =
     action.name.trim().toLowerCase() === abilityName.toLowerCase();
 
-  // The dice this action rolls, as manual-entry asks — non-empty only when
-  // the table is on real dice and the action actually rolls something. Every
-  // other action fires on the click either way.
   const asks = rollMode === "manual" ? manualRollAsks(action.effects, ctx) : [];
 
   const perform = (e: React.MouseEvent) => {
     e.preventDefault();
     if (blocked) return;
     if (asks.length > 0) {
-      // Real dice: nothing is spent or reported until the totals come in.
+      // Real dice: nothing is spent or reported until totals come in.
       setManualTotals((current) => (current === null ? [] : null));
       return;
     }
@@ -168,21 +145,11 @@ export function ActionRow({
       ...reminders,
     ];
     setOutcome(parts.length > 0 ? parts.join(" — ") : null);
-    // Every rolled amount goes to the table as it lands (a no-op when there
-    // is no table) — the writes above reach the DM as bare HP changes in the
-    // projection, and these are the "Second Wind: 9" that explains them.
-    // Each roll is its own exchange at attempt 1: using an ability twice is
-    // two acts, not a re-roll of one.
+    // Reports each rolled amount to the table (no-op without one); each use is its own exchange.
     const source = restatesAbility
       ? abilityName
       : `${abilityName} — ${action.name}`;
-    // A condition-applying use is one act with an address, so its cast and its
-    // rolls share an exchange — Inspire's die and its condition arrive as one
-    // card. The cast rides the same path a condition-granting spell does: the
-    // condition *name* on a `cast` stage, which the table-talk layer fans into
-    // consent prompts (a character-backed target) and DM apply buttons
-    // (anyone else). Untargeted, it still announces the use — just with
-    // nowhere to offer the condition to.
+    // Cast and rolls share one exchange so a condition-applying use (e.g. Inspire) arrives as one card.
     const exchangeId = randomUUID();
     const address = applies?.multi
       ? targetIds.length > 0
@@ -218,8 +185,6 @@ export function ActionRow({
     );
   };
 
-  // Slot-creation options show their point cost inline when the action spends
-  // by chosen level.
   const usesCostTable = action.effects.some(
     (ef) => "amount" in ef && ef.amount && "byChosenLevel" in ef.amount,
   );
@@ -253,9 +218,6 @@ export function ActionRow({
             options={levels.map((lvl) => ({
               value: String(lvl),
               label: ordinal(lvl),
-              // The price of the slot, in its own column — the Sorcery Point
-              // cost is the whole decision here, and it used to be a
-              // parenthetical glued onto the label.
               meta:
                 usesCostTable && SLOT_CREATION_COSTS[lvl] !== undefined
                   ? `${SLOT_CREATION_COSTS[lvl]} pts`
@@ -267,11 +229,6 @@ export function ActionRow({
             }}
           />
         )}
-        {/* How much of the pool this use spends — Lay on Hands is the one
-            ability that lets you choose. Labelled, because a bare number box
-            beside a "Use" button says nothing about what it counts; and the
-            shared `StepperInput` rather than a raw number field, so it doesn't
-            sit under the pool's own themed stepper wearing browser spinners. */}
         {needsAmount && (
           <label className="ability-action-amount">
             <span className="ability-action-amount-label">Spend</span>
@@ -291,9 +248,6 @@ export function ActionRow({
           type="button"
           className="ability-action-btn"
           disabled={!!blocked}
-          // The accessible name always says what's being used, even when the
-          // visible label is the generic one — "Use" on its own tells a screen
-          // reader nothing about which ability it belongs to.
           aria-label={`Use ${abilityName}`}
           title={blocked ?? action.costNote}
           onClick={perform}
@@ -311,9 +265,7 @@ export function ActionRow({
           {ACTION_COST_LABELS[action.cost]}
         </span>
       </div>
-      {/* Real dice: the click above opened this instead of rolling — one ask
-          at a time, in the order the resolver consumes them, and nothing is
-          spent until the last total lands. Clicking the action again cancels. */}
+      {/* Real dice: one ask at a time; nothing spent until the last total lands. */}
       {manualTotals !== null && manualTotals.length < asks.length && (
         <div className="column ability-action-manual">
           <p className="muted font-small">

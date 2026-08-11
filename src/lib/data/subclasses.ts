@@ -7,34 +7,20 @@ import {
 import { CatalogSubclass } from "src/lib/builder/types";
 import { SUBCLASS_FEATURES } from "src/lib/data/subclass-features";
 
-// The full catalog of official subclasses across every class. Names are the
-// value stored on the character (matching the existing free-text field and the
-// edit-class-levels datalist), so no migration is needed.
+// Official subclasses across every class. Names are the value stored on the
+// character (matches the free-text field and edit-class-levels datalist).
 //
-// A subclass confers content through two shapes, and which one to use is just
-// a question of *when* it lands:
+// `grants` fires once, at the choice level (level 1 for cleric/sorcerer/
+// warlock, else the level-up wizard's choice level); it's the only shape that
+// can grant proficiencies/always-prepared spellIndices. `levelFeatures` fires
+// per level and is prose-only — attached below from `data/subclass-features/`
+// (one file per class). Prefer `levelFeatures` even for choice-level prose to
+// keep a subclass's progression in one table.
 //
-// - `grants` fires once, at the level the subclass is *chosen* — the level-1
-//   builder for the classes that pick at 1 (cleric, sorcerer, warlock), the
-//   level-up wizard for everyone else at their choice level (druid/wizard at 2,
-//   the rest at 3). It's the only shape that can grant proficiencies and
-//   always-prepared `spellIndices`.
-// - `levelFeatures` fires at *each* level the subclass gives something, and is
-//   attached below from `data/subclass-features/` (one file per class, because
-//   the tables dwarf the entries). Prose only, but it's what makes a 6th/10th/
-//   14th-level subclass feature visible at all.
-//
-// Prefer `levelFeatures` for anything that is feature prose, including at the
-// choice level: it keeps a subclass's whole progression in one table. Reserve
-// `grants` for proficiencies, spells, and the choice-level-only cases.
-//
-// Refreshing *pools* a subclass carries (superiority dice, Healing Light) is
-// not done here — those live in `builder/class-pools.ts` `SUBCLASS_POOLS`,
-// keyed by subclass name, so their sizes re-derive on every level-up. As
-// elsewhere, we store only mechanical facts and write original short summaries,
-// never published prose. `spellIndices` reference the full bundled catalog
-// (SRD + non-SRD); an index that doesn't resolve is silently skipped, so a
-// spell still missing from the catalog just isn't handed out.
+// Pool refresh (superiority dice, Healing Light) lives in
+// `builder/class-pools.ts` SUBCLASS_POOLS, keyed by subclass name, not here.
+// spellIndices are mechanical facts with original summaries, not published
+// prose; an index missing from the bundled catalog is silently skipped.
 
 // Helper to keep entries terse. index is derived from class + name.
 const slug = (s: string) =>
@@ -45,10 +31,8 @@ const slug = (s: string) =>
 
 type Entry = Omit<CatalogSubclass, "index" | "classIndex">;
 
-// Per-level features are attached here rather than written inline: the tables
-// are far larger than the entries themselves, and keeping them in one file per
-// class (`data/subclass-features/`) is what keeps this catalog readable. An
-// entry may still declare `levelFeatures` inline, which wins.
+// levelFeatures come from data/subclass-features/; an entry's own
+// levelFeatures, if set, wins.
 const forClass = (classIndex: string, entries: Entry[]): CatalogSubclass[] =>
   entries.map((e) => ({
     index: `${classIndex}-${slug(e.name)}`,
@@ -142,8 +126,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
             title: "Bonus Proficiencies",
             detail: "Gain proficiency in three skills of your choice.",
           },
-          // Cutting Words is granted as a cross-pool action host (it spends
-          // Bardic Inspiration), see SUBCLASS_POOLS["Lore"] — not a prose row.
+          // Cutting Words is a cross-pool action host, see SUBCLASS_POOLS["Lore"].
         ],
       },
     },
@@ -158,8 +141,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Swords",
       summary:
         "A blade-dancing performer who fights with flourishes and martial skill.",
-      // The fighting style (Dueling or Two-Weapon Fighting) is offered by
-      // `fightingStyleDueAt`, not granted here.
+      // Fighting style is offered by `fightingStyleDueAt`, not granted here.
       grants: {
         proficiencies: { armor: ["Medium Armor"], weapons: ["Scimitar"] },
       },
@@ -344,8 +326,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       summary:
         "A tender of the boundary between life and death, magnifying healing and marking foes.",
       grants: {
-        // Circle of Mortality's Spare the Dying rides along with the domain
-        // spells (its bonus-action/30-foot upgrades stay in the prose).
+        // Circle of Mortality's Spare the Dying rides with the domain spells.
         spellIndices: ["bane", "false-life", "spare-the-dying"],
         features: [
           {
@@ -422,7 +403,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
           },
         ],
       },
-      // Eyes of Night's own 300-foot darkvision (sharing it stays prose).
+      // Eyes of Night's own darkvision; sharing it stays prose.
       levelEffects: { 1: { senses: { darkvision: 300 } } },
     },
     {
@@ -484,8 +465,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       summary:
         "A reader of constellations who draws starlight into a luminous battle form.",
       grants: {
-        // Star Map: Guidance as a known cantrip, Guiding Bolt always prepared.
-        // A one-off grant at the choice level, not a growing circle table.
+        // Star Map: Guidance known, Guiding Bolt always prepared, one-off grant.
         spellIndices: ["guidance", "guiding-bolt"],
       },
     },
@@ -505,9 +485,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Banneret",
       summary:
         "A rallying knight (Purple Dragon Knight) who inspires and shields comrades.",
-      // Royal Envoy's Persuasion, arriving at 7th — past the choice level, so
-      // it rides `levelEffects` rather than `grants`. Its expertise clause and
-      // the already-proficient fallback stay in the feature prose.
+      // Royal Envoy's Persuasion arrives at 7th, past the choice level, so it
+      // rides `levelEffects` rather than `grants`.
       levelEffects: { 7: { skills: [SkillName.Persuasion] } },
     },
     {
@@ -651,7 +630,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Shadow",
       summary:
         "A ninja-like monk who bends shadow for stealth and teleportation.",
-      // Shadow Arts: Minor Illusion; the ki-cast spells stay in the prose.
+      // Shadow Arts: Minor Illusion; ki-cast spells stay in the prose.
       grants: { spellIndices: ["minor-illusion"] },
     },
     {
@@ -666,7 +645,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       summary:
         "The archetypal knight's oath: honesty, courage, and radiant purity.",
       // Channel Divinity options are cross-pool action hosts, see
-      // SUBCLASS_ACTION_HOSTS["Devotion"] — not prose grants.
+      // SUBCLASS_ACTION_HOSTS["Devotion"].
       grants: {
         spellIndices: ["protection-from-evil-and-good", "sanctuary"],
         // Oath spells always prepared as the paladin levels.
@@ -684,7 +663,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Vengeance",
       summary: "An avenger's oath: punish the wicked, whatever the cost.",
       // Channel Divinity options are cross-pool action hosts, see
-      // SUBCLASS_ACTION_HOSTS["Vengeance"] — not prose grants.
+      // SUBCLASS_ACTION_HOSTS["Vengeance"].
       grants: {
         spellIndices: ["bane", "hunters-mark"],
       },
@@ -753,9 +732,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Gloom Stalker",
       summary:
         "An ambusher of the dark, striking hard from unseen and dread-inducing.",
-      // Dread Ambusher's initiative bonus and Umbral Sight's darkvision (its
-      // +30 for existing darkvision can't be modeled — 60 is the floor), then
-      // Iron Mind's Wisdom saves at 7th.
+      // Umbral Sight's +30 darkvision can't be modeled; 60 is the floor.
       levelEffects: {
         3: { initiativeAbility: StatKey.wis, senses: { darkvision: 60 } },
         7: { savingThrows: [StatKey.wis] },
@@ -770,8 +747,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Hunter",
       summary:
         "A versatile monster-hunter with tactical options against many foes.",
-      // Hunter's Prey now lives in the level table with the rest of the tiered
-      // picks (7/11/15), rather than alone here at the choice level.
+      // Hunter's Prey lives in the level table with the tiered picks (7/11/15).
     },
     {
       name: "Monster Slayer",
@@ -794,8 +770,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       name: "Arcane Trickster",
       summary:
         "A magical thief blending enchantment and illusion with sneak attacks.",
-      // Spellcasting's fixed cantrip; the chosen cantrips and spells arrive
-      // through the level-up wizard like any other learned spell.
+      // Spellcasting's fixed cantrip; other spells arrive via the level-up wizard.
       grants: { spellIndices: ["mage-hand"] },
     },
     {
@@ -813,8 +788,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
     {
       name: "Mastermind",
       summary: "A schemer of intrigue who aids allies and mimics others.",
-      // Master of Intrigue's fixed kits; the gaming set and two languages are
-      // choices, named in the feature prose.
+      // Master of Intrigue's fixed kits; the gaming set/languages are choices in the prose.
       grants: {
         proficiencies: { tools: ["Disguise Kit", "Forgery Kit"] },
       },
@@ -934,8 +908,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
               "You learn extra spells tied to lunar phases and gain the Sacred Flame cantrip. As a bonus action you can shift between a full-, new-, or crescent-moon phase.",
           },
         ],
-        // Sacred Flame; the Lunar Embodiment tiers live in the sorcerer
-        // subclass-spells table.
+        // Sacred Flame; Lunar Embodiment tiers live in the sorcerer subclass-spells table.
         spellIndices: ["sacred-flame"],
       },
     },
@@ -956,8 +929,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
               "When damage would drop you to 0 hit points, you can make a Charisma save to drop to 1 instead. Once per long rest.",
           },
         ],
-        // Eyes of the Dark's Darkness-casting (and the spell itself) comes
-        // online at 3rd level, not at the level-1 subclass pick.
+        // Darkness-casting comes online at 3rd level, not the level-1 pick.
         spellIndicesByLevel: { 3: ["darkness"] },
       },
       // Eyes of the Dark's own 120-foot darkvision.
@@ -980,9 +952,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
           },
         ],
       },
-      // Heart of the Storm's resistances, then Wind Soul's upgrade to immunity
-      // plus a flying speed. Merging, not replacing: the 6th-level resistances
-      // stay listed, which is harmless once the immunity supersedes them.
+      // Heart of the Storm (6th, resistances), Wind Soul (18th, immunity + fly);
+      // merged not replaced, so the 6th-level entry stays listed too.
       levelEffects: {
         6: { resistances: [DamageType.Lightning, DamageType.Thunder] },
         18: {
@@ -1027,8 +998,8 @@ export const SUBCLASSES: CatalogSubclass[] = [
               "When a creature you can see rolls with advantage or disadvantage, you can cancel it. Uses equal to your proficiency bonus per long rest.",
           },
         ],
-        // The two 1st-level Clockwork Magic spells that exist in the bundled
-        // SRD catalog; the rest are named in the level table's detail.
+        // The two 1st-level Clockwork Magic spells in the bundled catalog;
+        // the rest are named in the level table's detail.
         spellIndices: ["alarm", "protection-from-evil-and-good"],
       },
     },
@@ -1216,8 +1187,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
       summary:
         "An elven duelist who weaves spellcraft and swordplay into one graceful defence.",
       grants: {
-        // Training in War and Song: the one-handed melee weapon is the player's
-        // choice (named in the feature); armor and Performance are fixed.
+        // Training in War and Song: weapon choice is named in the feature.
         proficiencies: {
           armor: ["Light Armor"],
           skills: [SkillName.Performance],
@@ -1283,8 +1253,7 @@ export const SUBCLASSES: CatalogSubclass[] = [
   ]),
   // --------------------------------------------------------------- Artificer
   ...forClass("artificer", [
-    // Each specialist's "already proficient" fallback (a different artisan's
-    // tool) is a manual pick; the fixed grant is what lands here.
+    // Each specialist's "already proficient" fallback tool is a manual pick.
     {
       name: "Alchemist",
       summary: "Brew experimental elixirs that heal, harm, and enhance.",

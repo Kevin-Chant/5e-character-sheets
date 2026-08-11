@@ -5,15 +5,12 @@ import {
   PresenceStoreOptions,
 } from "src/lib/realm/presence-store";
 
-// The React face of `presence-store.ts`, for a layer that wants exactly one
-// roster for as long as it is mounted. The store itself is a plain factory for
-// the same reason the transport is — the character layer holds one per shared
-// sheet. See the note at the top of `presence-store.ts`.
+// React wrapper over presence-store.ts for a layer that wants exactly one
+// roster for as long as it is mounted.
 
 export interface UsePresenceOptions<
   P extends object,
 > extends PresenceStoreOptions<P> {
-  // Only heartbeat while there is a connection to heartbeat over.
   connected: boolean;
 }
 
@@ -39,8 +36,7 @@ export function usePresence<P extends object>({
   }
   const store = storeRef.current;
 
-  // Read through the store's live options — the beat is registered once and
-  // would otherwise announce the name we had when it started.
+  // Keeps the beat's options current — it's registered once at connect.
   store.update({ payload, announce, same });
 
   const { roster, quiet } = useSyncExternalStore(
@@ -52,8 +48,7 @@ export function usePresence<P extends object>({
     store.setConnected(connected);
   }, [store, connected]);
 
-  // Announce on connect and whenever what we'd announce changes. Peers upsert,
-  // so re-announcing is free.
+  // Announce on connect and whenever the payload changes.
   useEffect(() => {
     if (!connected) return;
     announce(payload);
@@ -64,7 +59,6 @@ export function usePresence<P extends object>({
   return useMemo(
     () => ({
       roster,
-      // Present, but not heard from lately — see `PRESENCE_QUIET_MS`.
       quiet,
       saw: store.saw,
       touch: store.touch,

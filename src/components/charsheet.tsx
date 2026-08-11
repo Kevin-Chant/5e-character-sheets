@@ -56,9 +56,7 @@ export default function CharSheet() {
       return;
     }
     setModalIsOpen(true);
-    // Which editor a field + sub-path opens is a pure decision, and lives in
-    // `modal-routing.ts` with a test per rule. This effect only has to open the
-    // modal; the switch below maps the answer to a component.
+    // Which editor a field + sub-path opens is decided in `modal-routing.ts`.
     setModalType(resolveModalType(targetedField, subField));
   }, [targetedField, subField]);
 

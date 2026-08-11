@@ -26,7 +26,6 @@ import {
   buildAttackFromPreset,
 } from "src/lib/data/weapon-presets";
 
-// A single-class character at a given level, for the level-scaled damage riders.
 const asClass = (name: OfficialClass, level: number): Character => {
   const c = structuredClone(defaultCharacter);
   c.class = [{ id: "00000000-0000-0000-0000-000000000001", name, level }];
@@ -291,9 +290,8 @@ describe("extraDamageRiders", () => {
     const rage = (level: number) => {
       const [r] = extraDamageRiders(asClass(OfficialClass.Barbarian, level));
       expect(r.source).toBe("Rage");
-      // Opt-in because *whether you're raging* is a state the sheet doesn't
-      // track; the weapon half of the condition is decidable and lives in
-      // `requires`, which is what keeps it off a bow entirely.
+      // Opt-in since "are you raging" isn't sheet state; the weapon half is
+      // decidable and lives in `requires`.
       expect(r.rider).toMatchObject({
         declareAt: "on-hit",
         optional: true,

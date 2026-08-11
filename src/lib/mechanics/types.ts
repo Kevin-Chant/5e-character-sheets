@@ -1,9 +1,7 @@
 import { ActionCost, RollRider } from "src/lib/types";
 
-// The mechanics data model lives in `src/lib/types.ts` (the character model
-// embeds it via `LimitedUseAbility.mechanics`, and types.ts can't import from
-// here without a cycle). This module re-exports it so mechanics code and its
-// consumers keep one import root, and holds the runtime-only bits.
+// Re-exports the mechanics model from src/lib/types.ts (avoids a cycle) and
+// adds runtime-only bits.
 export type {
   AbilityAction,
   AppliedCondition,
@@ -24,8 +22,7 @@ export const ACTION_COST_LABELS: Record<ActionCost, string> = {
   special: "Special",
 };
 
-// A rider in play for a specific roll, tagged with where it came from so the
-// UI can attribute it. Runtime-only — never stored on the character.
+// Runtime-only; never stored on the character.
 export interface ActiveRider {
   source: string;
   rider: RollRider;

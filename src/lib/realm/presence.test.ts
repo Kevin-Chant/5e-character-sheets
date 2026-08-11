@@ -22,7 +22,6 @@ describe("presence roster", () => {
     // order the DM's dropdown is already showing.
     roster = withPresence(roster, "a", { name: "Nadia" }, same);
     expect(names(roster)).toEqual(["Nadia", "Theo"]);
-    // Renames land in place.
     roster = withPresence(roster, "a", { name: "Nadia the Bold" }, same);
     expect(names(roster)).toEqual(["Nadia the Bold", "Theo"]);
   });
@@ -56,8 +55,6 @@ describe("pruning", () => {
     ]);
   });
 
-  // One dropped beat must not flap an active editor out of the list — the
-  // timeout is three heartbeats for exactly this reason.
   it("keeps a client that missed a single beat", () => {
     const lastSeen = new Map([
       ["a", 35_000],
@@ -71,10 +68,6 @@ describe("pruning", () => {
   });
 });
 
-// Quiet is not gone. A phone with the screen off has its timers throttled to
-// roughly one a minute, so a player who missed a beat is far more often
-// looking at something else than disconnected — and a DM reads those
-// differently.
 describe("quiet presences", () => {
   const roster: PresenceEntry<Named>[] = [
     { clientId: "a", name: "Nadia" },

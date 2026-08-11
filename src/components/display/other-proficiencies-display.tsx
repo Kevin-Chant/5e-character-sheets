@@ -50,8 +50,6 @@ function StringListCell({ subField }: { subField: "languages" | "weapons" }) {
   const list = OTHER_PROFS.k(subField);
   const items = character.otherProficiencies[subField];
 
-  // Open the editor at the next (empty) index rather than pre-inserting a
-  // placeholder, so the typeahead starts blank and shows every suggestion.
   const add = () => pushCursor(list.at(items.length));
   const remove = (index: number) => {
     const next = items.slice();
@@ -90,8 +88,6 @@ function ToolsCell() {
 
   const list = OTHER_PROFS.k("toolsAndOther");
   const items = character.otherProficiencies.toolsAndOther;
-  // Open the editor at the next (empty) index; the entry is only persisted when
-  // the user saves, so no placeholder is written up-front.
   const add = () => pushCursor(list.at(items.length));
   const remove = (index: number) => {
     const next = structuredClone(items);
@@ -155,9 +151,6 @@ function ArmorCell() {
   const proficient = Object.values(ArmorType).filter((type) => armor[type]);
   return (
     <div className="prof-values">
-      {/* Wrapped in `.prof-chip` like every other value in this box: without it
-          the armor summary missed the chip's inline-flex alignment and sat on a
-          different vertical rhythm from the rows above and below. */}
       <span className="prof-chip">
         <button
           className="prof-chip-label"

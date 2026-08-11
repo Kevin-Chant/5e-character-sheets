@@ -19,38 +19,28 @@ import {
 import { Character, CustomFormula, LimitedUseAbility } from "src/lib/types";
 import { AbilityAction, AmountExpr, Effect } from "./types";
 
-// The write-side interpreter: turns effect data into ordinary whole-value
-// reducer updates (dispatched by the caller), so every mechanic syncs over
-// live sessions and undoes exactly like a manual edit. Two passes with one
-// contract between them:
-//
-// - `actionBlocked` (render time) answers "is this usable?" WITHOUT resolving
-//   dice — `fixed` amounts may contain dice, and rolling during render would
-//   break determinism. Blocked checks therefore only consult pool/slot/HP
-//   *state*, never random amounts.
-// - `resolveAction` (click time) rolls what needs rolling and emits updates,
-//   reminders, and display rolls.
+// Write-side interpreter: turns effect data into whole-value reducer updates.
+// Two passes: `actionBlocked` (render time) checks pool/slot/HP state without
+// resolving dice, since rolling during render would break determinism;
+// `resolveAction` (click time) rolls what needs rolling and emits updates,
+// reminders, and display rolls.
 
 export interface EffectContext {
   character: Character;
-  // The owning limited-use ability and its index — required for the
-  // spendUses/restoreUses effects.
+  // Required for spendUses/restoreUses effects.
   ability?: LimitedUseAbility;
   abilityIndex?: number;
   chosenLevel?: LeveledSpellLevel;
   chosenAmount?: number;
-  // A physical roller's entered totals, in `manualRollAsks` order — each is
-  // consumed in place of rolling wherever an amount's dice would otherwise
-  // decide the number. The entered total is the authority (modifiers
-  // included), so nothing is added around it.
+  // Physical roller's entered totals, in `manualRollAsks` order, consumed in
+  // place of rolling. The entered total is authoritative; nothing is added.
   manualTotals?: number[];
 }
 
 export interface ResolvedEffects {
   updates: UpdateAction[];
   reminders: string[];
-  // Display-only rolls made while resolving (a `roll` effect, or a `heal`
-  // whose amount contained dice).
+  // Display-only rolls (a `roll` effect, or a `heal` whose amount had dice).
   rolls: { label: string; total: number; dice: number[] }[];
 }
 
@@ -78,16 +68,14 @@ export function abilityRemainingUses(
   return Math.max(0, abilityMaxUses(ability, character) - ability.expended);
 }
 
-// One firing of a pool's `recharge`. Without a `restore` formula everything
-// comes back — the 5e default. With one ("regains 1d3 charges at dawn") the
-// amount is rolled *here*, so both planners (rests and event triggers) hand
-// their callers a settled number they can plan and report with.
+// One firing of a pool's `recharge`. Without a `restore` formula, everything
+// comes back (the 5e default); with one ("regains 1d3 charges at dawn") the
+// amount is rolled here so both planners (rests and event triggers) get a
+// settled number.
 export interface PoolRestore {
-  // Uses actually handed back — the roll clamped to what was spent.
   restored: number;
   newExpended: number;
-  // Dice decided the number, so a receipt should say so. A constant `restore`
-  // ("regains 2 charges") isn't a roll and doesn't claim to be.
+  // Whether dice decided the number, vs. a constant restore.
   rolled: boolean;
 }
 
@@ -110,16 +98,14 @@ export function rollPoolRestore(
   };
 }
 
-// Slot accounting lives in rules.ts (which clamps a stored `expended` to the
-// current total); re-exported here so the mechanics interpreters and their
-// tests keep one import site.
+// Re-exported from rules.ts so mechanics interpreters and their tests keep
+// one import site.
 export { expendedSpellSlots, totalSpellSlots };
 
 // The pool a `spendUses`/`restoreUses` targets and its list index. A `pool`
-// title names a *different* ability to drain (cross-pool spend — Cutting Words
-// spends Bardic Inspiration); absent, it's the owning ability the context
-// carries. Returns `undefined` when the named pool isn't on the character, so
-// the gate can report it rather than silently draining nothing.
+// title names a different ability to drain (cross-pool spend, e.g. Cutting
+// Words spending Bardic Inspiration); absent, it's the owning ability from
+// the context. Returns undefined when the named pool isn't on the character.
 function poolTarget(
   effect: { pool?: string },
   ctx: EffectContext,
@@ -139,9 +125,8 @@ function poolTarget(
 // ---------------------------------------------------------------------------
 // Amounts
 
-// The static value of an amount, or undefined when it can't be known without
-// rolling (a `fixed` formula containing dice) or without a pending user
-// choice. Blocked-checks use this; execution uses `rollAmount`.
+// The static value of an amount, or undefined when it needs rolling or a
+// pending user choice. Blocked-checks use this; execution uses `rollAmount`.
 export function staticAmount(
   expr: AmountExpr,
   ctx: EffectContext,
@@ -160,8 +145,7 @@ export function staticAmount(
   );
 }
 
-// The class-level addend of a fixed amount: levelMultiplier (default 1) × the
-// level in the named class.
+// levelMultiplier (default 1) × the level in the named class.
 function classLevelPart(
   expr: { plusLevelOf?: string; levelMultiplier?: number },
   ctx: EffectContext,
@@ -172,8 +156,8 @@ function classLevelPart(
   );
 }
 
-// Whether resolving this amount would roll dice — and so needs a typed-in
-// total when the table is on real dice.
+// Whether resolving this amount would roll dice (needs a typed-in total on
+// real dice).
 function amountRollsDice(expr: AmountExpr, ctx: EffectContext): boolean {
   if ("chosenAmountDice" in expr) return (ctx.chosenAmount ?? 0) > 0;
   if ("fixed" in expr) return formulaHasDice(expr.fixed);
@@ -202,13 +186,11 @@ function rollAmount(
   );
 }
 
-// One entry the physical roller owes before these effects can resolve: what
-// to call it and what to roll. `resolveEffects` consumes `ctx.manualTotals`
-// in exactly this order.
+// One entry the physical roller owes before effects can resolve.
+// `resolveEffects` consumes `ctx.manualTotals` in exactly this order.
 export interface ManualRollAsk {
   label: string;
-  // The whole number the entered total must cover — for a `fixed` amount with
-  // a class-level addend, the addend is folded in so the prompt shows it.
+  // For a `fixed` amount with a class-level addend, the addend is folded in.
   formula: CustomFormula;
 }
 
@@ -254,7 +236,7 @@ const slotLevelOf = (
 ): LeveledSpellLevel | undefined => effect.level ?? ctx.chosenLevel;
 
 // Why this effect can't fire right now, or undefined when it can. Checks
-// state only — never rolls (see the module contract above).
+// state only, never rolls.
 export function effectBlocked(
   effect: Effect,
   ctx: EffectContext,
@@ -320,8 +302,7 @@ export function actionBlocked(
 // Execution
 
 // Resolve effects into dispatches. Assumes the caller checked
-// `actionBlocked`; a still-blocked effect throws rather than corrupting
-// state, since blocked-at-click means the UI and state disagree.
+// `actionBlocked`; a still-blocked effect throws rather than corrupt state.
 export function resolveEffects(
   effects: Effect[],
   ctx: EffectContext,
@@ -334,17 +315,15 @@ export function resolveEffects(
   const slotCursor = (level: LeveledSpellLevel) =>
     charPath(FIELD.spellSlots).k(level).k("expended");
 
-  // Running `expended`, keyed by pool index — a batch may touch more than one
-  // pool now (a cross-pool spend), and later effects must read through what an
-  // earlier one already changed, not the stale character, so spend+restore of
-  // the same pool composes correctly.
+  // Running `expended`, keyed by pool index, so a batch touching multiple
+  // pools (cross-pool spend) reads through prior changes in the same batch
+  // rather than the stale character.
   const expendedByIndex = new Map<number, number>();
   const currentExpended = (index: number, fallback: number) =>
     expendedByIndex.get(index) ?? fallback;
 
-  // Whether dice decided this amount — rolled here, or typed in from real
-  // dice (which leaves `dice` empty but still deserves its display roll and
-  // its report to the table).
+  // Whether dice decided this amount, including a manual entry (which leaves
+  // `dice` empty but still gets a display roll and table report).
   const diceDecided = (expr: AmountExpr, dice: number[]) =>
     dice.length > 0 || (!!ctx.manualTotals && amountRollsDice(expr, ctx));
 
@@ -433,9 +412,8 @@ export function resolveEffects(
 // ---------------------------------------------------------------------------
 // Choice options for the UI
 
-// Slot levels an action's picker should offer (the character has slots at the
-// level at all; per-level blocking is reported by `actionBlocked` on the
-// current choice).
+// Slot levels an action's picker should offer; per-level blocking is
+// reported by `actionBlocked` on the current choice.
 export function slotLevelOptions(
   action: AbilityAction,
   character: Character,

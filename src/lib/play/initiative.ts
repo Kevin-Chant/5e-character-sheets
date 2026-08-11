@@ -3,11 +3,8 @@ import { calculateCustomFormula } from "src/lib/formula";
 import { getOptionalInitializer } from "src/lib/rules";
 import { Character } from "src/lib/types";
 
-// The one modifier the app can genuinely roll on a character's behalf.
-// `initiativeFormula` is an optional override, so it resolves through the
-// initializer the way the sheet's Initiative box does — unset means "derive
-// it from DEX", not "no initiative". Shared by the player rail's roll button
-// and the DM's "roll for the sheets I brought".
+// `initiativeFormula` is optional; unset means derive from DEX via the same
+// initializer the sheet's Initiative box uses.
 export function initiativeModifierFor(character: Character): number {
   const formula =
     character.initiativeFormula ??

@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildShareUrl } from "src/lib/google-drive";
 
-// The rest of this module is gapi/network-bound and verified in-browser, but
-// this one string isn't — and it failed in the way that's worst to catch by
-// hand. `emailMessage` and `sendNotificationEmail` are query parameters on
-// permissions.create; sent as fields of the Permission body they're ignored
-// without an error, so the share succeeds and the note simply never appears.
+// `emailMessage`/`sendNotificationEmail` are query parameters on
+// permissions.create; sent as Permission body fields they're silently
+// ignored, so the share succeeds but the note never appears.
 describe("buildShareUrl", () => {
   it("puts the notification options in the query string, not the body", () => {
     const url = new URL(buildShareUrl("file123", "Open Tarion: https://x/y"));

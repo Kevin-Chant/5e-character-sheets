@@ -43,9 +43,8 @@ export default function DefenceAndEquipmentPanel() {
     settings: { trackAmmunition },
   } = useSettings();
   const totalHitDice = character.totalHitDice || getHitDice(character);
-  // Current HP can't be raised past the maximum. `maxHp` is an optional
-  // override, so resolve it the same way the Hit Point Maximum row above does —
-  // through the initializer — rather than treating "unset" as "no maximum".
+  // `maxHp` is an optional override; resolve via the initializer like the
+  // Hit Point Maximum row does, rather than treating "unset" as "no maximum".
   const maxHpFormula =
     character.maxHp ??
     getOptionalInitializer(FIELD.maxHp, undefined, character);
@@ -75,7 +74,6 @@ export default function DefenceAndEquipmentPanel() {
   };
   return (
     <div className="column">
-      {/* AC, Init, Speed */}
       <div className="row defence-vitals">
         <SingleValueDisplay
           cursor={charPath(FIELD.acFormula)}
@@ -94,10 +92,7 @@ export default function DefenceAndEquipmentPanel() {
         />
         <SpeedDisplay />
       </div>
-      {/* HP */}
       <div className="column rounded-border-box hp-box has-corner-action">
-        {/* A rest lives with hit points: it's the region a rest restores, and
-            the corner-action slot the level-up button uses on Class & Level. */}
         <div className="corner-action">
           <button
             type="button"
@@ -142,7 +137,6 @@ export default function DefenceAndEquipmentPanel() {
           max={MAX_EXHAUSTION}
         />
       </div>
-      {/* Hit dice, death saves */}
       <div className="row tracker-row">
         <div className="column rounded-border-box tracker-box">
           <table>
@@ -190,23 +184,19 @@ export default function DefenceAndEquipmentPanel() {
         </div>
         <DeathSavesDisplay />
       </div>
-      {/* Attacks */}
       {(character.attacks.length > 0 || editMode) && (
         <div
           className={classNames("column rounded-border-box", {
             "section-empty": character.attacks.length === 0,
           })}
         >
-          {/* .attacks-table is a styling hook: below 640px the CSS reflows these
-            rows into stacked cards, since four columns can't fit a phone. */}
-          {/* Column headers over zero rows read as broken rather than new, so the
-            head only appears once there's something under it. */}
+          {/* Below 640px CSS reflows .attacks-table rows into stacked cards. */}
+          {/* Head hidden over zero rows so it doesn't read as broken. */}
           <table className="attacks-table">
             <thead hidden={character.attacks.length === 0}>
               <tr>
                 <th>Name</th>
-                {/* One column for both ways an attack resolves: a to-hit bonus,
-                  or the DC the target rolls against. */}
+                {/* Covers both resolution kinds: to-hit bonus, or save DC. */}
                 <th>Atk / DC</th>
                 <th>Damage/Type</th>
                 <th></th>
@@ -214,15 +204,13 @@ export default function DefenceAndEquipmentPanel() {
             </thead>
             <tbody>
               {character.attacks.map((attack, index) => {
-                // A save-based attack (a breath weapon, a poison) has no to-hit
-                // bonus at all — its cell shows the target's DC instead.
+                // A save-based attack has no to-hit bonus; its cell shows the DC.
                 const attackBonus =
                   attack.bonus === undefined
                     ? undefined
                     : calculateCustomFormula(attack.bonus, character);
                 const rangeText = formatRange(attack.range);
-                // Remaining ammo across every pool linked to this weapon (setting-
-                // gated); the pool is the single source of truth for the count.
+                // Remaining ammo across every pool linked to this weapon.
                 const linkedAmmo = trackAmmunition
                   ? character.ammunition.filter((a) =>
                       a.weaponIds.includes(attack.id),
@@ -306,7 +294,6 @@ export default function DefenceAndEquipmentPanel() {
           </b>
         </div>
       )}
-      {/* Equipment */}
       <div className="column rounded-border-box equipment-box">
         <CoinsDisplay />
         <EquipmentDisplay />

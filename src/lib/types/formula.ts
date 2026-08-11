@@ -8,31 +8,25 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 
-// The formula engine's data model: the recursive `CustomFormula` a computed
-// field (AC, HP, an attack's damage) is stored as, plus the dice and class-name
-// primitives it leans on. The engine that folds these to a number, and the one
-// that renders them as prose, live in `src/lib/formula.ts`.
+// The recursive `CustomFormula` data model computed fields (AC, HP, attack
+// damage) are stored as. The fold/render engines live in `src/lib/formula.ts`.
 
-// The spellcasting-ability modifier of a specific spellcasting class. Resolved
-// live against the character (honoring any `abilityOverride`), so a spell like
-// Cure Wounds — `1d8 + spellMod` — tracks the class's current ability. Carries
-// the class *id* because a multiclassed character has more than one (and so a
-// class rename never breaks the reference).
+// A spellcasting class's live ability modifier, resolved against the character
+// (honoring `abilityOverride`). Carries the class id, not name, so it survives
+// a rename and works across multiclassing.
 export interface SpellMod {
   spellMod: UUID;
 }
 
-// The character's level in a specific class, as a formula leaf (e.g. Sorcery
-// Points = Sorcerer level). References the class by stable `id`.
+// Character's level in a specific class, by stable class id (e.g. Sorcery
+// Points = Sorcerer level).
 export interface ClassLevel {
   classLevel: UUID;
 }
 
-// A computed AC leaf: the AC from the character's *equipped* armor and shields,
-// resolved live (see `equippedArmorAC`) so equipping/unequipping updates AC with
-// no formula rewrite. Falls back to the unarmored 10 + DEX when no armor is worn.
-// A marker object (mirrors `ClassLevel`/`SpellMod`) rather than a bare string so
-// the engine's type guards can distinguish it structurally.
+// Live AC from equipped armor/shields (see `equippedArmorAC`); falls back to
+// 10 + DEX unarmored. Marker object rather than a bare string so type guards
+// can distinguish it structurally.
 export interface EquippedArmor {
   equippedArmor: true;
 }
@@ -46,9 +40,8 @@ export type AtomicVariable =
   | EquippedArmor
   | typeof PB;
 
-// The three operand shapes an `Expression` is built from. Exported only so the
-// typeguards in `types/guards.ts` can name them — no consumer composes these
-// directly, they compose the concrete operations below.
+// The three operand shapes an `Expression` is built from; consumers compose
+// the concrete operations below, not these directly.
 export interface SingleOperandOperation {
   operand1: CustomFormula;
 }

@@ -13,10 +13,9 @@ import {
 import { weightForItem } from "src/lib/data/equipment-weights";
 import { ARMOR_PRESETS } from "./equipment";
 
-// One built-in item the equipment editor's type-ahead can prefill. An entry just
-// names an item and, optionally, the mechanics/weight to seed when it's picked.
-// A weapon entry carries its preset so the editor can also seed a ready-to-roll
-// Attack (via `buildCatalogAttack`) alongside the inventory line.
+// One built-in item the equipment editor's type-ahead can prefill. A weapon
+// entry carries its preset so the editor can also seed a ready-to-roll Attack
+// (via `buildCatalogAttack`) alongside the inventory line.
 export interface EquipmentCatalogEntry {
   name: string;
   group: string;
@@ -27,9 +26,8 @@ export interface EquipmentCatalogEntry {
 }
 
 // The built-in inventory surfaced by the equipment editor's name type-ahead:
-// the SRD armor set, a shield, and every SRD weapon. It's meant to grow — add
-// gear, tools, and other common items here and they appear in the search for
-// free. Weights come from the same SRD table the builder uses.
+// the SRD armor set, a shield, and every SRD weapon. Weights come from the
+// same SRD table the builder uses.
 export const EQUIPMENT_CATALOG: EquipmentCatalogEntry[] = [
   ...ARMOR_PRESETS.map(
     (p): EquipmentCatalogEntry => ({

@@ -1,10 +1,9 @@
 import { StandardDie } from "src/lib/data/data-definitions";
 import { HostTable } from "./types";
 
-// Shared-pool action hosts for cleric subclasses (see ./types). Mechanical facts
-// with original wording only. Every entry here drains the base "Channel
-// Divinity" pool (src/lib/builder/class-pools.ts) — that pool and the
-// universal Turn Undead option live there, not here.
+// Shared-pool action hosts for cleric subclasses (see ./types). Every entry
+// drains the base "Channel Divinity" pool (src/lib/builder/class-pools.ts),
+// which also holds the universal Turn Undead option.
 export const CLERIC_ACTION_HOSTS: HostTable = {
   Arcana: [
     {

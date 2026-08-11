@@ -3,21 +3,8 @@ import { requestDriveToken } from "src/lib/google-auth";
 import { useDatastore } from "src/lib/hooks/use-datastore";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 
-// Says out loud that a peer's edit to a sheet you are *hosting but not looking
-// at* couldn't be written.
-//
-// The open sheet has had a save indicator for a long time, including the one
-// that knows an expired Google session is fixed by a click rather than by
-// waiting. The background fold — a session whose character isn't on screen —
-// had a `console.error`, which is the worst place for this particular failure:
-// nobody is looking at that sheet by definition, the peer who made the edit was
-// told it landed, and the host goes on serving the stale copy to the next
-// joiner as though it were current. The edits themselves are held by the
-// sharing provider, so "Try again" is a real second chance and not a way to
-// dismiss the message.
-//
-// Lives in the nav rather than in the sheet, because the character it is about
-// is the one you don't have open.
+// Reports a peer's edit to a hosted-but-not-open sheet that failed to save.
+// Lives in the nav, not the sheet, since the character it's about isn't open.
 export default function BackgroundSaveWarning() {
   const { backgroundSaveErrors, retryBackgroundSaves } = useSharingSessions();
   const { characters } = useDatastore();
@@ -36,8 +23,6 @@ export default function BackgroundSaveWarning() {
         : `${names.length} shared characters`;
   const needsAuth = backgroundSaveErrors.some(({ kind }) => kind === "auth");
 
-  // The same reasoning as the nav's save indicator: consent has to be requested
-  // from the gesture itself, and the retry is what actually clears this.
   const retry = () => {
     if (!needsAuth) {
       retryBackgroundSaves();

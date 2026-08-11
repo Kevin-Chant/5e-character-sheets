@@ -41,22 +41,16 @@ import {
   RechargeCriteria,
 } from "src/lib/types";
 
-// Running a rest. The whole thing is a pure planner: `planRest` reads the
-// character plus the table's variant rules and returns the reducer updates a
-// rest would make, alongside a human-readable account of them. Nothing is
-// dispatched here, which is what lets the UI *preview* a rest ("this will give
-// back 4 spell slots and 2 hit dice") before committing, and lets the writes
-// sync/undo as one ordinary edit like every other change.
-//
-// The interactive parts of a rest — spending hit dice, re-preparing spells —
-// are deliberately NOT in the plan. They're reported as `followUps` so the rest
-// UI can walk the player through them, each applying its own updates.
+// `planRest` is a pure planner: reads the character plus the table's variant
+// rules and returns the reducer updates a rest would make, plus a human
+// account of them — nothing is dispatched here, so the UI can preview before
+// committing. Interactive parts (spending hit dice, re-preparing spells) are
+// reported as `followUps`, not applied, since the player drives those.
 
 export type RestKind = "short" | "long";
 
-// The DMG's rest-pacing variants (DMG p.267). These change only how long a rest
-// takes in fiction; the mechanical effects are identical, which is why the
-// planner uses this for labels alone.
+// DMG's rest-pacing variants (DMG p.267): change only fictional duration, not
+// mechanical effects, so the planner uses this for labels only.
 export type RestVariant = "standard" | "epic" | "gritty";
 
 // The subset of settings a rest depends on. `Settings` satisfies this
@@ -87,9 +81,8 @@ export function restDuration(kind: RestKind, rules: RestRules): string {
   return REST_DURATIONS[rules.restVariant ?? "standard"][kind];
 }
 
-// How many dawns a rest that "spans dawn" spans. One, except gritty realism's
-// week-long long rest — which is what lets an "Every 7 days" item come all the
-// way back over it.
+// Dawns a "spans dawn" rest spans: one, except gritty realism's week-long
+// long rest (lets an "Every 7 days" item recharge over it).
 export function restDawnSpan(kind: RestKind, rules: RestRules): number {
   return rules.restVariant === "gritty" && kind === "long" ? 7 : 1;
 }
@@ -105,8 +98,8 @@ export interface RestChange {
 // Something the player has to do during the rest that the planner can't decide
 // for them.
 export type RestFollowUp =
-  // HP are missing and hit dice remain to spend (RAW on a short rest; also on a
-  // long rest under Slow Natural Healing, where dice are the only healing).
+  // HP missing and hit dice remain (short rest RAW; also long rest under Slow
+  // Natural Healing, where dice are the only healing).
   | { kind: "spendHitDice"; missingHp: number; diceRemaining: number }
   // A prepared caster's daily re-preparation, one per prepared-caster class.
   | {
@@ -123,8 +116,8 @@ export type RestFollowUp =
 export interface RestPlan {
   kind: RestKind;
   duration: string;
-  // The writes, ready to dispatch. Every one is a whole-value `update_*`, so
-  // the rest replays over a live session and reverses in one undo step.
+  // Ready to dispatch. Every one is a whole-value `update_*`, so the rest
+  // replays over a live session and reverses in one undo step.
   updates: UpdateAction[];
   // What the rest restores, and (for a short rest) what it notably doesn't.
   changes: RestChange[];
@@ -136,14 +129,10 @@ export interface RestPlan {
   hitDiceBudget: number;
 }
 
-// ---------------------------------------------------------------------------
-// Recharge matching
-
 // Whether a pool's `recharge` trigger fires on this rest. Matching is textual
-// because `RechargeCriteria` is deliberately open (`RestType | string`): the
-// presets are "Short Rest"/"Long Rest", but homebrew writes what it likes, and
-// feature text says "a short or long rest". A short-rest pool always refreshes
-// on a long rest too — that's how 5e words every one of them.
+// because `RechargeCriteria` is open (`RestType | string`) — presets are
+// "Short Rest"/"Long Rest", but homebrew writes freely. A short-rest pool
+// always refreshes on a long rest too, per 5e wording.
 export function rechargesOnRest(
   recharge: RechargeCriteria,
   kind: RestKind,
@@ -154,14 +143,12 @@ export function rechargesOnRest(
   return false;
 }
 
-// The recharge trigger as it reads mid-sentence, e.g. the sheet's "per long
-// rest". The presets are stored Title Case ("Long Rest") because they're enum
-// values, but the PHB writes "long rest" in prose and the caption is a sentence
-// fragment. Only the two presets are lowered — homebrew triggers are left alone,
-// since "Dawn" may well be a proper noun at someone's table.
+// The recharge trigger as it reads mid-sentence, e.g. "per long rest". Presets
+// are stored Title Case (enum values); only those two are lowered — homebrew
+// triggers are left alone since "Dawn" may be a proper noun at someone's table.
 export function formatRecharge(recharge: RechargeCriteria): string {
   const trigger = recharge ?? "";
-  // "Every 7 days" reads as "per 7 days" mid-sentence, not "per every 7 days".
+  // "Every 7 days" reads as "per 7 days", not "per every 7 days".
   const interval = rechargeIntervalDays(trigger);
   if (interval !== undefined)
     return interval === 1 ? "day" : `${interval} days`;
@@ -170,14 +157,13 @@ export function formatRecharge(recharge: RechargeCriteria): string {
     : trigger;
 }
 
-// Whether a trigger is a rest at all. Anything else ("Dawn") is surfaced to the
-// player instead of being silently skipped.
+// Whether a trigger is a rest at all; anything else ("Dawn") is surfaced to
+// the player rather than silently skipped.
 function isRestTrigger(recharge: RechargeCriteria): boolean {
   const trigger = (recharge ?? "").toLowerCase();
   return trigger.includes("short") || trigger.includes("long");
 }
 
-// ---------------------------------------------------------------------------
 // Hit dice
 
 export function totalHitDiceCount(character: Character): number {
@@ -192,8 +178,8 @@ export function expendedHitDiceCount(character: Character): number {
   );
 }
 
-// How many spent hit dice a long rest gives back. RAW is half your total,
-// rounded down, minimum one die — but never more than you actually spent.
+// Spent hit dice a long rest gives back. RAW: half total, rounded down,
+// minimum one die, capped at what was actually spent.
 export function hitDiceBudget(character: Character, rules: RestRules): number {
   const spent = expendedHitDiceCount(character);
   if (spent <= 0) return 0;
@@ -211,8 +197,7 @@ export function hitDiceBudget(character: Character, rules: RestRules): number {
   }
 }
 
-// Biggest first: the order a player recovering a partial budget of hit dice
-// wants, and the order the rest UI offers dice to spend in.
+// Biggest first: the order recovery/spend UI offers dice in.
 const DIE_ORDER: StandardDie[] = [
   StandardDie.d12,
   StandardDie.d10,
@@ -222,9 +207,7 @@ const DIE_ORDER: StandardDie[] = [
   StandardDie.d20,
 ];
 
-// Spread a recovery budget over the dice actually spent, biggest first — the
-// choice a multiclass character almost always wants, and the default the UI
-// offers before letting them re-split it.
+// Spread a recovery budget over the dice actually spent, biggest first.
 export function allocateHitDiceRecovery(
   character: Character,
   budget: number,
@@ -260,13 +243,9 @@ export interface HitDieRoll {
   healed: number;
 }
 
-// Roll one hit die. Pure read — no writes; pair with `applyHitDieRoll`. Split in
-// two so a caller can show the roll and confirm before applying (the roll
-// dialog) or apply immediately (the rest flow).
+// Roll one hit die. Pure read — no writes; pair with `applyHitDieRoll`.
 export function rollHitDie(character: Character, die: StandardDie): HitDieRoll {
   const dice: number[] = [];
-  // Same rider set the roll dialog uses, so a reroll-on-1 feature behaves the
-  // same whether the die is spent from a rest or from the die's own roll button.
   const total = rollFormula(
     hitDieFormula(die),
     character,
@@ -281,10 +260,8 @@ export function rollHitDie(character: Character, die: StandardDie): HitDieRoll {
   return { die, total, dice, healed };
 }
 
-// A hit die a physical roller resolved off-screen: the entered total (die +
-// CON, modifiers included) is the authority for the dice, but still goes
-// through the same minimum-total riders (Durable) and missing-HP clamp the
-// app roll does.
+// A hit die a physical roller resolved off-screen: entered total is authority
+// for the dice, but still runs through minimum-total riders and the missing-HP clamp.
 export function manualHitDieRoll(
   character: Character,
   die: StandardDie,
@@ -317,7 +294,6 @@ export function spendableHitDice(character: Character): StandardDie[] {
   return DIE_ORDER.filter((die) => remainingHitDice(character, die) > 0);
 }
 
-// ---------------------------------------------------------------------------
 // Planning
 
 const plural = (n: number, one: string, many = `${one}s`) =>
@@ -363,10 +339,9 @@ function poolChanges(
         key: `pool:${index}`,
         label: ability.info.title,
       };
-      // A rest the table says spans dawn also fires the "at dawn" recharges —
-      // magic items, mostly — that would otherwise land in the manual list.
-      // That includes "Every X days" countdowns, which tick once per dawn the
-      // rest spans and restore when they come due.
+      // A rest spanning dawn also fires "at dawn" recharges (magic items,
+      // mostly) that would otherwise land in the manual list, including
+      // "Every X days" countdowns.
       const dawnish =
         matchesTrigger(ability.recharge, "dawn") ||
         rechargeIntervalDays(ability.recharge) !== undefined;
@@ -380,8 +355,6 @@ function poolChanges(
         if (!tick) return;
         updates.push(...tick.updates);
         if (tick.daysLeft !== undefined) {
-          // Only the countdown moved: the pool stays spent, but the tick still
-          // has to land, so the counter update above goes out regardless.
           withheld.push({
             ...entry,
             detail: `${plural(ability.expended, "use")} spent — ${plural(
@@ -432,19 +405,16 @@ function poolChanges(
 }
 
 export interface PlanRestOptions {
-  // Override the biggest-first default for which hit dice a long rest gives
-  // back. Values are clamped to what's spent and to the recovery budget.
+  // Override the biggest-first default; clamped to what's spent and the budget.
   hitDiceRecovery?: HitDice;
-  // The table says this rest spans dawn, so pools that recharge "at dawn"
-  // (matched by `matchesTrigger`) come back with the rest instead of being
+  // Pools that recharge "at dawn" come back with the rest instead of being
   // deferred to the manual-recharge follow-up.
   spansDawn?: boolean;
 }
 
-// What the table already settled before a player's rest panel opened — the
-// two facts that belong to whoever narrates the world rather than to a sheet.
-// Carried by the DM's rest call (`RestCall` in `play/session.ts`) and used to
-// pre-answer the fork, leaving the player only their own choices.
+// What the table already settled before the rest panel opened. Carried by the
+// DM's rest call (`RestCall` in `play/session.ts`) to pre-answer the fork,
+// leaving the player only their own choices.
 export interface RestPreset {
   kind: RestKind;
   spansDawn?: boolean;
@@ -660,11 +630,8 @@ export function planRest(
   };
 }
 
-// Fold a plan's updates into a new character. The rest is dispatched as one
-// `replace_character` rather than N `update_*` actions so it costs a single
-// undo — a mis-clicked long rest touches a dozen fields, and unwinding it one
-// field at a time isn't undo, it's archaeology. Same reasoning as the level-up
-// wizard's single-action finish.
+// Fold a plan's updates into a new character. Dispatched as one
+// `replace_character` rather than N `update_*` actions so it costs a single undo.
 export function applyRestPlan(character: Character, plan: RestPlan): Character {
   const next = structuredClone(character);
   for (const update of plan.updates)
@@ -672,10 +639,9 @@ export function applyRestPlan(character: Character, plan: RestPlan): Character {
   return next;
 }
 
-// Keep a caller-supplied allocation honest: never more than was spent of a
-// size, never more than the budget in total. Iterated in the caller's own key
-// order, so an over-budget allocation is truncated from the end of what they
-// asked for rather than silently re-prioritized.
+// Keeps a caller-supplied allocation honest: never more than was spent of a
+// size, never more than the total budget. Iterated in caller key order, so
+// an over-budget allocation truncates from the end rather than reprioritizing.
 function clampHitDiceRecovery(
   character: Character,
   wanted: HitDice,

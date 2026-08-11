@@ -12,8 +12,7 @@ function makeCharacter(uuid: string, name: string): Character {
   return { ...structuredClone(defaultCharacter), uuid: uuid as UUID, name };
 }
 
-// The picker is a plain consumer of the datastore context; the other contexts
-// it touches (character, sharing sessions, builder) all have benign defaults.
+// The other contexts the picker touches all have benign defaults.
 function renderPicker({
   characters,
   unsynced = new Set<UUID>(),
@@ -48,8 +47,6 @@ describe("CharacterPicker", () => {
       unsynced: new Set([staged.uuid]),
     });
 
-    // Both cards render — a staged character is fully usable — but only the
-    // staged one carries the "still saving" badge.
     expect(screen.getByText("Saved")).toBeTruthy();
     const badges = screen.getAllByTitle(
       "Still saving to storage — the sheet is safe to open",

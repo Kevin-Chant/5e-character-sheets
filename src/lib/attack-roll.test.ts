@@ -21,15 +21,13 @@ import {
 } from "./attack-roll";
 import { Spell } from "src/lib/types";
 
-// The damage arithmetic behind the roll dialog, now that it's out of the
-// component. Dice are pinned to their maximum so totals are exact.
+// Dice are pinned to their maximum so totals are exact.
 
 const character = (): Character => {
   const c = structuredClone(defaultCharacter) as Character;
   c.stats.str = 20; // +5
   c.features = [];
-  // A plain fighter, so no class grants an extra-damage rider of its own —
-  // the default character is a paladin and would bring Divine Smite along.
+  // Plain fighter: the default character is a paladin with Divine Smite.
   c.class = [
     { id: "00000000-0000-0000-0000-000000000001", name: "Fighter", level: 1 },
   ];
@@ -55,8 +53,6 @@ const entry = (
     declareAt: "on-hit",
     ...rider,
   } as ExtraDamageEntry["rider"],
-  // These tests exercise the arithmetic, not the eligibility rules: the entry
-  // arrives already resolved, so `optIn` just mirrors what the rider asked for.
   optIn: !!rider.optional,
 });
 
@@ -115,8 +111,6 @@ describe("extrasForAttack", () => {
         },
       } as never,
     ];
-    // No `optional`, no `requires` — nothing left for the sheet to wonder about,
-    // and it still asks: spending a resource is the player's call.
     const [fire] = extrasForAttack(c, GREATSWORD, undefined);
     expect(fire.optIn).toBe(true);
   });
@@ -144,8 +138,6 @@ describe("usesPoolState", () => {
   });
 
   it("is undefined when no such pool is on the sheet, rather than 0", () => {
-    // The distinction the write side makes too: a missing pool is a data
-    // problem to report, not an empty one to silently not drain.
     expect(usesPoolState(character(), "Fire Rune")).toBeUndefined();
   });
 });

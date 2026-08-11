@@ -12,8 +12,7 @@ function makeCharacter(uuid: string, name: string): Character {
   return { ...structuredClone(defaultCharacter), uuid: uuid as UUID, name };
 }
 
-// A datastore whose initialize() resolves only when the test says so, which is
-// what makes the swap races observable rather than timing-dependent.
+// initialize() resolves only when the test releases it, to make swap races observable.
 function makeDatastore(name: string, characters: Character[]) {
   let release!: () => void;
   const initialized = new Promise<void>((resolve) => {
@@ -89,9 +88,6 @@ describe("DatastoreContextProvider", () => {
     await act(async () => local.release());
     expect(names()).toBe("Local");
 
-    // Swapping to a slow backend must not leave the old store's characters on
-    // screen: the sidebar caption already says "Drive" at this point, so a
-    // listed "Local" is a character you can click into the wrong backend.
     await act(async () => {
       swapTo(drive.datastore);
     });
@@ -113,7 +109,6 @@ describe("DatastoreContextProvider", () => {
     await act(async () => local.release());
     expect(names()).toBe("Local");
 
-    // Drive's round-trip lands last but belongs to a store we left.
     await act(async () => drive.release());
     expect(names()).toBe("Local");
   });
@@ -124,8 +119,6 @@ describe("DatastoreContextProvider", () => {
     await act(async () => drive.release());
     expect(names()).toBe("Drive");
 
-    // The storage-less remote joiner. An in-flight spinner must come down with
-    // the list it belonged to.
     await act(async () => {
       swapTo(undefined);
     });
@@ -148,8 +141,6 @@ describe("DatastoreContextProvider", () => {
 
     render(<Harness initial={broken} />);
     await act(async () => {});
-    // An empty list still offers "create"; a permanent "Loading..." offers
-    // nothing.
     expect(loading()).toBe("no");
     console_.mockRestore();
   });
@@ -160,13 +151,10 @@ describe("DatastoreContextProvider", () => {
     await act(async () => local.release());
 
     const fresh = makeCharacter("3-3-3-3-3", "Fresh");
-    // Staging is synchronous: the wizard closes on it, so the entry must be in
-    // the list before any write round-trip.
     act(() => context.stageCharacter(fresh));
     expect(names()).toBe("Fresh");
     expect(unsyncedNames()).toBe("Fresh");
 
-    // The backend confirming the write is what takes the badge down.
     await act(async () => context.save(fresh));
     expect(names()).toBe("Fresh");
     expect(unsyncedNames()).toBe("");
@@ -201,12 +189,9 @@ describe("DatastoreContextProvider", () => {
     await act(async () => local.release());
     expect(names()).toBe("Doomed");
 
-    // Optimistic removal first…
     await act(async () => {
       context.deleteCharacter(doomed.uuid);
     });
-    // …but a failed backend delete brings the row back rather than letting the
-    // character silently resurrect on the next reload.
     expect(names()).toBe("Doomed");
     expect(alert_).toHaveBeenCalled();
     console_.mockRestore();

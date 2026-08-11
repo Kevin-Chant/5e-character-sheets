@@ -34,19 +34,9 @@ import { availableSpellSlots } from "src/lib/rules";
 import { abilityRemainingUses } from "src/lib/mechanics/resolve";
 import { spellDamageAtLevel } from "src/lib/spells/spell-scaling";
 
-// ---------------------------------------------------------------------------
-// Resolving an attack's damage.
-//
-// This is the arithmetic behind the roll dialog's damage section: which extra
-// damage is in play, what a slot-powered rider (Divine Smite) contributes at a
-// chosen level, and what the whole thing totals. It lives outside the component
-// so it can be reasoned about and tested directly — `EffectControls` had grown
-// to 447 lines and seven `useState` hooks, and every new rule (crits, save DCs,
-// opt-in bonuses, slot scaling) was landing in the same function.
-//
-// The component keeps what's genuinely UI: which boxes are ticked, which slot
-// level is selected, and the last result to display.
-// ---------------------------------------------------------------------------
+// Resolving an attack's damage: extra-damage riders, slot-powered scaling
+// (Divine Smite), and the total. Kept out of the roll dialog component so it's
+// unit-testable independent of UI state.
 
 export type ExtraDamageRider = Extract<RollRider, { rider: "extraDamage" }>;
 export type SlotScaling = NonNullable<ExtraDamageRider["slot"]>;
@@ -55,28 +45,14 @@ export type UsesCost = NonNullable<ExtraDamageRider["uses"]>;
 export interface ExtraDamageEntry {
   source: string;
   rider: ExtraDamageRider;
-  /**
-   * Whether the player has to tick this one, rather than it applying on its own.
-   *
-   * Resolved here, once, from the attack's weapon properties — the component
-   * shouldn't be re-deciding it. Two things force the tick: a condition that
-   * isn't about the weapon at all ("while raging", "with advantage on the
-   * attack"), and a weapon condition an untagged attack can't settle.
-   */
+  /** Whether the player must tick this one rather than it applying automatically. */
   optIn: boolean;
 }
 
 /**
- * The extra-damage riders that apply to this effect.
- *
- * Gated to weapon attacks — a fixed `damage` map with no `spell` — so a rogue's
- * Sneak Attack can never attach itself to a fireball. `before-attack` riders
- * are excluded because they'd be declared alongside the to-hit roll, not here.
- *
- * `context` narrows further by the weapon itself: a rider whose condition the
- * attack's tags rule out (Rage on a longbow, Sneak Attack with a greatsword) is
- * dropped rather than offered unticked — the dialog shouldn't list a choice that
- * isn't one.
+ * Extra-damage riders for a weapon attack (a fixed `damage` map, no `spell`).
+ * `before-attack` riders are excluded (declared with the to-hit roll instead).
+ * `context` drops riders the weapon's tags rule out, rather than offering them unticked.
  */
 export function extrasForAttack(
   character: Character,
@@ -93,8 +69,7 @@ export function extrasForAttack(
           {
             source: r.source,
             rider: r.rider,
-            // A rider that costs something is never applied silently, whatever
-            // the weapon settles: spending a use has to be the player's word.
+            // A rider that spends a use is always opt-in.
             optIn: needsOptIn(r, context) || !!r.rider.uses,
           },
         ]
@@ -103,17 +78,10 @@ export function extrasForAttack(
 }
 
 /**
- * The spell-damage extras that apply to this cast, as `ExtraDamageEntry`s so
- * they render and resolve through the very same path as a weapon's extra damage
- * (a checkbox for the opt-in ones, a flat "+N — source" line in the result).
- *
- * Scoped by the cast: a cleric's Potent Spellcasting (`cantrip`) shows only on a
- * cantrip, Empowered Evocation (`leveled`) only on a slotted spell. The rider's
- * flat `value` becomes the entry's `amount`, so it carries no dice and never
- * inflates on a crit — the mirror of a flat weapon bonus like Dueling.
- *
- * Only ever collected on the spell path, so it can't touch a weapon; likewise
- * `extrasForAttack` returns nothing for a spell. The two never cross.
+ * Spell-damage extras for this cast, expressed as `ExtraDamageEntry`s so they
+ * resolve through the same path as weapon extra damage. Scoped by cast type
+ * (`cantrip`/`leveled`/`any`). The rider's flat `value` becomes `amount` —
+ * no dice, so it doesn't inflate on a crit.
  */
 export function spellExtrasForCast(
   character: Character,
@@ -126,8 +94,7 @@ export function spellExtrasForCast(
   return spellDamageRiders(character).flatMap((r) => {
     if (r.rider.rider !== "spellDamage" || !scopeMatches(r.rider.scope))
       return [];
-    // Re-expressed as an on-hit `extraDamage` so the existing UI/resolver apply
-    // — a flat modifier, so no crit inflation.
+    // Re-expressed as an on-hit extraDamage rider so it reuses the existing resolver.
     const rider: ExtraDamageRider = {
       rider: "extraDamage",
       amount: r.rider.value,
@@ -147,9 +114,7 @@ export const slotDiceCount = (slot: SlotScaling, level: number): number =>
 
 /**
  * Uses left in the pool that powers a `uses` rider, and its index on the sheet.
- *
- * `undefined` when no pool by that title is on the character — the same "report
- * it, don't silently drain nothing" stance `poolTarget` takes on the write side.
+ * `undefined` when no pool by that title exists on the character.
  */
 export function usesPoolState(
   character: Character,
@@ -181,13 +146,9 @@ export function availableSlotLevels(
   return out;
 }
 
-// The extra-damage riders the bearer's own active conditions contribute
-// (Divine Favor's radiant d4, Absorb Elements' stored d6). Unlike
-// `extrasForAttack` these aren't weapon-gated — a self-buff's dice ride
-// whatever the bearer swings — and they carry no weapon conditions to
-// settle: opt-in iff authored optional. Deliberately *bearer-side only*:
-// Hex and Hunter's Mark mark the target, and their dice belong to the
-// attacker, which this model can't express (they stay summary chips).
+// Extra-damage riders from the bearer's own active conditions (Divine Favor,
+// Absorb Elements). Not weapon-gated. Bearer-side only — target-mark riders
+// like Hex stay summary chips, not modelled here.
 export function conditionExtras(
   conditions: ConditionName[],
 ): ExtraDamageEntry[] {
@@ -198,9 +159,8 @@ export function conditionExtras(
   );
 }
 
-// The mirror: extra damage the chosen *target's* conditions owe this roller —
-// a mark cashing out (Hex's necrotic d6, for the hexer only). Same
-// entry shape, so the dialog itemises and crit-doubles it like any extra.
+// Extra damage the chosen target's conditions owe this roller (e.g. Hex's
+// necrotic d6, for the hexer only).
 export function conditionExtrasAgainst(
   targetConditions: { name: ConditionName; from?: string }[],
   selfParticipantId: string | undefined,
@@ -214,10 +174,7 @@ export function conditionExtrasAgainst(
 }
 
 // Whether the roll dialog has anything to offer for a spell: dice to roll, a
-// save to show and announce (Hideous Laughter rolls nothing, but "I cast it
-// on Goblin 1" still has to reach the DM), or a condition to put on its
-// targets (Bless rolls nothing and asks no save — the announcement *is* the
-// cast). The one gate both the spell list and the play board use.
+// save, or a condition to apply to targets.
 export function rollableSpell(spell: Spell): boolean {
   const m = spell.mechanics;
   if (m && (m.damage || m.damageTable || m.healing)) return true;
@@ -225,10 +182,8 @@ export function rollableSpell(spell: Spell): boolean {
   return !!spellConditionFor(spell);
 }
 
-// A save-resolution spell's save, in the shape the dialog and the wire speak
-// (`SaveEffect`). Spells never carry one directly — the catalog models
-// `resolution: {kind: "save"}` — so this is the bridge the weapon path never
-// needed. `onSuccess` only when there's damage for it to scale.
+// Builds a `SaveEffect` from a spell's `resolution: {kind: "save"}`.
+// `onSuccess` only set when there's damage for it to scale.
 export function spellSaveEffect(
   character: Character,
   spell?: Spell,
@@ -287,13 +242,9 @@ export interface ResolveDamageInput {
 }
 
 /**
- * Roll an attack's damage: the weapon/spell's own dice, then every extra in
- * play, then the total-level riders.
- *
- * Extras the sheet can verify apply on their own; `optIn` ones only when ticked.
- * The
- * slot-powered extra rolls its display dice here but does *not* spend the slot
- * — that's an explicit, separate commit, so re-rolling stays free.
+ * Roll an attack's damage: base dice, then every applicable extra, then
+ * total-level riders. The slot-powered extra rolls its dice here but does
+ * not spend the slot — that's a separate explicit commit.
  */
 export function resolveDamage({
   character,

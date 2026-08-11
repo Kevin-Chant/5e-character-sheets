@@ -88,8 +88,8 @@ import { optionalFeaturesAt } from "src/lib/builder/optional-class-features";
 import Select from "src/components/select";
 
 const STAT_KEYS = Object.values(StatKey);
-// The comma/newline split `buildCharacter` applies to the free-text proficiency
-// fields, so the picker round-trips exactly what the build will read back.
+// Matches the comma/newline split `buildCharacter` applies to free-text
+// proficiency fields.
 const splitList = (value: string): string[] =>
   value
     .split(/[\n,]/)
@@ -198,11 +198,9 @@ export function RaceStep({ state, patch }: StepProps) {
   const subraces = subracesForRace(race);
   const [query, setQuery] = useState("");
 
-  // Guide the player down the step as each choice unfolds: picking a race scrolls
-  // to the subrace picker (everyone lands there — races with no official subrace
-  // get a pre-selected "No subrace" card); picking a subrace scrolls on to the
-  // ability-score bonuses. Race changes co-occur with a subrace reset, so race
-  // wins to avoid a double scroll.
+  // Picking a race scrolls to the subrace picker; picking a subrace scrolls
+  // to the ability-score bonuses. Race wins over subrace when both change at
+  // once, to avoid a double scroll.
   const subraceRef = useRef<HTMLDivElement>(null);
   const bonusRef = useRef<HTMLDivElement>(null);
   const prev = useRef({
@@ -299,10 +297,7 @@ export function RaceStep({ state, patch }: StepProps) {
                       key: NO_SUBRACE,
                       title: "No subrace",
                       subtitle: "This race has no subrace.",
-                      // Also the default when nothing is recorded yet: a race
-                      // with no subraces has nothing to choose, and leaving the
-                      // row blank made "Other subrace" look like the only
-                      // option on offer.
+                      // Also the default when nothing is recorded yet.
                       selected:
                         state.subraceIndex === NO_SUBRACE ||
                         state.subraceIndex === undefined,
@@ -341,13 +336,11 @@ export function RaceStep({ state, patch }: StepProps) {
       <RaceBonusEditor state={state} patch={patch} innerRef={bonusRef} />
 
       {(() => {
-        // The skill choice can come from either level — Half-Elf's is on the
-        // race, Variant Human's on the subrace.
+        // The skill choice can come from either race or subrace level.
         const subrace = getSubrace(race, state.subraceIndex);
         const skillChoices = race?.skillChoices ?? subrace?.skillChoices;
         if (!skillChoices) return null;
-        // Custom Lineage's grant is darkvision *or* a skill, so the skill
-        // picker only appears once that side is chosen.
+        // Custom Lineage's grant is darkvision *or* a skill.
         const eitherOr = race?.darkvisionOrSkill;
         return (
           <>
@@ -417,8 +410,7 @@ export function RaceStep({ state, patch }: StepProps) {
           ...(subrace?.traits ?? []),
         ].some((t) => t.title.trim().toLowerCase() === "high elf cantrip");
         if (!hasHighElfCantrip) return null;
-        // Minus any cantrip already picked as a class or feat spell in this
-        // wizard (the class checklist hides this pick in return).
+        // Minus any cantrip already picked as a class or feat spell.
         const pickedElsewhere = [
           ...state.cantripIndices,
           ...Object.values(state.featSpellChoices).flat(),
@@ -454,11 +446,7 @@ export function RaceStep({ state, patch }: StepProps) {
         );
       })()}
 
-      {/* "One language of your choice" (Human, Half-Elf, …). This picker was
-          missing entirely — `raceLanguageChoices` was consumed by
-          buildCharacter but nothing ever asked, so the grant silently
-          evaporated. The race's fixed languages are excluded from the
-          suggestions. */}
+      {/* "One language of your choice" (Human, Half-Elf, …). */}
       {(() => {
         const subrace = getSubrace(race, state.subraceIndex);
         const count =
@@ -479,10 +467,8 @@ export function RaceStep({ state, patch }: StepProps) {
         );
       })()}
 
-      {/* Closed option lists a race grants at 1st level — today only Simic
-          Hybrid's first Animal Enhancement. Same picker the class lists use, so
-          the pick lands in `chosenOptions` and shows on the sheet like any
-          other. The 5th-level enhancement is prompted by the level-up wizard. */}
+      {/* Closed option lists a race grants at 1st level (e.g. Simic Hybrid's
+          Animal Enhancement); same picker the class lists use. */}
       {newRaceOptionPicksAt(race?.name, 1).map(({ group, count }) => (
         <ChosenOptionPicker
           key={group.category}
@@ -502,8 +488,6 @@ export function RaceStep({ state, patch }: StepProps) {
         />
       ))}
 
-      {/* Variant Human and Custom Lineage are the only ways a level-1
-          character starts with a feat. Same picker the level-up wizard uses. */}
       {raceGrantsFeat(race, getSubrace(race, state.subraceIndex)) && (
         <Field
           label="Feat"
@@ -512,10 +496,8 @@ export function RaceStep({ state, patch }: StepProps) {
           <FeatPicker
             state={state}
             patch={patch}
-            // Class and background aren't chosen yet at this point in the
-            // wizard, but the race's own grants (and picks already made if the
-            // player stepped back here) are known — so those lists at least
-            // exclude them.
+            // Class and background aren't chosen yet at this step, but race
+            // grants are known, so those lists at least exclude them.
             proficientSkills={[
               ...(race?.proficiencies.skills ?? []),
               ...(getSubrace(race, state.subraceIndex)?.proficiencies.skills ??
@@ -582,17 +564,11 @@ export function ClassStep({ state, patch }: StepProps) {
   const custom = state.classIsCustom;
   const [query, setQuery] = useState("");
 
-  // Picking a class unfolds its own questions below the grid — a fighting
-  // style, the Tasha's swaps, a level-1 subclass, "Other class"'s name and hit
-  // die. The grid is tall enough that all of them sit off-screen, so scroll to
-  // whatever appeared, exactly as the race and background steps do. One ref for
-  // the whole block: which questions a class asks varies, but "the part below
-  // the grid" doesn't.
+  // Picking a class unfolds questions below the grid (fighting style, Tasha's
+  // swaps, subclass, etc); scroll to whatever appeared, as the race step does.
   const belowRef = useRef<HTMLDivElement>(null);
-  // …and one of those questions has an answer that asks another: Superior
-  // Technique owes a maneuver. Scrolling to the block again would land above
-  // the dropdown the player just used, so the picks get their own target — the
-  // same two-step unfolding the race step does for race → subrace → bonuses.
+  // A second-order answer (e.g. Superior Technique's maneuver) gets its own
+  // scroll target so it doesn't land above the control the player just used.
   const picksRef = useRef<HTMLDivElement>(null);
   const selectionKey = custom ? "__custom" : state.classIndex;
   const prev = useRef({ selectionKey, style: state.fightingStyle });
@@ -688,9 +664,7 @@ export function ClassStep({ state, patch }: StepProps) {
           </Field>
         )}
 
-        {/* Tasha's swaps due at level 1 — the ranger's Favored Foe and Deft
-          Explorer. Above the subclass, since they replace the level-1 features
-          the class card just described. */}
+        {/* Tasha's swaps due at level 1 (e.g. ranger's Favored Foe / Deft Explorer). */}
         {klass && (
           <OptionalFeaturePicker
             features={optionalFeaturesAt(klass.name, 1)}
@@ -725,8 +699,8 @@ export function ClassStep({ state, patch }: StepProps) {
           </Field>
         )}
 
-        {/* A level-1 subclass whose grant includes "choose N skills" (Knowledge
-          cleric's two with expertise). Bard/others pick theirs in level-up. */}
+        {/* A level-1 subclass whose grant includes "choose N skills" (e.g.
+          Knowledge cleric). Other classes pick theirs in level-up. */}
         {(() => {
           if (!klass?.subclassAtLevel1 || !state.subclass) return null;
           const sc = subclassesForClass(klass.index).find(
@@ -754,12 +728,9 @@ export function ClassStep({ state, patch }: StepProps) {
           );
         })()}
 
-        {/* Closed option lists this class grants at level 1 — in practice the
-          ranger's Favored Enemy and Natural Explorer, since every other group
-          starts at class level 3 and belongs to the level-up wizard. Nothing
-          is known yet at creation, so `alreadyKnown` is always empty. */}
-        {/* Shares `.builder-below-grid`'s column rhythm so wrapping the pickers
-            in a scroll target changes nothing visually. */}
+        {/* Closed option lists this class grants at level 1 (e.g. ranger's
+          Favored Enemy). Nothing is known yet at creation, so `alreadyKnown`
+          is always empty. */}
         <div ref={picksRef} className="builder-below-grid">
           {klass &&
             newOptionPicksAt(klass.name, 1, {
@@ -985,13 +956,11 @@ function ManualStatInput({
   stat,
 }: StepProps & { stat: StatKey }) {
   const value = state.baseStats[stat];
-  // Keep a local string draft so clearing the field shows empty rather than
-  // snapping to 0 (which made typing "7" read as "07").
+  // Local string draft so clearing the field shows empty rather than 0.
   const [draft, setDraft] = useState(String(value));
 
   useEffect(() => {
     if ((draft === "" ? 0 : Number(draft)) !== value) setDraft(String(value));
-    // Only resync when the committed numeric value changes externally.
   }, [value]);
 
   return (
@@ -1058,9 +1027,8 @@ function PointBuyEditor({ state, patch }: StepProps) {
   );
 }
 
-// Assign a value pool (standard array or rolled scores) onto the six abilities.
-// The array is shown above; each ability starts empty and each pool value can
-// be used only as many times as it appears (handles duplicate rolls).
+// Assign a value pool (standard array or rolled scores) onto the six
+// abilities; each pool value can be used only as many times as it appears.
 function AssignEditor({
   state,
   patch,
@@ -1114,9 +1082,7 @@ function AssignEditor({
                 value={current === null ? "" : String(current)}
                 options={[
                   { value: "", label: "—" },
-                  // A score already spent elsewhere stays on the list and
-                  // dims, so the array you were handed is still legible as a
-                  // whole rather than shrinking as you assign it.
+                  // A score spent elsewhere stays on the list but dims.
                   ...distinct.map((v) => ({
                     value: String(v),
                     label: String(v),
@@ -1148,9 +1114,6 @@ export function BackgroundStep({ state, patch }: StepProps) {
   const race = getCatalogRace(state.raceIndex);
   const subrace = getSubrace(race, state.subraceIndex);
 
-  // Every background choice unfolds something below the grid — a custom
-  // background's pickers, or (for any background) the class skill-proficiency
-  // choices — so scroll to that block whenever a background is picked.
   const belowRef = useRef<HTMLDivElement>(null);
   const selectionKey = custom ? "__custom" : state.backgroundName;
   const prevSelection = useRef(selectionKey);
@@ -1163,9 +1126,6 @@ export function BackgroundStep({ state, patch }: StepProps) {
     prevSelection.current = selectionKey;
   }, [selectionKey]);
 
-  // Thirty backgrounds is past the point where a grid alone is browsable, so
-  // this step gets the same search box the race and class steps have. Matching
-  // on the skills too is what makes "persuasion" a useful thing to type.
   const q = query.trim().toLowerCase();
   const matches = ALL_BACKGROUNDS.filter((b) =>
     [b.name, b.source ?? "", ...b.skills, ...(b.skillChoices?.from ?? [])]
@@ -1203,10 +1163,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
     },
   ];
 
-  // Languages and tools the character already has when this step's pickers
-  // ask — race grants (fixed + chosen) and, for tools, the class's fixed and
-  // chosen kits. Fed to the pickers' `exclude` so suggesting a duplicate
-  // proficiency needs deliberate free text, not a default pick.
+  // Fed to the pickers' `exclude` so a duplicate suggestion needs deliberate free text.
   const knownLanguages = [
     ...(race?.languages ?? []),
     ...state.raceLanguageChoices,
@@ -1218,8 +1175,6 @@ export function BackgroundStep({ state, patch }: StepProps) {
     ...(subrace?.proficiencies.tools ?? []),
   ];
 
-  // Skills already granted by background + race, so class picks don't waste on
-  // duplicates (BG3-style).
   const bgSkillChoices = state.backgroundSkillChoices.filter((sk) =>
     (bg?.skillChoices?.from ?? []).includes(sk),
   );
@@ -1238,9 +1193,8 @@ export function BackgroundStep({ state, patch }: StepProps) {
   const classSelected = state.classSkillChoices.filter((s) =>
     classSkillOptions.includes(s),
   );
-  // Everything the character will be proficient in — granted plus chosen. A
-  // rogue's Thieves' Tools proficiency comes through the class's `tools`, which
-  // the sheet models as a pseudo-skill, so it shows up here too.
+  // Everything the character will be proficient in; Thieves' Tools is
+  // modeled as a pseudo-skill so a rogue's grant shows up here too.
   const expertiseOptions = uniq([
     ...grantedSkills,
     ...classSelected,
@@ -1248,8 +1202,6 @@ export function BackgroundStep({ state, patch }: StepProps) {
       ? [SkillName["Thieves Tools"]]
       : []),
   ]);
-  // A Deft Explorer ranger's Canny is an expertise pick like the rogue's, so it
-  // just raises the count this step offers.
   const expertiseDue = klass
     ? expertiseDueAt(klass.name, 1, state.optionalFeatures ?? [])
     : 0;
@@ -1283,8 +1235,6 @@ export function BackgroundStep({ state, patch }: StepProps) {
         {bg && (
           <p className="text-muted builder-hint">
             {[
-              // A background whose skills are entirely a choice (Haunted One)
-              // has nothing to state here — the picker above says it instead.
               bgSkills.length && `Skills: ${bgSkills.join(", ")}`,
               bg.tools.length && `Tools: ${bg.tools.join(", ")}`,
               `Feature: ${bg.feature.title}`,
@@ -1306,12 +1256,8 @@ export function BackgroundStep({ state, patch }: StepProps) {
                 }
               />
             </Field>
-            {/* A custom background grants two tool proficiencies or languages
-                in any combination, so both are offered with the standard lists
-                and neither is capped — the pair is the player's to split. They
-                are separate fields because they land in different places on the
-                sheet: a language typed into one comma-separated box used to be
-                filed as a tool. */}
+            {/* Two tool proficiencies or languages in any combination; kept
+                as separate fields since they land in different places on the sheet. */}
             <Field
               label="Tool proficiencies"
               hint="Your background grants two tool proficiencies or languages, in any combination."
@@ -1399,8 +1345,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
             hint={`Choose ${klass.toolChoices.choose}`}
           >
             <ChipMultiSelect
-              // Minus tools the background or race already grants — same
-              // no-wasted-pick rule the class skills above follow.
+              // Minus tools the background or race already grants.
               options={klass.toolChoices.from.filter(
                 (t) =>
                   !(bg?.tools ?? []).includes(t) &&
@@ -1416,10 +1361,7 @@ export function BackgroundStep({ state, patch }: StepProps) {
           </Field>
         )}
 
-        {/* Expertise (Rogue at level 1, or a Deft Explorer ranger's Canny).
-            Deliberately after the skill pickers — you can only double a
-            proficiency you have, so the options are everything the character
-            ends up proficient in. */}
+        {/* After the skill pickers: expertise can only double a proficiency you have. */}
         {klass && expertiseDue > 0 && (
           <Field
             label={`Expertise (choose ${expertiseDue})`}
@@ -1458,9 +1400,8 @@ export function SpellsStep({ state, patch }: StepProps) {
     );
   }
   const sc = klass.spellcasting;
-  // Spells already picked elsewhere in this wizard — the racial cantrip and
-  // any feat-granted picks (a Variant Human's Magic Initiate) — leave the
-  // class lists, so creation can't take the same spell twice.
+  // Spells already picked elsewhere (racial cantrip, feat-granted picks)
+  // leave the class lists so creation can't take the same spell twice.
   const pickedElsewhere = [
     state.highElfCantrip,
     ...Object.values(state.featSpellChoices).flat(),
@@ -1519,8 +1460,7 @@ export function EquipmentStep({ state, patch }: StepProps) {
   const parsedOptions = klass
     ? klass.startingEquipmentOptions.map(parseEquipmentOption)
     : [];
-  // Fixed grants: the class's flat items plus any option line with no "(x)"
-  // choice (e.g. "holy symbol").
+  // Fixed grants: flat items plus any option line with no "(x)" choice.
   const fixedItems = [
     ...(klass?.startingEquipment ?? []),
     ...parsedOptions.flatMap((o) => (o.kind === "fixed" ? [o.text] : [])),
@@ -1710,8 +1650,6 @@ export function DetailsStep({ state, patch }: StepProps) {
           onChange={(value) => patch({ alignment: value as Alignment })}
         />
       </Field>
-      {/* A table that doesn't play with these shouldn't be asked for them at
-          creation either — the Game setting is one answer for both surfaces. */}
       {trackPersonality &&
         (
           [
@@ -1749,8 +1687,7 @@ export function ReviewStep({ state }: StepProps) {
     : baseRaceName;
   const className = klass?.name ?? (state.customClassName || "Custom class");
   const final = resolveFinalStats(state);
-  // Assemble the character now so the summary reflects the same derived numbers
-  // (HP, AC, proficient skills, gold) the sheet will show.
+  // So the summary reflects the same derived numbers the sheet will show.
   const char = buildCharacter(state);
   const ac = calculateCustomFormula(char.acFormula, char);
   const skills = Object.keys(char.proficiencies.skills);

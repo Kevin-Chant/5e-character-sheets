@@ -13,8 +13,7 @@ import {
 } from "src/lib/rules";
 import { useSave } from "./modals/modal-container";
 
-// The full modifier a skill contributes to a d20 roll — mirrors the sheet's
-// per-row math so the modal shows the same number the player will roll.
+// Full modifier a skill contributes to a d20 roll, mirroring the sheet's math.
 function skillModifier(
   statMod: number,
   pb: number,
@@ -35,15 +34,13 @@ function skillModifier(
 
 type ProfState = "none" | "proficient" | "expert";
 
-// One place to manage every skill: pick a proficiency state and edit an optional
-// bonus formula. Replaces the per-row pencils that cluttered the Skills list on
-// the sheet. Opened from the "Skills" heading (targeted field: proficiencies →
-// "skills"); the bonus editor stacks the formula builder on top of this modal.
+// Manages every skill's proficiency state and optional bonus formula. Opened
+// from the "Skills" heading (targeted field: proficiencies → "skills"); the
+// bonus editor stacks the formula builder on top of this modal.
 export default function EditSkills() {
   const { character } = useLoadedCharacter();
   const { pushCursor } = useTargetedField();
-  // Save-on-change: proficiency toggles and bonus removal persist immediately
-  // (the bonus editor itself opens the formula builder, which saves on its own).
+  // Proficiency toggles and bonus removal persist immediately.
   const { commit } = useSave();
 
   const pb = getPB(character);

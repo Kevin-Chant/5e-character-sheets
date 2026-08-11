@@ -1,22 +1,11 @@
-// Build-time snapshot of the SRD spell catalog.
+// Build-time snapshot of the SRD spell catalog: fetches every spell from the
+// D&D 5e API and flattens each into the compact `CatalogSpell` shape consumed
+// by `src/lib/spells/spell-catalog.ts`, committed as
+// `src/lib/data/srd-spells.json`. Re-run with `pnpm generate-spells`.
 //
-// Walks every spell in the (open-license, SRD-only) D&D 5e API and flattens each
-// into the compact `CatalogSpell` shape consumed by `src/lib/spells/spell-catalog.ts`.
-// The result is committed as `src/lib/data/srd-spells.json` so the app ships the
-// whole catalog and makes *zero* network requests at runtime — it works offline
-// and never depends on the third-party API being up. Re-run (`pnpm
-// generate-spells`) to refresh.
-//
-// Why bundle instead of fetch-at-runtime: the SRD is static, ~319 spells is a
-// small payload, and a backend-less SPA shouldn't fan out live calls (rate
-// limits, CORS, uptime) for data that never changes. Same instinct as the
-// weapon presets in `src/lib/rules.ts`.
-//
-// We use the REST detail endpoint rather than one GraphQL query: the GraphQL
-// schema declares `damage_at_slot_level` non-nullable but returns null for
-// cantrips, which intermittently 500s the whole batch. REST returns the damage
-// tables as plain nullable JSON, so per-spell fetches (bounded concurrency, a
-// rarely-run build step) are the reliable path.
+// Uses the REST detail endpoint, not GraphQL: GraphQL declares
+// `damage_at_slot_level` non-nullable but returns null for cantrips, which
+// intermittently 500s the batch. REST returns it as plain nullable JSON.
 
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -59,9 +48,8 @@ function parseTable(table) {
 // die is "d6" or { numFaces } — compare structurally.
 const sameFaces = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-// Lowest-level entry of a scaling table is the "base" roll we surface as a live
-// formula in the detail line (e.g. Fireball's 8d6). REST returns these tables as
-// objects keyed by level ({ "3": "8d6", ... }).
+// Lowest-level entry of a scaling table (e.g. Fireball's 8d6), surfaced as a
+// live formula in the detail line. Tables are objects keyed by level.
 function baseDamageRoll(damage) {
   const table =
     damage?.damage_at_slot_level ?? damage?.damage_at_character_level;
@@ -83,8 +71,7 @@ function buildResolution(s) {
   return { kind: "auto" };
 }
 
-// The spell's caster ability modifier, as a spellMod leaf. The class is a
-// placeholder the adapter stamps with the real spellcasting class at add time.
+// Placeholder spellMod leaf; the adapter stamps the real spellcasting class at add time.
 const SPELLMOD_CASTER = { spellMod: "@caster" };
 
 // Parse a heal entry: "Nd8 + MOD" (dice + caster mod), "Nd8", or "70" (flat).
@@ -106,8 +93,7 @@ function parseHealRows(table) {
   return rows.length && rows.every(([, h]) => h) ? rows : undefined;
 }
 
-// A healing formula from a parsed entry: dice or flat, plus the caster mod when
-// the SRD marked it "+ MOD".
+// Dice or flat, plus the caster mod when the SRD marked it "+ MOD".
 function healFormula(h) {
   const amount = h.roll ?? h.flat;
   return h.mod
@@ -115,8 +101,8 @@ function healFormula(h) {
     : amount;
 }
 
-// The per-slot healing increment, if the table scales linearly (same die, or a
-// flat step). The caster mod is fixed and does not scale, so it's not included.
+// Per-slot healing increment, if the table scales linearly (same die, or a
+// flat step); the caster mod doesn't scale so it's excluded.
 function healScaling(rows) {
   const spacing = rows[1][0] - rows[0][0];
   const [, first] = rows[0];

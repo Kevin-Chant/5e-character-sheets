@@ -8,15 +8,12 @@ import { Character, CustomFormula, Senses, Speeds } from "src/lib/types";
 import { LevelEffects } from "src/lib/builder/types";
 import { getSubclassByName } from "src/lib/builder/subclasses";
 
-// Applying `LevelEffects` — the grants that write to a character field rather
-// than adding prose. See the type for why every one of them is idempotent.
-//
-// Base-class levels and subclass levels feed the same applier: the *source*
-// differs (a table here vs. `CatalogSubclass.levelEffects`), the effect doesn't.
+// `LevelEffects` grants write to a character field rather than adding prose;
+// see the type for why each must be idempotent. Base-class and subclass
+// levels feed the same applier below, just from different tables.
 
-// Effects a *base class* level confers, keyed by class then level. The
-// subclass-independent counterpart to `CatalogSubclass.levelEffects` — small by
-// design, since almost everything at this level of the class is prose.
+// Effects a base-class level confers, keyed by class then level. Counterpart
+// to `CatalogSubclass.levelEffects` for the subclass-independent case.
 export const CLASS_LEVEL_EFFECTS: Partial<
   Record<OfficialClass, Record<number, LevelEffects>>
 > = {
@@ -35,9 +32,8 @@ export const CLASS_LEVEL_EFFECTS: Partial<
   },
 };
 
-// Whether `formula` already contains `operand` anywhere in its tree. Used to
-// keep an additive grant (an initiative modifier) from stacking when a level is
-// re-applied — the one effect that isn't naturally idempotent.
+// Whether `formula` already contains `operand` anywhere in its tree. Guards
+// the initiative modifier, the one effect not naturally idempotent.
 export function formulaIncludes(
   formula: CustomFormula | undefined,
   operand: CustomFormula,
@@ -50,9 +46,8 @@ export function formulaIncludes(
   return formula.operands.some((o) => formulaIncludes(o, operand));
 }
 
-// Fold one `LevelEffects` into the character. Safe to call repeatedly for the
-// same level: sets stay sets, speeds only rise, and the initiative modifier is
-// guarded by `formulaIncludes`.
+// Safe to call repeatedly for the same level: sets stay sets, speeds only
+// rise, and the initiative modifier is guarded by `formulaIncludes`.
 export function applyLevelEffects(
   char: Character,
   effects: LevelEffects,
@@ -66,7 +61,7 @@ export function applyLevelEffects(
   const damage =
     effects.resistances ?? effects.immunities ?? effects.vulnerabilities;
   if (damage) {
-    // Legacy characters from before `damageModifiers` existed may lack it.
+    // Older characters may lack `damageModifiers`.
     char.damageModifiers ??= {
       resistances: [],
       immunities: [],
@@ -87,14 +82,12 @@ export function applyLevelEffects(
   for (const [mode, value] of Object.entries(effects.speeds ?? {})) {
     const key = mode as keyof Speeds;
     const feet = value === "walk" ? char.speeds.walk : value;
-    // Only ever raise: a slower grant never overwrites a faster speed the
-    // character already has from a race, an item, or an earlier level.
+    // Only ever raise, never overwrite a faster existing speed.
     if (feet > (char.speeds[key] ?? 0)) char.speeds[key] = feet;
   }
 
   for (const [sense, feet] of Object.entries(effects.senses ?? {})) {
     const key = sense as keyof Senses;
-    // Only ever raise, for the same reason speeds do.
     if (feet > (char.senses?.[key] ?? 0)) (char.senses ??= {})[key] = feet;
   }
 
@@ -108,9 +101,8 @@ export function applyLevelEffects(
   }
 }
 
-// Every `LevelEffects` due at `level` in `className` — the base-class table
-// plus the chosen subclass's own entry. Returned rather than applied so the
-// caller (and its tests) can see what a level confers.
+// Every `LevelEffects` due at `level` in `className`: base-class table plus
+// the chosen subclass's entry. Returned rather than applied.
 export function levelEffectsAt(
   className: string,
   subclass: string | undefined,

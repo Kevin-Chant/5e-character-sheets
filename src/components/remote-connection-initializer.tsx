@@ -10,9 +10,7 @@ import IdentityFields from "src/components/identity-fields";
 
 export default function RemoteConnectionInitializer() {
   const location = useLocation();
-  // The sessions route resolves a pasted code before sending it here, so an
-  // arrival with one in hand has already been told this realm exists — asking
-  // for it a second time would be asking the same question twice.
+  // Set when the sessions route already resolved a pasted code for us.
   const handedCode = (location.state as { code?: string } | null)?.code;
   const [uuidInputValue, setUuidInputValue] = useState(handedCode ?? "");
   const { dispatch } = useCharacter();
@@ -35,8 +33,8 @@ export default function RemoteConnectionInitializer() {
       window.alert("Failed to join session!");
       return;
     }
-    // The host may run an older client; migrate their payload locally. We never
-    // write the upgrade back — the host owns the persisted copy.
+    // Migrate the host's payload locally; never write the upgrade back — the
+    // host owns the persisted copy.
     const result = hydrateCharacter(character);
     if (!result.ok) {
       console.error("Joined character failed validation", result.errors);
@@ -48,8 +46,8 @@ export default function RemoteConnectionInitializer() {
     navigate("/sheet");
   };
 
-  // Connect straight away when the code was handed to us, and exactly once —
-  // `attemptConnect` alerts on failure, and a retry loop would alert forever.
+  // Connect once when handed a code — attemptConnect alerts on failure, so a
+  // retry loop would alert forever.
   const attemptRef = useRef(attemptConnect);
   attemptRef.current = attemptConnect;
   const autoConnected = useRef(false);

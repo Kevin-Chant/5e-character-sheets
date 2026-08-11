@@ -1,16 +1,6 @@
 // @vitest-environment jsdom
-// Closing a sheet that has unsaved edits.
-//
-// Autosave is debounced and reads whichever character is current when the timer
-// fires, so switching sheets inside that window simply dropped the edits you had
-// just made. Quiet data loss on its own; with a sharing session for the sheet
-// you left, also a *shared* rollback — the peers got those edits over the realm,
-// but the stored copy is what `FULL_SYNC` serves and what arriving edits are
-// folded into.
-//
-// The other half of this file is the cases that must NOT write, which is where
-// the danger is: a reset means the sheet is going away, and every reason it does
-// is a reason not to save it.
+// Flushing unsaved edits on the outgoing character when a sheet is closed
+// or replaced (debounced autosave alone would drop them).
 import { describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
 import React from "react";
@@ -70,7 +60,6 @@ function harness() {
     </DatastoreSelectorContext.Provider>,
   );
 
-  // Open a sheet and dirty it, which is the only interesting starting state.
   act(() => {
     actions.dispatch(loadPersistedCharacter(aSheet(A, "Alia")));
   });
@@ -98,11 +87,6 @@ describe("closing a sheet with unsaved edits", () => {
     );
   });
 
-  // A reset is how a *deleted* character leaves the screen (the drawer deletes
-  // then resets), and how a datastore swap closes the sheet before the new
-  // backend loads. Writing on either is worse than losing the edit: one
-  // resurrects a character the user just deleted, the other writes it into the
-  // backend they just walked away from.
   it("does not write when the sheet is closed rather than replaced", () => {
     const { save, dispatch } = harness();
 
@@ -113,9 +97,8 @@ describe("closing a sheet with unsaved edits", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  // Re-adopting the same uuid is the Drive bootstrap pulling the host's copy
-  // over solo edits — the user has just been asked and has chosen to discard
-  // them, so persisting them behind that answer is the wrong move.
+  // Re-loading the same uuid is a re-adoption (e.g. Drive bootstrap discarding
+  // solo edits), not a switch, so it must not flush.
   it("does not write when the same character is reloaded", () => {
     const { save, dispatch } = harness();
 

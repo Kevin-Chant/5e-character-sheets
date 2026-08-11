@@ -4,20 +4,12 @@ import {
   realmForSession,
 } from "src/lib/play/session";
 
-// Two different things in this app hand you a code, and both codes are uuids.
-//
-// - An **editing** session shares one character sheet between two browsers. Its
-//   code *is* the character's uuid, and its realm is that uuid's bare hex.
-// - A **gameplay** session shares an encounter across a whole table. Its code is
-//   a fresh uuid, and its realm is `sess<hex>` — namespaced precisely so the two
-//   can never collide on the sidecar.
-//
-// A player handed a code in a group chat has no reason to know which kind they
-// were given, so the app works it out. Shape can't tell them apart (both are
-// uuids), so the answer is to ask the sidecar which realm actually exists: the
-// namespacing that keeps them from colliding is the same thing that makes them
-// distinguishable. This module is the pure half — which realms to try, in what
-// order. The asking lives in `realm/occupancy.ts`.
+// Two kinds of code, both uuids: an *editing* session's code is the
+// character's uuid, realm = bare hex; a *gameplay* session's code is a fresh
+// uuid, realm = `sess<hex>` (namespaced so the two never collide). Since
+// shape can't tell them apart, the app probes both realms. This module is the
+// pure half — which realms to try, in what order; the asking lives in
+// `realm/occupancy.ts`.
 
 export type SessionKind = "gameplay" | "editing";
 
@@ -33,8 +25,7 @@ export interface CodeCandidate {
 }
 
 // The realms a pasted code could refer to, most likely first. Empty when the
-// input isn't a uuid at all — there is nothing to probe, and saying so without a
-// round trip keeps a typo from looking like an outage.
+// input isn't a uuid — nothing to probe, and no round trip needed to say so.
 export function codeCandidates(code: string): CodeCandidate[] {
   if (!isValidSessionCode(code)) return [];
   const normalized = normalizeSessionCode(code);

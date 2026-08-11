@@ -28,25 +28,22 @@ import {
 } from "src/lib/types";
 
 // Class-feature choice catalogs and per-level feature prose for the builder /
-// level-up wizards. As with the other non-SRD-JSON content files: mechanical
-// facts with terse original summaries, never published prose.
+// level-up wizards. Mechanical facts with terse original summaries, not
+// published prose.
 
-// ---------------------------------------------------------------------------
 // Fighting styles
 
 export interface FightingStyle {
   name: string;
   summary: string;
-  // Fold +1 into the AC formula when taken (Defense).
+  // +1 AC folded into the AC formula (Defense).
   acBonus?: number;
-  // Grants that write to a character field (Blind Fighting's blindsight),
-  // applied through the same `applyLevelEffects` a class level uses.
+  // Field-writing grants (e.g. Blind Fighting's blindsight), applied via
+  // applyLevelEffects.
   effects?: LevelEffects;
-  // A limited-use pool the style confers — Superior Technique's single
-  // superiority die. The same shape a feat's `limitedUse` grant uses, and for
-  // the same reason it needs no mechanics of its own: "Superiority Die" is a
-  // catalog title, so the spend-and-roll d6 comes from `mechanicsForTitle`
-  // exactly as Martial Adept's does.
+  // Limited-use pool the style grants (Superior Technique's superiority die).
+  // Same shape as a feat's `limitedUse` grant; mechanics resolved by catalog
+  // title via `mechanicsForTitle`.
   pool?: {
     name: string;
     detail: string;
@@ -56,9 +53,8 @@ export interface FightingStyle {
   };
 }
 
-// Names are bare (no "Fighting Style:" prefix) so features land with titles
-// the mechanics catalog recognizes — "Great Weapon Fighting" lights up its
-// damage-reroll rider by title match.
+// Names are bare (no "Fighting Style:" prefix) so the mechanics catalog can
+// match them by title (e.g. "Great Weapon Fighting"'s damage-reroll rider).
 export const FIGHTING_STYLES: FightingStyle[] = [
   {
     name: "Archery",
@@ -88,9 +84,7 @@ export const FIGHTING_STYLES: FightingStyle[] = [
     name: "Two-Weapon Fighting",
     summary: "Add your ability modifier to off-hand attack damage.",
   },
-  // ------------------------------------------------------------------
-  // Tasha's. Which classes may take each is `FIGHTING_STYLE_ACCESS` below —
-  // the fighter gets all of them, paladin and ranger a couple each.
+  // Tasha's Cauldron of Everything additions.
   {
     name: "Blind Fighting",
     summary:
@@ -112,10 +106,7 @@ export const FIGHTING_STYLES: FightingStyle[] = [
     summary:
       "Your unarmed strikes deal 1d6 + your Strength modifier bludgeoning damage — 1d8 if you hold no weapon or shield — and you can deal 1d4 to a creature you have grappled at the start of your turn.",
   },
-  // Unlike the other styles this one owes the player a second choice
-  // (a maneuver) — see the `viaFightingStyle` group in `chosen-options.ts`,
-  // which is what lets a fighter of any subclass be offered the Battle Master
-  // list.
+  // Also grants a maneuver pick — see `viaFightingStyle` in chosen-options.ts.
   {
     name: "Superior Technique",
     summary:
@@ -133,9 +124,7 @@ export const FIGHTING_STYLES: FightingStyle[] = [
   },
 ];
 
-// Which styles each class may pick, and the class level that grants the
-// choice (fighter picks at 1 — the guided builder's job; the rest via
-// level-up).
+// Which styles each class may pick, and the level that grants the choice.
 export const FIGHTING_STYLE_ACCESS: Partial<
   Record<OfficialClass, { level: number; styles: string[] }>
 > = {
@@ -187,18 +176,13 @@ export function fightingStyleDueAt(
   return undefined;
 }
 
-// ---------------------------------------------------------------------------
 // Eldritch invocations (warlock)
 
-// Eldritch invocations now live in `src/lib/data/invocations/` (one file per
-// source book, merged and alphabetised there). Re-exported here because the
-// wizards, `applyClassLevel` and the pickers have always imported them from
-// this module.
+// Data lives in src/lib/data/invocations/; re-exported for existing importers.
 export type { Invocation };
 export const ELDRITCH_INVOCATIONS: Invocation[] = ALL_INVOCATIONS;
 
-// How many invocations a warlock knows at a given level (PHB table). The
-// wizard offers picks whenever the count increases at the target level.
+// PHB invocations-known table.
 export function invocationsKnownAt(level: number): number {
   if (level < 2) return 0;
   const thresholds = [2, 5, 7, 9, 12, 15, 18];
@@ -209,13 +193,11 @@ export function newInvocationsAt(level: number): number {
   return Math.max(0, invocationsKnownAt(level) - invocationsKnownAt(level - 1));
 }
 
-// ---------------------------------------------------------------------------
 // Per-level class feature prose
 
-// Features gained at class levels past 1, excluding: subclass features, ASIs,
-// choice features handled elsewhere (fighting styles, invocations), and
-// features that already land as limited-use pools (`class-pools.ts` carries
-// their descriptions). Scaling features are entered once, at their first
+// Features gained at class levels past 1, excluding subclass features, ASIs,
+// choice features (fighting styles, invocations), and pool-backed features
+// (see class-pools.ts). Scaling features are entered once, at their first
 // level, with the scaling described in the detail.
 export const CLASS_FEATURES: Partial<
   Record<OfficialClass, Record<number, { title: string; detail: string }[]>>
@@ -372,9 +354,8 @@ export const CLASS_FEATURES: Partial<
           "Attack twice whenever you take the Attack action (three times at 11th, four at 20th level).",
       },
     ],
-    // The fighter's two bumps get rows of their own rather than living only in
-    // the 5th-level detail string: reaching 11th otherwise granted nothing
-    // visible, and the sheet is where a player looks to find out what changed.
+    // Separate rows (not folded into the 5th-level detail) so 11th/20th show
+    // up as visible changes on the sheet.
     11: [
       {
         title: "Extra Attack (3 attacks)",
@@ -732,25 +713,19 @@ export const CLASS_FEATURES: Partial<
 };
 
 // The features a class gains at a given level. Level 1 comes from the bundled
-// SRD class data (whose `features` array is the level-1 set), levels 2+ from
-// the hand-authored table above — callers shouldn't have to know which. Before
-// this, creation read `klass.features` directly and level-up read the table, an
-// implicit split that made building a character above level 1 impossible to do
-// through one path.
+// SRD class data (`features` array), levels 2+ from CLASS_FEATURES above.
 export function classFeaturesAt(
   className: string,
   level: number,
-  // Tasha's optional features taken, whose replaced halves are dropped — the
-  // one place a class level can grant *less* than the table says.
+  // Tasha's swaps: replaced features are dropped.
   optionalFeatures: string[] = [],
 ): { title: string; detail: string }[] {
   const kept = (f: { title: string }) =>
     !isReplacedFeature(f.title, optionalFeatures);
   const oc = Object.values(OfficialClass).find((c) => c === className);
   if (level === 1) {
-    // The SRD level-1 list includes features that the sheet grants as
-    // limited-use pools (Rage, Second Wind, …). Drop those here, the same way
-    // the hand-authored 2+ table omits them, so they aren't listed twice.
+    // Drop features the sheet grants as limited-use pools instead (Rage,
+    // Second Wind, …) so they aren't listed twice.
     const pooled = new Set(
       poolTitlesFor(className).map((t) => t.trim().toLowerCase()),
     );
@@ -761,9 +736,8 @@ export function classFeaturesAt(
   return ((oc && CLASS_FEATURES[oc]?.[level]) ?? []).filter(kept);
 }
 
-// The "choose N tool proficiencies" a class offers at a given level — bard
-// instruments, monk artisan tools. Only ever at level 1 today, but keyed by
-// level so the grant path can ask uniformly.
+// The "choose N tool proficiencies" a class offers at a given level (bard
+// instruments, monk artisan tools). Only ever at level 1 today.
 export function toolChoicesFor(
   className: string,
   level: number,
@@ -772,11 +746,9 @@ export function toolChoicesFor(
   return getCatalogClass(className.toLowerCase())?.toolChoices;
 }
 
-// ---------------------------------------------------------------------------
 // Martial Arts (monk)
 
-// The monk's Martial Arts die by monk level: d4 → d6 (5th) → d8 (11th) →
-// d10 (17th).
+// PHB: d4 → d6 (5th) → d8 (11th) → d10 (17th).
 export function martialArtsDie(level: number): StandardDie {
   if (level >= 17) return StandardDie.d10;
   if (level >= 11) return StandardDie.d8;
@@ -784,22 +756,14 @@ export function martialArtsDie(level: number): StandardDie {
   return StandardDie.d4;
 }
 
-// Martial Arts *substitutes* the damage die of unarmed strikes and monk weapons
-// rather than adding to them, so it's the one scaling feature that doesn't fit
-// the `extraDamage` rider shape — a rider adds a second expression, and there's
-// no "replace the weapon's die" kind (adding one would mean the roll dialog
-// rewriting an attack's stored formula, which nothing else does).
-//
-// What a monk actually lacked was the attack itself: the sheet had the prose but
-// no Unarmed Strike to roll. So this grants one and re-derives its die on every
-// level-up, exactly like `syncClassPools` does for pool sizes — and with the
-// same trade-off: **the table is authoritative**, so a hand-edited Unarmed
-// Strike is overwritten the next time the monk levels. Rename it (or add a
-// second attack) to keep a custom one.
+// Martial Arts substitutes the unarmed-strike damage die rather than adding to
+// it, so it can't use the `extraDamage` rider shape. Grants/re-derives the
+// Unarmed Strike attack on every level-up (like `syncClassPools` for pool
+// sizes); the table is authoritative, so a hand-edited Unarmed Strike is
+// overwritten on the next level-up unless renamed.
 export function syncMartialArts(char: Character, klass: IClass): void {
   if (klass.name !== OfficialClass.Monk) return;
-  // Martial Arts lets you use DEX in place of STR; taking the better of the two
-  // is what that always resolves to in practice.
+  // DEX may substitute for STR; take the higher of the two.
   const ability: CustomFormula = {
     operation: Operation.maximum,
     operands: [StatKey.str, StatKey.dex],
@@ -833,20 +797,18 @@ export function syncMartialArts(char: Character, klass: IClass): void {
 
 const UNARMED_STRIKE = "unarmed strike";
 
-// ---------------------------------------------------------------------------
 // Expertise (rogue, bard)
 
-// How many skills gain expertise at a given class level. Rogues pick two at 1st
-// and two more at 6th; bards at 3rd and 10th. The sheet models Thieves' Tools
-// as a pseudo-skill, so a rogue can spend a pick on it exactly as RAW allows.
+// Rogues pick two at 1st and two more at 6th; bards at 3rd and 10th. The sheet
+// models Thieves' Tools as a pseudo-skill so a rogue can spend a pick on it.
 const EXPERTISE_GRANTS: Partial<Record<OfficialClass, Record<number, number>>> =
   {
     [OfficialClass.Rogue]: { 1: 2, 6: 2 },
     [OfficialClass.Bard]: { 3: 2, 10: 2 },
   };
 
-// How many expertise picks reaching `level` in `className` grants (0 for most),
-// plus any a Tasha's swap adds (Deft Explorer's Canny at ranger 1).
+// Expertise picks granted at `level` in `className`, plus any a Tasha's swap
+// adds (e.g. Deft Explorer's Canny at ranger 1).
 export function expertiseDueAt(
   className: string,
   level: number,
@@ -863,14 +825,12 @@ export function expertiseDueAt(
   );
 }
 
-// ---------------------------------------------------------------------------
 // Class progression tables
 //
-// These moved here from the level-up wizard: they're per-class level data, the
-// same shape as everything else in this file, and `level-grants.ts` needs to
-// read them without importing the wizard (which imports it).
+// Kept here (not the level-up wizard) so level-grants.ts can read them
+// without importing the wizard, which imports this file.
 
-// The class level at which each class chooses its subclass.
+// PHB: the class level at which each class chooses its subclass.
 const SUBCLASS_LEVEL: Record<OfficialClass, number> = {
   Artificer: 3,
   Barbarian: 3,
@@ -895,36 +855,24 @@ const EXTRA_ASI_LEVELS: Partial<Record<OfficialClass, number[]>> = {
   Rogue: [10],
 };
 
-// Does reaching `level` in `className` grant a subclass choice?
 export const subclassDueAt = (className: string, level: number): boolean => {
   const oc = Object.values(OfficialClass).find((c) => c === className);
   return oc ? SUBCLASS_LEVEL[oc] === level : false;
 };
 
-// Does reaching `level` in `className` grant an ASI / feat?
 export const isAsiLevel = (className: string, level: number): boolean => {
   const oc = Object.values(OfficialClass).find((c) => c === className);
   const extra = (oc && EXTRA_ASI_LEVELS[oc]) || [];
   return BASE_ASI_LEVELS.includes(level) || extra.includes(level);
 };
 
-// ---------------------------------------------------------------------------
 // Spells known / cantrips known (PHB class tables; Artificer from TCE).
 //
-// The wizards used to disagree about these: creation enforced the level-1
-// counts from `CatalogClass.spellcasting`, level-up printed "counts aren't
-// enforced" and let you take as many as you liked. That block of data only
-// exists at level 1, which is why the level-up half never had anything to
-// enforce against — these tables are the missing half.
-//
-// Both answers are "how many *new* ones does this level grant", not a running
-// total, because that's the question the level-up step asks. A `null` means
-// "don't enforce": the class prepares from its whole list (cleric, druid,
-// paladin) or isn't an official class the tables cover.
-// ---------------------------------------------------------------------------
+// Counts are "how many *new* ones this level grants", not a running total. A
+// `null` return means "don't enforce": the class prepares from its whole list
+// (cleric, druid, paladin) or isn't covered.
 
-// Cantrips known, as breakpoints: the count changes at a handful of levels, so
-// listing the level it changes at reads better than twenty-entry arrays.
+// Breakpoint levels where cantrips-known changes.
 const CANTRIPS_KNOWN: Partial<Record<OfficialClass, Record<number, number>>> = {
   [OfficialClass.Artificer]: { 1: 2, 10: 3, 14: 4 },
   [OfficialClass.Bard]: { 1: 2, 4: 3, 10: 4 },
@@ -936,8 +884,8 @@ const CANTRIPS_KNOWN: Partial<Record<OfficialClass, Record<number, number>>> = {
   // Paladin and Ranger learn no cantrips at all.
 };
 
-// Spells known by class level (index 0 = level 1) for the classes that have a
-// fixed repertoire. Prepared casters are deliberately absent — see above.
+// Spells known by class level (index 0 = level 1); prepared casters omitted
+// (see above).
 const SPELLS_KNOWN: Partial<Record<OfficialClass, number[]>> = {
   // prettier-ignore
   [OfficialClass.Bard]: [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
@@ -950,8 +898,7 @@ const SPELLS_KNOWN: Partial<Record<OfficialClass, number[]>> = {
   [OfficialClass.Ranger]: [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11],
 };
 
-// A wizard doesn't have a spells-known table — the spellbook grows by a fixed
-// two spells per level, on top of the six it starts with.
+// Wizard spellbook grows by a fixed count per level, not a table.
 const WIZARD_SPELLBOOK_START = 6;
 const WIZARD_SPELLBOOK_PER_LEVEL = 2;
 
@@ -972,8 +919,8 @@ export function cantripsKnownAt(
   return known;
 }
 
-// How many *new* cantrips reaching `level` grants. Level 1 counts as a full
-// grant, which is what a multiclass entry needs.
+// New cantrips reaching `level` grants; level 1 counts as a full grant (for
+// multiclass entries).
 export function newCantripsAt(className: string, level: number): number | null {
   const now = cantripsKnownAt(className, level);
   if (now === null) return null;
@@ -981,8 +928,8 @@ export function newCantripsAt(className: string, level: number): number | null {
   return Math.max(0, now - before);
 }
 
-// How many *new* leveled spells reaching `level` grants, or null when the class
-// prepares from its full list and there's nothing to enforce.
+// New leveled spells reaching `level` grants, or null when the class prepares
+// from its full list.
 export function newSpellsAt(className: string, level: number): number | null {
   const oc = asOfficial(className);
   if (!oc) return null;
@@ -995,13 +942,9 @@ export function newSpellsAt(className: string, level: number): number | null {
   return Math.max(0, now - before);
 }
 
-// ---------------------------------------------------------------------------
-// Ability-score increases granted by a class feature (as opposed to an ASI the
-// player spends). Rare enough to be a two-entry table, but they can't be left
-// to the player: the feature also raises the score's ceiling, so a barbarian
-// 20's +4 is the difference between STR 20 and STR 24.
-// ---------------------------------------------------------------------------
-
+// Ability-score increases granted by a class feature (not an ASI the player
+// spends) — the feature also raises the score's cap, e.g. barbarian 20's +4
+// pushes STR to 24.
 const STAT_GRANTS: Partial<
   Record<OfficialClass, Record<number, Partial<Record<StatKey, number>>>>
 > = {

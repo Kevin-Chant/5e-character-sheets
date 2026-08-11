@@ -27,39 +27,32 @@
 //   {"click":"<selector>"}          Playwright selector — CSS, or text=/role= engine
 //   {"fill":["<selector>","text"]}  type into an input
 //   {"select":["<selector>","val"]} choose a native <select> option (value or label)
-//   {"choose":["<label>","<option>"]} pick from the app's <Select> — open the picker
-//                                   by its accessible name, click the option by its
-//                                   label. Nearly every dropdown in the app is one of
-//                                   these now, not a native <select>.
+//   {"choose":["<label>","<option>"]} pick from the app's <Select>: open the
+//                                   picker by its accessible name, click the
+//                                   option by its label.
 //   {"press":"<key>"}               keyboard press (e.g. "Enter", "Escape")
 //   {"wait":300}                    wait N ms
 //   {"wait":"<selector>"}           wait until the selector is visible
 //   {"shot":"<name>"}               capture here and carry on — one run, many frames
 //
 // Finding a selector without guessing:
-//   --snapshot         print the accessibility tree (roles + accessible names) after
-//                      the steps, and exit without capturing unless --out was given.
-//                      This is the answer to "what can I click and what is it called";
-//                      source-grepping for a component name doesn't work (the served
-//                      bundle is minified), and a substring `text=` match is the most
-//                      common way these runs fail.
+//   --snapshot         print the accessibility tree (roles + accessible names)
+//                      after the steps, and exit without capturing unless
+//                      --out was given. Source-grepping doesn't work (the
+//                      served bundle is minified).
 //   --snapshot-of <s>  scope the snapshot to a selector (e.g. ".modal-content").
 //
 // Checking layout rather than looking at it:
 //   --probe 'a,b,c'    for each comma-separated selector, print the box, the
-//                      stacking-relevant computed styles, and — the useful bit —
-//                      what `elementFromPoint` returns at its centre, i.e. what
-//                      would actually receive a click there. A PNG can't tell you
-//                      why something is covered; this can.
+//                      stacking-relevant computed styles, and what
+//                      `elementFromPoint` returns at its centre (what would
+//                      actually receive a click there).
 //
 // Long multi-run flows (e.g. walking the level-up wizard many times):
-//   --storage <file>   persist localStorage across runs: loaded before the page
-//                      opens (when the file exists) and written back after the
-//                      steps, so a flow can be driven in incremental batches.
-//                      Takes precedence over --fixture when the file exists.
-//   --dump <file>      after the steps, write the stored characters as JSON —
-//                      lets a test diff the actual saved character instead of
-//                      eyeballing pixels.
+//   --storage <file>   persist localStorage across runs: loaded before the
+//                      page opens (if the file exists) and written back
+//                      after the steps. Takes precedence over --fixture.
+//   --dump <file>      after the steps, write the stored characters as JSON.
 
 import { chromium } from "@playwright/test";
 import { spawn } from "child_process";
@@ -88,8 +81,7 @@ const [w, h] = flag("viewport", "1280x900").split("x").map(Number);
 const fullPage = !has("no-full");
 const base = flag("base", "http://localhost:3000");
 const seed = flag("seed");
-// Emulate the OS colour-scheme preference so the app's `prefers-color-scheme`
-// dark palette can be captured. `--theme dark` | `--theme light`; omit for system.
+// `--theme dark` | `--theme light`; omit for system.
 const theme = flag("theme");
 
 const stepsFile = flag("steps-file");
@@ -116,16 +108,13 @@ async function capture(page, file) {
   console.log(`Saved ${file} (${page.url()})`);
 }
 
-// Run one declarative step against the page. Kept small and explicit so a step
-// list reads like the flow it performs.
 async function runStep(page, step) {
   if (typeof step.click === "string") return page.click(step.click);
   if (Array.isArray(step.fill)) return page.fill(step.fill[0], step.fill[1]);
   if (Array.isArray(step.select))
     return page.selectOption(step.select[0], step.select[1]);
   if (Array.isArray(step.choose)) {
-    // Two clicks, because the app's picker is a button plus a portalled
-    // listbox — `selectOption` has no native <select> to talk to.
+    // The app's picker is a button + portalled listbox, not a native <select>.
     await page.click(`button[aria-label="${step.choose[0]}"]`);
     return page.click(
       `[role="listbox"] [role="option"]:has-text("${step.choose[1]}")`,
@@ -139,10 +128,8 @@ async function runStep(page, step) {
   throw new Error(`Unrecognized step: ${JSON.stringify(step)}`);
 }
 
-// The stacking-relevant styles plus what actually sits on top. `topmost` is the
-// point of the whole thing: z-index alone doesn't answer "is this covered",
-// because an unpositioned element ignores it and a parent can trap it in its own
-// stacking context — but `elementFromPoint` reports the truth for a real click.
+// Stacking-relevant styles plus what `elementFromPoint` says actually sits on
+// top at the element's centre — z-index alone doesn't answer "is this covered".
 async function probe(page, selectors) {
   const results = await page.evaluate((list) => {
     const describe = (el) =>
@@ -175,8 +162,7 @@ async function probe(page, selectors) {
         ]
           .map((p) => `${p}: ${s.getPropertyValue(p)}`)
           .join("; "),
-        // "self" means a click at the centre reaches this element (or its own
-        // child); anything else names what's covering it.
+        // "self" = a click at the centre reaches this element; else names what covers it.
         topmost: el.contains(top) ? "self" : describe(top),
       };
     });
@@ -227,7 +213,7 @@ async function ensureServer() {
   });
 
   if (seed !== undefined) {
-    // Deterministic Math.random (mulberry32) so dice rolls reproduce across runs.
+    // mulberry32: deterministic Math.random so dice rolls reproduce.
     await ctx.addInitScript((seedValue) => {
       let a = seedValue >>> 0;
       Math.random = () => {
@@ -243,7 +229,6 @@ async function ensureServer() {
   const storageFile = flag("storage");
   let character;
   if (storageFile && fs.existsSync(path.resolve(storageFile))) {
-    // Resume a persisted session: restore every localStorage key verbatim.
     const stored = JSON.parse(
       fs.readFileSync(path.resolve(storageFile), "utf8"),
     );
@@ -265,12 +250,8 @@ async function ensureServer() {
   const page = await ctx.newPage();
   const opening = character && has("open");
 
-  // `--open` walks the hub rather than looking for a character name on `/`.
-  // Two things changed under it: `/` is a hub now ("run a game" / "my
-  // characters") and no longer auto-redirects returning visitors into their
-  // sheets, and `/sheet` can't be linked to cold — `SheetContainer` bounces
-  // back here until a *datastore* has been chosen, which is what the "My
-  // characters" door does. So the door is the route.
+  // `--open` walks the hub ("My characters") rather than linking `/sheet`
+  // directly — `SheetContainer` requires a datastore to be chosen first.
   await page.goto(base + (opening ? "/" : route), {
     waitUntil: "networkidle",
   });
@@ -280,10 +261,9 @@ async function ensureServer() {
     await page.waitForLoadState("networkidle");
     await page.getByText(character.name, { exact: false }).first().click();
     await page.waitForLoadState("networkidle");
-    // Reach a requested route by *clicking* its in-app link, not by navigating
-    // to it. The open character lives in React state, so `page.goto` reloads it
-    // away and a route that needs one (`/play`) bounces straight back to the
-    // hub. Fall back to a hard nav for routes with no link in the nav.
+    // Click the in-app nav link rather than `page.goto`, which would reload
+    // away the open character (held in React state); fall back to a hard nav
+    // for routes with no nav link.
     if (routeGiven && route !== "/") {
       const link = page.locator(`a[href="${route}"]`).first();
       if (await link.count()) await link.click();
@@ -319,8 +299,7 @@ async function ensureServer() {
         .filter(Boolean),
     );
 
-  // A --snapshot/--probe run is a question, not a capture, so it skips the PNG
-  // unless an --out was actually asked for.
+  // --snapshot/--probe skip the PNG unless --out was explicitly given.
   if (!(has("snapshot") || probeArg) || args.includes("--out"))
     await capture(page, out);
 
@@ -351,11 +330,8 @@ async function ensureServer() {
   await browser.close();
   if (devProc) devProc.kill();
 })().catch((err) => {
-  // Playwright's own message is the diagnosis — a strict-mode violation names
-  // every element that matched, a failed click names what intercepted it — but
-  // it can run to fifty lines of retry log, and these runs get read through a
-  // pipe. So: full detail in the middle, and a one-line summary at *both* ends,
-  // which is the only way `head` and `tail` both come away with the answer.
+  // Retry logs can run long, so print a one-line summary at both ends for
+  // `head`/`tail` to catch, with full detail in the middle.
   const headline = err.message.split("\n").find((l) => l.trim()) ?? "failed";
   console.error(`\nFAILED: ${headline}\n`);
   console.error(err.message);

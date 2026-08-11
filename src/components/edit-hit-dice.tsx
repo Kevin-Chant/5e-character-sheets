@@ -12,11 +12,8 @@ export default function EditHitDice() {
 
   const totalCursor = charPath(FIELD.totalHitDice);
   const stored = getFieldValue(FIELD.totalHitDice, character);
-  // A character with no stored override edits the value derived from their
-  // class levels, so the modal seeds it. The seed is a *dispatch*, so it has to
-  // happen in an effect: doing it inline updated the character context while
-  // this component was still rendering, which React warns about and which can
-  // drop the write depending on when the parent re-renders.
+  // Seed the override from computed hit dice via an effect — dispatching
+  // during render triggers a React warning and can drop the write.
   const totalHitDice = stored ?? getHitDice(character);
   useEffect(() => {
     if (!stored) dispatch(updateAt(totalCursor, totalHitDice));

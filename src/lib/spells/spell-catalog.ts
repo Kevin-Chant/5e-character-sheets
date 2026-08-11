@@ -3,10 +3,8 @@ import srdSpellData from "src/lib/data/srd-spells.json";
 import { NONSRD_SPELLS } from "src/lib/data/nonsrd-spells";
 
 // The compact catalog-entry shape: written by `scripts/generate-spells.mjs` for
-// the SRD snapshot (a flattened, display-oriented projection of the D&D 5e
-// API's spell — only the fields the sheet needs, so the bundled JSON stays
-// small), and hand-authored in the same shape for the non-SRD spells. See the
-// adapter (`spell-adapter.ts`) for how one becomes an editable `Spell`.
+// the SRD snapshot, and hand-authored in the same shape for non-SRD spells. See
+// `spell-adapter.ts` for how one becomes an editable `Spell`.
 export interface CatalogSpell {
   index: string;
   name: string;
@@ -20,36 +18,23 @@ export interface CatalogSpell {
   ritual: boolean;
   verbal: boolean;
   somatic: boolean;
-  // Present only when the spell has a material component (the flavor text).
-  material?: string;
-  // SRD description, paragraphs joined by blank lines.
+  material?: string; // present only when there's a material component
   desc: string;
-  // "At Higher Levels" / character-level scaling prose, when present.
-  higherLevel?: string;
-  // Classes with this on their SRD list, e.g. ["Sorcerer", "Wizard"].
-  classes: string[];
-  // Saving-throw ability abbreviation, e.g. "DEX". Absent for attack-roll spells.
-  save?: string;
-  // Damage type (matches the `DamageType` enum values), when the spell deals damage.
-  damageType?: string;
-  // Base damage roll at the lowest slot/character level, e.g. "8d6". This is the
-  // piece we turn into a live formula; higher-level scaling stays in `higherLevel`.
-  baseDamage?: string;
-  // e.g. "20-foot sphere", when the spell has an area.
-  areaOfEffect?: string;
-  // Structured mechanics inferred from the SRD damage table (base + scaling, or
-  // an exact damageTable). Present only for spells with parseable damage; see
-  // `.claude/docs/spell-scaling.md`.
+  higherLevel?: string; // "At Higher Levels" / character-level scaling prose
+  classes: string[]; // e.g. ["Sorcerer", "Wizard"]
+  save?: string; // saving-throw ability abbreviation, e.g. "DEX"
+  damageType?: string; // matches `DamageType` enum values
+  baseDamage?: string; // base roll at lowest slot/character level, e.g. "8d6"
+  areaOfEffect?: string; // e.g. "20-foot sphere"
+  // Present only for spells with parseable damage (base + scaling, or an
+  // exact damageTable).
   mechanics?: SpellMechanics;
 }
 
 export const SRD_SPELLS = srdSpellData as CatalogSpell[];
 
-// The full catalog: the SRD snapshot plus the hand-authored non-SRD spells
-// (`src/lib/data/nonsrd-spells/`). Those files only `import type` from here, so
-// the value graph stays acyclic. Lookups and search run over this combined
-// list, so a Genie warlock's Wish or a paladin's Compelled Duel resolve by
-// index and show up in the picker.
+// The SRD snapshot plus hand-authored non-SRD spells. Lookups and search run
+// over this combined list.
 export const ALL_SPELLS: CatalogSpell[] = [...SRD_SPELLS, ...NONSRD_SPELLS];
 
 const BY_INDEX = new Map(ALL_SPELLS.map((s) => [s.index, s]));
@@ -57,9 +42,9 @@ const BY_INDEX = new Map(ALL_SPELLS.map((s) => [s.index, s]));
 export const getCatalogSpell = (index: string): CatalogSpell | undefined =>
   BY_INDEX.get(index);
 
-// Case-insensitive substring match on name, ranked so prefix matches sort first,
-// then by level then name. Optionally filter to a spellcasting class. Returns the
-// full list (still sorted) for an empty query so the picker can show everything.
+// Case-insensitive substring match on name, ranked so prefix matches sort
+// first, then by level then name. Optional class filter. Empty query returns
+// the full sorted list.
 export function searchCatalogSpells(
   query: string,
   className?: string,

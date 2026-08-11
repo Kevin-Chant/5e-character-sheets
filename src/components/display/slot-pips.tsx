@@ -11,13 +11,9 @@ interface SlotPipsProps {
   fillMode?: boolean;
 }
 
-/**
- * A row of clickable slot pips. In the default (emptying) mode, available slots
- * are filled on the left and spent slots empty out from the right. In fill mode,
- * pips start empty and fill from the left as the count grows. Clicking a pip
- * toggles every slot up to and including it, so a single click can mark or clear
- * a run of slots.
- */
+// A row of clickable slot pips. Default mode: filled slots empty from the
+// right as spent. Fill mode: pips fill from the left as the count grows.
+// Clicking a pip toggles every slot up to and including it.
 export default function SlotPips({
   total,
   expended,

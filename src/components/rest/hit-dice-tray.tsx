@@ -15,12 +15,8 @@ import { getHitDice, remainingHitDice } from "src/lib/rules";
 import { Character } from "src/lib/types";
 import { ManualRollInput } from "../roll-modal";
 
-// The one place a rest is a gamble rather than bookkeeping: your hit dice are
-// laid out as spendable tokens, and each click rolls one and applies it. Tokens
-// (rather than a "spend N dice" number input) because the choice being made is
-// "do I risk another one?" — a decision you make one die at a time, watching the
-// bar move. Each roll dispatches on its own, so a bad roll can be undone without
-// unwinding the whole rest.
+// Hit dice as spendable tokens: each click rolls one die and applies it
+// individually, so a bad roll can be undone without unwinding the whole rest.
 
 const DIE_DISPLAY_ORDER: StandardDie[] = [
   StandardDie.d12,
@@ -35,9 +31,8 @@ const DIE_DISPLAY_ORDER: StandardDie[] = [
 // it rolled instead of its size.
 interface SessionRoll {
   die: StandardDie;
-  // The rolled die + CON, and the HP it actually restored (clamped to the
-  // maximum). The token shows the healing, since that's the number that
-  // changed the sheet; the roll behind it stays in the tooltip.
+  // Rolled die + CON, and HP actually restored (clamped to max). The token
+  // shows healed; the roll stays in the tooltip.
   total: number;
   healed: number;
 }
@@ -49,8 +44,7 @@ const diceSizesOnSheet = (character: Character): StandardDie[] => {
 
 export default function HitDiceTray() {
   const { character, dispatch } = useCharacter();
-  // HP at the moment the tray appeared, so the readout can show the rest's
-  // progress ("24 → 39") rather than just the current number.
+  // HP when the tray appeared, so the readout can show progress ("24 → 39").
   const [startHp] = useState(() => character?.currHp ?? 0);
   const [rolls, setRolls] = useState<SessionRoll[]>([]);
   const [announcement, setAnnouncement] = useState("");
@@ -77,9 +71,7 @@ export default function HitDiceTray() {
       `Rolled ${roll.total} on a ${roll.die}. Healed ${roll.healed}. ` +
         `${currHp + roll.healed} of ${maxHp} hit points.`,
     );
-    // Untargeted self-healing, announced for visibility like the roll
-    // dialog's hit-die spend — the HP write reaches the DM as a bare
-    // projection change, and this is the "why" beside it. A no-op solo.
+    // Untargeted self-healing report, so the DM sees the "why" beside the HP change.
     sendReport({
       exchangeId: randomUUID(),
       stage: "healing",
@@ -141,8 +133,7 @@ export default function HitDiceTray() {
         const total = totals[die] || 0;
         const ready = remainingHitDice(character, die);
         const rolledHere = rolls.filter((r) => r.die === die);
-        // Tokens for one size, left to right: what you spent just now (showing
-        // the roll), what's still available, then what was already gone.
+        // Left to right: spent just now, still available, already gone.
         const spentBefore = total - ready - rolledHere.length;
         return (
           <div className="rest-die-row" key={die}>
@@ -164,10 +155,8 @@ export default function HitDiceTray() {
                   className="rest-die rest-die-ready"
                   disabled={atFullHp}
                   onClick={() => spend(die)}
-                  // Every token of a size does the same thing, so only the first
-                  // is exposed: six identical "roll a d10" buttons would be six
-                  // tab stops and six identical announcements for one action.
-                  // The rest stay clickable but read as the visual count.
+                  // Only the first token of a size is exposed to a11y; the
+                  // rest stay clickable but read as the visual count.
                   aria-hidden={i > 0}
                   tabIndex={i > 0 ? -1 : undefined}
                   aria-label={
@@ -198,8 +187,7 @@ export default function HitDiceTray() {
             {pendingDie === die && ready > 0 && !atFullHp && (
               <ManualRollInput
                 prompt="Total rolled, modifiers included"
-                // A negative CON can floor a hit die at 0 — still a rolled
-                // die the player needs to spend, so 0 must be enterable.
+                // A negative CON can floor a hit die at 0, so 0 must be enterable.
                 min={0}
                 onCommit={(total) => {
                   setPendingDie(null);

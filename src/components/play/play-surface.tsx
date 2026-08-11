@@ -40,18 +40,12 @@ import SessionBar from "./session-bar";
 import TargetStrip from "./target-strip";
 import TurnEconomy from "./turn-economy";
 
-// Play mode is its own surface rather than a lighter sheet: the sheet answers
-// "who is this character", and a turn asks "what can I do right now", which is
-// a different question with a different shape. The sheet is a document; this is
-// a control panel. See the play-mode bullet in CLAUDE.md.
-//
-// Nothing here is authoritative. The turn economy is advisory, unavailable
-// actions dim rather than disable, and every write goes through the same
-// reducer the sheet uses — so live sync, undo and autosave work unchanged.
+// The play-mode control panel: a turn's actions, not the sheet.
+// Advisory only — nothing here is authoritative; all writes go through the
+// same reducer as the sheet.
 
-// Every component under here is on the "not editing" side of `useEditMode`,
-// which is what turns roll buttons on and edit affordances off. The sheet's own
-// mode toggle is a separate thing and doesn't reach in here.
+// Everything under here uses the "not editing" side of `useEditMode`,
+// independent of the sheet's own edit-mode toggle.
 const PLAY_EDIT_MODE = {
   editMode: false,
   setEditMode: () => {},
@@ -61,18 +55,12 @@ const PLAY_EDIT_MODE = {
 export default function PlaySurface() {
   const { character } = useCharacter();
   const { datastore, setDatastore } = useDatastoreSelector();
-  // The table in the URL: reconnects a dropped session on its own, restores
-  // the sheet that was open, and writes the code into the address bar for a
-  // session that arrived by any other door. See `use-auto-rejoin`.
   const rejoin = useAutoRejoin();
 
-  // The nav's character drawer is gated on a selected datastore, and the
-  // "no sheet" copy below points at it — but a joiner arrives here through
-  // /join/<code>, which never passes through the surfaces that re-select the
-  // remembered backend (home, or the sheet's cold-start bootstrap). Re-adopt
-  // it here the same way the sheet does: local instantly, Drive only if it
-  // resumes silently. No /auth detour and no bounce home — a seat at the
-  // table with no storage at all is a real state, not a half-loaded page.
+  // A joiner can arrive via /join/<code>, bypassing the surfaces (home, the
+  // sheet's cold-start) that normally re-select the remembered backend.
+  // Re-adopt it here: local instantly, Drive only if it resumes silently
+  // (no /auth detour).
   const driveBootStarted = useRef(false);
   useEffect(() => {
     if (datastore) return;
@@ -104,18 +92,11 @@ export default function PlaySurface() {
   } = useEncounter();
   const turn = usePlayTurn();
 
-  // Assigning marks the sheet offered too, so without this the target sees
-  // the same sheet twice — the targeted prompt above and the generic pickup
-  // button below, two buttons for one act.
+  // Exclude the pending assignment so it isn't offered twice (targeted prompt + generic pickup).
   const pickups = claimables.filter((c) => c.id !== pendingAssignment?.id);
 
-  // The per-round guidance the board narrows by. Advisory like everything
-  // else here: off your turn the board dims (except reactions — those are
-  // exactly what an off-turn moment is for) and says whose turn it is, but
-  // nothing locks. A readied action, a DM ruling, a held Sentinel swing —
-  // the table decides, so hovering a dimmed group brings it right back.
+  // Advisory only: dims the board off-turn (reactions excepted) but locks nothing.
   const offTurn = inCombat && !!current && !!self && current.id !== self.id;
-  // "You're on deck" — the heads-up every table gives out loud.
   const nextUp =
     inCombat && encounter.participants.length > 1
       ? encounter.participants[
@@ -125,17 +106,10 @@ export default function PlaySurface() {
   const youAreNext = !!self && nextUp?.id === self.id;
   const dying = !!character && character.currHp <= 0;
 
-  // Being in a session without a sheet is a real seat at the table, not a
-  // half-loaded page: it's the DM, and it's the player waiting to be handed a
-  // character. What they get is the fight without the turn — everything below
-  // the rail is a view of a character, and there isn't one.
   const inSession = sessionStatus === "connected";
-  // With neither a character nor a session there is nothing to play, so hand
-  // back to the picker rather than rendering an empty frame. **Unless the URL
-  // names a table**: a cold page load at `/play/<code>` has neither for its
-  // first seconds by definition, and every reconnect attempt passes back
-  // through that state — so redirecting on it navigates away from the one URL
-  // that knows how to get back, and unmounts the retry loop on the way out.
+  // Don't redirect when the URL names a table (`rejoin.atTable`): a cold load
+  // at /play/<code> has neither character nor session for its first seconds,
+  // and redirecting would unmount the retry loop.
   if (!character && !inSession && !rejoin.atTable) {
     return <Navigate to="/sheet" replace />;
   }
@@ -145,22 +119,10 @@ export default function PlaySurface() {
       <RollerProvider>
         <TurnFlowProvider>
           <div className="play-surface">
-            {/* Order matters: the fight comes first, then your turn within it.
-              The economy under the rail reads as "and here's what you have left
-              this turn", which is the question the rail has just raised. */}
-            {/* While a reconnect is under way the bar's "Start a session /
-              Join a session" is the wrong offer — this browser is already in
-              one and is getting back to it. The banner takes its place and
-              says so. */}
+            {/* Hidden during a reconnect — RejoinBanner takes its place. */}
             {!rejoin.rejoining && <SessionBar />}
-            {/* Reconnecting, and saying so. An unexplained board — the fight
-              frozen, nothing arriving — is the worst version of a dropped
-              phone: it looks like the app working. */}
             <RejoinBanner rejoin={rejoin} />
-            {/* A targeted offer from the DM. Consent stays two-sided: the sheet
-              hasn't travelled yet, and accepting runs the same claim flow the
-              pick-up buttons use. Declining just closes this — the offer
-              stays open on the DM's board. */}
+            {/* Declining just closes this; the offer stays open on the DM's board. */}
             {pendingAssignment && (
               <div className="assign-prompt">
                 <span>
@@ -179,10 +141,6 @@ export default function PlaySurface() {
                 </button>
               </div>
             )}
-            {/* "Alright everyone — roll initiative!" In app-dice mode one click
-              rolls with the sheet's own modifier; with real dice the prompt
-              asks what the d20 showed and adds the modifier itself. Either way
-              it lands on your row. */}
             {initiativeCalled && !isDm && character && self && (
               <InitiativeCallPrompt
                 character={character}
@@ -197,16 +155,10 @@ export default function PlaySurface() {
             <IncomingConditionBanners />
             <ConcentrationCheckBanner />
             <InitiativeRail variant={isDm ? "dm" : "player"} />
-            {/* Holding the seat swaps the whole body: a player asks "what can I
-              do right now", a DM asks "what is the state of eight creatures".
-              A DM who is also playing a character flips to it via the sheet —
-              running the table is the job here. */}
             {isDm ? (
               <DmBoard />
             ) : character ? (
               <>
-                {/* Whose round it is, said once and plainly. The board below
-                  takes its cue from the same fact. */}
                 {inCombat && current && self && (
                   <div
                     className={classNames("turn-banner", {
@@ -216,8 +168,7 @@ export default function PlaySurface() {
                     {offTurn ? (
                       <>
                         <span className="turn-banner-title">
-                          {/* A staged combatant's turn must not leak its name —
-                            the players know something moved, not what. */}
+                          {/* A staged combatant's name must not leak to players. */}
                           {current.hidden
                             ? "The DM is up to something…"
                             : `${current.name} is acting`}
@@ -241,12 +192,8 @@ export default function PlaySurface() {
                 <header className="play-header">
                   <TurnEconomy turn={turn} />
                   <div className="play-header-links">
-                    {/* "Give me a Perception check" — the most common DM
-                        sentence there is, so answering shouldn't need a trip
-                        to the sheet and back. */}
                     <CheckLauncher character={character} />
-                    {/* Between fights is when a table rests — mid-combat the
-                      button would only be a misclick. */}
+                    {/* Hidden mid-combat, where it would only be a misclick. */}
                     {!inCombat && <RestShortcut />}
                     <Link className="play-sheet-link" to="/sheet">
                       <FaFileLines />
@@ -254,9 +201,6 @@ export default function PlaySurface() {
                     </Link>
                   </div>
                 </header>
-                {/* Who's across the table, one tap from being your target.
-                  Between the header and the board because it answers the
-                  question the board's attack buttons are about to ask. */}
                 <TargetStrip />
                 <div
                   className={classNames("play-body", { "off-turn": offTurn })}
@@ -267,10 +211,7 @@ export default function PlaySurface() {
               </>
             ) : (
               <div className="play-no-sheet">
-                {/* The other half of sheet assignment: the DM offered, and the
-                  choice of which one to play is yours. Clicking asks the DM's
-                  browser for the whole sheet — it opens borrowed, so nothing
-                  is written into your storage. */}
+                {/* Claiming opens the sheet borrowed from the DM's browser; nothing is written to local storage. */}
                 {pickups.length > 0 ? (
                   <>
                     <p className="text-muted">
@@ -291,11 +232,9 @@ export default function PlaySurface() {
                       ))}
                     </div>
                   </>
-                ) : pendingAssignment ? null : ( // the prompt above is the whole story
+                ) : pendingAssignment ? null : (
                   <p className="text-muted">
-                    {/* Only point at the sidebar when the drawer button is
-                      actually in the nav — it's gated on a selected datastore,
-                      and a joiner with no storage doesn't have one. */}
+                    {/* The sidebar drawer only exists once a datastore is selected. */}
                     {datastore
                       ? "You're at the table without a character. Open one from the sidebar to play it, or wait for your DM to offer you one or hand one to you."
                       : "You're at the table without a character. Your DM can offer you one or hand one to you right here."}
@@ -311,15 +250,7 @@ export default function PlaySurface() {
   );
 }
 
-// "Getting you back in." Shown whenever the URL names a table this browser
-// isn't currently connected to.
-//
-// The words matter more than they look. A player whose phone dropped the
-// socket sees a board that is still *there* — their HP, the order, last
-// round's conditions — and nothing to say it has stopped being true. The
-// banner is the difference between "the app is thinking" and "the app is
-// lying", and after the automatic tries are spent it stops claiming to be
-// working and offers the button instead.
+// Shown when the URL names a table this browser isn't currently connected to.
 function RejoinBanner({ rejoin }: { rejoin: AutoRejoin }) {
   const { sessionStatus } = useEncounter();
   if (sessionStatus === "connected") return null;
@@ -335,10 +266,7 @@ function RejoinBanner({ rejoin }: { rejoin: AutoRejoin }) {
             ? "Getting you back to your game…"
             : `Getting you back to your game… (attempt ${rejoin.attempts + 1})`}
         {!givenUp && (
-          /* The other half of the truth, and the half that used to be
-             missing: the board still works while this is happening, and
-             nothing done on it is reaching the table. A write that goes
-             nowhere and says nothing is worse than one that fails loudly. */
+          // The board stays interactive while reconnecting, but nothing written reaches the table yet.
           <span className="rejoin-banner-sub">
             {" "}
             Changes you make now stay on this device until you&apos;re back.
@@ -354,14 +282,9 @@ function RejoinBanner({ rejoin }: { rejoin: AutoRejoin }) {
   );
 }
 
-// The answer to the DM's call, in whichever dice the player is using: app mode
-// rolls with the sheet's modifier in one click; manual mode takes the die face
-// and adds the modifier itself — the same ask as every other manual d20 (the
-// roll dialog's checks, death saves), so the one rule a physical roller learns
-// is "one d20: type the face; a fistful of dice: type the total". This prompt
-// used to ask for the total instead, and a player who typed the face the way
-// the dialog taught them set an initiative missing its modifier. Both modes
-// write straight to your row.
+// App mode rolls with the sheet's modifier in one click; manual mode takes the
+// d20 face (not the total) and adds the modifier, matching every other manual
+// d20 prompt in the app.
 function InitiativeCallPrompt({
   character,
   selfId,
@@ -380,8 +303,6 @@ function InitiativeCallPrompt({
   const parsed = Number(raw);
   const valid =
     raw.trim() !== "" && Number.isFinite(parsed) && parsed >= 1 && parsed <= 20;
-  // The answer the DM asked for, sent back as the roll it was — the row's
-  // number alone can't say what the d20 showed or what was added to it.
   const reportInitiative = (face: number, total: number, manual?: true) =>
     sendReport({
       exchangeId: randomUUID(),
@@ -445,15 +366,8 @@ function InitiativeCallPrompt({
   );
 }
 
-// The ad-hoc d20 picker: any save, ability check or skill, one pick away.
-// Opens the ordinary roll dialog, so advantage, condition notes and the
-// real-dice mode all come along for free.
-//
-// Thirty-two options with three headings is exactly the list a filter box is
-// for — "perc" beats scrolling past six saves and six abilities. Each one
-// carries its own modifier, because the question a player is really asking is
-// "what do I add", and answering it in the list saves opening the dialog to
-// find out.
+// Ad-hoc save/check/skill picker, opening the ordinary roll dialog. Each
+// option shows its own modifier.
 function CheckLauncher({ character }: { character: Character }) {
   const { openRoller } = useRoller();
   const options = useMemo(
@@ -481,8 +395,6 @@ function CheckLauncher({ character }: { character: Character }) {
           spec: {
             kind: "check",
             modifier: checkModifier(character, check),
-            // Saves are their own roll kind — Bless's d4 lands on a called
-            // WIS save and stays off a Perception check.
             ...(check.kind === "save" ? { save: true } : {}),
           },
         });
@@ -491,16 +403,9 @@ function CheckLauncher({ character }: { character: Character }) {
   );
 }
 
-// "Brakka — give me a Perception check." The DM's ask, routed through the
-// tool: one button opens the ordinary roll dialog aimed at the call's own
-// exchange id, so the answer travels back to the seat with everything the
-// dialog knows — Bless's d4, a condition's note, advantage buttons, the
-// real-dice mode. This prompt used to roll inline, which silently skipped
-// every rider the dialog applies: the same character answered "Roll a check…"
-// with the d4 and the DM's call without it. Nothing here closes on being
-// answered — a player who rolled before hearing "with advantage" opens it
-// again, and `attemptBase` numbers the new roll on from the last, so the seat
-// sees both keyed to the same ask.
+// A DM's roll call, opening the ordinary roll dialog against the call's
+// exchange id. Doesn't close on answering — `attemptBase` numbers a re-roll
+// on from the last so both stay keyed to the same call.
 function RollCallPrompt() {
   const { isDm } = useEncounter();
   const { rollCall, dismissRollCall, sentChecks, verdicts } = useTableTalk();
@@ -519,8 +424,6 @@ function RollCallPrompt() {
       {sent && (
         <span>
           You sent <strong>{sent.total}</strong>.
-          {/* The seat's answer, keyed to this ask — the sentence that used to
-              come back only by voice. */}
           {verdicts[rollCall.callId] && (
             <>
               {" "}
@@ -563,16 +466,8 @@ function RollCallPrompt() {
   );
 }
 
-// "Your DM calls a long rest." The invitation, not the rest — pressing it
-// opens this player's own rest panel with the table's two answers already
-// filled in, and everything from there (which hit dice to spend, what to
-// prepare) is theirs as it always was.
-//
-// It has to be an invitation rather than a write for a reason beyond consent:
-// a long rest is a dozen fields, follow-ups the player drives, and a single
-// undoable `replace_character`. Applying that from the wire would be the one
-// remote action on this table that rewrites a sheet nobody touched — and a
-// player mid-thought about a spell they were holding would find it gone.
+// Invitation, not a remote write: opens the player's own rest panel with the
+// table's rest kind pre-filled; the player still drives it.
 function RestCallPrompt() {
   const { isDm } = useEncounter();
   const { restCall, dismissRestCall } = useTableTalk();
@@ -604,9 +499,7 @@ function RestCallPrompt() {
   );
 }
 
-// "8 healing incoming from Maelina." The last leg of a healing report: the DM
-// approved it, and applying it is the recipient's own write on their own
-// sheet — consent all the way down.
+// DM-approved healing offer; applying it is the recipient's own write.
 function IncomingHealingBanner() {
   const { incomingHealing, applyIncomingHealing, declineIncomingHealing } =
     useTableTalk();
@@ -631,10 +524,7 @@ function IncomingHealingBanner() {
   );
 }
 
-// "Ellora cast Bless on you." The last leg of a cast condition: applying is
-// the bearer's own write on their own row — same consent shape as healing,
-// one banner per pending offer since Bless and Shield of Faith landing in
-// the same round is ordinary.
+// One banner per pending condition offer (multiple can land in the same round).
 function IncomingConditionBanners() {
   const {
     incomingConditions,
@@ -672,11 +562,8 @@ function IncomingConditionBanners() {
   );
 }
 
-// "You took 14 while holding Hypnotic Pattern — DC 10, your roll." Raised by
-// the encounter provider whenever the open character's HP drops while their
-// participant is concentrating, whoever dealt the damage. Advisory to the
-// bone: the app offers the roll and takes the player's word for the outcome —
-// nothing drops concentration except the two buttons.
+// Raised when the open character's HP drops while concentrating. The app
+// offers the roll but takes the player's word on the outcome.
 function ConcentrationCheckBanner() {
   const {
     concentrationCheck,
@@ -735,10 +622,7 @@ function ConcentrationCheckBanner() {
   );
 }
 
-// The between-fights loop: end combat, sweep the fallen, rest, next fight.
-// The rest dialog is mounted globally by RestProvider, so this is just the
-// door to it — kept off the surface mid-combat where it could only be a
-// misclick.
+// Opens the rest dialog (mounted globally by RestProvider).
 function RestShortcut() {
   const { openRest } = useRest();
   return (

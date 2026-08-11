@@ -1,11 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The datastore proper is gapi-bound and verified in-browser; the counting
-// query isn't, and it's the sort of arithmetic that's wrong quietly. The
-// double-count in particular only appears for a user who imported a link to
-// their *own* document — rare enough to never be noticed by hand, and it
-// silently inflates a number people will use to decide whether a sheet is
-// missing.
+// query isn't. (Covers a double-count edge case: importing a link to one's
+// own document.)
 vi.mock("src/lib/google-drive", async () => {
   const actual = await vi.importActual<typeof import("src/lib/google-drive")>(
     "src/lib/google-drive",

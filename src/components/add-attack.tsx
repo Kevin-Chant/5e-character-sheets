@@ -14,8 +14,7 @@ export default function AddAttack() {
   const { character, dispatch } = useLoadedCharacter();
   const { replaceCursor } = useTargetedField();
 
-  // Append the built attack and swap the picker for its editor (so closing the
-  // editor without saving discards the new attack rather than orphaning it).
+  // Append the attack and swap the picker for its editor.
   const create = (preset: WeaponPreset, twoHanded = false) => {
     const attacks = charPath(FIELD.attacks);
     const newValue = structuredClone(character.attacks);

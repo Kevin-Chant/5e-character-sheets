@@ -7,27 +7,13 @@ import StatAndSkillPanel from "./stat-and-skill-panel";
 import DefenceAndEquipmentPanel from "./defence-and-equipment-panel";
 import CharacterInfoPanel from "./character-info-panel";
 
-// The sheet's reading order is inherited from the official 5e paper sheet, on
-// purpose: a player who has used paper for years should be able to scan and
-// jump without learning anything. That transfer attaches to *relative order* —
-// "attacks are under HP", "skills are the left rail" — so the order is a
-// contract, not an accident, and it is the one thing a well-meaning layout pass
-// is most likely to "fix".
-//
-// These tests pin the sequence and nothing else. They assert that a set of
-// landmarks appears **in this order**, ignoring anything between them, so
-// adding a field is free but moving one is not. If you are here because a test
-// failed: moving a section is a product decision, not a refactor — see the
-// paper-fidelity bullet in CLAUDE.md. Fold problems are solved with density,
-// not by reordering.
+// Pins the sheet's section order to the paper sheet's reading order. Assert
+// landmarks appear in this order, ignoring anything between them — adding a
+// field is free, moving a section is not (see paper-fidelity in CLAUDE.md).
 
-// Every section landmark on the sheet, in DOM order: `.section-heading` labels a
-// bordered region ("Skills", "Death Saves"), `.prof-title` the two table-shaped
-// ones, `.display-title` an ability box, and `.display-label` a single field
-// ("Armor Class"). Together they are what a player's eye actually lands on.
-//
-// An "+" add-button sits inside some headings, so trailing punctuation is
-// stripped rather than matched against.
+// Section landmarks in DOM order: `.section-heading` (bordered region),
+// `.prof-title` (table-shaped section), `.display-title` (ability box),
+// `.display-label` (single field). Trailing "+" add-buttons are stripped.
 const landmarks = (container: HTMLElement): string[] =>
   [
     ...container.querySelectorAll(
@@ -37,8 +23,7 @@ const landmarks = (container: HTMLElement): string[] =>
     .map((el) => (el.textContent ?? "").replace(/[+\s]+$/, "").trim())
     .filter(Boolean);
 
-// Assert `expected` appears as a subsequence of `actual` — order enforced,
-// gaps allowed. The failure message names the first landmark found out of place.
+// Assert `expected` is a subsequence of `actual` — order enforced, gaps allowed.
 function expectInOrder(actual: string[], expected: string[]) {
   const positions = expected.map((name) => actual.indexOf(name));
   const missing = expected.filter((_, i) => positions[i] === -1);
@@ -97,9 +82,7 @@ describe("the sheet keeps the paper sheet's reading order", () => {
   });
 
   it("keeps the three panels left-to-right as the paper lays them out", () => {
-    // Read from source rather than rendered output: `charsheet.tsx` needs the
-    // roller/level-up/rest/presence providers to mount, and the only thing under
-    // test here is the order of three lines.
+    // Read from source: charsheet.tsx needs providers this test doesn't mount.
     const source = readFileSync(join(__dirname, "charsheet.tsx"), "utf8");
     const order = [
       "StatAndSkillPanel",

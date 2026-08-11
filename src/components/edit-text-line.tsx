@@ -18,14 +18,11 @@ import EditTextWithFormulas from "./display/edit-text-with-formulas";
 interface ControlledEditTextLineProps {
   textComponent: TextComponent;
   character: Character;
-  // Optional sub-section heading. When omitted no heading is rendered (e.g. when
-  // the surrounding modal already shows the title in its titlebar).
+  // Optional sub-section heading; omit when the modal already shows a title.
   title?: string;
-  // Replaces the whole Name field (label included) — for callers that supply
-  // their own name input, e.g. the equipment editor's catalog type-ahead. The
-  // details field below is unaffected.
+  // Replaces the whole Name field for callers with their own name input (e.g.
+  // the equipment editor's catalog type-ahead). Details field unaffected.
   titleSlot?: React.ReactNode;
-  // Write the title template + its formulas together (positional {{}} mapping).
   updateTitle: (text: string, formulas: CustomFormula[]) => void;
   editTitleFormula: (index: number) => void;
   addDetail: () => void;
@@ -121,16 +118,14 @@ export default function EditTextLine() {
 
   const existing = traverse(subField, getFieldValue(targetedField, character));
 
-  // A not-yet-created entry (e.g. adding a new list item) edits a blank draft;
-  // it's only persisted to the array when the user actually saves.
+  // A not-yet-created entry edits a blank draft, persisted only on save.
   const textComponent: TextComponent = isTextComponent(existing)
     ? existing
     : { title: "", titleFormulas: [] };
 
   const tc = fromStack<TextComponent>(targetedField, subField);
-  // `detailFormulas` isn't a key of the bare TextComponent union (only the
-  // with-details variant has it); this narrower cursor unlocks that slot, and is
-  // only used from the branch where details already exist.
+  // `detailFormulas` only exists on the with-details variant of the union;
+  // this narrower cursor unlocks it for the branch where details already exist.
   const tcDetail = fromStack<TextComponentWithDetails>(targetedField, subField);
 
   const updateTitle = (text: string, formulas: CustomFormula[]) => {

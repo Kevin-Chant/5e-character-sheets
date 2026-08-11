@@ -1,10 +1,6 @@
-// Probing a live-edit sidecar's /health endpoint.
-//
-// Split out from the settings component because the interesting part is the
-// classification, not the rendering: a wrong host, a host that's up but not a
-// sidecar, and a host that's simply down all fail differently and deserve
-// different words. Pure apart from the injected `fetch`, so it's testable
-// without a network.
+// Probing a live-edit sidecar's /health endpoint and classifying the result
+// (wrong host, up-but-not-a-sidecar, down) into different user-facing words.
+// Pure apart from the injected `fetch`.
 
 export type HealthResult =
   | { status: "ok"; uptimeSeconds?: number }
@@ -15,10 +11,8 @@ export type HealthResult =
   // The URL itself doesn't parse, so there was nothing to try.
   | { status: "invalid-url"; detail: string };
 
-// How long to wait before calling it unreachable. Long enough for a cold
-// sidecar on a small box, short enough that a dead host doesn't hang the UI —
-// the failure mode this was built for had the box dropping packets entirely,
-// where the only symptom is a stalled connection.
+// How long to wait before calling it unreachable: long enough for a cold
+// sidecar on a small box, short enough a dead host doesn't hang the UI.
 export const HEALTH_TIMEOUT_MS = 8000;
 
 // Trailing slashes are the most common paste error and would produce a
@@ -36,9 +30,9 @@ export async function checkSidecarHealth(
   if (!trimmed) return { status: "invalid-url", detail: "No host set." };
   let url: string;
   try {
-    // Reject anything that isn't an absolute http(s) URL up front — a bare
-    // hostname would otherwise resolve against the app's own origin and
-    // "succeed" against the SPA, which is a confusing way to fail.
+    // Reject anything that isn't an absolute http(s) URL — a bare hostname
+    // would otherwise resolve against the app's own origin and "succeed"
+    // against the SPA.
     const parsed = new URL(healthUrl(trimmed));
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
       return {
@@ -59,9 +53,8 @@ export async function checkSidecarHealth(
         status: "bad-response",
         detail: `The server answered with ${res.status}.`,
       };
-    // A healthy sidecar returns JSON, but an older one (or a proxy in front of
-    // it) may return an empty 200. Treat that as healthy rather than failing on
-    // a body we only wanted for the extra detail.
+    // An older sidecar (or a proxy in front) may return an empty 200; treat
+    // that as healthy since the body was only for extra detail.
     try {
       const body = await res.json();
       if (body && typeof body === "object" && "uptime" in body)

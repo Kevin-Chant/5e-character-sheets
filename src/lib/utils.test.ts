@@ -17,7 +17,7 @@ import {
   StatKey,
 } from "./data/data-definitions";
 
-// Class fixture with a stable id (classes are now referenced by id).
+// Class fixture with a stable id.
 const cls = (name: string, level: number, subclass?: string): IClass => ({
   id: randomUUID(),
   name,
@@ -25,8 +25,7 @@ const cls = (name: string, level: number, subclass?: string): IClass => ({
   ...(subclass ? { subclass } : {}),
 });
 
-// The default character's Wizard class id, exposed so a `classLevel` formula
-// leaf below can reference it.
+// Exposed so a `classLevel` formula leaf below can reference it.
 const WIZARD_ID = randomUUID();
 
 // A minimal character stub for the pure helpers that only read a few fields.

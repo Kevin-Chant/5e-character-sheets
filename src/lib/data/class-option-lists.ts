@@ -1,22 +1,16 @@
 import { OptionDef } from "src/lib/builder/chosen-options";
 
-// Closed pick-lists for three sub-choices `chosen-options.ts` doesn't yet
-// cover: the Monk's Way of the Four Elements disciplines and Way of the
-// Kensei weapon choice, and the Fighter's Rune Knight runes. Same shape as
-// the `OPTION_GROUPS` entries there (metamagic, pact boon, maneuvers) — this
-// file only supplies the `OptionDef[]` data; wiring into an `OptionGroup` is
-// intentionally left to the caller.
+// Closed pick-lists for sub-choices `chosen-options.ts` doesn't cover: Monk
+// Way of Four Elements disciplines, Way of Kensei weapons, Fighter Rune
+// Knight runes. Supplies `OptionDef[]` data only; wiring into an
+// `OptionGroup` is left to the caller.
 //
-// Licensing: none of this is SRD (Way of the Four Elements is base-PHB but
-// outside the open-license subset; Rune Knight is Tasha's Cauldron of
-// Everything). Every summary below is an original paraphrase of mechanical
-// facts only — ki/rune costs, dice, save types, ranges, durations, level
-// prerequisites — never copied or lightly reworded published prose. Same
-// rule as `subclasses.ts` / `nonsrd-classes.ts`.
+// Not SRD content — summaries are original paraphrases of mechanical facts
+// only (costs, dice, saves, ranges, durations, prerequisites), never
+// published prose. Same rule as `subclasses.ts` / `nonsrd-classes.ts`.
 
-// Monk: Way of the Four Elements, "Disciple of the Elements" — known at 3rd
-// level (Elemental Attunement plus one other), with one more learned at
-// 6th/11th/17th. All 17 PHB disciplines.
+// Way of the Four Elements, "Disciple of the Elements": known at 3rd level
+// (Elemental Attunement + one other), one more at 6th/11th/17th.
 export const ELEMENTAL_DISCIPLINES: OptionDef[] = [
   {
     name: "Breath of Winter",
@@ -190,11 +184,10 @@ export const ELEMENTAL_DISCIPLINES: OptionDef[] = [
   },
 ];
 
-// Fighter: Rune Knight, "Rune Carver" — 2 runes known at 3rd level, growing to
-// 3/4/5 at 7th/10th/15th. Each rune grants a passive while its object is worn
-// or carried, plus an invoked effect usable once per short or long rest
-// (twice at 15th, via Master of Runes) — the save DC uses the fighter's own
-// Rune Magic DC (8 + proficiency bonus + Constitution modifier).
+// Rune Knight, "Rune Carver": 2 runes at 3rd level, 3/4/5 at 7th/10th/15th.
+// Each grants a passive while worn/carried plus an invoked effect once per
+// short/long rest (twice at 15th via Master of Runes); save DC is the
+// fighter's Rune Magic DC (8 + proficiency bonus + CON mod).
 const RUNE_SUMMARIES: OptionDef[] = [
   {
     name: "Cloud Rune",
@@ -228,27 +221,21 @@ const RUNE_SUMMARIES: OptionDef[] = [
   },
 ];
 
-// A chosen rune also lands as a feature on the sheet — its title is what the
-// once-per-rest invocation pool in `class-pools.ts` (`SUBCLASS_POOLS["Rune
-// Knight"]`) gates on via `requiresFeature`, and that pool carries the passive
-// advantage rider and the invoke action. The picker still reads `summary`.
+// Rune title is what `SUBCLASS_POOLS["Rune Knight"]` gates on via
+// `requiresFeature` in class-pools.ts.
 export const RUNE_KNIGHT_RUNES: OptionDef[] = RUNE_SUMMARIES.map((rune) => ({
   ...rune,
   features: [{ title: rune.name, detail: rune.summary ?? "" }],
 }));
 
-// Monk: Way of the Kensei, "Path of the Kensei" — two kensei weapon types
-// chosen at 3rd level (one melee, one ranged), with one more at 6th/11th/17th.
-// Eligible types are any simple or martial weapon lacking the heavy and
-// special properties, plus the longbow as a named exception. Names match
-// `WEAPON_PRESETS` in `weapon-presets.ts` so the two stay in sync; excluded
-// there are the heavy martial weapons (Glaive, Greataxe, Greatsword, Halberd,
-// Maul, Pike, Heavy Crossbow) and the special-property Lance and Net.
+// Way of the Kensei: two weapon types at 3rd level (one melee, one ranged),
+// one more at 6th/11th/17th. Eligible = simple/martial weapons without heavy
+// or special properties, plus longbow as a named exception. Names must match
+// `WEAPON_PRESETS` in weapon-presets.ts.
 //
-// Every option carries a `melee` / `ranged` tag: the group's `tagged` rule uses
-// them to make the 3rd-level pair one of each, which is what the feature
-// actually says. Thrown melee weapons (Javelin, Spear, Dagger) are tagged
-// `melee` — that's the category the feature means, not how you can use them.
+// `melee`/`ranged` tags drive the group's `tagged` rule for the 3rd-level
+// pair; thrown weapons (Javelin, Spear, Dagger) are tagged `melee` per the
+// feature's category, not their usable range.
 export const KENSEI_WEAPONS: OptionDef[] = [
   // Simple melee
   { name: "Club", tag: "melee" },

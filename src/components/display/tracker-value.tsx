@@ -11,29 +11,17 @@ interface TrackerValueProps {
   cursor: Cursor<number>;
   value: number;
   name: string;
-  // What one step means, in the player's words — these become the buttons'
-  // accessible names ("Lose 1 hit point"), which is the only label a screen
-  // reader gets for a glyph button.
+  // Becomes the buttons' accessible names (e.g. "Lose 1 hit point").
   decrementLabel: string;
   incrementLabel: string;
   min?: number;
   max?: number;
-  // The one number in the box that moves every round (current hit points), sized
-  // to say so. Everything else in the HP box is reference by comparison.
   prominent?: boolean;
 }
 
-// A number you change *during play* — current/temporary hit points, exhaustion.
-//
-// These used to route through the same modal as every other field, which meant
-// four steps (click, focus, type, save) and a dimmed sheet for the single most
-// frequent interaction in a fight. They're small bounded integers, so they get
-// edited in place instead: step with the buttons, or click the number and type
-// an absolute. The row keeps its position and shape in the HP box — this is an
-// affordance change, not a layout one.
-//
-// Typing is committed on blur/Enter rather than per keystroke; see
-// `useDeferredNumber` for why that matters more than it looks.
+// A small bounded integer edited in place during play (current/temp HP,
+// exhaustion): step with the buttons, or click the number and type an
+// absolute. Commits on blur/Enter via useDeferredNumber.
 export default function TrackerValue({
   cursor,
   value,

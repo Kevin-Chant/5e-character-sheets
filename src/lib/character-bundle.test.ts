@@ -51,7 +51,6 @@ describe("parseCharacterFile", () => {
     const { characters, errors } = parseCharacterFile(bundle);
     expect(characters.map((c) => c.name)).toEqual(["Ari"]);
     expect(errors).toHaveLength(1);
-    // Named, so the receipt can say which sheet it dropped.
     expect(errors[0]).toContain("Broken");
   });
 
@@ -62,7 +61,6 @@ describe("parseCharacterFile", () => {
   });
 
   it("treats an array without the bundle header as a single (invalid) entry", () => {
-    // A bare array isn't a format we write; accepting it would mean guessing.
     const { characters } = parseCharacterFile([character("Ari")]);
     expect(characters).toEqual([]);
   });

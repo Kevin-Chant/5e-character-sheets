@@ -11,8 +11,6 @@ describe("condition mechanics", () => {
     for (const kind of ["attack", "save"] as const) {
       const [bless] = conditionRiders(["Bless"], kind);
       expect(bless.source).toBe("Bless");
-      // Not optional: saves and attacks are exactly what Bless touches, and
-      // exactly what the split roll kinds can now say.
       expect(bless.rider).toEqual({
         rider: "bonusDice",
         count: 1,
@@ -29,7 +27,6 @@ describe("condition mechanics", () => {
 
   it("knows nothing it wasn't taught — unknown and advisory-only names", () => {
     expect(conditionRiders(["Poisoned", "Homebrew Hex"], "check")).toEqual([]);
-    // Advisory-only entries still carry a summary for banners.
     expect(conditionSummary("Hideous Laughter")).toMatch(/prone/i);
   });
 
@@ -37,7 +34,7 @@ describe("condition mechanics", () => {
     const hexed = [{ name: "Hex", from: "pc:hexer" }];
     expect(ridersAgainst(hexed, "pc:hexer", "damage")).toHaveLength(1);
     expect(ridersAgainst(hexed, "pc:someone-else", "damage")).toEqual([]);
-    // A hand-ticked Hex with no recorded caster pays nobody.
+    // No recorded caster pays nobody.
     expect(ridersAgainst([{ name: "Hex" }], "pc:hexer", "damage")).toEqual([]);
   });
 
@@ -46,7 +43,6 @@ describe("condition mechanics", () => {
     const [rider] = ridersAgainst(outlined, "pc:someone-else", "attack");
     expect(rider.source).toBe("Faerie Fire");
     expect(rider.rider.rider).toBe("advantage");
-    // Wrong kind: nothing.
     expect(ridersAgainst(outlined, "pc:someone-else", "damage")).toEqual([]);
   });
 
@@ -54,7 +50,6 @@ describe("condition mechanics", () => {
     const cursed = [{ name: "Bestow Curse", from: "pc:witch" }];
     const [rider] = ridersAgainst(cursed, "pc:witch", "damage");
     expect(rider.rider.rider).toBe("extraDamage");
-    // One of four curse options, so it waits for a tick.
     expect(rider.rider).toMatchObject({ optional: true });
     expect(ridersAgainst(cursed, "pc:ally", "damage")).toEqual([]);
   });
@@ -79,8 +74,6 @@ describe("condition mechanics", () => {
   });
 
   it("warns any attacker about a defensive ward on their target", () => {
-    // The sweep's advisory family: no die to wire, but the reminder lands on
-    // exactly the rolls it concerns.
     for (const name of ["Blurred", "Sanctuary", "Mirror Image"]) {
       const [rider] = ridersAgainst([{ name }], "pc:anyone", "attack");
       expect(rider.source).toBe(name);
@@ -102,7 +95,6 @@ describe("wired condition names", () => {
     ]) {
       expect(WIRED_CONDITION_NAMES).toContain(name);
     }
-    // Summary-only entries have nothing to wire into a roll.
     expect(WIRED_CONDITION_NAMES).not.toContain("Aid");
     expect(WIRED_CONDITION_NAMES).not.toContain("Hideous Laughter");
   });

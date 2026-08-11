@@ -1,28 +1,18 @@
 import { useEffect, useState } from "react";
 
 interface DeferredNumberOptions {
-  // The stored value — the source of truth the field displays and reverts to.
   value: number;
-  // Called only when the value actually changes. Every character edit lands in
-  // undo history and is broadcast to a live session, so a no-op write isn't free.
+  // Called only when the value actually changes — a no-op write still costs an
+  // undo entry and a live-session broadcast.
   onCommit: (value: number) => void;
   min?: number;
   max?: number;
 }
 
-// A numeric field whose edits are committed when the edit is *finished*, not on
-// every keystroke.
-//
-// Committing per keystroke looks harmless and isn't: typing 50 wrote 5 and then
-// 50 — two undo entries, two messages to every peer in a live session, and a
-// flicker through a value the player never meant. Worse, with a maximum in play
-// it's lossy rather than merely noisy: typing "50" against a max of 49 passes
-// through 5, and a typist who pauses after the first digit leaves it there.
-//
-// So the draft is local text, and the commit happens on blur or Enter; Escape
-// abandons it. An empty or unparseable field reverts to the stored value rather
-// than persisting a 0 — clearing a field is more often abandonment than an
-// intent to zero it, and typing "0" says that unambiguously.
+// A numeric field committed on blur/Enter (Escape abandons), not per keystroke:
+// committing each keystroke would clip against a max mid-type (typing "50"
+// against max 49 sticks at "5"). Empty/unparseable reverts to the stored
+// value rather than committing 0.
 export function useDeferredNumber({
   value,
   onCommit,
@@ -46,11 +36,9 @@ export function useDeferredNumber({
     setDraft(String(isNaN(parsed) ? value : commit(parsed)));
   };
 
-  // What the field currently *reads*, which is no longer always what's stored.
-  // Anything acting on the field (the ± buttons, their disabled states) has to
-  // work from this: clicking a button blurs the input first, but the click
-  // handler still closes over the value from the render before that commit — so
-  // stepping off the stored value made "type 8, click −" produce 11, not 7.
+  // The ± buttons must step off this, not `value` — a button click blurs the
+  // input first but its handler closes over the pre-blur render, so stepping
+  // off the stored value made "type 8, click −" produce 11 instead of 7.
   const parsed = parseInt(draft, 10);
   const shown = isNaN(parsed) ? value : clamp(parsed);
 

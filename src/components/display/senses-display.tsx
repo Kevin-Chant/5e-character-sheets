@@ -13,10 +13,7 @@ const SENSES: Array<[keyof Senses, string]> = [
   ["truesight", "Truesight"],
 ];
 
-// The Senses box (Abilities column): one printed-sheet row per sense the
-// character has — a range that opens the sense editor on click, removable — and
-// a "+" that opens the editor to add an unused sense. `senses` is the single
-// source of truth. Styled to match the Other Proficiencies / Languages box.
+// One row per sense the character has, plus a "+" to add an unused one.
 export default function SensesDisplay() {
   const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
@@ -31,10 +28,6 @@ export default function SensesDisplay() {
   const removeSense = (key: keyof Senses) =>
     dispatch(clearAt(path.k(key) as Cursor<number | undefined>));
 
-  // Most characters have no special senses at all. In play mode an empty box is
-  // unfillable scaffolding, so it goes; in edit mode it collapses to a strip
-  // that still says where senses live. See the paper-fidelity note in CLAUDE.md
-  // — the position is what carries over, not the empty frame.
   if (present.length === 0 && !editMode) return <></>;
 
   return (

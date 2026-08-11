@@ -1,41 +1,20 @@
 // Who is connected right now, by whatever each layer needs to call them.
-//
-// **Transient per-connection state, deliberately not part of any shared
-// document.** It isn't persisted and isn't merged: putting liveness into a
-// document that converges by revision would mean deciding who is awake by
-// comparing counters, which is a category error. It exists because a client
-// without a row of its own — a sheetless player waiting to be handed a
-// character, someone else editing a sheet — is otherwise invisible.
-//
-// Both layers had a roster; only one had a heartbeat. The character layer
-// re-announces every 10s and drops a peer unheard-from for 30s, so a tab that
-// died without saying goodbye eventually stops being listed. The play layer
-// had the roster and no heartbeat at all, so a crashed player sat in the DM's
-// "hand a sheet to…" picker until the session turned over. This is the
-// character layer's model, made generic over what a layer announces.
+// Transient per-connection state, not part of any shared document — liveness
+// doesn't merge by revision.
 
-// Re-announce this often; forget a peer unheard-from for this long. The
-// timeout is three heartbeats on purpose — one dropped beat must not flap an
-// active editor out of the list.
+// Re-announce this often; forget a peer unheard-from for this long. Timeout
+// is three heartbeats so one dropped beat doesn't flap an active editor out.
 export const HEARTBEAT_MS = 10_000;
 export const PRESENCE_TTL_MS = 30_000;
 
-// Heard from inside this window: the peer is *live*. Past it they are **quiet**,
-// which is deliberately not the same answer as gone.
-//
-// A phone whose browser is in the background has its timers throttled to
-// roughly one a minute, so a missed beat from a player at a table is far more
-// often "their screen went off" than "their connection dropped" — and those
-// want different words in front of a DM. One timeout can't say both: short
-// enough to notice a drop is short enough to flap on every backgrounded phone,
-// and long enough not to flap is long enough that a dead tab lingers. So there
-// are two, and the gap between them is where a live-but-asleep client sits.
+// Heard from inside this window: live. Past it: quiet, not gone.
+// Two thresholds because a backgrounded mobile tab throttles timers to ~1/min
+// — a single timeout can't both catch a real drop quickly and avoid flapping
+// every backgrounded phone.
 export const PRESENCE_QUIET_MS = 25_000;
 
-// Everyone on the roster we haven't heard from inside `quietMs`. Sorted so the
-// result can be compared by content — the caller keeps the previous array when
-// nothing moved, which is what stops a beat re-rendering the DM's roster ten
-// times a minute.
+// Roster entries unheard-from inside quietMs. Sorted for stable comparison —
+// callers keep the previous array when nothing moved.
 export function quietPresences<P extends object>(
   roster: PresenceEntry<P>[],
   lastSeen: Map<string, number>,
@@ -52,14 +31,11 @@ export function sameClients(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((id, i) => id === b[i]);
 }
 
-// An entry is whatever the layer announces, plus who said it. Flattened rather
-// than nested so a consumer reads `entry.name`, which is what both layers'
-// rosters already looked like.
+// Whatever the layer announces, plus who said it. Flattened so consumers
+// read `entry.name` directly.
 export type PresenceEntry<P> = P & { clientId: string };
 
-// Upsert, order-stable: a heartbeat arrives every 10s per peer, and reshuffling
-// a dropdown the DM is looking at — or returning a new array that re-renders
-// it — is the cost of getting this wrong. Unchanged means the *same array*.
+// Upsert, order-stable, so an unchanged beat returns the same array.
 export function withPresence<P extends object>(
   roster: PresenceEntry<P>[],
   clientId: string,
@@ -82,9 +58,7 @@ export function withoutPresence<P extends object>(
   return roster.filter((c) => c.clientId !== clientId);
 }
 
-// Drop everyone we haven't heard from inside the timeout. `lastSeen` is kept
-// outside the roster (see `use-presence`) precisely so that a heartbeat which
-// changes nothing else doesn't have to produce a new array.
+// Drops everyone unheard-from inside the timeout.
 export function prunePresence<P extends object>(
   roster: PresenceEntry<P>[],
   lastSeen: Map<string, number>,

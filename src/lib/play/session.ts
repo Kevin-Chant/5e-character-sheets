@@ -13,131 +13,83 @@ import type { RestKind } from "src/lib/rest";
 import { PlaySessionRef } from "src/lib/types";
 import { PresenceEntry } from "src/lib/realm/presence";
 
-// The party session: one shared encounter across several browsers.
+// Party session: one shared encounter across several browsers. Pure, testable
+// core (codes, message shapes, merge rule); WAMP transport is in
+// `use-play-session.tsx`.
 //
-// This module is the **pure, testable core** of it — codes, message shapes, and
-// the merge rule. The WAMP transport lives in `use-play-session.tsx`, following
-// the codebase's standing split: network paths are verified by hand, so the
-// decisions inside them are extracted to somewhere that can be tested.
-//
-// Two things make this simpler than the existing character-sharing layer:
-//
-// 1. **Everyone opens their own character locally.** The session syncs the
-//    encounter, not characters — so there is no host who owns someone else's
-//    sheet, and no joiner without a datastore.
-// 2. **Only a projection ever leaves the browser.** Names, HP, AC, conditions,
-//    concentration and initiative — the things the party can see across a table
-//    anyway. No spell list, no inventory, no backstory. That's the privacy
-//    default holding *by construction* rather than by a flag: a sheet nobody
-//    asked for is never transmitted, so there's nothing to leak.
+// Everyone opens their own character locally — the session syncs only the
+// encounter, and only a projection of it (name, HP, AC, conditions,
+// concentration, initiative), never spells/inventory/backstory.
 
 const BASE_APPNAME = "net.dndcharactersheets";
 
 export const PlaySessionEvent = {
   // The whole encounter, from whoever changed it last.
   STATE: BASE_APPNAME + ".encounter.state",
-  // "I've just arrived — is anyone here, and what do you have?" Carries a
-  // request id, because the answer has to be tellable from every other state
-  // message that might arrive in the meantime.
+  // Join request; carries a request id so the reply is matchable.
   SYNC_REQUEST: BASE_APPNAME + ".encounter.syncrequest",
-  // "Here's what I have", addressed to whoever asked. Replaces a broadcast
-  // reply: the answer is only interesting to the client that asked for it, and
-  // making it addressed is what lets adoption be scoped to one request rather
-  // than to "the next state message from anyone".
+  // Reply to SYNC_REQUEST, addressed to the requester only.
   SYNC_RESPONSE: BASE_APPNAME + ".encounter.syncresponse",
-  // "I'm going" — drops the sender's participants from everyone's roster.
+  // Drops the sender's participants from everyone's roster.
   LEAVE: BASE_APPNAME + ".encounter.leave",
-  // "I'd like to play that offered sheet" — answered by whoever owns it.
+  // Request to play an offered sheet; answered by whoever owns it.
   CLAIM_SHEET: BASE_APPNAME + ".encounter.claimsheet",
-  // A whole character, DM to one claimant. **The one deliberate exception to
-  // "only a projection crosses the wire"** — and it stays an exception by
-  // construction: a sheet travels only after its owner marked it claimable
-  // (per sheet, on the DM board) and only in reply to a claim. Player-owned
-  // sheets have no path through here at all.
+  // A whole character, DM to one claimant — the only message kind that sends
+  // more than a projection. Only sent for a sheet marked claimable, in reply
+  // to a claim.
   SHEET: BASE_APPNAME + ".encounter.sheet",
-  // "I'm here, and this is what to call me." A clientId and a chosen display
-  // name — nothing else, so the projection rule holds. Announced on join, in
-  // reply to a sync request, and on a heartbeat, which is what lets a client
-  // that stopped answering be forgotten rather than haunt the DM's picker. The
-  // assignment flow is built so a ghost is harmless anyway (see ASSIGN).
+  // clientId + display name only. Sent on join, in reply to a sync request,
+  // and on heartbeat, so a stopped client is forgotten rather than haunting
+  // the DM's picker.
   PRESENCE: BASE_APPNAME + ".encounter.presence",
-  // "Would you play this sheet?" — a *targeted offer*, DM to one client. The
-  // sheet does not travel with it: accepting runs the ordinary claim flow
-  // (CLAIM_SHEET → SHEET), so consent stays two-sided and assigning to a dead
-  // client costs nothing — no reply, the offer still stands.
+  // Targeted offer of a sheet, DM to one client. Sheet itself doesn't travel
+  // with it — accepting runs CLAIM_SHEET → SHEET.
   ASSIGN: BASE_APPNAME + ".encounter.assignsheet",
-  // "Alright everyone — roll initiative!" The DM's call, broadcast so every
-  // player gets the prompt at once, same as hearing it across the table.
-  // Carries nothing: the roll and the number stay on each player's side.
+  // DM's call to roll initiative, broadcast. Carries nothing; rolls stay
+  // client-side.
   CALL_INITIATIVE: BASE_APPNAME + ".encounter.callinitiative",
-  // "I rolled 15 to hit Goblin 2." Every roll a player makes at the table, as
-  // it lands. A *report*, not a write: the roller names a target and a number,
-  // and the DM applies, overrides or ignores it. Keeping the HP write on the
-  // DM's side is what makes this safe to offer every player — the table's
-  // arithmetic stays with whoever runs the table. See `play/reports.ts` for
-  // why the stages of one attack travel as separate messages.
+  // A player's roll report, not a write — DM applies/overrides/ignores it.
+  // See `play/reports.ts` for why one attack's stages are separate messages.
   REPORT: BASE_APPNAME + ".encounter.report",
-  // "That hits." The DM's answer to a to-hit roll, addressed back to whoever
-  // rolled it — the sentence that used to have to be said out loud.
+  // DM's hit/miss ruling, addressed back to the roller.
   VERDICT: BASE_APPNAME + ".encounter.verdict",
-  // "Brakka, give me a Perception check." The DM's ask, addressed to one
-  // client or (toClientId absent) the whole table — the same routing shape as
-  // the initiative call, but for any d20 the game asks for. The answer comes
-  // back on REPORT like every other roll.
+  // DM's ask for a d20, addressed to one client or (toClientId absent) the
+  // table. Answer comes back on REPORT.
   ROLL_CALL: BASE_APPNAME + ".encounter.rollcall",
-  // "Alright, you make camp for the night." The DM calling the table to a
-  // rest, broadcast like the initiative call. Carries the two facts only the
-  // table can settle — which rest, and whether it spans dawn — and nothing
-  // else: the rest itself is run on each player's own sheet, where the hit
-  // dice and the prepared spells are. See REST_CALL's prompt in the play
-  // surface for why this is an invitation rather than a write.
+  // DM's rest call, broadcast. Carries only kind + whether it spans dawn;
+  // the rest itself runs on each player's own sheet.
   REST_CALL: BASE_APPNAME + ".encounter.restcall",
-  // "8 healing incoming from Brakka." Sent by the DM *after* approving a
-  // healing report; the recipient applies it to their own sheet (or ignores
-  // it) — their vitals, their write, same authority rule as everywhere else.
+  // Healing amount, sent by the DM after approving a heal report; recipient
+  // applies it to their own sheet.
   HEAL: BASE_APPNAME + ".encounter.heal",
-  // "Ellora cast Bless on you — apply it?" A condition looking for consent
-  // from the character it targets. Sent by the *caster* directly (unlike
-  // HEAL there is nothing for the DM to arithmetic-check first); sheet-less
-  // rows skip this entirely — the DM applies those from the exchange card.
+  // Condition offer, sent by the caster directly, seeking consent from the
+  // target. Sheet-less rows are applied by the DM from the exchange card
+  // instead.
   CONDITION: BASE_APPNAME + ".encounter.condition",
 };
 
-// The DM asked for a d20. `toClientId` absent means everyone — "alright
-// everyone, roll a DEX save".
+// DM's ask for a d20. Both fields absent means the whole table.
 export interface RollCall {
   callId: string;
   check: RollCallCheck;
-  // Who was asked. Both absent means the whole table — "alright everyone, roll
-  // a DEX save" — which is the common case and so the cheap one to encode.
-  //
-  // `toClientIds` is the real field; `toClientId` is kept **written, not
-  // read**, and only when there is exactly one recipient. A peer on the same
-  // protocol version but an older build reads that one and addresses the ask
-  // correctly; without it, a call to one player would reach that build as a
-  // call to everybody. A multi-recipient ask degrades to the whole table
-  // there, which is a wider audience rather than a wrong one — the failure
-  // this shape is chosen to avoid.
+  // `toClientIds` is the real field. `toClientId` is written (not read) only
+  // when there's exactly one recipient, so an older build that only knows
+  // `toClientId` still addresses single-recipient calls correctly; a
+  // multi-recipient call degrades there to reaching everyone.
   toClientIds?: string[];
   toClientId?: string;
 }
 
-// Was this ask addressed to me? Absent audience means the room.
+// Absent audience means the room.
 export function rollCallReaches(call: RollCall, clientId: string): boolean {
   if (call.toClientIds?.length) return call.toClientIds.includes(clientId);
   if (call.toClientId) return call.toClientId === clientId;
   return true;
 }
 
-// The DM called a rest. Always the whole table — a rest is something the
-// party does together, so unlike `RollCall` there is nobody to address it to.
-//
-// What crosses is the table's half of the decision and only that half: the
-// kind of rest, and whether it spans daybreak (which is a fact about the
-// fiction the DM narrates, not about the sheet). Everything the *player*
-// decides — which hit dice to spend, what to prepare, which "at dawn" item
-// they'd rather leave spent — stays on their own sheet, because the rest
-// panel is where those choices already live and none of them are the DM's.
+// DM's rest call, always to the whole table. Carries only the kind of rest
+// and whether it spans daybreak; hit-dice/prepared-spell choices stay on
+// each player's own sheet.
 export interface RestCall {
   callId: string;
   kind: RestKind;
@@ -147,45 +99,30 @@ export interface RestCall {
 // Approved healing on its way to the recipient, who applies or ignores it.
 export interface HealingOffer {
   offerId: string;
-  // The participant being healed; each client checks whether that row is its
-  // own open character.
+  // Each client checks whether this row is its own open character.
   targetId: string;
   amount: number;
   fromName: string;
-  // What healed them — "Cure Wounds (2nd)". The recipient was being asked to
-  // accept an anonymous number otherwise.
   label?: string;
 }
 
-// "Ellora cast Bless on you — apply it?" A condition looking for its bearer,
-// the sibling of `HealingOffer` and consent-shaped for the same reason:
-// anyone *can* write a condition onto any row (statusRev is unguarded, the DM
-// does it all evening), but a buff landing silently on your row is a buff you
-// never noticed, and the prompt is both the notice and the choice. Carries
-// the condition's **name only** — mechanics resolve from the bundled
-// `CONDITION_MECHANICS` catalog on the bearer's own client.
+// Consent prompt for a condition landing on its target, e.g. "Ellora cast
+// Bless on you — apply it?". Carries the condition name only; mechanics
+// resolve from `CONDITION_MECHANICS` on the bearer's own client.
 export interface ConditionOffer {
   offerId: string;
-  // The participant gaining the condition; each client checks whether that
-  // row is its own open character.
   targetId: string;
   condition: { name: string; rounds?: number };
   fromName: string;
-  // The caster's participant row — written into `ActiveCondition.from` on
-  // apply, so a caster-only mark pays its caster (see `TargetedRider`).
+  // Written into `ActiveCondition.from` on apply (see `TargetedRider`).
   fromParticipantId?: string;
-  // What put it there — "Bless". The recipient shouldn't have to accept an
-  // anonymous status effect.
   label?: string;
 }
 
-// The offers a condition-carrying roll report implies, split by who acts on
-// them: your own row is applied locally (the broker drops self-echoes, so an
-// offer to yourself would never arrive), other characters get the consent
-// prompt over the wire, and sheet-less rows (monsters) get neither — the DM
-// applies those from the exchange card. Deterministic `offerId` (exchange +
-// stage + target), so a re-roll re-sending the report is an idempotent
-// repeat, not a second nagging prompt.
+// Split by who acts: own row applies locally, other characters get the
+// consent prompt over the wire, sheet-less rows (monsters) get neither.
+// `offerId` is deterministic (exchange + stage + target) so a re-sent report
+// doesn't re-prompt.
 export function conditionOffersFor(
   roll: {
     exchangeId: string;
@@ -222,17 +159,9 @@ export function conditionOffersFor(
   });
 }
 
-// Session codes are **uuids, and the uuid is the authentication** — the same
-// trust model the character realms already run on.
-//
-// The first draft used six characters from a spoken-friendly alphabet, which was
-// the wrong call: `openRealm` is an unauthenticated GET with no rate limiting, so
-// ~9x10^8 possibilities is a few hours of guessing away from a stranger reading
-// your party's HP and conditions. A session code is pasted into a group chat, not
-// read out loud, so there is nothing to buy with the shorter form.
-//
-// The cost of the change is that codes are no longer memorable — which is why
-// characters remember the sessions they've joined (`Character.playSessions`).
+// Session codes are uuids — the uuid is the authentication, since
+// `openRealm` is an unauthenticated, unthrottled GET. Not memorable, which is
+// why characters remember joined sessions (`Character.playSessions`).
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -241,9 +170,8 @@ export function newSessionCode(): string {
   return randomUUID();
 }
 
-// Codes are pasted, so the mess that comes with a paste is what has to work:
-// surrounding whitespace, wrong case, and the dash-less form some tools produce.
-// The canonical form is the dashed lowercase uuid.
+// Tolerates surrounding whitespace, case, and a dash-less uuid. Canonical
+// form is dashed lowercase.
 export function normalizeSessionCode(input: string): string {
   const raw = input.trim().toLowerCase().replace(/\s/g, "");
   if (UUID_PATTERN.test(raw)) return raw;
@@ -264,11 +192,8 @@ export function isValidSessionCode(input: string): boolean {
   return UUID_PATTERN.test(normalizeSessionCode(input));
 }
 
-// Now that invites travel as `…/join/<code>` links, what lands in the code box
-// is as often the whole URL as the uuid — and trimming it is only obvious to
-// someone who already knows which part is the code. Pull the uuid out of
-// whatever was pasted; fall back to the normalized input so the caller's own
-// validation still produces the error message it would have.
+// Pulls the uuid out of a pasted invite link or bare code; falls back to
+// normalized input so the caller's own validation error still fires.
 export function extractSessionCode(input: string): string {
   const normalized = normalizeSessionCode(input);
   if (UUID_PATTERN.test(normalized)) return normalized;
@@ -278,29 +203,21 @@ export function extractSessionCode(input: string): string {
   return found ? found[0] : normalized;
 }
 
-// The invite. A code is what the sidecar needs; a link is what a person needs,
-// because it carries the answer to "and where do I put this?" with it. Takes
-// the origin rather than reading `window`, so it stays as testable as the rest
-// of this module.
+// Takes origin as a param rather than reading `window`, to stay testable.
 export function inviteLink(origin: string, code: string): string {
   return `${origin.replace(/\/$/, "")}/join/${normalizeSessionCode(code)}`;
 }
 
-// The realm a code maps to. Namespaced away from the character realms
-// (`generateRealm` uses a bare hex uuid) so a session and a shared character can
-// never collide on the sidecar — which matters more now that both are uuids.
+// Namespaced away from character realms (`generateRealm` uses a bare hex
+// uuid) so the two can't collide on the sidecar.
 export function realmForSession(code: string): string {
   return `sess${normalizeSessionCode(code).replace(/-/g, "")}`;
 }
 
-// How many joined sessions a character remembers. A player has a game night or
-// two, not a backlog; beyond that the list stops being a shortcut and becomes
-// something to read.
 export const REMEMBERED_SESSIONS = 5;
 
-// Record a session on the character, most recent first. Re-joining an existing
-// one moves it to the top rather than adding a duplicate, so the list orders
-// itself by use without the player curating it.
+// Most recent first; re-joining an existing session moves it to the top
+// rather than duplicating it.
 export function rememberSession(
   sessions: PlaySessionRef[] | undefined,
   code: string,
@@ -351,17 +268,15 @@ export type SessionMessage =
   | {
       kind: "sheet";
       clientId: string;
-      // Addressed, not broadcast in spirit: everyone receives it (WAMP topics
-      // have no private lanes on this broker) but only the claimant loads it.
+      // Everyone receives it (no private WAMP lanes on this broker); only the
+      // claimant loads it.
       toClientId: string;
       participantId: string;
       character: unknown;
     };
 
-// Which topic each message goes out on. A table rather than a chain of
-// conditionals in the transport: it is exhaustively checked, so adding a member
-// to `SessionMessage` without giving it a topic is a type error rather than a
-// message that quietly publishes to LEAVE.
+// Exhaustively checked: adding a `SessionMessage` kind without a topic is a
+// type error.
 export const TOPIC_FOR: Record<SessionMessage["kind"], string> = {
   state: PlaySessionEvent.STATE,
   syncRequest: PlaySessionEvent.SYNC_REQUEST,
@@ -380,17 +295,10 @@ export const TOPIC_FOR: Record<SessionMessage["kind"], string> = {
   sheet: PlaySessionEvent.SHEET,
 };
 
-// Is this actually an encounter?
-//
-// A `state` message carries the whole shared document, and until now it was
-// applied on the word of whoever sent it. The realm is only as trustworthy as
-// its code, which is the trust model we've chosen — but the code is not the
-// threat here. A peer running an older or newer build is, and a merge against
-// something that isn't an encounter throws inside a subscription callback,
-// which in this app means the table's tab goes white mid-fight.
-//
-// Structural, not exhaustive: the two fields every merge path dereferences
-// unconditionally. Everything past them is already read with `?? 0`.
+// Guards against a peer on an older/newer build sending something that isn't
+// an encounter — merging against it would throw inside a subscription
+// callback. Checks only the fields every merge path dereferences
+// unconditionally; everything else is already read with `?? 0`.
 export function isEncounter(raw: unknown): raw is Encounter {
   if (!raw || typeof raw !== "object") return false;
   const candidate = raw as Partial<Encounter>;
@@ -402,47 +310,35 @@ export function isEncounter(raw: unknown): raw is Encounter {
 }
 
 // --- Merging -----------------------------------------------------------------
-//
-// Anyone may write to the encounter — the DM seat is a UI gate, not a lock, so
-// that a sleeping laptop can't freeze someone else's fight. Convergence is
-// last-write-wins, but not on one counter: the document is a **table of
-// lanes**, each a group of fields that move together under one counter,
-// resolved independently. One counter per thing-someone-writes, because the
-// races here are not exotic — the DM typing your damage while you tick the
-// spell you're holding is the ordinary shape of a fight, and any two lanes'
-// writes crossing on the wire must both survive.
-//
-// The lane tables below are the whole rule. A field not in any lane belongs to
-// the document lane (`revision`), which the coarse race still decides — that
-// is deliberately where *membership* lives, because the roster's merge is
-// bespoke and asymmetric (see `mergeEncounter`) and must not be genericised.
+// Anyone may write to the encounter (DM seat is a UI gate, not a lock).
+// Convergence is last-write-wins per lane, not per document: the document is
+// a table of lanes, each a group of fields versioned by one counter and
+// resolved independently, so two lanes' writes crossing on the wire both
+// survive. A field not in any lane belongs to the document lane (`revision`),
+// which also decides roster membership (see `mergeEncounter`).
 
-// One lane: the counter that versions it and the fields that move with it.
-// `fields` includes everything the counter orders — take the lane, take it
-// whole, counter included, or a half-taken lane re-loses the same race later.
+// `fields` must include everything `rev` orders — take the lane whole or a
+// half-taken lane re-loses the same race later.
 interface Lane<T> {
   rev: keyof T & string;
   fields: (keyof T & string)[];
-  // A side that structurally cannot hold the lane's value may not win it,
-  // whatever its counter says — e.g. a row copy with no vitals at all.
+  // A side structurally unable to hold the lane's value may not win it
+  // regardless of counter (e.g. a row copy with no vitals).
   canWin?: (side: T) => boolean;
 }
 
 export const ENCOUNTER_LANES: Lane<Encounter>[] = [
-  // The fight's position, one atomic pair — see `Encounter.turnSeq` for why
-  // round and turnIndex may never be resolved separately.
+  // Atomic pair — see `Encounter.turnSeq` for why round/turnIndex can't
+  // resolve separately.
   { rev: "turnSeq", fields: ["round", "turnIndex"] },
-  // Table style, DM-set.
   { rev: "policyRev", fields: ["sharing", "hideDeathSaves"] },
-  // The DM seat. A peer who has simply never heard of the DM carries
-  // `seatRev: 0` and so can never win this lane — which is the guard that
-  // used to be hand-written: erasing the seat takes `dmToken` with it, making
-  // the loss unrecoverable rather than merely unheld.
+  // A peer that's never heard of the DM carries seatRev: 0 and can't win
+  // this lane; erasing the seat takes `dmToken` with it, making the loss
+  // unrecoverable.
   { rev: "seatRev", fields: ["dmClientId", "dmToken"] },
 ];
 
 export const PARTICIPANT_LANES: Lane<Participant>[] = [
-  // Who the row is and how it's shown — name, ownership, offer, hidden, side.
   {
     rev: "identityRev",
     fields: [
@@ -454,19 +350,16 @@ export const PARTICIPANT_LANES: Lane<Participant>[] = [
       "side",
     ],
   },
-  // A copy with no vitals is an untracked copy, and an untracked copy must
-  // never blank a tracked one, whatever its counter says.
+  // An untracked copy (no vitals) must never blank a tracked one.
   { rev: "vitalsRev", fields: ["vitals"], canWin: (p) => !!p.vitals },
   { rev: "statusRev", fields: ["conditions", "concentration"] },
   { rev: "initiativeRev", fields: ["initiative"] },
   { rev: "economyRev", fields: ["spent"] },
 ];
 
-// Resolve every lane between the document-race winner (`base`) and the loser
-// (`other`): a lane goes to `other` iff its counter is strictly higher, whole —
-// fields and counter together. Ties go to `base`, which keeps the coarse
-// race's answer wherever the lanes are silent, and identity is preserved when
-// nothing moves so an unchanged merge can't re-broadcast.
+// A lane goes to `other` iff its counter is strictly higher (fields + counter
+// together); ties go to `base`. Preserves identity when nothing moves, so an
+// unchanged merge doesn't re-broadcast.
 function takeLanes<T extends object>(base: T, other: T, lanes: Lane<T>[]): T {
   let taken: Record<string, unknown> | undefined;
   for (const lane of lanes) {
@@ -482,13 +375,9 @@ function takeLanes<T extends object>(base: T, other: T, lanes: Lane<T>[]): T {
   return taken ? { ...base, ...taken } : base;
 }
 
-// Does the merged document hold anything the peer's copy hasn't seen? One
-// loop over the lane counters — **counters, not values**, because two writes
-// can coincide on a value and the peer still needs to hear the counter that
-// orders the next one. This replaces the hand-grown list of publish reasons
-// (lost the race, kept the seat, corrected own vitals, contributed a row):
-// each of those is now visible as a counter the peer's copy is behind on, or
-// a row it lacks.
+// Whether the merged document holds anything the peer's copy hasn't seen.
+// Compares counters, not values — two writes can coincide on a value but the
+// peer still needs the counter that orders the next one.
 function carriesNews(merged: Encounter, incoming: Encounter): boolean {
   if ((merged.revision ?? 0) > (incoming.revision ?? 0)) return true;
   for (const lane of ENCOUNTER_LANES) {
@@ -508,9 +397,8 @@ function carriesNews(merged: Encounter, incoming: Encounter): boolean {
   return false;
 }
 
-// Bump the document lane. Every local write does this on top of its own
-// lane's counter: the lanes order writes to their fields, this orders the
-// roster and breaks the base/other tie for everything laneless.
+// Bumps the document lane; every local write does this on top of its own
+// lane's counter. Orders the roster and breaks ties for laneless fields.
 export function bumpRevision(
   encounter: Encounter,
   clientId: string,
@@ -526,15 +414,14 @@ function wins(incoming: Encounter, local: Encounter): boolean {
   const a = incoming.revision ?? 0;
   const b = local.revision ?? 0;
   if (a !== b) return a > b;
-  // Same revision from two different writers: pick deterministically so every
-  // browser lands on the same answer, rather than on whichever arrived last.
+  // Same revision, different writers: break the tie deterministically so
+  // every browser agrees.
   return (incoming.revisedBy ?? "") > (local.revisedBy ?? "");
 }
 
-// Keep the merged turn index a valid position in the merged roster. The combat
-// lane and the roster resolve independently — deliberately, see
-// `Encounter.turnSeq` — so a turn index that was in range on the lane winner's
-// roster can land past the end of the merged one.
+// The combat lane and roster resolve independently (see `Encounter.turnSeq`),
+// so a turn index valid on the lane winner's roster can land past the end of
+// the merged one.
 function clampTurn(encounter: Encounter): Encounter {
   const last = encounter.participants.length - 1;
   if (encounter.turnIndex <= Math.max(0, last)) return encounter;
@@ -543,21 +430,14 @@ function clampTurn(encounter: Encounter): Encounter {
 
 // Apply an encounter that arrived from a peer.
 //
-// One exception to last-write-wins: **you are authoritative for your own
-// vitals, unless someone deliberately overwrote them**. A peer's copy of your
-// HP is usually only as fresh as the last state they received, so accepting it
-// wholesale makes your own HP bar jump backwards every time somebody else moves
-// the turn along. But a DM setting your HP is also "a peer's copy of you", and
-// the two cases arrive looking identical — which is what `vitalsRev` is for: a
-// stale echo carries a rev you've already passed, a real edit carries one you
-// haven't. Everything else — including conditions on you, which the DM may well
-// be setting — is plain LWW.
+// Exception to plain LWW: you're authoritative for your own vitals unless
+// someone deliberately overwrote them. `vitalsRev` distinguishes a stale echo
+// (rev you've already passed) from a real edit (rev you haven't); everything
+// else, including conditions on you, is plain LWW.
 //
-// A joiner (`adopt`) keeps its own vitals *regardless* of revs, and jumps its
-// rev past the incoming one. A room can hold a copy of you from last week if
-// you closed the tab without leaving, with a rev far beyond your fresh local
-// count — and last week's HP must not overwrite the sheet you just walked in
-// with.
+// A joiner (`adopt`) keeps its own vitals regardless of revs and jumps its
+// rev past the incoming one — a room may hold a copy of you from a session
+// you didn't cleanly leave, with a rev ahead of your fresh local count.
 export function mergeEncounter(
   local: Encounter,
   incoming: Encounter,
@@ -565,24 +445,14 @@ export function mergeEncounter(
   selfClientId?: string,
   adopt = false,
 ): Encounter {
-  // `adopt` is the first state a joiner receives, and it skips the revision
-  // race outright.
-  //
-  // Revisions only order writes within one shared history. A client that has
-  // just joined has its own unrelated history — its local encounter has been
-  // counting up on its own — and the two routinely collide on the same number,
-  // at which point the clientId tiebreak decides who exists by comparing two
-  // random uuids. Roughly half the time the joiner "wins" and silently discards
-  // the room: the fight in progress, the DM seat, everyone else's initiative.
-  //
-  // A newcomer has nothing to be authoritative about, so it defers to the room
-  // and contributes only its own participants (re-added below).
+  // `adopt` (first state a joiner receives) skips the revision race: a
+  // joiner's local encounter has its own unrelated revision count, which
+  // routinely collides with the room's, and the clientId tiebreak would then
+  // discard the room about half the time. A newcomer defers to the room and
+  // contributes only its own participants (re-added below).
   const incomingWins = adopt || wins(incoming, local);
-  // The losing document is not discarded whole. Its *membership* loses — which
-  // rows exist, in what order, is the coarse race's answer — but every lane in
-  // the tables above is then resolved on its own counter, because "who wrote
-  // most recently" is too coarse a question to ask of a document several
-  // people are editing at once.
+  // The loser's membership (which rows exist, in what order) is decided by
+  // the document race; every lane is then resolved on its own counter.
   const base = incomingWins ? incoming : local;
   const other = incomingWins ? local : incoming;
   const theirRows = new Map(other.participants.map((p) => [p.id, p]));
@@ -594,16 +464,14 @@ export function mergeEncounter(
     if (combined !== p) rowsChanged = true;
     return combined;
   });
-  // A joiner (`adopt`) takes the room's seat regardless of counters: it has
-  // nothing to be authoritative about, and the seatRev its own unrelated
-  // history counted up could otherwise out-vote a young room's.
+  // A joiner takes the room's seat regardless of counters — its own unrelated
+  // seatRev could otherwise out-vote a young room's.
   const lanes = adopt
     ? ENCOUNTER_LANES.filter((lane) => lane.rev !== "seatRev")
     : ENCOUNTER_LANES;
   const withLanes = takeLanes(base, other, lanes);
-  // Nothing of the loser's survived, and the loser was us: this is the old
-  // "discard it" path, and it must stay identity so an unchanged encounter
-  // isn't persisted and re-broadcast.
+  // Nothing of the loser survived and the loser was us: must stay identity
+  // so an unchanged encounter isn't persisted and re-broadcast.
   if (!incomingWins && !rowsChanged && withLanes === base) return local;
   const winner: Encounter = rowsChanged
     ? { ...withLanes, participants: rows }
@@ -619,11 +487,9 @@ export function mergeEncounter(
     !!mine?.vitals &&
     (adopt || (mine.vitalsRev ?? 0) >= (theirCopyOfMe?.vitalsRev ?? 0));
 
-  // Anyone this client contributed who isn't in the incoming state yet. The
-  // case that matters is joining: you announce yourself, whoever's already
-  // there replies with a state that predates you, and accepting it wholesale
-  // would delete you from your own roster — with nothing to put you back,
-  // because the participant-sync effect only runs when the character changes.
+  // Anyone this client contributed that isn't in the incoming state yet —
+  // matters on join, when the room's reply can predate this client's own
+  // participant.
   const ours = selfClientId
     ? local.participants.filter((p) => p.ownerClientId === selfClientId)
     : [];
@@ -638,44 +504,27 @@ export function mergeEncounter(
     return {
       ...p,
       vitals: mine!.vitals,
-      // Past the refused copy's counter, not merely at it: this is what makes
-      // the correction *visible to the publish loop* — `carriesNews` reads
-      // counters, not values, so refusing a stale copy of ourselves at the
-      // same rev has to move the counter or the room keeps last week's HP.
+      // Past the refused copy's counter, not merely at it — `carriesNews`
+      // reads counters, so a refusal at the same rev must still move it.
       vitalsRev: mineRev > rowRev ? mineRev : rowRev + 1,
     };
   });
 
-  // Re-seated by initiative rather than appended: with a fight in progress the
-  // array is the turn order, and a joiner should land where their roll says —
-  // on every peer's copy, not just their own. Clamped last, because the combat
-  // lane and the roster resolve independently.
+  // Re-seated by initiative, not appended — a joiner should land where their
+  // roll says on every peer's copy. Clamped last since the combat lane and
+  // roster resolve independently.
   return clampTurn(
     missing.reduce(insertParticipant, { ...winner, participants }),
   );
 }
 
-// Who this client is, for the decisions below.
 export interface SessionSelf {
   clientId: string;
-  // The open character, if any — a DM often has none.
   characterUuid?: UUID;
-  // This browser's durable DM key. See `Encounter.dmToken`.
-  //
-  // **Withheld once the seat has been reclaimed on this connection**, which is
-  // the guard against two tabs of one browser fighting over it forever. The
-  // token is per *browser* and the client id is per *tab*, so two tabs at the
-  // same table both recognise the seat as theirs and neither can tell the
-  // other from its own pre-refresh self: A takes it, B sees a holder that
-  // isn't B presenting B's token and takes it back, A does the same, and each
-  // bump publishes (`carriesNews` reads counters), so the two of them fill the
-  // realm with seat swaps for as long as both stay open.
-  //
-  // Spending the reclaim once ends it after two bumps: whoever moves second
-  // holds the seat, the other stops asking, and the ordinary reasons to
-  // reclaim — a refresh, a crash, a dropped socket — all begin a *new*
-  // connection and so get a fresh one. Taking it back deliberately is still
-  // one click on the session bar.
+  // Durable per-browser DM key (see `Encounter.dmToken`). Withheld once the
+  // seat has been reclaimed on this connection: token is per-browser but
+  // clientId is per-tab, so without this guard two tabs of the same browser
+  // would keep re-taking the seat from each other on every bump.
   dmToken?: string;
   // True for the first state after joining. See `mergeEncounter`.
   adopt?: boolean;
@@ -683,26 +532,19 @@ export interface SessionSelf {
 
 export interface StateReceipt {
   encounter: Encounter;
-  // The seat came back to us on this state. The caller stops offering its
-  // token afterwards — see `SessionSelf.dmToken`.
+  // Seat came back on this state; caller stops offering its token.
   reclaimedSeat?: boolean;
-  // Whether this has to go back out. Applying a peer's state silently is the
-  // default — echoing it back is an endless exchange — so this is only true when
-  // the merge produced something the peer doesn't know.
+  // Whether this has to go back out — only true when the merge produced
+  // something the peer doesn't know, since echoing every apply is a loop.
   publish: boolean;
-  // Set when the merge accepted someone else's write to *our own* vitals — a DM
-  // deliberately setting our HP. The caller applies it to the character itself,
-  // because the participant is only a projection of the sheet: leave the sheet
-  // untouched and its next change would publish the old HP right back.
+  // Set when the merge accepted someone else's write to our own vitals (a DM
+  // setting our HP). Caller applies it to the character itself, since the
+  // participant is just a projection and would otherwise republish stale HP.
   ownVitals?: ParticipantVitals;
 }
 
-// Everything that happens when a peer's state arrives, as one pure function.
-//
-// It lives here rather than in the provider because it is the part worth
-// testing: `session-sim.ts` drives several of these against a fake broker, which
-// is how the revision race and the seat reclaim are covered without a browser.
-// The provider's job is reduced to storage, React state and the network.
+// `session-sim.ts` drives this against a fake broker to cover the revision
+// race and seat reclaim without a browser.
 export function receiveState(
   local: Encounter,
   incoming: Encounter,
@@ -715,8 +557,7 @@ export function receiveState(
     self.clientId,
     self.adopt,
   );
-  // Walking back into a session you were the DM of: the token matches, so the
-  // seat comes back without anyone pressing anything.
+  // Rejoining a session you DM'd: matching token reclaims the seat silently.
   const seated = reclaimDmSeat(merged, self.clientId, self.dmToken);
   const reclaimedSeat = seated !== merged;
 
@@ -729,9 +570,8 @@ export function receiveState(
   const mineBefore = findMe(local);
   const mineAfter = findMe(seated);
 
-  // Our own vitals moved without us touching them: the merge accepted a
-  // deliberate write from someone else (rev-checked in `mergeEncounter`), and
-  // the character has to follow.
+  // Own vitals moved without us touching them: merge accepted a deliberate
+  // write from someone else (rev-checked in `mergeEncounter`).
   const ownVitals =
     mineBefore?.vitals &&
     mineAfter?.vitals &&
@@ -739,13 +579,6 @@ export function receiveState(
       ? mineAfter.vitals
       : undefined;
 
-  // Publish when we hold something the peer hasn't heard of, read off the lane
-  // counters in one loop — a lane theirs is behind on, a row they lack, a
-  // document revision past theirs. Every reason the old hand-grown list
-  // enumerated (lost the race, kept the seat, corrected own vitals,
-  // contributed a row) is one of those three now. This doesn't ping-pong: our
-  // reply carries the counters the peer is behind on, their merge accepts
-  // those lanes, and their next receive finds nothing to answer.
   const publish = carriesNews(seated, incoming);
   return { encounter: seated, publish, ownVitals, reclaimedSeat };
 }
@@ -765,26 +598,16 @@ function sameVitals(
   );
 }
 
-// Drop everyone a departing client owned. Their own character's participant
-// goes; anything they typed in by hand (monsters, absent allies) stays, because
-// the fight still contains it and someone else is now tracking it.
+// Drop everyone a departing client owned. Own character goes; hand-typed
+// rows (monsters, absent allies) stay for whoever's tracking them now.
 export function withoutClient(
   encounter: Encounter,
   clientId: string,
 ): Encounter {
-  // A borrowed sheet goes back on the table, not out the door. The player
-  // leaving owned it only for the evening — the DM brought it, so it reverts
-  // to the DM's client as a static, still-offered projection, ready for the
-  // next pickup. Everything the leaver actually owned goes with them.
-  //
-  // The revert moves `ownerClientId`, which is the identity lane's field, so
-  // the lane's counter moves with it — the take-it-whole rule at the top of
-  // this file, and not a formality: a peer who missed the LEAVE while briefly
-  // disconnected, and edited enough to win the document race on its way back,
-  // would otherwise tie this lane and hand the sheet back to a client that
-  // already left. Every connected client runs this on the same LEAVE from the
-  // same state, so they all land on the same counter and the tie is between
-  // identical values.
+  // A borrowed sheet reverts to the DM's client as a still-offered claimable
+  // row rather than leaving. Bumps `identityRev` with it (take-the-lane-whole
+  // rule) — otherwise a peer that missed the LEAVE could tie this lane on
+  // reconnect and hand the sheet back to the departed client.
   const dm = encounter.dmClientId;
   let changed = false;
   const participants = encounter.participants.flatMap((p) => {
@@ -801,13 +624,9 @@ export function withoutClient(
     }
     return [];
   });
-  // A departing DM puts the seat down but keeps the key: `dmClientId` clears so
-  // the controls aren't locked to a client that has left the realm, while
-  // `dmToken` stays so the same browser reclaims on the way back in. Giving it
-  // up for good is `releaseDmSeat`, which is a decision, not a disconnection.
-  // `seatRev` moves with the clear for the same reason `identityRev` does
-  // above — an un-bumped clear re-loses to a stale copy that still shows the
-  // departed DM seated.
+  // `dmClientId` clears but `dmToken` stays, so the same browser reclaims on
+  // return (giving it up for good is `releaseDmSeat` instead). `seatRev`
+  // bumps with the clear, same reason as `identityRev` above.
   const heldSeat = encounter.dmClientId === clientId;
   if (!changed && !heldSeat) {
     return encounter;
@@ -827,37 +646,18 @@ export function withoutClient(
 }
 
 // --- Presence ----------------------------------------------------------------
-//
-// What this layer announces about itself: a name to point at. The DM needs one
-// when handing a sheet out, because a sheetless player has no participant and
-// is otherwise invisible.
-//
-// The *mechanics* — upsert, heartbeat, forgetting a peer who stopped answering
-// — are `realm/presence.ts`, shared with the character layer, which had all
-// three first. This layer had the roster and no heartbeat at all, so a crashed
-// tab sat in the DM's picker until the session turned over.
+// Announces a name so the DM can address a sheetless player. Upsert/heartbeat
+// mechanics live in `realm/presence.ts`, shared with the character layer.
 
 export interface PresenceName {
   name: string;
 }
 
-// How long a table waits before forgetting a client, as against the shared
-// 30s default.
-//
-// A table is played on phones, and a phone browser throttles a background
-// tab's timers to roughly one firing a minute — so the heartbeat a player
-// sends while looking at anything else is not a heartbeat, it's an occasional
-// twitch. At 30s every player who checks a message is forgotten and re-appears,
-// which flickers the DM's roster and (worse) the words next to each row. This
-// is the same "one dropped beat must not flap anyone out" rule the default was
-// chosen by, measured against the interval a phone actually grants rather than
-// the one we ask for.
-//
-// Not longer than this, though: past a minute or two a mobile tab is usually
-// frozen outright rather than throttled, and a client that has stopped beating
-// altogether is one the DM should be told about — "Away" has to arrive inside
-// a fight to be worth anything. The 25s gap to *quiet* is what carries the
-// earlier, softer version of the same news. See `play/liveness.ts`.
+// Longer than the shared 30s default: a backgrounded phone tab's timers get
+// throttled to roughly once a minute, so 30s would flap every player who
+// looks away. Not much longer, since past a minute or two a mobile tab is
+// usually frozen rather than throttled and the DM should be told. See
+// `play/liveness.ts` for the softer 25s "quiet" threshold.
 export const TABLE_PRESENCE_TTL_MS = 90_000;
 
 export type PresentClient = PresenceEntry<PresenceName>;

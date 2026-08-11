@@ -6,17 +6,14 @@ import {
 } from "src/lib/data/data-definitions";
 import { ClassName, CustomFormula, DieDefinition } from "src/lib/types/formula";
 
-// ---------------------------------------------------------------------------
-// Ability mechanics: serializable descriptions of what abilities *do* at the
-// table. Same design rule as `CustomFormula`: a closed set of interpretable
-// kinds, an open set of data compositions — no functions, so mechanics survive
-// Drive persistence, live-sync, and undo. The interpreters and the bundled
-// catalog live in `src/lib/mechanics/`; these types live here because the
-// character model (`LimitedUseAbility.mechanics`) embeds them.
+// Serializable descriptions of what abilities do at the table: a closed set of
+// interpretable kinds, an open set of data compositions — no functions, so
+// mechanics survive persistence, live-sync, and undo. Interpreters and the
+// bundled catalog live in `src/lib/mechanics/`; embedded via
+// `LimitedUseAbility.mechanics`.
 
-// What using an action costs at the table. `special` covers anything outside
-// the standard economy (part of a rest, a trigger on being hit, …) — pair it
-// with `costNote` so the UI can say what.
+// `special` covers anything outside the standard economy (part of a rest, a
+// trigger on being hit); pair it with `costNote`.
 export type ActionCost =
   | "action"
   | "bonusAction"
@@ -24,93 +21,61 @@ export type ActionCost =
   | "free"
   | "special";
 
-// How much an effect moves. `fixed` is a formula over the character (it may
-// contain dice — resolved with a real roll at execution time, never during
-// render); `plusLevelOf` adds `levelMultiplier` (default 1) × the character's
-// level in a named class, since authored formulas can't reference the sheet's
-// per-class UUIDs (Second Wind's fighter level, Wholeness of Body's 3× monk
-// level). `chosenAmount`/`chosenLevel` are the user's picks at execution time;
-// `byChosenLevel` is a lookup table keyed by the chosen slot level (Font of
-// Magic's creation costs).
+// `fixed` is a formula over the character (may contain dice, rolled at
+// execution time, not render). `plusLevelOf` adds `levelMultiplier` (default
+// 1) × level in a named class, since authored formulas can't reference the
+// sheet's per-class UUIDs (Second Wind, Wholeness of Body). `chosenAmount`/
+// `chosenLevel` are user picks at execution time; `byChosenLevel` is a lookup
+// keyed by chosen slot level (Font of Magic).
 export type AmountExpr =
   | { fixed: CustomFormula; plusLevelOf?: ClassName; levelMultiplier?: number }
   | { chosenAmount: true }
-  // Roll the chosen number of these dice (Healing Light's "spend N, heal
-  // N d6"). Pairs naturally with a `spendUses` of `chosenAmount`.
+  // Roll the chosen number of these dice (Healing Light: "spend N, heal N d6").
   | { chosenAmountDice: StandardDie }
   | { chosenLevel: true }
   | { byChosenLevel: Record<number, number> };
 
-// One described state change (or table prompt) — the closed set an
-// `AbilityAction` composes from. Interpreted by `mechanics/resolve.ts` into
-// ordinary whole-value reducer updates, so every effect syncs and undoes like
-// a manual edit. Costs and gains are both just effects — direction is in the
-// kind.
+// A described state change or table prompt, interpreted by
+// `mechanics/resolve.ts` into ordinary reducer updates so every effect syncs
+// and undoes like a manual edit.
 export type Effect =
-  // Heal current HP, clamped to the max.
-  | { effect: "heal"; amount: AmountExpr }
-  // Grant temporary HP. Temp HP don't stack: applies only if higher.
-  | { effect: "gainTempHp"; amount: AmountExpr }
-  // Spend uses from a limited-use pool. Defaults to the owning ability's own
-  // pool; `pool` names a *different* ability by title (normalized) to spend
-  // from instead — a Lore bard's Cutting Words spending Bardic Inspiration, a
-  // monk discipline spending Ki. The named pool is found on the character at
-  // resolve time, so a feature keeps its own mechanics without owning the
-  // resource it drains.
+  | { effect: "heal"; amount: AmountExpr } // clamped to max HP
+  | { effect: "gainTempHp"; amount: AmountExpr } // doesn't stack, applies only if higher
+  // Spends from the owning ability's pool by default; `pool` names a
+  // different ability by title to spend from instead (Cutting Words from
+  // Bardic Inspiration, a monk discipline from Ki).
   | { effect: "spendUses"; amount: AmountExpr; pool?: string }
-  // Regain uses in a pool (the owning ability's, or `pool` by title), clamped
-  // at its maximum.
-  | { effect: "restoreUses"; amount: AmountExpr; pool?: string }
-  // Expend a spell slot (the chosen level unless pinned).
+  | { effect: "restoreUses"; amount: AmountExpr; pool?: string } // clamped at max
   | { effect: "expendSlot"; level?: LeveledSpellLevel }
-  // Restore an expended spell slot. The sheet tracks expended-vs-total, so
-  // "creating" a slot beyond the normal maximum has nowhere to live —
-  // restoration is the model.
+  // Sheet tracks expended-vs-total, so slot creation is modelled as restoration.
   | { effect: "restoreSlot"; level?: LeveledSpellLevel }
-  // Mark one hit die of this size expended.
   | { effect: "spendHitDie"; die: StandardDie }
-  // Roll dice for display only (Stone's Endurance's reduction) — no write.
-  | { effect: "roll"; label: string; amount: AmountExpr }
-  // A table prompt for the parts the sheet can't adjudicate (reactions,
-  // effects on other creatures). Deliberately not automation.
-  | { effect: "remind"; note: string };
+  | { effect: "roll"; label: string; amount: AmountExpr } // display only, no write
+  | { effect: "remind"; note: string }; // table prompt, not automation
 
-// A clickable use of an ability: its action-economy cost, what the user picks
-// first, and the effects that fire. All effects must be payable/meaningful for
+// A clickable use of an ability. All effects must be payable/meaningful for
 // the action to be enabled.
 export interface AbilityAction {
   id: string;
   name: string;
   cost: ActionCost;
-  // Shown beside the cost badge — timing/frequency prose ("during a short
-  // rest", "when you take damage").
   costNote?: string;
   choose?: {
-    // Offer a slot-level picker: levels with an expended slot to restore, or
-    // with an available slot to expend.
+    // Levels with an expended slot to restore, or an available slot to expend.
     slotLevel?: "toRestore" | "toExpend";
-    // Cap the offered levels (slot creation and Arcane Recovery stop at 5th).
-    slotLevelMax?: number;
-    // Offer a free-typed amount, capped at the pool's remaining uses.
-    amount?: "uses";
+    slotLevelMax?: number; // caps offered levels (Arcane Recovery stops at 5th)
+    amount?: "uses"; // free-typed amount, capped at remaining uses
   };
-  // The condition this use puts on a chosen target — Stunning Strike's
-  // Stunned, Hexblade's Curse's mark, Bardic Inspiration's die. Same shape and
-  // rounds convention as a spell's `SpellConditionGrant` (1 round = 1, 1
-  // minute = 10), and the same wire path: the use reports a `cast` stage
-  // carrying the condition *name*, and the table-talk layer turns it into
-  // consent prompts / DM apply buttons. At a table this adds a target picker
-  // to the action row; solo it changes nothing.
+  // Condition this use puts on a target (Stunning Strike, Hexblade's Curse,
+  // Bardic Inspiration). Same shape/rounds convention as
+  // `SpellConditionGrant` (1 round = 1, 1 minute = 10).
   applies?: AppliedCondition;
   effects: Effect[];
 }
 
-// A condition an ability use or rider puts on its target(s). `multi` marks a
-// save-the-room effect ("each fiend within 30 ft.") — the action row offers
-// the same checkbox set Fireball does, and the report carries `targetIds`.
-// Single-target is the default: a strike, a curse, an inspiration all name
-// exactly one creature. (Ignored on a damage rider, whose target is the
-// attack's one target by construction.)
+// `multi` marks a save-the-room effect; report carries `targetIds`.
+// Single-target is default. Ignored on a damage rider (target is the
+// attack's target).
 export interface AppliedCondition {
   name: string;
   rounds?: number;
@@ -118,13 +83,9 @@ export interface AppliedCondition {
   multi?: boolean;
 }
 
-// What kind of roll is happening, as a tag the roll dialog supplies. `check`
-// covers every non-attack d20 (ability checks, saves, initiative).
-// "check" is ability and skill checks (initiative included); "save" is saving
-// throws — split kinds because 5e treats them differently everywhere (Bless
-// boosts saves but not checks, Dwarven Resilience is saves only), and a rider
-// authored against a merged kind over-applied to whichever half it didn't
-// mean.
+// "check" is ability/skill checks (incl. initiative); "save" is saving
+// throws — split because 5e treats them differently (Bless boosts saves not
+// checks, Dwarven Resilience is saves only).
 export type RollKind =
   | "check"
   | "save"
@@ -133,14 +94,9 @@ export type RollKind =
   | "healing"
   | "hitDie";
 
-// The weapon properties a rider can key off. These are the 5e properties that
-// actually gate a feature ("melee weapon attack using Strength", "ranged
-// weapons only", "a two-handed or versatile melee weapon") — not the whole
-// property list, which the sheet has no use for.
-//
-// `melee`/`ranged` describe how the attack is *made*, so a thrown handaxe is
-// tagged both `melee` (it's a melee weapon) and `thrown`; Rage excludes the
-// latter, Archery requires `ranged` without `thrown`.
+// 5e weapon properties that actually gate a feature, not the full property list.
+// `melee`/`ranged` describe how the attack is made, so a thrown handaxe is
+// tagged both `melee` and `thrown`.
 export type AttackTag =
   | "melee"
   | "ranged"
@@ -154,161 +110,107 @@ export type AttackTag =
   | "loading"
   | "ammunition";
 
-// The weapon shape a rider needs to apply. Every clause must hold; a clause the
-// attack carries no information about is *unknown* rather than false, which is
-// what turns an auto-applied rider back into an opt-in prompt (see
-// `riderEligibility` in `mechanics/conditions.ts`).
+// The weapon shape a rider applies to. Every clause must hold; a clause the
+// attack has no information about is unknown rather than false, which turns
+// an auto-applied rider into an opt-in prompt (see `riderEligibility` in
+// `mechanics/conditions.ts`).
 export interface RiderCondition {
-  // Tags the attack must all have (Rage: melee).
-  tags?: AttackTag[];
-  // Tags the attack must have at least one of (Sneak Attack: finesse or ranged).
-  anyTags?: AttackTag[];
-  // Tags that disqualify it (Archery: not a thrown melee weapon).
-  without?: AttackTag[];
-  // The ability the attack must use (Rage: Strength). A finesse attack resolves
-  // to max(STR, DEX), so which one is "used" is unknowable — deliberately so.
+  tags?: AttackTag[]; // must have all (Rage: melee)
+  anyTags?: AttackTag[]; // must have at least one (Sneak Attack: finesse or ranged)
+  without?: AttackTag[]; // disqualifying tags (Archery: not a thrown melee weapon)
+  // Ability the attack must use. A finesse attack resolves to max(STR, DEX),
+  // so which one is "used" is unknowable.
   ability?: StatKey[];
 }
 
-// A modifier a feature applies to matching rolls — the roll-side closed set.
-//
-// Every variant may carry `requires`: the weapon shape it applies to. Intersected
-// once here rather than repeated per variant — it is orthogonal to the kind.
+// `requires` (the weapon shape it applies to) is factored out here since it's
+// orthogonal to the kind.
 export type RollRider = RollRiderKind & { requires?: RiderCondition };
 
 type RollRiderKind =
-  // The roll's total can't come out below this (Durable).
-  | { rider: "minimumTotal"; value: CustomFormula }
-  // Individual dice below this count as this (Reliable Talent's 10).
-  | { rider: "minimumDie"; value: number }
-  // Reroll dice at or below the threshold once, keeping the new roll
-  // (Great Weapon Fighting's 1s and 2s, Halfling Luck's natural 1s).
+  | { rider: "minimumTotal"; value: CustomFormula } // total can't come out below this (Durable)
+  | { rider: "minimumDie"; value: number } // dice below this count as this (Reliable Talent's 10)
+  // Reroll dice at or below threshold once, keeping the new roll (Great
+  // Weapon Fighting, Halfling Luck).
   | { rider: "rerollBelow"; threshold: number }
-  // Flat addition to the total.
   | {
       rider: "bonus";
       value: CustomFormula;
-      // Forces the opt-in checkbox even when `requires` is satisfied — for a
-      // condition that isn't about the weapon at all (Foe Slayer's "against a
-      // favored enemy, and not if you added it to the damage instead"). A bonus
-      // with neither `optional` nor an undecidable `requires` folds silently.
+      // Forces the opt-in checkbox even when `requires` is satisfied (Foe
+      // Slayer). A bonus with neither `optional` nor an undecidable
+      // `requires` folds silently.
       optional?: boolean;
-      // The condition, shown alongside the checkbox.
       note?: string;
     }
-  // A bonus *die* rolled onto a d20 check at roll time (Bless's d4, Guidance).
-  // Distinct from `bonus`, whose formula folds through the deterministic
-  // engine — this one is real randomness, rolled with the check and shown as
-  // its own result line. In manual mode the app still rolls it (only the d20
-  // itself is the physical roller's), so the reported total stays whole.
+  // A bonus die rolled onto a d20 check at roll time (Bless's d4, Guidance) —
+  // real randomness, distinct from `bonus`'s deterministic formula. Still
+  // app-rolled in manual mode so the reported total stays whole.
   | {
       rider: "bonusDice";
       count: number;
       die: StandardDie;
-      // Offered as a checkbox when the eligibility is situational beyond what
-      // the roll kinds express (Guidance boosts *one* ability check, then the
-      // condition ends).
-      optional?: boolean;
+      optional?: boolean; // e.g. Guidance boosts one check, then ends
       note?: string;
     }
-  // d20s at or above this crit (Improved Critical's 19).
-  | { rider: "critRange"; value: number }
-  // Advisory only — surfaced as a note, since advantage is situational.
-  | { rider: "advantage"; note: string }
-  // Extra damage folded into a weapon attack (Sneak Attack, Rage damage, Divine
-  // Smite, Divine Strike). Unlike the modifier riders above this carries a whole
-  // damage expression, and its application is *contextual* — gated to weapon
-  // attacks, declared at a specific step, optionally opt-in — so the roll dialog
-  // handles it directly rather than the silent `applyTotalRiders` fold. Catalog
-  // entries bake `amount`'s dice count from the character's class level at
-  // collection time (the engine's die count is a literal a formula can't drive);
-  // authored/homebrew instances store a concrete expression.
+  | { rider: "critRange"; value: number } // d20s at or above this crit (Improved Critical: 19)
+  | { rider: "advantage"; note: string } // advisory only, situational
+  // Extra damage folded into a weapon attack (Sneak Attack, Rage, Divine
+  // Smite/Strike). Handled directly by the roll dialog rather than the silent
+  // `applyTotalRiders` fold since it's contextual (gated to weapon attacks,
+  // declared at a specific step, optionally opt-in). Catalog entries bake
+  // `amount`'s dice count from class level at collection time; homebrew
+  // instances store a concrete expression.
   | {
       rider: "extraDamage";
-      // Dice/flat expression for the extra damage. A `CustomFormula` (not a
-      // damage map) because the type is usually the weapon's, not the rider's.
+      // CustomFormula, not a damage map, because the type is usually the
+      // weapon's, not the rider's.
       amount: CustomFormula;
-      // Omit to mean "same type as the weapon" (Sneak Attack, Rage) — shown as
-      // its own line, untyped. Set it when the type is intrinsic to the feature
-      // (Divine Smite radiant, a domain's Divine Strike type).
+      // Omit to mean "same type as the weapon" (Sneak Attack, Rage). Set when
+      // intrinsic to the feature (Divine Smite radiant).
       damageType?: DamageType;
-      // When the player commits, which drives dialog sequencing and (later) crit
-      // doubling: before the attack roll (Great Weapon Master's flat +10), after
-      // the hit is known but before damage (Sneak Attack, Divine Smite — you may
-      // wait to learn it hit/crit), or after the damage roll (reroll effects).
+      // Drives dialog sequencing/crit doubling: before the attack roll
+      // (Great Weapon Master), after the hit is known (Sneak Attack, Divine
+      // Smite), or after the damage roll (reroll effects).
       declareAt: "before-attack" | "on-hit" | "after-damage";
-      // The condition the rider's hit puts on the target (Fire Rune's
-      // Restrained, Eldritch Smite's Prone) — for extras whose invoke *is* the
-      // attack, so there's no action row to carry an `applies`. When the extra
-      // lands on a rolled damage report, the dialog stamps the condition onto
-      // it, and the wire path from there is the spell/ability one.
+      // Condition the hit puts on the target (Fire Rune, Eldritch Smite) —
+      // stamped onto the rolled damage report, then follows the spell/ability wire path.
       applies?: AppliedCondition;
-      // The player opts in per attack (Sneak Attack, Divine Smite) vs it always
-      // applies on a qualifying hit (Rage damage, Divine Strike). Default false.
+      // Opt-in per attack (Sneak Attack, Divine Smite) vs always applies on a
+      // qualifying hit (Rage, Divine Strike). Default false.
       optional?: boolean;
-      // Advisory: the sheet can't see turns, so this is a reminder only.
-      oncePerTurn?: boolean;
-      // Condition summary shown in the dialog (the eligibility the sheet can't
-      // verify — "finesse or ranged, with advantage or an ally adjacent").
-      note?: string;
-      // Present when the extra damage is powered by a spell slot the player
-      // chooses and expends (Divine Smite): the dice scale with the chosen slot
-      // level, and the slot is spent by an explicit button (not the re-rollable
-      // damage roll). When set, the modal computes the dice from the slot and
-      // `amount` is only a pre-choice placeholder.
+      oncePerTurn?: boolean; // advisory: sheet can't see turns
+      note?: string; // eligibility the sheet can't verify, shown in the dialog
+      // Powered by a spell slot the player chooses and expends (Divine
+      // Smite): dice scale with slot level, slot spent by an explicit button.
       slot?: {
-        // Lowest slot level that can power it (Divine Smite: 1).
-        minLevel: number;
-        // The scaling die (Divine Smite: d8).
-        die: DieDefinition;
-        // Dice at `minLevel` (2 → 2d8 at a 1st-level slot) …
-        diceAtMin: number;
-        // … growing +1 die per slot level above `minLevel`, capped here (5d8).
-        maxDice: number;
-        // An optional situational extra (Divine Smite's +1d8 vs undead/fiend),
-        // offered as a toggle. Same die as above.
+        minLevel: number; // lowest slot level that can power it
+        die: DieDefinition; // scaling die
+        diceAtMin: number; // dice at minLevel
+        maxDice: number; // cap, growing +1 die per slot level above minLevel
+        // Optional situational extra (Divine Smite vs undead/fiend), same die.
         bonus?: { dice: number; label: string };
       };
-      // Present when the extra damage costs a use of a limited-use pool (a Rune
-      // Knight's Fire Rune, invoked on a weapon hit). The sibling of `slot`, and
-      // for the same reason: a feature whose trigger *is* the hit belongs in the
-      // attack dialog, not as a button in the abilities panel that would have
-      // you roll its dice apart from the attack that caused them. Unlike `slot`
-      // the dice don't scale, so `amount` is authoritative; the use is spent by
-      // an explicit button, keeping the damage roll re-rollable. Never set
-      // alongside `slot` — one cost per rider.
+      // Costs a use of a limited-use pool instead of a slot (Rune Knight's
+      // Fire Rune). Dice don't scale, so `amount` is authoritative. Never set
+      // alongside `slot`.
       uses?: {
-        // The limited-use ability's title, matched the way `spendUses`' `pool`
-        // is. Usually the rider's own pool, since it's granted by it.
-        pool: string;
+        pool: string; // limited-use ability's title, matched like spendUses' pool
       };
     }
-  // Extra damage folded into a *spell's* damage — the mirror image of
-  // `extraDamage`, gated to spell damage instead of weapon attacks. Potent
-  // Spellcasting (+WIS to cantrip damage), Empowered Evocation (+INT), a
-  // Celestial warlock's Radiant Soul (+CHA). A flat modifier, not dice — it's
-  // added once to the spell's damage total and doesn't inflate on a crit, the
-  // same way a weapon's Dueling +2 stays flat. Kept a distinct kind (not a
-  // scoped `extraDamage`) so the two collectors never cross: `extraDamage`
-  // never touches a spell, `spellDamage` never touches a weapon. `RollKind`
-  // can't tell a cantrip from a leveled spell from healing, which is exactly
-  // why this carries its own `scope` rather than riding the `damage` kind.
+  // Mirror of `extraDamage` for spell damage (Potent Spellcasting, Empowered
+  // Evocation, Radiant Soul). A flat modifier, not dice — added once, doesn't
+  // inflate on a crit. Kept distinct from `extraDamage` so the two collectors
+  // never cross a spell/weapon boundary.
   | {
       rider: "spellDamage";
-      // The flat modifier added to the spell's damage total (usually a
-      // spellcasting ability modifier).
-      value: CustomFormula;
-      // Which casts it applies to. Cleric Potent Spellcasting is cantrip-only;
-      // Empowered Evocation is leveled; a type-scoped one is `any`.
+      value: CustomFormula; // usually a spellcasting ability modifier
+      // Cleric Potent Spellcasting is cantrip-only; Empowered Evocation is
+      // leveled; a type-scoped one is `any`.
       scope: "cantrip" | "leveled" | "any";
-      // The extra damage's type. Omit to fold into the spell's own damage line.
-      damageType?: DamageType;
-      // The player confirms eligibility the sheet can't see (a spell's school,
-      // its damage type, once-per-turn) — offered as a checkbox rather than
-      // applied silently. Potent Spellcasting is unconditional (auto); the
-      // school/type-scoped ones opt in.
+      damageType?: DamageType; // omit to fold into the spell's own damage line
+      // Player confirms eligibility the sheet can't see. Potent Spellcasting
+      // is unconditional; school/type-scoped ones opt in.
       optional?: boolean;
-      // Condition/reminder shown by the checkbox.
       note?: string;
     };
 
@@ -317,8 +219,8 @@ export interface FeatureRider {
   rider: RollRider;
 }
 
-// What a feature/ability can carry: riders keyed off it being on the sheet,
-// and actions attached to its limited-use pool.
+// Riders keyed off the feature being on the sheet, actions attached to its
+// limited-use pool.
 export interface FeatureMechanics {
   riders?: FeatureRider[];
   actions?: AbilityAction[];

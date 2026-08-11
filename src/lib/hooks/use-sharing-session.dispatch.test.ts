@@ -4,10 +4,8 @@ import { applyRemoteEdit } from "./use-sharing-session";
 import { FIELD } from "src/lib/data/data-definitions";
 import { updateData } from "./reducers/actions";
 
-// Applying a peer's edit. The provider around it needs a WAMP connection, but
-// this decision is pure — and it encodes the rule that keeps co-editing from
-// echoing. (Dropping this tab's own echo used to be tested here too; that
-// check moved to the envelope, `realm/envelope.test.ts`.)
+// applyRemoteEdit is pure, so it's tested directly rather than through the
+// provider (which needs a live WAMP connection).
 
 const action = updateData(FIELD.name, { value: "Vex" });
 
@@ -37,12 +35,6 @@ describe("applyRemoteEdit", () => {
     expect(dispatch.mock.calls[1][1]).toBe(true);
   });
 
-  // The session is a property of the browser, not of the open sheet: nothing
-  // ends one when you open a different character. So a host with sheet B on
-  // screen still holds sheet A's realm, and sheet A's edits used to be
-  // dispatched into B — then autosaved there, because the save gate only skips
-  // sheets joined *remotely*. A DM who owns the party's shared sheets and
-  // clicks between them scrambled them into each other.
   it("drops an edit addressed to a character other than the open one", () => {
     const dispatch = vi.fn();
     applyRemoteEdit(dispatch, { uuid: A, action }, B);

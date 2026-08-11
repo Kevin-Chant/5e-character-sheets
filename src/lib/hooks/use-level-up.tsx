@@ -12,22 +12,16 @@ const LevelUpContext = createContext<LevelUpContextData>({
   openLevelUp: () => {},
 });
 
-// Mounts the guided level-up wizard once and exposes `openLevelUp()`. It
-// operates on the currently open character; on finish it applies the leveled
-// character as a single recorded `replace_character` edit (so the whole level-up
-// is one undo step) and persists it. Unlike the creation builder, which loads a
-// brand-new character with `loadPersistedCharacter` (resetting history), the
-// level-up edits an existing sheet and must stay on the undo stack.
+// Applies the finished level-up as a single `replace_character` edit (one
+// undo step), unlike the creation builder's `loadPersistedCharacter` which
+// resets history.
 export function LevelUpProvider({ children }: React.PropsWithChildren) {
   const [open, setOpen] = useState(false);
   const { character, dispatch, persistCharacter } = useCharacter();
 
   const onFinish = (updated: Character) => {
     // Dispatch before persisting so the recorded inverse captures the
-    // pre-level-up character (read from the live character ref at dispatch
-    // time). The write itself happens in the background — the level-up is
-    // already applied in memory, and holding the modal on a Drive round-trip
-    // made the wizard feel sluggish for nothing.
+    // pre-level-up character; persist runs in the background.
     dispatch(replaceCharacter(updated));
     setOpen(false);
     void persistCharacter(updated);

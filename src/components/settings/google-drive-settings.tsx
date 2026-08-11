@@ -52,10 +52,7 @@ export default function GoogleDriveSettings() {
 
   const connected = authStatus === "ready" || hasStoredGrant();
 
-  // The account is shared app-wide (the switch notice has to outlive this
-  // panel); the counts are only wanted here, so they're fetched here. Both
-  // wait for a live token — `hasStoredGrant()` says a grant exists, not that
-  // gapi is holding a token.
+  // The account is shared app-wide; counts are only wanted here.
   const { account, failed: accountFailed } = useDriveAccount();
   const [counts, setCounts] = useState<DriveCharacterCounts>();
   const [countsFailed, setCountsFailed] = useState(false);
@@ -84,10 +81,8 @@ export default function GoogleDriveSettings() {
     return loadCounts();
   }, [authStatus, loadCounts]);
 
-  // Switching accounts changes what every Drive-backed surface is looking at,
-  // so the open sheet (which belongs to the account we just left) is cleared
-  // and the list re-fetched. The datastore object is identical either side of
-  // the switch, so nothing would refresh on its own.
+  // The datastore object is identical either side of the switch, so nothing
+  // refreshes on its own — clear the open sheet and re-fetch explicitly.
   const handleSwitchAccount = async () => {
     setBusy("switch");
     try {
@@ -119,12 +114,8 @@ export default function GoogleDriveSettings() {
     }
   };
 
-  // Return to a clean, disconnected state and send the user to the front door
-  // so they're not left on a Drive-backed sheet with no session. Clearing the
-  // remembered mode is what makes the hub ask the storage question again
-  // instead of offering a door to a backend this browser just signed out of.
-  // (signOutOfDrive/revokeDriveAccess already dropped the token and flipped
-  // the auth status; this clears the app state built on top of it.)
+  // signOutOfDrive/revokeDriveAccess already dropped the token; this clears
+  // the app state built on top of it and returns to the front door.
   const disconnect = () => {
     if (readLastDatastore() === "drive") clearLastDatastore();
     setDatastore(undefined);
@@ -136,8 +127,7 @@ export default function GoogleDriveSettings() {
   const handleSignOut = () => {
     signOutOfDrive();
     // Drop the cached account so signing back in re-reads it, but keep the
-    // remembered email: noticing that you came back as someone else is the
-    // whole point, and that comparison has to survive the sign-out.
+    // remembered email — the account-switch comparison depends on it.
     forgetDriveAccount();
     disconnect();
   };
@@ -150,8 +140,6 @@ export default function GoogleDriveSettings() {
     )
       return;
     await revokeDriveAccess();
-    // No grant left to come back to, so there's nothing for a remembered
-    // account to contradict — unlike sign-out, forgetting it is right here.
     forgetDriveAccountEntirely();
     disconnect();
   };
@@ -163,10 +151,6 @@ export default function GoogleDriveSettings() {
           title="Google Drive"
           description="You're not connected to Google Drive."
         >
-          {/* Connecting is a route (the OAuth popup needs one), so the panel
-              steps out of the way and asks to be returned to the surface you
-              opened it from — not to /sheet, which is where this used to land
-              you regardless of where you started. */}
           <Link
             to="/auth"
             state={{ returnTo: location.pathname }}
@@ -199,9 +183,6 @@ export default function GoogleDriveSettings() {
           </>
         }
       >
-        {/* Which account is signed in is the thing you check when sheets are
-            "missing" — they're usually in the other Google account. So the
-            unresolved states say so rather than rendering nothing. */}
         {authStatus !== "ready" && !accountFailed && (
           <p className="settings-value text-muted">
             Checking your Google session <Spinner />
@@ -212,19 +193,12 @@ export default function GoogleDriveSettings() {
             Couldn&apos;t reach Drive to check which account this is.
           </p>
         )}
-        {/* A full Drive is the one failure a save can't retry its way out of,
-            and it surfaces as a generic "couldn't save" — so the number that
-            explains it belongs where you'd go looking. */}
         {account?.usage !== undefined && account.limit !== undefined && (
           <p className="settings-value text-muted">
             Drive storage: {formatBytes(account.usage)} of{" "}
             {formatBytes(account.limit)} used.
           </p>
         )}
-        {/* Signing out and back in lands on the *same* account — the sign-in
-            path is silent by design — so without this there is no route from
-            one Google account to the other, and no way to act on the notice
-            that says you're in the wrong one. */}
         <button
           onClick={() => void handleSwitchAccount()}
           disabled={!!busy || authStatus !== "ready"}

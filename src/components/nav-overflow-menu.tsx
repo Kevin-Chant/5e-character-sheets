@@ -23,14 +23,12 @@ type MenuItem = {
   icon: ReactNode;
   label: string;
   disabled?: boolean;
-  // Items separated from the preceding group by a divider in the dropdown.
+  // Divider shown before this item when its group differs from the previous item's.
   group?: "primary" | "secondary";
 } & ({ onClick: () => void } | { href: string });
 
-// Collects the occasional / one-time nav actions (import, export, GitHub) into a
-// single dropdown so the bar can keep only frequent actions as direct buttons.
-// When only one action is actually available, the dropdown collapses to that
-// action rendered directly — a menu wrapping a lone item isn't worth the click.
+// Collects occasional nav actions (import, export, GitHub) into a dropdown; a
+// single available action renders directly instead of a one-item menu.
 export default function NavOverflowMenu({
   onImportFile,
   onExportFile,
@@ -65,7 +63,7 @@ export default function NavOverflowMenu({
   }, [open]);
 
   const items: MenuItem[] = [
-    // Local import needs a datastore to load into; hidden until one is selected.
+    // Hidden until a datastore is selected — local import needs one to load into.
     datastore && {
       key: "import-file",
       icon: <FaFileImport />,
@@ -88,9 +86,8 @@ export default function NavOverflowMenu({
       onClick: onExportFile,
       group: "primary" as const,
     },
-    // Move the open character to the other storage backend. The hook answers
-    // "to where" (undefined when it can't move — no character, a borrowed or
-    // remote sheet, a shared Drive doc), so the menu just names the target.
+    // moveTarget is undefined when the move isn't possible (no character,
+    // borrowed/remote sheet, shared Drive doc).
     moveTarget && {
       key: "move",
       icon: moveTarget === "drive" ? <FaGoogleDrive /> : <FaLaptop />,
@@ -113,8 +110,6 @@ export default function NavOverflowMenu({
 
   if (items.length === 0) return <></>;
 
-  // Single available action: render it directly as an icon button/link instead
-  // of a dropdown.
   if (items.length === 1) {
     const item = items[0];
     if ("href" in item) {

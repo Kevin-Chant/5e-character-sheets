@@ -47,7 +47,6 @@ describe("weaponTags", () => {
 
   it("tags a melee weapon with a range as thrown, and a ranged one not", () => {
     expect(weaponTags(preset("Handaxe"))).toContain("thrown");
-    // A longbow's range is just its range.
     expect(weaponTags(preset("Longbow"))).not.toContain("thrown");
   });
 
@@ -57,26 +56,20 @@ describe("weaponTags", () => {
   });
 
   it("makes two-handed a property of the attack, not the weapon", () => {
-    // A versatile weapon is only two-handed in its (2H) variant — which is what
-    // Great Weapon Fighting and Dueling actually key off.
     expect(weaponTags(preset("Longsword"))).toEqual(
       expect.arrayContaining(["melee", "versatile"]),
     );
     expect(weaponTags(preset("Longsword"))).not.toContain("two-handed");
     expect(weaponTags(preset("Longsword"), true)).toContain("two-handed");
-    // A greatsword is two-handed either way.
     expect(weaponTags(preset("Greatsword"))).toContain("two-handed");
   });
 
   it("only names real weapons in the extra-properties table", () => {
-    // Guards the one table that isn't derived: a typo'd or renamed weapon there
-    // would silently lose its properties.
     const names = new Set(
       WEAPON_PRESETS.flatMap((g) => g.options).map((w) => w.name),
     );
     for (const w of WEAPON_PRESETS.flatMap((g) => g.options))
       expect(names.has(w.name)).toBe(true);
-    // Every heavy/two-handed weapon we care about resolves through the table.
     expect(weaponTags(preset("Greataxe"))).toEqual(
       expect.arrayContaining(["heavy", "two-handed", "melee"]),
     );
@@ -145,12 +138,9 @@ describe("conditionEligibility", () => {
   });
 
   it("is unknown when the ability is ambiguous, but a tag failure still wins", () => {
-    // Rapier: finesse, so the ability is unknowable — the STR clause can't be
-    // settled …
     expect(
       conditionEligibility({ tags: ["melee"], ability: [StatKey.str] }, rapier),
     ).toBe("unknown");
-    // … but a decidable failure elsewhere beats any number of unknowns.
     expect(
       conditionEligibility(
         { tags: ["ranged"], ability: [StatKey.str] },
@@ -161,7 +151,6 @@ describe("conditionEligibility", () => {
 });
 
 describe("applicableRiders / needsOptIn", () => {
-  // Archery's shape: decidable from the weapon, no `optional` flag.
   const archery = rider(
     {
       rider: "bonus",
@@ -171,7 +160,6 @@ describe("applicableRiders / needsOptIn", () => {
     },
     "Archery",
   );
-  // Rage's shape: decidable weapon half, plus a state the sheet can't see.
   const rage = rider(
     {
       rider: "extraDamage",
@@ -210,16 +198,12 @@ describe("applicableRiders / needsOptIn", () => {
   });
 
   it("still prompts for a non-weapon condition even when the weapon fits", () => {
-    // Rage on a greatsword: the weapon qualifies, but "are you raging" doesn't
-    // come from the sheet.
     expect(needsOptIn(rage, attackContext(attack("Greatsword")))).toBe(true);
   });
 });
 
 describe("hand-built attacks", () => {
   it("an untagged custom attack behaves exactly as it did before tags", () => {
-    // The whole compatibility promise: no tags means "unknown", so every
-    // conditional rider is offered as a tick rather than guessed at.
     const custom: Attack = {
       id: "00000000-0000-0000-0000-0000000000ff",
       name: "Mystery Blade",

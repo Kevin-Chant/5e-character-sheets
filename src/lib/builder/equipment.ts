@@ -7,11 +7,10 @@ import {
 } from "src/lib/data/weapon-presets";
 
 // Class starting-equipment options arrive from the SRD as prose lines like
-// "(a) a greataxe or (b) any martial melee weapon". Some lines carry no "(x)"
-// markers at all ("holy symbol", "druidic focus") — those are plain grants.
-// These helpers parse a line into either a fixed grant or a set of labelled
-// choices, classify each concrete/category grant, and assemble the resulting
-// equipment list, attacks, and AC formula.
+// "(a) a greataxe or (b) any martial melee weapon". Lines with no "(x)"
+// markers ("holy symbol", "druidic focus") are plain grants. These helpers
+// parse a line, classify each grant, and assemble the resulting equipment
+// list, attacks, and AC formula.
 
 export interface EquipmentChoice {
   key: string;
@@ -99,9 +98,7 @@ export interface ArmorPreset {
   mechanics: ArmorMechanics;
 }
 
-// Light armor takes full DEX; medium caps it at +2; heavy takes none. Presets
-// carry the mechanics directly (base AC + tier + DEX mode) so both the builder
-// and the equipment editor's preset picker consume the same source of truth.
+// Light armor takes full DEX; medium caps it at +2; heavy takes none.
 const light = (base: number): ArmorMechanics => ({
   base,
   category: "light",
@@ -207,9 +204,8 @@ function classifySegment(seg: string): EquipmentGrant {
   return { kind: "item", text: raw };
 }
 
-// Split a choice text into grants. Compound lines ("leather armor, longbow, and
-// 20 arrows") split on commas/"and"; simple category phrases ("any martial
-// melee weapon") stay whole.
+// Split a choice text into grants. Compound lines split on commas/"and";
+// simple category phrases ("any martial melee weapon") stay whole.
 export function grantsForChoiceText(text: string): EquipmentGrant[] {
   return text
     .split(/\s*,\s*and\s+|\s*,\s*|\s+and\s+/i)
@@ -233,18 +229,16 @@ export function weaponSlotsForText(text: string): WeaponCategory[] {
 export interface ClassLoadout {
   equipment: string[];
   attacks: Attack[];
-  // The granted body armor (label + mechanics), if any — used by the builder to
-  // tag the matching equipment item and mark it equipped. AC itself comes from
-  // the `equippedArmor` formula leaf, not a baked formula.
+  // Granted body armor, if any — used to tag the matching equipment item as
+  // equipped. AC itself comes from the `equippedArmor` formula leaf.
   armor?: ArmorPreset;
-  // Whether a shield is granted (the "Shield" equipment line is tagged equipped).
   shield: boolean;
 }
 
-// Resolve a class's fixed items + selected option choices + the player's weapon
-// picks into concrete equipment lines, attacks, and any granted armor/shield.
-// `choiceSel` maps option index → chosen choice index; `weaponSel` maps option
-// index → the concrete weapon names filling that option's slots.
+// Resolve a class's fixed items + selected option choices + the player's
+// weapon picks into equipment lines, attacks, and any granted armor/shield.
+// `choiceSel` maps option index → chosen choice index; `weaponSel` maps
+// option index → the concrete weapon names filling that option's slots.
 export function resolveClassLoadout(
   fixed: string[],
   options: string[],
@@ -297,14 +291,8 @@ export function resolveClassLoadout(
   return { equipment, attacks, armor, shield };
 }
 
-// ---------------------------------------------------------------------------
-// Starting wealth (PHB p.143; Artificer from TCE).
-//
-// The PHB alternative to taking your class's equipment package: roll for gold
-// and buy your own kit. Every class rolls some number of d4s times 10 — except
-// the monk, whose 5d4 is famously *not* multiplied.
-// ---------------------------------------------------------------------------
-
+// Starting wealth (PHB p.143; Artificer from TCE) — the alternative to taking
+// your class's equipment package: roll for gold and buy your own kit.
 export interface StartingWealth {
   dice: number;
   multiplier: number;
@@ -317,7 +305,7 @@ export const STARTING_WEALTH: Record<OfficialClass, StartingWealth> = {
   [OfficialClass.Cleric]: { dice: 5, multiplier: 10 },
   [OfficialClass.Druid]: { dice: 2, multiplier: 10 },
   [OfficialClass.Fighter]: { dice: 5, multiplier: 10 },
-  // The monk's 5d4 gp is the one entry with no ×10 — poverty is the point.
+  // Monk's 5d4 gp is the one entry with no ×10.
   [OfficialClass.Monk]: { dice: 5, multiplier: 1 },
   [OfficialClass.Paladin]: { dice: 5, multiplier: 10 },
   [OfficialClass.Ranger]: { dice: 5, multiplier: 10 },
@@ -338,15 +326,12 @@ export const startingWealthFor = (
 export const describeStartingWealth = (w: StartingWealth): string =>
   `${w.dice}d4${w.multiplier > 1 ? ` × ${w.multiplier}` : ""} gp`;
 
-// A real d4. Local like `ability-scores.ts`'s roller, and deliberately *not*
-// `rules.rollDie` — that one is a deterministic stub for the formula engine
-// (it returns 1 for every standard die), so wealth rolled through it would
-// always come out minimum.
+// Not `rules.rollDie`: that's a deterministic stub for the formula engine
+// (always returns 1), which would roll wealth to the minimum every time.
 const rollD4 = (): number => Math.floor(Math.random() * 4) + 1;
 
-// Rolls the wealth. Kept out of `buildCharacter` deliberately: the builder is
-// pure and re-runs on every keystroke, so a roll living there would reshuffle
-// the player's gold as they typed. The wizard rolls once, into state.
+// Kept out of `buildCharacter`: the builder is pure and re-runs on every
+// keystroke, so a roll living there would reshuffle gold as the player typed.
 export function rollStartingWealth(w: StartingWealth): number {
   let total = 0;
   for (let i = 0; i < w.dice; i++) total += rollD4();

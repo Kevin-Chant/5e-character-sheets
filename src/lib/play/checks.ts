@@ -9,30 +9,22 @@ import {
 } from "src/lib/rules";
 import { Character } from "src/lib/types";
 
-// The ad-hoc d20s a table asks for by voice — "give me a Perception check",
-// "everyone, a DEX save" — as data, so both the player's quick launcher and
-// the DM's roll call speak the same language over the wire.
-//
-// Lives here rather than in `rules.ts` for the same reason `initiative.ts`
-// does: the modifiers need `calculateCustomFormula` (save/skill bonus
-// formulas), and rules.ts can't import the formula engine without a cycle.
+// Lives outside rules.ts because these modifiers need calculateCustomFormula,
+// and rules.ts can't import the formula engine without a cycle.
 
 export type RollCallCheck =
   | { kind: "save"; stat: StatKey }
   | { kind: "ability"; stat: StatKey }
   | { kind: "skill"; skill: SkillName };
 
-// "Wisdom Save", "Strength check", "Perception (wis)" — the label both the
-// prompt and the roll dialog show, and the one a result carries back.
 export function checkLabel(check: RollCallCheck): string {
   if (check.kind === "save") return `${STAT_NAMES[check.stat]} Save`;
   if (check.kind === "ability") return `${STAT_NAMES[check.stat]} check`;
   return check.skill;
 }
 
-// The proficiency contribution to a d20 modifier: double PB for expertise, PB
-// for proficiency, half PB (rounded down) for Jack of All Trades, else none.
-// Mirrors the sheet's skills column — keep the two in step.
+// Double PB for expertise, PB for proficiency, half PB (rounded down) for
+// Jack of All Trades, else none. Mirrors the sheet's skills column.
 function proficiencyContribution(
   pb: number,
   proficient: boolean,
@@ -62,8 +54,6 @@ export function checkModifier(
     );
   }
   if (check.kind === "ability") {
-    // Jack of All Trades applies to any ability check without PB — a raw
-    // ability check included.
     return (
       modifier(character.stats[check.stat]) +
       proficiencyContribution(pb, false, false, jack)
@@ -86,8 +76,7 @@ export function checkModifier(
   );
 }
 
-// Everything the pickers offer, in the order a table thinks: saves first
-// (the DM's most common ask), then raw abilities, then skills.
+// Order: saves, then abilities, then skills.
 export const CHECK_GROUPS: {
   group: string;
   options: { value: string; check: RollCallCheck }[];
@@ -115,10 +104,8 @@ export const CHECK_GROUPS: {
   },
 ];
 
-// The same list flattened for the shared `<Select>`: one option per check,
-// carrying the heading it sorts under and the words a player types that its
-// label doesn't contain. "save" is the whole reason `keywords` exists — the
-// group reads "Saving throws", and nobody at a table says that.
+// Flattened for the shared `<Select>`. `keywords` covers "save", since the
+// group label reads "Saving throws".
 export const CHECK_OPTIONS: {
   value: string;
   label: string;
@@ -133,8 +120,6 @@ export const CHECK_OPTIONS: {
   })),
 );
 
-// The select's flat value ↔ check mapping, so the wire carries data and the
-// <option> carries a string.
 export function checkForValue(value: string): RollCallCheck | undefined {
   for (const { options } of CHECK_GROUPS) {
     const hit = options.find((o) => o.value === value);

@@ -10,9 +10,7 @@ interface TooltipProps {
   className?: string;
 }
 
-// Reusable hover/focus tooltip. Wraps an arbitrary trigger and reveals a
-// one-line label via CSS (`.tooltip` styles in index.css). Focusable so it is
-// reachable by keyboard, and exposes the label to assistive tech via aria.
+// Hover/focus tooltip. Focusable for keyboard reach; label exposed via aria.
 export default function Tooltip({
   label,
   children,

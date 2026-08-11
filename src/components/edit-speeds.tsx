@@ -14,9 +14,8 @@ const EXTRA_MODES: Array<[keyof Speeds, string]> = [
   ["burrow", "Burrow"],
 ];
 
-// Editor for the character's movement speeds. Walk is always shown; the other
-// modes are added on demand (each a removable row), so the modal stays a narrow
-// single column instead of a four-wide grid.
+// Walk is always shown; other movement modes are added on demand as
+// removable rows.
 export default function EditSpeeds() {
   const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();

@@ -7,10 +7,8 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 
-// The whole point of cursors is that they serialize to the *exact* dot-path
-// strings the pipeline used before, so the wire format / undo-redo / modal
-// routing are byte-for-byte unchanged. These assert that parity for every path
-// *shape* that appears in the editor inventory.
+// Asserts serialization parity with the pipeline's dot-path strings for every
+// path shape in the editor inventory.
 describe("Cursor serialization parity", () => {
   it("bare top-level field → no subField", () => {
     const c = charPath(FIELD.currHp);
@@ -126,7 +124,6 @@ describe("updateAt / clearAt produce the pipeline's Action shape", () => {
 
 describe("type-level guards (compile-time only)", () => {
   it("rejects illegal traversals and values", () => {
-    // Descending *into* a CustomFormula is a dead end — formulas swap whole.
     // @ts-expect-error .k() is not available on a Cursor<CustomFormula>
     charPath(FIELD.acFormula).k("operation");
 

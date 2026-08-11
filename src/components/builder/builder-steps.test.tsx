@@ -13,10 +13,8 @@ import {
 } from "./builder-steps";
 import { DEFAULT_SETTINGS, SettingsContext } from "src/lib/hooks/use-settings";
 
-// Creation-wizard steps, like the level-up ones, are context-free props
-// components. These cover the choices that only appear for certain
-// race/class combinations — the conditional rendering that unit tests on
-// `buildCharacter` can't see.
+// Covers conditional rendering for certain race/class combinations that unit
+// tests on `buildCharacter` can't see.
 
 const renderStep = (
   Step: (p: {
@@ -51,8 +49,6 @@ describe("ClassStep", () => {
     expect(screen.getByText("Favored Enemy")).toBeInTheDocument();
     expect(screen.getByText("Natural Explorer")).toBeInTheDocument();
 
-    // Fourteen favored enemies is past `SingleChoice`'s threshold, so the pick
-    // is a dropdown rather than a column of checkboxes.
     await chooseOption("Favored Enemy", "Dragons");
     expect(patch).toHaveBeenCalledWith({
       chosenOptions: { favoredEnemy: ["Dragons"] },
@@ -67,8 +63,6 @@ describe("ClassStep", () => {
     expect(patch).toHaveBeenCalledWith({ optionalFeatures: ["Favored Foe"] });
   });
 
-  // With the swap taken, the favored-enemy list is gone entirely — the terrain
-  // one, whose own swap wasn't taken, stays.
   it("drops only the list the taken swap replaces", () => {
     renderStep(ClassStep, {
       classIndex: "ranger",
@@ -94,7 +88,6 @@ describe("RaceStep", () => {
     renderStep(RaceStep, { raceIndex: "human" });
     expect(screen.queryByText("Feat")).not.toBeInTheDocument();
 
-    // Variant Human is its own race now, not a subrace of Human.
     renderStep(RaceStep, { raceIndex: "variant-human" });
     expect(screen.getAllByText("Feat").length).toBeGreaterThan(0);
   });
@@ -111,8 +104,6 @@ describe("RaceStep", () => {
     renderStep(RaceStep, { raceIndex: "human" });
     expect(screen.getByText("Extra languages")).toBeInTheDocument();
 
-    // Opening the combobox suggests real options minus Common (a Human's
-    // fixed language).
     await userEvent.click(
       screen.getByPlaceholderText("Choose or type a language"),
     );
@@ -134,8 +125,7 @@ describe("BackgroundStep", () => {
       classIndex: "rogue",
       classSkillChoices: [SkillName.Stealth],
     });
-    // "Stealth" also appears in the class skill picker above, so scope the
-    // query to the expertise field.
+    // Scope to the expertise field: "Stealth" also appears in the class skill picker above.
     const field = screen
       .getByText(/Expertise \(choose 2\)/)
       .closest(".builder-field") as HTMLElement;
@@ -152,8 +142,6 @@ describe("BackgroundStep", () => {
       backgroundIsCustom: true,
       backgroundName: undefined,
     });
-    // Both used to be one free-text box with no suggestions — and a language
-    // typed into it was filed as a tool.
     await userEvent.click(screen.getAllByPlaceholderText(/type a tool/)[0]);
     await userEvent.click(screen.getByText("Herbalism kit"));
     expect(patch).toHaveBeenCalledWith({
@@ -174,7 +162,7 @@ describe("BackgroundStep", () => {
     const field = screen
       .getByText(/Background skill proficiencies \(choose 1\)/)
       .closest(".builder-field") as HTMLElement;
-    // History is granted outright, so it isn't one of the options.
+    // History is granted outright, so it's not an option.
     expect(
       within(field).queryByRole("button", { name: "History" }),
     ).not.toBeInTheDocument();
@@ -199,8 +187,7 @@ describe("BackgroundStep", () => {
 });
 
 describe("RaceStep — subrace options", () => {
-  // Scope to the Subrace field: the race grid above it now has a Variant Human
-  // card of its own, which a whole-document query would pick up.
+  // Scope to the Subrace field: Variant Human also has its own race grid card.
   const subraceCards = () => {
     const field = screen.getByText("Subrace").closest(".builder-field");
     return within(field as HTMLElement)
@@ -210,7 +197,6 @@ describe("RaceStep — subrace options", () => {
 
   it("lets a human be a plain SRD human", () => {
     renderStep(RaceStep, { raceIndex: "human" });
-    // Variant Human used to be Human's only subrace, which made it mandatory.
     expect(subraceCards().some((t) => t.includes("Variant Human"))).toBe(false);
     expect(subraceCards().some((t) => t.includes("No subrace"))).toBe(true);
   });
@@ -238,15 +224,11 @@ describe("RaceStep — subrace options", () => {
     const noSubrace = screen
       .getAllByRole("button")
       .find((b) => (b.textContent ?? "").includes("No subrace"));
-    // Leaving it unselected made "Other subrace" read as the only real option.
     expect(noSubrace?.className).toContain("selected");
   });
 });
 
 describe("DetailsStep and the personality setting", () => {
-  // The other half of the Game setting covered in `display.test.tsx`: a table
-  // that doesn't play with personality shouldn't be asked to invent traits,
-  // ideals, bonds and flaws while making a character either.
   const PERSONALITY = ["Personality traits", "Ideals", "Bonds", "Flaws"];
 
   const renderDetails = (trackPersonality: boolean) =>

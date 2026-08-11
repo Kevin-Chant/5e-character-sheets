@@ -12,11 +12,9 @@ import {
   isDieExpression,
 } from "src/lib/types";
 
-// Authoring helpers for homebrew ability mechanics: the editor UI speaks
-// `SimpleAmount` (a number, N d M + K, or "player picks"), which round-trips
-// to the subset of `AmountExpr` a homebrew author needs. Catalog-only shapes
-// (chosen slot level, per-level tables, class-level addends) parse to null and
-// the editor shows them read-only rather than mangling them.
+// `SimpleAmount` is the editor-facing subset of `AmountExpr` (number, N d M +
+// K, or "player picks"). Catalog-only shapes (chosen slot level, per-level
+// tables, class-level addends) parse to null and are shown read-only.
 
 export type SimpleAmount =
   | { mode: "number"; value: number }
@@ -84,10 +82,7 @@ export function buildAmount(simple: SimpleAmount): AmountExpr {
   }
 }
 
-// The choice pickers an action's effects imply. Recomputed on every edit so
-// authors never manage `choose` by hand: a restore/expend-slot effect without
-// a pinned level needs a level picker, a chosen amount needs the number
-// input.
+// The choice pickers an action's effects imply, recomputed on every edit.
 export function deriveChoose(
   effects: Effect[],
 ): AbilityAction["choose"] | undefined {

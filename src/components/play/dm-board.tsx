@@ -48,18 +48,11 @@ import ConcentrationCell from "./concentration-cell";
 import { RestCallForm, RollCallForm } from "./table-calls";
 import { HpTotal, VitalsEntry } from "./vitals-entry";
 
-// The DM's side of the play surface.
-//
-// A player asks "what can I do right now"; a DM asks "what is the state of
-// eight creatures". Same encounter, opposite shape — so this is a roster of
-// rows, not the action board with extra buttons. Unlike the player rail, the
-// roster here *owns* the order: initiative, adding a fight's worth of monsters,
-// and sweeping the dead off the table all live on the rows, so the strip above
-// can shrink to the two controls that move the fight along.
-//
-// Writes here are ordinary encounter edits. For a row whose player is present,
-// an HP edit travels to their actual sheet (see `receiveState.ownVitals`) —
-// and their own next edit wins, because oversight is not custody.
+// The DM's side of the play surface: a roster of rows (not the player action
+// board) that owns initiative, adding monsters, and sweeping the dead.
+// Writes are ordinary encounter edits; for a row with a present player, an
+// HP edit travels to their actual sheet (see `receiveState.ownVitals`), and
+// their own next edit wins.
 export default function DmBoard() {
   const {
     encounter,
@@ -96,19 +89,16 @@ export default function DmBoard() {
     callForRest,
   } = useTableTalk();
 
-  // Concentration checks this board has noticed and the table hasn't answered:
-  // participant id → save DC. Local UI state — the *reminder* is this DM's,
-  // even though the damage that caused it is everyone's.
+  // Pending concentration checks: participant id → save DC. Local UI state.
   const [conChecks, setConChecks] = useState<Record<string, number>>({});
 
-  // Every HP write on this board goes through here, so damage landing on a
-  // concentrating creature raises the DC 10-or-half-damage reminder no matter
-  // which control dealt it — the row's stepper or an accepted report.
+  // All HP writes route through here so the DC 10-or-half-damage reminder
+  // fires regardless of source (row stepper or accepted report).
   const applyVitals = (
     participant: Participant,
     vitals: ParticipantVitals,
     // Known for an applied report; derived from the pools' drop otherwise.
-    // Temp HP counts — 5e keys the check off damage taken, absorbed or not.
+    // Temp HP counts toward damage taken per 5e's concentration rule.
     damageDealt?: number,
   ) => {
     const before = participant.vitals;
@@ -144,13 +134,7 @@ export default function DmBoard() {
 
   return (
     <div className="dm-board">
-      {/* What the table has rolled, as it rolls it. One card per act, so an
-          attack reads as the small conversation it is — the to-hit against
-          the target's AC, then the damage — instead of two bare numbers
-          arriving a minute apart with nothing tying them together. Applying
-          goes through the same write as the row's own stepper (concentration
-          reminders included); the amount is editable first, because "I'm
-          halving that, it saved" is a table's most common override. */}
+      {/* One card per act (to-hit then damage grouped). Amount is editable before applying. */}
       {reports.length > 0 && (
         <div className="dm-report-queue">
           <div className="row space-between dm-queue-head">
@@ -204,11 +188,7 @@ export default function DmBoard() {
                 staged: participant.hidden,
               })}
             >
-              {/* Labelled, because the HP stepper two inches away is its
-                  visual twin — on a phone, damage typed into this box quietly
-                  re-sorts the roster "by HP". Editable in combat too: a pack
-                  added on one roll can be split after the fact, and the row
-                  re-seats to where the new number says. */}
+              {/* Editable in combat: the row re-seats when the number changes. */}
               <label className="dm-row-init dm-field-label">
                 <span>Init</span>
                 <StepperInput
@@ -232,10 +212,6 @@ export default function DmBoard() {
                 {inCombat && participant.id === nextUp?.id && (
                   <span className="dm-next-chip">next</span>
                 )}
-                {/* Is anybody behind this row? The one thing a roster of
-                    creatures couldn't say, and the thing a DM needs before
-                    calling on someone: a player whose phone dropped left a row
-                    identical to a player who simply hadn't acted yet. */}
                 <LivenessChip
                   participant={participant}
                   clientId={clientId}
@@ -243,9 +219,7 @@ export default function DmBoard() {
                   quietClients={quietClients}
                   connected={sessionStatus === "connected"}
                 />
-                {/* Staging: the ambush the players haven't seen yet. Only for
-                    hand-typed rows — a character-backed row is somebody's
-                    seat at the table, not a surprise to spring. */}
+                {/* Staging (hide from players) only applies to hand-typed rows. */}
                 {!participant.characterUuid && (
                   <button
                     type="button"
@@ -267,11 +241,7 @@ export default function DmBoard() {
                     {participant.hidden ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 )}
-                {/* Which side the row fights for — what the players' target
-                    strip and the pickers group by. Defaults from the sheet
-                    heuristic (no sheet → foe) and flips with a click, because
-                    the heuristic misses both the hand-typed ally and the
-                    sheet-backed villain — and sides change mid-fight. */}
+                {/* Side defaults from the sheet heuristic (no sheet → foe); flips with a click. */}
                 <button
                   type="button"
                   className={classNames("dm-side-btn", {
@@ -292,11 +262,7 @@ export default function DmBoard() {
                 >
                   {isFoe(participant) ? "Foe" : "Party"}
                 </button>
-                {/* Offering is the deliberate per-sheet act that consents to
-                    the whole sheet travelling — bringing it only showed a
-                    projection. Once a player picks it up (ownership moves to
-                    their client) the offer shows as in play; it reverts when
-                    they leave. */}
+                {/* Once a player picks up an offered sheet, ownership moves to their client; reverts when they leave. */}
                 {participant.characterUuid &&
                   participant.ownerClientId === clientId && (
                     <>
@@ -319,11 +285,7 @@ export default function DmBoard() {
                           Offer sheet
                         </button>
                       )}
-                      {/* The targeted version of the same act. Choosing a
-                          player marks the sheet offered and asks them; the
-                          sheet only travels when they accept, so pointing at
-                          a stale name (a crashed tab we never heard leave)
-                          costs nothing — the offer simply stands. */}
+                      {/* Marks the sheet offered and asks the chosen player; travels only on accept. */}
                       {present.length > 0 && (
                         <Select
                           className="dm-assign-select"
@@ -358,8 +320,7 @@ export default function DmBoard() {
                   applyVitals(participant, vitals, dealt)
                 }
               />
-              {/* Both cells are the player rail's controls, mounted in a
-                  narrower box — not a DM-flavoured variant of them. */}
+              {/* Same controls as the player rail, in a narrower box. */}
               <div className="dm-row-conditions">
                 <ConditionsControl participant={participant} />
               </div>
@@ -402,29 +363,18 @@ export default function DmBoard() {
         )}
       </div>
 
-      {/* "Brakka, give me a Perception check" — the ask routed through the
-          tool. Everyone, or one present player; the answers land in the
-          queue above. */}
+      {/* Answers land in the report queue above. */}
       {sessionStatus === "connected" && (
         <RollCallForm present={present} callForRoll={callForRoll} />
       )}
 
-      {/* "You make camp for the night." The other thing a DM says to the whole
-          table at once, and the only one that was still going out by voice —
-          followed by four players each finding the bed button and each being
-          asked, separately, a question the DM had already answered. */}
       {sessionStatus === "connected" && (
         <RestCallForm callForRest={callForRest} />
       )}
 
-      {/* Table visibility, the DM's call, grouped in one place: how much
-          health the players see, and whether death saves are the table's
-          drama or private. On the encounter so it reaches every client — and
-          here as well as in Settings → Game because the moment a DM decides
-          to tighten it is mid-session. */}
+      {/* Also in Settings → Game; duplicated here since a DM may toggle it mid-session. */}
       <div className="dm-visibility">
-        {/* A `span`, not a `label`: the picker is a button, and a label that
-            wraps one forwards nothing when you click its text. */}
+        {/* `span`, not `label`: the picker is a button, and a wrapping label forwards nothing. */}
         <span className="dm-sharing">
           <span className="text-muted">Players see</span>
           <Select
@@ -451,14 +401,10 @@ export default function DmBoard() {
   );
 }
 
-// One act at the table, waiting on a ruling: who rolled what at whom, with
-// every stage of it and every re-roll of every stage. A target that has left
-// the fight, or was never tracked, still shows — the card tells the DM what
-// happened, it just has nowhere to land.
-//
-// Approving healing splits by who owns the target: a hand-typed row is the
-// DM's, so it applies directly; a character-backed row belongs to a player,
-// so approval sends an offer and *they* apply it to their own sheet.
+// One act at the table awaiting a ruling. A target that has left the fight
+// (or was never tracked) still shows the card, with nowhere to apply to.
+// Healing on a hand-typed row applies directly; on a character-backed row it
+// sends an offer for the player to apply themselves.
 function ExchangeCard({
   exchange,
   participants,
@@ -485,8 +431,6 @@ function ExchangeCard({
   ) => void;
   onDone: () => void;
 }) {
-  // A Fireball names a set of targets; an attack roll names one. Either way
-  // each named id resolves (or doesn't) against the current order.
   const resolved = exchange.targets.map((t) => ({
     ...t,
     participant: participants.find((p) => p.id === t.id),
@@ -574,16 +518,11 @@ function StageRow({
   return (
     <div className="dm-exchange-stage">
       <span className="dm-stage-name">{STAGE_LABELS[stage.stage]}</span>
-      {/* A cast announces, it doesn't total — the save chip in the detail is
-          the number that matters. */}
+      {/* A cast has no total of its own — the save DC is what matters. */}
       {stage.stage !== "cast" && (
         <span className="dm-stage-total">{roll.total}</span>
       )}
       <RollDetail roll={roll} />
-      {/* The re-roll trail. Nothing was blocked and nothing is being accused
-          — but a number that was rolled twice says so, which is the only
-          honesty this layer can offer and, at most tables, the only one it
-          needs. */}
       {stage.superseded.length > 0 &&
         (stage.stage === "cast" ? (
           <span className="dm-stage-rerolled" title="Announced more than once">
@@ -603,16 +542,11 @@ function StageRow({
           onRule={onRule}
         />
       )}
-      {/* A check gets the same spoken answer a to-hit does — minus the AC
-          opinion, because the DC lives in the DM's head. A death save scores
-          itself (the verdict is already in the label), so ruling on it would
-          only contradict the dice. */}
+      {/* No AC opinion for checks (the DC isn't known); death saves score themselves and aren't ruled on. */}
       {stage.stage === "check" && !roll.label?.startsWith("Death save") && (
         <CheckRuling verdict={verdict} onRule={onRule} />
       )}
-      {/* The cast's condition, offered per target. Character-backed targets
-          already got their own consent prompt; a monster has no player to
-          ask, so the seat is its keeper and the card offers the write. */}
+      {/* DM applies conditions to monsters directly; player-owned targets get their own consent prompt elsewhere. */}
       {roll.condition &&
         targets.map((t) => (
           <ApplyConditionButton
@@ -622,9 +556,7 @@ function StageRow({
             from={roll.fromParticipantId}
           />
         ))}
-      {/* One apply row per tracked target: a Fireball's 24 lands on each orc
-          separately, because "Orc 1 saved, Orc 2 didn't" is the ordinary
-          ruling and each box takes its own halving. */}
+      {/* One apply row per tracked target — each takes its own halving/override. */}
       {(stage.stage === "damage" || heals) &&
         targets
           .filter((t) => t.vitals)
@@ -654,9 +586,7 @@ const STAGE_LABELS: Record<ExchangeStage["stage"], string> = {
   roll: "Roll",
 };
 
-// "Apply Hideous Laughter to Goblin 1." The DM's half of a cast condition —
-// re-clickable never, because the row itself says it's held: the disabled
-// state derives from the live participant, so a condition the player removed
+// Disabled state derives from the live participant, so a removed condition
 // can be re-applied and one already ticking can't be stacked.
 function ApplyConditionButton({
   target,
@@ -665,8 +595,7 @@ function ApplyConditionButton({
 }: {
   target: Participant;
   condition: { name: string; rounds?: number };
-  // The caster's participant row, off the report — recorded as the mark's
-  // provenance so caster-only benefits (Hex) pay the right client.
+  // Caster's participant id, recorded as provenance for caster-only benefits (Hex).
   from?: string;
 }) {
   const { giveCondition } = useEncounter();
@@ -696,9 +625,7 @@ function ApplyConditionButton({
   );
 }
 
-// "That's a success." The check's counterpart to Hit/Miss — the DM knows the
-// DC, the app doesn't, so there's no advisory opinion here, just the answer
-// travelling in-app instead of by voice. Re-rulable like the to-hit buttons.
+// Check's counterpart to Hit/Miss; no AC-style opinion since the app doesn't know the DC.
 function CheckRuling({
   verdict,
   onRule,
@@ -733,19 +660,13 @@ function CheckRuling({
   );
 }
 
-// Everything about a roll that isn't its total: the faces behind it, whether
-// it was a crit, the save it has to beat, what it's made of. Most of this
-// never used to leave the roller's screen, which left the DM ruling on
-// resistance, save DCs and once-per-turn riders from memory.
+// Everything about a roll besides its total: faces, crit/fumble, save DC, damage breakdown.
 function RollDetail({ roll }: { roll: RollReport }) {
   const faces = formatFaces(roll);
   const modifier = impliedModifier(roll);
   return (
     <span className="dm-stage-detail text-muted">
       {faces && <span>{faces}</span>}
-      {/* The add-ons, called out: the flat modifier the total implies, then
-          each bonus die by source — so "18" reads as "d20 14, +3, +1 Bless"
-          rather than a number the seat has to take whole. */}
       {modifier !== undefined && (
         <span>
           {modifier > 0 ? "+" : ""}
@@ -788,9 +709,7 @@ function RollDetail({ roll }: { roll: RollReport }) {
               : ""}
         </span>
       )}
-      {/* Itemised only when the breakdown says something the total doesn't:
-          one untyped lump of slashing beside the number "7" is just "7"
-          twice. Two types, or a rider carrying its source, is a ruling. */}
+      {/* Shown only when the breakdown adds information beyond the total. */}
       {itemised(roll).map((part, i) => (
         <span key={`${part.source ?? part.damageType ?? i}`}>
           {part.total} {part.damageType ?? "damage"}
@@ -801,19 +720,14 @@ function RollDetail({ roll }: { roll: RollReport }) {
   );
 }
 
-// The damage lines worth printing: nothing when the whole roll is one plain
-// lump (the total already said it), everything otherwise.
+// Nothing when the whole roll is one plain lump (the total already says it).
 function itemised(roll: RollReport): ReportedDamage[] {
   const parts = roll.parts?.filter((p) => p.total > 0) ?? [];
   if (parts.length <= 1 && !parts.some((p) => p.source)) return [];
   return parts;
 }
 
-// "15 against AC 13 — that hits." The ruling that used to be a sentence
-// shouted across the table, and the reason a player had to stop between two
-// halves of their own attack. Advisory in both directions: the app offers an
-// opinion from the AC it knows, and the DM's answer is the one that counts —
-// a Shield reaction turns a hit into a miss and the button says so.
+// The app offers a hit/miss opinion from the known AC; the DM's ruling is authoritative.
 function ToHitRuling({
   roll,
   target,
@@ -841,12 +755,7 @@ function ToHitRuling({
       ) : (
         <span className="text-muted">no AC on record</span>
       )}
-      {/* Re-rulable, because a misclick here used to be permanent: the buttons
-          were replaced by static text after the first answer, on a surface whose
-          every other control can be done again. Nothing about a ruling is
-          custody — the ruling that counts is the last one said out loud, and a
-          DM who hits Miss by accident needs to be able to say so. The pressed
-          state carries what was already answered. */}
+      {/* Re-rulable: last click wins, `aria-pressed` reflects the current answer. */}
       <span className="dm-ruling-buttons">
         <button
           type="button"
@@ -872,9 +781,8 @@ function ToHitRuling({
   );
 }
 
-// The applyable half, unchanged in spirit: an editable amount (override
-// before applying) and one button. Damage drains temp HP first; healing on a
-// character-backed row becomes an offer its owner applies themselves.
+// Editable amount plus one apply button. Damage drains temp HP first; healing
+// on a character-backed row becomes an offer its owner applies themselves.
 function ApplyAmount({
   roll,
   target,
@@ -887,8 +795,7 @@ function ApplyAmount({
 }: {
   roll: RollReport;
   target: Participant;
-  // Whether to print the target's name on the row — only when the stage has
-  // several apply rows and a bare box wouldn't say whose HP it drains.
+  // Print the target's name only when the stage has several apply rows.
   named?: boolean;
   fromName: string;
   healing: boolean;
@@ -903,14 +810,12 @@ function ApplyAmount({
     fromName: string,
     label?: string,
   ) => void;
-  // Applying resolves the whole act, not just this line: the number has
-  // landed, so the card comes off the queue. With every roll at the table
-  // arriving here, a queue that only grew would be unreadable by round three.
+  // Resolves the whole act (not just this line), removing the card from the queue.
   onResolved: () => void;
 }) {
   const [amount, setAmount] = useState(String(roll.total));
   const [applied, setApplied] = useState(false);
-  // A re-roll is a new number; a box still holding the old one would be a trap.
+  // Reset when a re-roll produces a new report.
   useEffect(() => {
     setAmount(String(roll.total));
     setApplied(false);
@@ -949,9 +854,7 @@ function ApplyAmount({
           } else {
             onApply(target, applyDamage(vitals, parsed), Math.floor(parsed));
           }
-          // With one target the number landing resolves the whole act; with
-          // several, the card stays until each row has had its ruling — Orc 1
-          // taking its half must not sweep Orc 2's box off the queue.
+          // With multiple targets, keep the card until every row is applied.
           if (named) setApplied(true);
           else onResolved();
         }}
@@ -964,13 +867,8 @@ function ApplyAmount({
   );
 }
 
-// Who, if anyone, is holding this sheet right now.
-//
-// Deliberately silent for the rows it has nothing to say about — hand-typed
-// monsters, and sheets this browser holds itself — because a chip on every row
-// is a chip nobody reads. The three states it does show are the three a DM
-// actually acts on: call on them, wait a moment, or play their character for
-// the rest of the fight.
+// Who, if anyone, is holding this sheet right now. Silent for hand-typed
+// monsters and sheets this browser holds itself.
 function LivenessChip({
   participant,
   clientId,
@@ -1002,15 +900,8 @@ function LivenessChip({
   );
 }
 
-// The code is the DM's first job — nobody is at the table until it's been
-// pasted into the group chat. Shown big at the empty table, the one moment
-// it's the whole point of the screen.
-//
-// **Copies the link, not the bare code** — the same thing the session bar
-// copies, for the same reason: a player who taps a link lands at the right
-// table having answered nothing, whereas a uuid on its own needs a sentence
-// explaining where to put it. The code stays on screen underneath for reading
-// out over a call.
+// Copies the invite link (not the bare code), same as the session bar. The
+// code itself stays visible underneath for reading out over a call.
 function InviteCode({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -1034,9 +925,8 @@ function InviteCode({ code }: { code: string }) {
   );
 }
 
-// One line adds a fight: a pack of identical monsters shares one initiative
-// roll (that's the 5e rule), gets numbered names, and starts tracked the
-// moment it has a maximum — no per-row "Track" step afterwards.
+// A pack of identical monsters shares one initiative roll (5e rule), gets
+// numbered names, and starts tracked as soon as it has a max HP.
 function AddCombatants({
   onAdd,
 }: {
@@ -1132,9 +1022,7 @@ function RowVitals({
   const [maxInput, setMaxInput] = useState("");
   const vitals = participant.vitals;
 
-  // A hand-typed combatant has no sheet anywhere, so its HP starts existing the
-  // moment the DM writes a maximum down — same as jotting it next to the name
-  // on paper.
+  // A hand-typed combatant has no sheet; its HP starts existing once a max is set.
   if (!vitals) {
     return (
       <form
@@ -1172,9 +1060,7 @@ function RowVitals({
         max={vitals.maxHp}
         apply={apply}
       />
-      {/* Death-save progress rides the projection while someone is making
-          them. The DM always sees it — the party toggle below never gates
-          this board. */}
+      {/* The DM always sees death-save progress; the party-visibility toggle doesn't gate this board. */}
       {vitals.deathSaves && (
         <span
           className="dm-death-saves"
@@ -1192,9 +1078,7 @@ function RowVitals({
         </span>
       )}
       {participant.characterUuid ? (
-        // A character's AC derives from its own sheet — the projection is
-        // read-only here, and a DM edit would be overwritten on its next
-        // publish anyway.
+        // Read-only: a character's AC derives from its own sheet.
         vitals.ac > 0 && <span className="dm-row-ac">AC {vitals.ac}</span>
       ) : (
         <AcInput participant={participant} apply={apply} />

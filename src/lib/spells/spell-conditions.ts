@@ -3,23 +3,14 @@ import { ConditionName } from "src/lib/play/conditions";
 import { Spell } from "src/lib/types";
 
 // Which condition a spell puts on its targets — an overlay keyed by title,
-// looked up at cast time, deliberately NOT a field on `Spell.mechanics`:
+// looked up at cast time, not a field on `Spell.mechanics` (which is either
+// embedded on the character or generator-owned SRD JSON, neither of which this
+// hand-authored file can safely extend).
 //
-// - A character's spells are embedded copies, so a mechanics field would miss
-//   every already-imported sheet and need a migration; a title lookup reaches
-//   them all today.
-// - The SRD mechanics JSON is generator-owned (`pnpm generate-spells`), and a
-//   hand-added field there would be silently regenerated away. This file is
-//   hand-authored and survives.
-//
-// The `name` keys the bundled `CONDITION_MECHANICS` catalog (wired riders,
-// summary) when an entry exists there; otherwise the condition is a plain
-// advisory chip on the target's row. `rounds` is the duration in rounds where
-// one is defined and combat-shaped — the encounter ticks it down.
-//
-// Seeded with exemplars for each class the fan-out will fill in: a wired
-// party buff (Bless), a wired cantrip buff (Guidance), and a save-gated
-// debuff with no riders (Hideous Laughter).
+// `name` keys the bundled `CONDITION_MECHANICS` catalog (wired riders,
+// summary) when an entry exists there; otherwise it's a plain advisory chip
+// on the target's row. `rounds` is the duration in rounds, where combat-shaped
+// and defined — the encounter ticks it down.
 
 export interface SpellConditionGrant {
   name: ConditionName;
@@ -27,8 +18,7 @@ export interface SpellConditionGrant {
   note?: string;
 }
 
-// Exported for the structural test that keeps this catalog and
-// CONDITION_MECHANICS honest with each other.
+// Kept in sync with CONDITION_MECHANICS by a structural test.
 export const SPELL_CONDITIONS: Record<string, SpellConditionGrant> = {
   bless: { name: "Bless", rounds: 10, note: "Concentration, up to 1 minute" },
   guidance: {
@@ -42,10 +32,6 @@ export const SPELL_CONDITIONS: Record<string, SpellConditionGrant> = {
     note: "On a failed save; repeats the save when damaged",
   },
 
-  // --- 2026-08-03 catalog fan-out: every condition-granting spell in the
-  // SRD + non-SRD catalogs, found and adversarially verified per level
-  // slice, then hand-audited for bearer-direction. Keys are normalized
-  // titles; names key CONDITION_MECHANICS.
   "absorb elements": {
     name: "Absorb Elements",
     rounds: 1,

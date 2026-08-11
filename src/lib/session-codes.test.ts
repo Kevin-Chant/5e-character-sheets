@@ -27,14 +27,11 @@ describe("codeCandidates", () => {
   });
 
   it("never proposes the same realm twice", () => {
-    // The `sess` prefix is what keeps the two namespaces apart. If it were ever
-    // dropped, a probe could not tell the kinds apart at all.
     const realms = codeCandidates(code).map((c) => c.realm);
     expect(new Set(realms).size).toBe(realms.length);
   });
 
   it("proposes nothing for input that isn't a uuid", () => {
-    // A typo shouldn't cost two round trips to discover.
     expect(codeCandidates("ABC123")).toEqual([]);
     expect(codeCandidates("")).toEqual([]);
   });

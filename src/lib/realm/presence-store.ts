@@ -10,33 +10,23 @@ import {
   withPresence,
 } from "src/lib/realm/presence";
 
-// The roster, kept alive by a heartbeat. See `presence.ts` for why liveness is
-// not part of any shared document.
+// The roster, kept alive by a heartbeat. See `presence.ts` for why liveness
+// isn't part of any shared document.
 //
-// **An empty roster is not the same as an empty room**, and nothing here can
-// tell you which one you have. Right after connecting, every client's roster is
-// empty because the announcements are still in flight.
+// An empty roster isn't the same as an empty room: right after connecting,
+// every client's roster is empty because announcements are still in flight.
+// Anything deciding something from this roster must wait out a heartbeat
+// first (e.g. the DM seat is claimed/merged, not derived from presence).
 //
-// This is why the DM seat is claimed and merged rather than derived from who is
-// present, which is otherwise the tidier design: during that window every
-// client would agree that nobody holds the seat, and "an unclaimed seat means
-// everyone runs combat" would hand the controls to the whole table on every
-// join. Anything that ever *does* want to decide something from this roster
-// needs to wait out a heartbeat first, and should say so where it waits.
-//
-// A plain store rather than a hook, for the same reason `realm.ts` is: the
-// character layer holds one of these per shared sheet, and a hook can only hold
-// one. `use-presence.tsx` is the React wrapper for the layers that want exactly
-// one.
+// A plain store, not a hook, so the character layer can hold one per shared
+// sheet. `use-presence.tsx` is the React wrapper for single-instance callers.
 
 export interface PresenceStoreOptions<P extends object> {
-  // What to say about ourselves. Re-announced on every beat, and immediately
-  // whenever it changes — opening a character mid-session renames you.
+  // Re-announced on every beat and immediately whenever it changes.
   payload: P;
-  // Publish it. The layer owns its own message shape.
   announce: (payload: P) => void;
-  // Whether two announcements say the same thing, so an unchanged beat doesn't
-  // produce a new array.
+  // Whether two announcements say the same thing, so an unchanged beat
+  // doesn't produce a new array.
   same: (a: P, b: P) => boolean;
   heartbeatMs?: number;
   ttlMs?: number;
@@ -45,7 +35,7 @@ export interface PresenceStoreOptions<P extends object> {
 
 export interface PresenceSnapshot<P extends object> {
   roster: PresenceEntry<P>[];
-  // Present, but not heard from lately — see `PRESENCE_QUIET_MS`.
+  // Present but not heard from lately — see PRESENCE_QUIET_MS.
   quiet: string[];
 }
 
@@ -53,12 +43,9 @@ export interface PresenceStore<P extends object> {
   getSnapshot: () => PresenceSnapshot<P>;
   subscribe: (listener: () => void) => () => void;
   update: (options: Partial<PresenceStoreOptions<P>>) => void;
-  // Only beat while there is a connection to beat over. Idempotent: calling it
-  // with the value it already has does nothing, so a re-render can't restart
-  // the interval.
+  // Idempotent: setting the same value doesn't restart the interval.
   setConnected: (connected: boolean) => void;
-  // Say who we are now, outside the beat. The owner calls this on connect and
-  // whenever the payload changes; peers upsert, so re-announcing is free.
+  // Announce outside the beat; owner calls on connect and payload changes.
   announceNow: () => void;
   saw: (clientId: string, incoming: P) => void;
   touch: (clientId: string) => void;
@@ -87,8 +74,7 @@ export function createPresenceStore<P extends object>(
     commit({ ...snapshot, roster });
   const setQuiet = (quiet: string[]) => commit({ ...snapshot, quiet });
 
-  // Outside the roster deliberately: a peer's heartbeat updates this ten times
-  // a minute and must not re-render anything looking at the list.
+  // Kept outside the roster so a heartbeat doesn't re-render list consumers.
   const lastSeen = new Map<string, number>();
 
   const dropQuiet = (clientId: string) => {
@@ -128,18 +114,13 @@ export function createPresenceStore<P extends object>(
         reset();
         return;
       }
-      // Announcing on connect is deliberately *not* here: the caller also has
-      // to re-announce whenever the payload changes (opening a character
-      // mid-session renames you), and doing both would double every join. The
-      // owner drives it through `announceNow`.
-      //
-      // The beat: say we're still here, and forget anyone who hasn't.
+      // Connect-time announce is not here — the owner drives it via
+      // announceNow to avoid double-announcing on payload change.
       beat = setInterval(() => {
         options.announce(options.payload);
         const now = Date.now();
         const kept = prunePresence(snapshot.roster, lastSeen, now, ttlMs);
-        // Read off the *pruned* roster, so a client can never be listed as
-        // quiet and forgotten at the same time.
+        // Read off the pruned roster so nobody is both quiet and forgotten.
         const nextQuiet = quietPresences(kept, lastSeen, now, quietMs);
         commit({
           roster: kept,
@@ -157,15 +138,9 @@ export function createPresenceStore<P extends object>(
         withPresence(snapshot.roster, clientId, incoming, options.same),
       );
     },
-    // A peer said *something* — not necessarily who they are.
-    //
-    // A client publishing an encounter, a roll or a ruling is as alive as one
-    // sending a heartbeat, and on a throttled mobile tab it is often the only
-    // thing still getting out: the announce interval is capped to about a beat
-    // a minute in the background while a publish triggered by a tap goes
-    // straight away. So every inbound message refreshes the clock. Deliberately
-    // *not* an upsert — we have no payload here, and a client on the roster
-    // under a name must not be replaced by one without.
+    // Any inbound message refreshes the clock (not just heartbeats — useful
+    // on throttled mobile tabs). Not an upsert: no payload here, so a named
+    // roster entry must not be replaced by an unnamed one.
     touch: (clientId) => {
       if (!lastSeen.has(clientId)) return;
       lastSeen.set(clientId, Date.now());

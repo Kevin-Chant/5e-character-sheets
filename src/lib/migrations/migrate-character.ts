@@ -3,22 +3,21 @@ import { randomUUID } from "src/lib/browser";
 import { WEAPON_PRESETS, weaponTags } from "src/lib/data/weapon-presets";
 import { CURRENT_SCHEMA_VERSION } from "./version";
 
-// --- v11 helper: look a stored attack's name up in the weapon catalog ------
+// v11 helper: look a stored attack's name up in the weapon catalog.
 const PRESETS_BY_NAME = new Map(
   WEAPON_PRESETS.flatMap((g) => g.options).map((w) => [w.name, w] as const),
 );
 const presetByName = (name: string) => PRESETS_BY_NAME.get(name);
 
-// A migration upgrades a plain character object from version `to - 1` to `to`.
-// Migrations are PURE and APPEND-ONLY: never edit a shipped migration, only add
-// the next one. Characters predating versioning have no `schemaVersion` and are
-// treated as version 0.
+// A migration upgrades a character object from version `to - 1` to `to`.
+// PURE and APPEND-ONLY: never edit a shipped migration, only add the next one.
+// Characters predating versioning have no `schemaVersion` and are version 0.
 interface Migration {
   to: number;
   migrate: (character: any) => any;
 }
 
-// --- v5 helpers: rewrite name-based class references to stable ids ---------
+// v5 helpers: rewrite name-based class references to stable ids.
 
 const STAT_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
 
@@ -27,17 +26,17 @@ const STAT_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
 // leaf (the old "level in a class") → `{ classLevel: <id> }`. Other leaves
 // (numbers, stat keys, PB, die-expression arrays) pass through untouched.
 function remapFormula(node: any, idFor: (name: string) => string): any {
-  if (Array.isArray(node)) return node; // DieExpression leaf
+  if (Array.isArray(node)) return node;
   if (typeof node === "number") return node;
   if (typeof node === "string") {
     if (STAT_KEYS.includes(node) || node === "proficiencyBonus") return node;
-    return { classLevel: idFor(node) }; // bare class-name → classLevel leaf
+    return { classLevel: idFor(node) };
   }
   if (node && typeof node === "object") {
     if (typeof node.spellMod === "string")
       return { ...node, spellMod: idFor(node.spellMod) };
     if (node.classLevel !== undefined || node.spellMod !== undefined)
-      return node; // already an id-tagged leaf
+      return node; // already id-tagged
     if (node.operand1 !== undefined) {
       const out: any = {
         ...node,
@@ -104,12 +103,11 @@ function remapMechanics(m: any, idFor: (n: string) => string): any {
 
 const migrations: Migration[] = [
   {
-    // Baseline: stamp the version and backfill any top-level field that the
-    // current code assumes exists but very old / truncated saves may lack.
-    // Only fills keys that are absent (existing values, including falsy ones
-    // like currHp: 0, are preserved), and only for objects that actually look
-    // like a character — so a wrong/garbage file isn't silently turned into a
-    // default character but is left to fail validation instead.
+    // Baseline: stamp the version and backfill any top-level field missing on
+    // an old/truncated save. Only fills absent keys (falsy values like
+    // currHp: 0 are preserved), and only when the object looks like a
+    // character, so garbage input fails validation instead of becoming a
+    // default character.
     to: 1,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -126,9 +124,7 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Limited-use abilities (Sorcery Points, racial once-per-rest features, …)
-    // are now a first-class list. Characters from before this didn't track them,
-    // so start them with an empty list.
+    // Limited-use abilities became a first-class list; seed it empty.
     to: 2,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -140,12 +136,9 @@ const migrations: Migration[] = [
     },
   },
   {
-    // `race` became a structured identity object ({ name, subrace?, size }); the
-    // numeric `speed` became structured `speeds` ({ walk, … }); and senses gained
-    // a structured `senses` home. The old `race` string is parsed into a base
-    // name + optional "(subrace)"; size defaults to Medium. `speeds.walk` takes
-    // the old `speed` value, the flat `speed` field is dropped, and `senses`
-    // starts empty (a legacy save has no structured senses to carry over).
+    // `race` becomes `{ name, subrace?, size }` (parsed from "Name (Subrace)",
+    // size defaults to Medium); numeric `speed` becomes `speeds.walk`, then is
+    // dropped; `senses` starts empty.
     to: 3,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -171,9 +164,9 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Spell buckets moved from the "cantrips"/"First"…"Ninth" word keys to plain
-    // numbers (0 = cantrips, 1–9 = leveled), matching `SpellMechanics.level`.
-    // Remaps both `spells` and `spellSlots`; unknown keys are dropped.
+    // Spell buckets: word keys ("cantrips"/"First"…"Ninth") → numbers (0-9),
+    // matching `SpellMechanics.level`. Remaps `spells` and `spellSlots`;
+    // unknown keys are dropped.
     to: 4,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -193,7 +186,7 @@ const migrations: Migration[] = [
         if (!obj || typeof obj !== "object") return obj;
         const out: Record<number, any> = {};
         for (const [key, value] of Object.entries(obj)) {
-          // Already-numeric keys (idempotency) pass through; word keys convert.
+          // Already-numeric keys pass through; word keys convert.
           const num = /^\d+$/.test(key) ? Number(key) : WORD_TO_NUM[key];
           if (num !== undefined) out[num] = value;
         }
@@ -207,18 +200,16 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Classes gained a stable `id`, and every class reference moved from the
-    // (renameable) name to that id: `spellcastingClasses[].class` → `classId`,
-    // `spells[][].spellcastingClass` → the id, and the `spellMod` / bare
-    // class-name ("level in a class") formula leaves → id-tagged `{ spellMod }`
-    // / `{ classLevel }`. A reference to a class not on the sheet gets a fresh
-    // (dangling) id, preserving the old "resolves to nothing" behavior.
+    // Classes gain a stable `id`; every name-based class reference is rewritten
+    // to it: `spellcastingClasses[].class` → `classId`,
+    // `spells[][].spellcastingClass` → the id, `spellMod`/bare class-name
+    // formula leaves → `{ spellMod }`/`{ classLevel }`. A reference to a class
+    // not on the sheet gets a fresh dangling id (resolves to nothing, as before).
     to: 5,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
       const filled = { ...character };
 
-      // Assign ids to classes and build a name → id lookup.
       const nameToIdMap = new Map<string, string>();
       filled.class = (Array.isArray(filled.class) ? filled.class : []).map(
         (klass: any) => {
@@ -231,7 +222,6 @@ const migrations: Migration[] = [
       const idFor = (name: string): string =>
         nameToIdMap.get(name) ?? randomUUID();
 
-      // Structured references.
       if (Array.isArray(filled.spellcastingClasses))
         filled.spellcastingClasses = filled.spellcastingClasses.map(
           (sc: any) => {
@@ -254,13 +244,10 @@ const migrations: Migration[] = [
           },
         );
 
-      // Formula-bearing scalar fields. (`speeds` are plain numbers, not
-      // formulas, so they carry no class-reference leaves.)
       filled.acFormula = remapOptional(filled.acFormula, idFor);
       filled.initiativeFormula = remapOptional(filled.initiativeFormula, idFor);
       filled.maxHp = remapOptional(filled.maxHp, idFor);
 
-      // Attacks (to-hit + per-damage-type formulas).
       if (Array.isArray(filled.attacks))
         filled.attacks = filled.attacks.map((a: any) => {
           const out = { ...a, bonus: remapFormula(a.bonus, idFor) };
@@ -272,7 +259,6 @@ const migrations: Migration[] = [
           return out;
         });
 
-      // Text-component formula slots.
       filled.equipment = remapTextList(filled.equipment, idFor);
       filled.features = remapTextList(filled.features, idFor);
       if (filled.personality && typeof filled.personality === "object")
@@ -283,7 +269,6 @@ const migrations: Migration[] = [
           flaws: remapTextList(filled.personality.flaws, idFor),
         };
 
-      // Limited-use abilities (info formulas + the maxUses pool formula).
       if (Array.isArray(filled.limitedUseAbilities))
         filled.limitedUseAbilities = filled.limitedUseAbilities.map(
           (lua: any) => ({
@@ -293,7 +278,6 @@ const migrations: Migration[] = [
           }),
         );
 
-      // Spells: retag each to its class id, remap its info + mechanics formulas.
       if (filled.spells && typeof filled.spells === "object") {
         const spells: any = {};
         for (const [lvl, list] of Object.entries(filled.spells))
@@ -318,9 +302,8 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Attacks gained a stable `id` (so ammunition entries can reference the
-    // weapons they feed by id) and an optional `range`. Ammunition itself became
-    // a first-class list. Old attacks get a fresh id; ammunition starts empty.
+    // Attacks gain a stable `id` (so ammunition can reference the weapon it
+    // feeds) and an optional `range`. Ammunition becomes a first-class list.
     to: 6,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -336,9 +319,8 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Damage resistances / immunities / vulnerabilities became a first-class,
-    // intrinsic property (`damageModifiers`). Legacy saves tracked none, so start
-    // all three lists empty.
+    // Damage resistances/immunities/vulnerabilities become `damageModifiers`;
+    // seed all three lists empty.
     to: 7,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -354,8 +336,8 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Per-skill bonus formulas got a home (`proficiencies.skillBonuses`) for
-    // Remarkable Athlete / Stone of Good Luck / Observant etc. Seed it empty.
+    // Per-skill bonus formulas get a home: `proficiencies.skillBonuses`. Seed
+    // it empty.
     to: 8,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -370,19 +352,16 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Equipment became a structured list (`EquipmentItem`) instead of free-text
-    // `TextComponent[]`, so the sheet can run attunement + encumbrance rules.
-    // Each legacy component is wrapped verbatim into an item's `text`, defaulting
-    // quantity to 1 and equipped to false; `weight` and `attunement` stay absent
-    // (both optional). The new `attunementSlots` override is optional too, so it
-    // needs no backfill.
+    // Equipment moves from free-text `TextComponent[]` to structured
+    // `EquipmentItem[]`. Each legacy component is wrapped verbatim into an
+    // item's `text`, quantity defaults to 1, equipped to false; `weight` and
+    // `attunement` stay absent (optional).
     to: 9,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
       const filled = { ...character };
       if (Array.isArray(filled.equipment))
         filled.equipment = filled.equipment.map((entry: any) =>
-          // Idempotency guard: a value already shaped like an item is left alone.
           entry && typeof entry === "object" && "text" in entry && "id" in entry
             ? entry
             : {
@@ -397,12 +376,9 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Equipment items gained an `equippable` flag: only equippable items show an
-    // equip toggle on the sheet (potions, ammo bundles, etc. are carried, not
-    // worn). Backfill it for anything a legacy save treated as equippable —
-    // items currently equipped, or with armor/shield mechanics — so their toggle
-    // (and any equipped state) survives. `equipped` stays required; the flag is
-    // omitted when false (it's optional).
+    // Equipment items gain an `equippable` flag (only equippable items show an
+    // equip toggle). Backfill true for anything already equipped or with
+    // armor/shield mechanics; otherwise omit (optional, defaults falsy).
     to: 10,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -410,7 +386,7 @@ const migrations: Migration[] = [
       if (Array.isArray(filled.equipment))
         filled.equipment = filled.equipment.map((item: any) => {
           if (!item || typeof item !== "object") return item;
-          if (item.equippable !== undefined) return item; // idempotent
+          if (item.equippable !== undefined) return item;
           const equippable = !!item.equipped || !!item.armor || !!item.shield;
           return equippable ? { ...item, equippable: true } : item;
         });
@@ -419,14 +395,11 @@ const migrations: Migration[] = [
     },
   },
   {
-    // Attacks gained `tags` — the weapon properties that decide which features
-    // apply to a roll (Archery on a ranged weapon, Rage on a melee Strength
-    // hit). New attacks get them from `buildAttackFromPreset`; this backfills
-    // the ones already on people's sheets by matching the attack's name against
-    // the preset catalog, including the "(2H)" versatile variant the picker
-    // creates. A name that isn't a known weapon is left untagged, which is a
-    // real answer — "unknown" means every conditional feature is offered as a
-    // prompt, exactly as it behaved before tags existed.
+    // Attacks gain `tags` (weapon properties deciding which features apply to a
+    // roll). Backfill by matching the attack's name against the preset
+    // catalog, including the "(2H)" versatile variant. An unrecognised name is
+    // left untagged — every conditional feature is offered as a prompt, as
+    // before tags existed.
     to: 11,
     migrate: (character) => {
       if (!character || typeof character !== "object") return character;
@@ -434,7 +407,7 @@ const migrations: Migration[] = [
       if (Array.isArray(filled.attacks))
         filled.attacks = filled.attacks.map((attack: any) => {
           if (!attack || typeof attack !== "object") return attack;
-          if (attack.tags !== undefined) return attack; // idempotent
+          if (attack.tags !== undefined) return attack;
           const name = String(attack.name ?? "").trim();
           const twoHanded = name.endsWith("(2H)");
           const preset = presetByName(
@@ -450,13 +423,9 @@ const migrations: Migration[] = [
   },
   {
     to: 12,
-    // Inspiration became a boolean: 5e gives it no quantity. Any stored count
-    // above zero was a player recording that they *have* it, so it maps to
-    // true; a table that house-ruled stacking loses the count, which is the
-    // cost of the model matching the rules.
-    // Runs before validation, so it has to survive whatever was in storage —
-    // including null/undefined, which `hydrateCharacter` expects to be reported
-    // as ok:false rather than thrown.
+    // Inspiration becomes a boolean (5e has no quantity for it). Any stored
+    // count above zero maps to true; house-ruled stacking loses the count.
+    // Must survive garbage input (null/undefined etc.) without throwing.
     migrate: (character: any) => ({
       ...character,
       inspiration: Number(character?.inspiration) > 0,
@@ -465,8 +434,7 @@ const migrations: Migration[] = [
   },
 ];
 
-// Sorted, append-only safety: ensures we apply migrations in ascending order
-// regardless of array order.
+// Apply migrations in ascending order regardless of array order.
 const orderedMigrations = [...migrations].sort((a, b) => a.to - b.to);
 
 export function migrateCharacter(raw: any): any {

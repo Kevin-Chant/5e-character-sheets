@@ -10,10 +10,8 @@ import { Character } from "src/lib/types";
 import { RestPreset } from "src/lib/rest";
 import RestDialog from "./rest-dialog";
 
-// The rest panel reads the character from context and the rest variants from
-// settings. The character context is datastore-coupled so it's mocked (as in
-// the roll dialog's tests); settings uses its real provider seeded from
-// localStorage, the same path the app takes.
+// Character context is mocked (datastore-coupled); settings uses its real
+// provider seeded from localStorage, the app's normal path.
 
 const dispatch = vi.fn();
 let character: Character;
@@ -78,8 +76,6 @@ describe("RestDialog — the fork", () => {
 
   it("advertises spending hit dice, not just the automatic restores", async () => {
     renderDialog();
-    // The short rest restores Second Wind *and* offers hit dice — the follow-up
-    // is the most useful thing it does, so it has to appear on the card.
     expect(screen.getByText("Spend hit dice to heal")).toBeTruthy();
   });
 
@@ -140,14 +136,10 @@ describe("RestDialog — taking a rest", () => {
   });
 });
 
-// The DM called this rest, so the two questions the table already answered
-// are answered here — and *only* those two. Nothing is taken until the player
-// presses Take rest, because a long rest is a dozen fields on their sheet.
 describe("RestDialog — a rest the table called", () => {
   it("opens on the called rest, having taken nothing", async () => {
     renderDialog({ kind: "long" });
     expect(screen.getByText("Long rest")).toBeTruthy();
-    // Past the fork: the other card isn't on the table any more.
     expect(screen.queryByText("Short rest")).toBeNull();
     expect(screen.getByText("Take rest")).toBeTruthy();
     expect(dispatch).not.toHaveBeenCalled();
@@ -182,8 +174,6 @@ describe("RestDialog — a rest the table called", () => {
     expect(action.payload.limitedUseAbilities[0].expended).toBe(0);
   });
 
-  // Without the DM's call the same pool is the player's to decide, and the
-  // planner defers it rather than guessing the fiction.
   it("leaves a dawn pool spent when the rest didn't span dawn", async () => {
     character = {
       ...hurtFighter(),

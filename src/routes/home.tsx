@@ -20,20 +20,8 @@ import {
   SessionMemory,
 } from "src/lib/play/session-memory";
 
-// The front door.
-//
-// It used to ask one question — where do your characters live — and teleport
-// anyone who had already answered it straight to their sheets. That was a good
-// deal for exactly one person: someone who only builds characters. Everybody
-// else arrives with a different question, and the app's answer to all of them
-// was a character list plus an icon in the top-right corner they had to know
-// about. A DM who doesn't play has no answer to "where do your characters
-// live"; a player following an invite link shouldn't be asked.
-//
-// So this page asks what you came to do, and storage is a consequence of one of
-// the answers rather than a gate in front of all of them. The redirect is gone,
-// and what it was worth is paid back above the fold: the games this browser has
-// played at, and the sheet it had open, each one click away.
+// The front door: asks what you came to do rather than where characters
+// live. Storage is a consequence of that answer, not a gate in front of it.
 
 interface OptionCardProps {
   to?: string;
@@ -111,8 +99,6 @@ function ResumeGameRow({
   );
 }
 
-// How many tables to offer without turning the front door into a list. Most
-// people have one; a DM running two campaigns has two.
 const RESUME_LIMIT = 3;
 
 export default function Home() {
@@ -120,14 +106,13 @@ export default function Home() {
   const { reset } = useCharacter();
   const navigate = useNavigate();
 
-  // Read once per mount rather than on every render: these are localStorage
-  // reads, and the page's own actions navigate away from it.
+  // Read once per mount: localStorage reads, and this page's actions
+  // navigate away from it.
   const [sessions, setSessions] = useState(() =>
     readSessionMemory().slice(0, RESUME_LIMIT),
   );
   const [lastCharacter] = useState(readLastCharacter);
-  // "remote" is a past joiner's borrowed sheet, not a place characters live, so
-  // it reads here as "storage not answered yet".
+  // "remote" (a joiner's borrowed sheet) reads here as "not answered yet".
   const [storageMode] = useState<"local" | "drive" | undefined>(() => {
     const mode = readLastDatastore();
     return mode === "local" || mode === "drive" ? mode : undefined;
@@ -135,11 +120,6 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<string | undefined>();
 
-  // Every door that leads to a character re-selects a backend on the way.
-  // Local is selected right here; Drive is the sheet's own job now — it
-  // resumes the Google session silently while rendering, and only detours to
-  // /auth when this browser has never granted access (or the grant needs a
-  // click), which is exactly when a dedicated page is worth the trip.
   const toCharacters = (
     mode: "local" | "drive",
     intent?: { openCharacter?: string; share?: boolean },
@@ -150,8 +130,7 @@ export default function Home() {
     const state = intent?.share ? { share: true } : undefined;
     if (mode === "drive") {
       if (readLastDatastore() !== "drive") {
-        // First time on Drive from this browser: the OAuth round-trip needs
-        // its page, and carries the errand through in router state.
+        // First time on Drive: the OAuth round-trip needs its own page.
         navigate("/auth", { state: { returnTo: destination, ...state } });
         return;
       }
@@ -178,8 +157,6 @@ export default function Home() {
       );
       return;
     }
-    // Whether it opens onto a table or a shared sheet is the join route's
-    // question, not this box's.
     navigate(`/join/${resolved}`);
   };
 
@@ -200,9 +177,6 @@ export default function Home() {
         </p>
       </div>
 
-      {/* What the auto-redirect used to do, as an offer. It's first because for
-          a returning visitor it is almost always the whole reason they opened
-          the page. */}
       {hasResume && (
         <section className="home-resume">
           <h2>Pick up where you left off</h2>
@@ -240,9 +214,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* The arrival every invited player makes, and the one with the least
-          context to spend on finding it. A link drops them past this box
-          entirely; the box is for the code read out on a call. */}
       <section className="home-join">
         <h2>Been sent a code or a link?</h2>
         <form onSubmit={submitCode}>
@@ -272,9 +243,6 @@ export default function Home() {
             heading="Run a game"
             description="You're the DM. Start a table, send the link, and run initiative, HP and conditions for everyone. No character sheet needed."
           />
-          {/* Answered once, then it's a door rather than a question. Before
-              that it's two doors, because the difference between them — does
-              this leave my device — is worth choosing on purpose. */}
           {storageMode ? (
             <OptionCard
               onClick={() => toCharacters(storageMode)}
@@ -303,12 +271,6 @@ export default function Home() {
             </>
           )}
         </div>
-        {/* The way back out of a collapsed door. Answering the storage question
-            turns two cards into one, which is right — it stops being a question
-            once you've answered it — but without this there was no way to
-            change the answer short of finding the Drive tab in Settings, and no
-            way at all to go from Drive back to this browser. Quiet, because
-            switching is rare; present, because it was unreachable. */}
         {storageMode && (
           <p className="text-muted home-switch">
             {storageMode === "drive"
@@ -330,12 +292,6 @@ export default function Home() {
         )}
       </section>
 
-      {/* The other kind of sharing — two people editing one sheet. Not a peer
-          of the cards above, because it can't be started without first picking
-          a character: it's the same intent the nav's share button carries, said
-          once here so nobody has to guess it exists. Shown only once there's
-          somewhere for sheets to live, since there is nothing to co-edit until
-          then. */}
       {storageMode && (
         <p className="text-muted home-aside">
           Want to build a character together?{" "}

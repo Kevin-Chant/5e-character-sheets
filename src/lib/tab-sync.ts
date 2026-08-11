@@ -3,31 +3,26 @@ import { Action } from "src/lib/hooks/reducers/actions";
 
 // Cross-tab edit sync: the same dispatch replay the live-sharing layer runs
 // over WAMP, carried over a `BroadcastChannel` instead — so two tabs of this
-// browser with the same character open converge instantly, with no sidecar, no
-// Drive round-trip, and no polling. It exists because there is otherwise *no*
-// cross-tab path at all: both datastores cache and never re-read, so a second
-// tab used to show a character frozen at whatever it looked like on load.
+// browser with the same character open converge instantly, with no sidecar
+// or Drive round-trip. Both datastores cache and never re-read, so without
+// this a second tab was frozen at whatever it looked like on load.
 //
 // This is a transport, not a policy layer. Who applies a message, whether it
-// re-enters a WAMP realm, and what it does to the dirty flag are all decided
-// where the character lives (`use-character.tsx`); the one policy fact encoded
-// here is `origin`, which is what keeps the two transports from feeding each
+// re-enters a WAMP realm, and what happens to the dirty flag are decided
+// where the character lives (`use-character.tsx`); the one policy fact
+// encoded here is `origin`, which keeps the two transports from feeding each
 // other loops:
 //
-// - `"local"` — a user edit in some tab. Every sibling tab applies it, and a
-//   sibling holding an open sharing session forwards it into the realm, so an
-//   edit made in the tab *without* the session still reaches remote peers.
-// - `"remote"` — an edit that arrived over WAMP. Siblings apply it and stop:
-//   re-forwarding it would bounce a peer's edit straight back into the realm
-//   it came from.
+// - `"local"` — a user edit in some tab. Every sibling applies it, and one
+//   holding an open sharing session forwards it into the realm.
+// - `"remote"` — an edit that arrived over WAMP. Siblings apply it and stop,
+//   so it doesn't bounce back into the realm it came from.
 //
-// Both transports replay whole-value `update_*` actions (and whole-character
-// `replace_character`s), so a message applied twice — routine when two tabs
-// share both the channel and a realm — lands on the same state it left.
+// Both transports replay whole-value `update_*`/`replace_character` actions,
+// so a message applied twice lands on the same state it left.
 //
 // A tab never receives its own posts: the spec excludes the posting
-// `BroadcastChannel` object, and each tab holds exactly one (the module
-// singleton below).
+// `BroadcastChannel` object, and each tab holds exactly one (the singleton below).
 
 export const TAB_SYNC_CHANNEL = "net.dndcharactersheets.tabsync";
 
@@ -39,18 +34,14 @@ export interface TabEditMessage {
   origin: "local" | "remote";
 }
 
-// The encounter's ride on the same channel. Unlike character edits — replayed
-// as actions — the encounter travels whole and the receiver *merges* it
-// (`receiveState`), because the lane counters make a whole-document merge
-// converge and an action stream doesn't exist for it. The bounce terminates by
-// identity: a merge that changes nothing returns the same object, and an
-// unchanged update doesn't republish.
+// The encounter's ride on the same channel. Unlike character edits, the
+// encounter travels whole and the receiver merges it (`receiveState`) via the
+// lane counters, since no action stream exists for it. The bounce terminates
+// by identity: an unchanged merge doesn't republish.
 //
-// `code` is the table the sender is connected to, if any. A receiver connected
-// to a *different* table ignores the message — two tabs at two tables already
-// contend for the one stored encounter, and cross-feeding them would make that
-// worse. A disconnected receiver takes anything: the encounter is this
-// browser's one encounter, and the connected tab holds its freshest copy.
+// `code` is the table the sender is connected to, if any. A receiver
+// connected to a different table ignores the message. A disconnected
+// receiver takes anything, since the connected tab holds the freshest copy.
 export interface TabEncounterMessage {
   kind: "encounter";
   encounter: unknown;

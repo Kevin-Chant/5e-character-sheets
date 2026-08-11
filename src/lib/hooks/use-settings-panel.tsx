@@ -2,14 +2,9 @@ import React, { createContext, useContext, useState } from "react";
 import SettingsPanel from "src/components/settings/settings-panel";
 import { missingProvider } from "src/lib/missing-provider";
 
-// Mounts the settings panel once and exposes open/close, mirroring
-// `RestProvider` and `LevelUpProvider`. Distinct from `use-settings`, which
-// holds the settings *values* — this one is only about whether the panel is on
-// screen.
-//
-// `settingsOpen` is exposed so the nav gear can be a real toggle (and say so
-// with `aria-expanded`) rather than a link you can only escape by navigating
-// somewhere else.
+// Whether the settings panel is on screen — distinct from `use-settings`,
+// which holds the setting values. `settingsOpen` lets the nav gear be a real
+// toggle with `aria-expanded`.
 
 interface SettingsPanelContextData {
   settingsOpen: boolean;

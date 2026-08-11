@@ -5,16 +5,13 @@ import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import { SharePresenceEntry } from "src/lib/share-presence";
 
-// How often we refresh our heartbeat and check for other editors. Comfortably
-// under PRESENCE_FRESH_MS so a peer stays "present" across one slow round-trip.
+// Comfortably under PRESENCE_FRESH_MS so a peer stays "present" across one
+// slow round-trip.
 const POLL_MS = 25_000;
 
-// Warns when someone else is editing the same shared Google Drive character
-// while there is *no* live session to co-edit through — the one case the WAMP
-// presence roster can't cover (e.g. two recipients editing with the owner
-// offline). Detection rides on a Drive appProperties heartbeat; see
-// `src/lib/share-presence.ts`. Independent of the auto-live-session setting: even
-// with auto-sessions off, silent clobbering deserves a warning.
+// Warns when someone else is editing the same shared Drive character with no
+// live session to co-edit through. Detection rides a Drive appProperties
+// heartbeat; see `src/lib/share-presence.ts`.
 export default function SharePresenceWarning() {
   const { character } = useCharacter();
   const { datastore } = useDatastoreSelector();
@@ -27,11 +24,9 @@ export default function SharePresenceWarning() {
   const active = !!uuid && !!shareRole && supported && !inSession;
 
   const [others, setOthers] = useState<SharePresenceEntry[]>([]);
-  // Number of peers present when the user last dismissed the banner; it re-shows
-  // only if a *new* editor pushes the count above this.
+  // Peer count at last dismissal; banner re-shows only if it's exceeded.
   const [dismissedAt, setDismissedAt] = useState(0);
 
-  // Read the resolved display name synchronously inside the polling closure.
   const nameRef = useRef("");
   nameRef.current = uuid ? getIdentity(uuid).name : "";
 
@@ -53,13 +48,10 @@ export default function SharePresenceWarning() {
     return () => {
       cancelled = true;
       clearInterval(interval);
-      // Best-effort: drop our heartbeat so peers stop seeing us promptly.
       datastore?.clearSharePresence?.(uuid, clientId);
     };
-    // datastore/clientId are stable for a given open character.
   }, [active, uuid]);
 
-  // Keep the dismiss baseline from drifting above the current peer count.
   useEffect(() => {
     if (others.length === 0 && dismissedAt !== 0) setDismissedAt(0);
   }, [others.length, dismissedAt]);

@@ -32,10 +32,7 @@ interface StepDef {
 const isCaster = (state: BuilderState): boolean =>
   castsAtLevelOne(getCatalogClass(state.classIndex));
 
-// Steps are intentionally non-blocking: the wizard is a scaffold, not a gate.
-// Every field is editable on the sheet afterward, so a player can breeze past
-// any step (or the whole thing) and fill in the rest later. Per-step hints
-// still nudge toward complete choices.
+// Steps are non-blocking: every field is editable on the sheet afterward.
 const STEPS: StepDef[] = [
   { key: "start", title: "Get started", Component: StartStep },
   { key: "race", title: "Choose a race", Component: RaceStep },
@@ -62,9 +59,8 @@ interface Props {
   onFinish: (character: Character) => void | Promise<void>;
 }
 
-// The guided character-creation wizard. Owns the working `BuilderState`, routes
-// between steps, and assembles the final `Character` on finish. Blank/Sample
-// modes (picked on the first step) short-circuit straight to creation.
+// Owns the working `BuilderState`, routes between steps, assembles the final
+// `Character` on finish. Blank/Sample modes short-circuit to creation.
 export default function CharacterBuilder({ onCancel, onFinish }: Props) {
   const [state, setState] = useState<BuilderState>(defaultBuilderState);
   const [index, setIndex] = useState(0);
@@ -82,17 +78,15 @@ export default function CharacterBuilder({ onCancel, onFinish }: Props) {
   const isFirst = clampedIndex === 0;
   const isLast = clampedIndex === steps.length - 1;
 
-  // Each step opens scrolled to its top, not wherever the previous one left off.
+  // Each step opens scrolled to its top.
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 });
   }, [clampedIndex]);
 
-  // Once a guided build is underway, a stray backdrop click would throw away all
-  // progress — so only the X button (and Escape-free intent) can dismiss it then.
+  // Once a guided build is underway, only the X button dismisses it.
   const guardExit = state.mode === "guided" && clampedIndex > 0;
 
-  // On the first step, a Blank/Sample choice creates immediately.
   const finishesNow =
     (isFirst && state.mode !== "guided") || (isLast && state.mode === "guided");
 
@@ -102,8 +96,7 @@ export default function CharacterBuilder({ onCancel, onFinish }: Props) {
     try {
       await onFinish(buildCharacter(state));
     } finally {
-      // If onFinish navigated away this component unmounts; the guard is for
-      // the case where creation fails and the wizard stays open.
+      // No-op if onFinish navigated away and unmounted this component.
       setSubmitting(false);
     }
   };

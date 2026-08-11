@@ -34,10 +34,8 @@ import {
 } from "./builder-common";
 import Select from "src/components/select";
 
-// Domain-aware pickers for the two wizards — the widgets that know about
-// spells, feats, languages and class option lists. Split from
-// `builder-common.tsx`, which is now just layout primitives (Field, ChoiceGrid,
-// ChipMultiSelect); mixing the two had turned that file into a grab-bag.
+// Domain-aware pickers for the two wizards: widgets that know about spells,
+// feats, languages and class option lists.
 
 const LANGUAGE_OPTIONS = DEFAULT_LANGUAGES.flatMap((g) => g.options);
 const TOOL_OPTIONS = DEFAULT_TOOLS.flatMap((g) => g.options);
@@ -50,21 +48,18 @@ export type FeatState = FeatChoices & { featIndex?: string };
 export interface FeatPickerProps {
   state: FeatState;
   patch: (partial: Partial<FeatState>) => void;
-  // Skills already proficient in / already doubled, and weapons already known.
   proficientSkills: SkillName[];
   expertSkills: SkillName[];
   knownWeapons: string[];
-  // Spell names already on the sheet (or picked elsewhere in the wizard), so a
-  // Magic Initiate can't "learn" a cantrip the character already has.
+  // Spells already on the sheet, so a Magic Initiate can't "learn" a duplicate.
   knownSpells?: string[];
-  // Names of feats already taken. 5e allows each feat once (no repeatable feat
-  // is in the catalog), so these leave the dropdown entirely.
+  // Feats already taken; each feat is takeable once.
   takenFeats?: string[];
 }
 
-// A text input with a suggestion dropdown that still accepts free-text entries.
-// Replaces a native `<input list>` datalist, whose Chrome popup only appears on
-// the *second* click of an empty field — this list shows on first focus.
+// Suggestion dropdown that still accepts free text. Replaces a native
+// `<input list>` datalist, whose Chrome popup needs a second click on an
+// empty field — this shows on first focus.
 function Combobox({
   value,
   options,
@@ -79,7 +74,6 @@ function Combobox({
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  // Dismiss on any click outside the widget.
   useEffect(() => {
     if (!open) return;
     const onDocMouseDown = (e: MouseEvent) => {
@@ -90,9 +84,7 @@ function Combobox({
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, [open]);
 
-  // Show every match — the list scrolls (see .builder-combobox-list max-height),
-  // so no cap is needed, and a cap would silently hide options past it (e.g. the
-  // exotic languages, which all sort after the 8 standard ones).
+  // No cap: the list scrolls, and a cap would hide options past it.
   const q = value.trim().toLowerCase();
   const matches = options.filter((o) => o.toLowerCase().includes(q));
 
@@ -115,7 +107,7 @@ function Combobox({
               <button
                 type="button"
                 className="builder-combobox-option"
-                // mousedown fires before the input's blur, so the pick lands.
+                // mousedown fires before blur, so the pick registers.
                 onMouseDown={(e) => {
                   e.preventDefault();
                   onChange(o);
@@ -133,17 +125,10 @@ function Combobox({
 }
 
 // Picker for one of a class's closed option lists (Metamagic, maneuvers, a
-// ranger's favored enemy). Shared by both wizards, since a level-1 pick during
-// creation and a pick at level 10 are the same interaction.
-//
-// It offers only what's *new*: options already known from an earlier level are
-// filtered out entirely, and the remaining boxes lock once `count` are ticked —
-// the allowance is the whole point of the model, so the wizard enforces it
-// rather than letting a player quietly over-pick.
-//
-// A group whose picks at this level are *tagged* (a Kensei's one melee and one
-// ranged weapon) becomes one labelled single-choice per tag, so the split can't
-// be got wrong rather than being flagged after the fact.
+// ranger's favored enemy). Options already known from an earlier level are
+// filtered out, and boxes lock once `count` are ticked. A group whose picks
+// are *tagged* at this level (a Kensei's one melee + one ranged weapon)
+// becomes one labelled single-choice per tag.
 export function ChosenOptionPicker({
   group,
   count,
@@ -154,8 +139,8 @@ export function ChosenOptionPicker({
 }: {
   group: OptionGroup;
   count: number;
-  // The class level these picks are granted at — the only thing `tagged` keys
-  // off, since the constraint belongs to a level and not to the whole group.
+  // Class level these picks are granted at; `tagged` keys off this level, not
+  // the whole group.
   classLevel: number;
   alreadyKnown: string[];
   picked: string[];
@@ -167,8 +152,7 @@ export function ChosenOptionPicker({
   const tags = taggedPicksAt(group, classLevel, count);
 
   if (tags) {
-    // One pick per tag, held in tag order so the stored list reads
-    // melee-then-ranged however the player filled the fields in.
+    // One pick per tag, held in tag order.
     const tagOf = (name: string) =>
       group.options.find((o) => o.name === name)?.tag;
     const setTag = (tag: string, next?: string) =>
@@ -214,11 +198,8 @@ export function ChosenOptionPicker({
       {group.summary && (
         <p className="text-muted builder-hint">{group.summary}</p>
       )}
-      {/* Picking one of many is a single choice, so it gets the shared widget
-          that decides between radios and a dropdown by list length — a ranger's
-          fourteen favored enemies were fourteen checkboxes. Multi-pick groups
-          (two maneuvers, three metamagics) stay checkboxes: the cap and the
-          running count are the point there, and a multi-select does neither. */}
+      {/* Single choice uses the shared radio/dropdown widget; multi-pick
+          groups stay checkboxes so the cap and running count are visible. */}
       {count === 1 ? (
         <SingleChoice
           name={group.label}
@@ -263,10 +244,8 @@ export function ChosenOptionPicker({
   );
 }
 
-// The Tasha's swaps a level offers — each an opt-in toggle rather than a pick
-// from a list, because leaving them all off *is* the 2014 class and that has to
-// be the thing you get by not answering. The replaced feature is named on each
-// row, since the choice is only legible as a trade.
+// Each Tasha's swap is an opt-in toggle; leaving them all off is the 2014
+// class. The replaced feature is named on each row.
 export function OptionalFeaturePicker({
   features,
   taken,
@@ -311,9 +290,8 @@ export function OptionalFeaturePicker({
   );
 }
 
-// N combobox slots over a suggestion list, each still accepting custom entries
-// (the "default or custom" feel the rest of the wizard has). The shape behind
-// both the language picker and the custom background's tools.
+// N combobox slots over a suggestion list, each still accepting free text.
+// Backs both the language picker and the custom background's tools.
 export function SlotPicker({
   count,
   options,
@@ -326,12 +304,8 @@ export function SlotPicker({
   options: readonly string[];
   placeholder: string;
   value: string[];
-  // Entries dropped from the *suggestions* — things the character already has
-  // (an Elf's Elvish shouldn't be suggested as the background's extra
-  // language). Free text still accepts anything; this only stops the dropdown
-  // offering a pick that would silently be a duplicate. Each slot also hides
-  // the other slots' current picks, so "choose two" can't suggest the same
-  // thing twice.
+  // Entries dropped from the *suggestions* only (free text still accepts
+  // anything) — things already known, plus each slot hides the others' picks.
   exclude?: string[];
   onChange: (next: string[]) => void;
 }) {
@@ -379,9 +353,7 @@ export function LanguagePicker(props: {
   );
 }
 
-// One slot per tool proficiency granted, suggesting the standard kits, sets and
-// instruments. The list is flat here — the groups exist to keep the data
-// readable, not because the combobox filters by them.
+// One slot per tool proficiency granted.
 export function ToolPicker(props: {
   count: number;
   value: string[];
@@ -397,14 +369,10 @@ export function ToolPicker(props: {
   );
 }
 
-// The stat block shown while a checklist row is hovered or focused. The list
-// scrolls (`.builder-spell-list` clips overflow), so the card is fixed-position
-// and placed from the row's viewport rect: beside the list where there's room,
-// flipped to the other side where there isn't, clamped vertically either way.
-// Portalled to <body> because the wizard modal's centering transform would
-// otherwise both re-root the fixed coordinates and clip the card at the modal
-// edge (a transformed ancestor is a containing block even for `fixed`).
-// Mouse-transparent so it never steals the hover that opened it.
+// Stat card shown while a checklist row is hovered/focused, fixed-positioned
+// from the row's viewport rect (flips side/clamps to stay on screen).
+// Portalled to <body> because a transformed ancestor (the modal's centering
+// transform) would otherwise become the containing block for `fixed`.
 function SpellHoverCard({
   spell,
   anchor,
@@ -436,7 +404,6 @@ function SpellHoverCard({
   ]
     .filter(Boolean)
     .join(", ");
-  // The PHB prints these as one phrase: "Concentration, up to 1 minute".
   const duration = spell.concentration
     ? `Concentration, ${spell.duration.charAt(0).toLowerCase()}${spell.duration.slice(1)}`
     : spell.duration;
@@ -485,8 +452,6 @@ function SpellHoverCard({
           </span>
         )}
       </div>
-      {/* Paragraph breaks collapse to a sentence gap: the card is a clamped
-          preview, and `pre-line` breaks the clamp's ellipsis mid-word. */}
       <p className="builder-spell-popover-desc">
         {spell.desc.replace(/\n+/g, " ")}
       </p>
@@ -508,38 +473,30 @@ export function SpellChecklist({
   alreadyKnown,
   onChange,
 }: {
-  // Undefined shows every catalog spell (used for classes the catalog doesn't tag,
-  // e.g. Artificer); a class name filters to that class's spell list.
+  // Undefined shows every catalog spell (classes the catalog doesn't tag, e.g.
+  // Artificer); a class name filters to that class's list.
   className?: string;
-  // One spell level, or several in one list — the latter for an allowance that
-  // isn't tied to a level (a bard's Magical Secrets), where splitting it into a
-  // box per level would spread one two-spell choice over five widgets. Each row
-  // names its own level when the list spans more than one.
+  // One level, or several in one list (e.g. a bard's Magical Secrets, not
+  // tied to one level). Each row names its level when the list spans more than one.
   level: number | number[];
   selected: string[];
   max: number | null;
-  // Spell *names* to drop from the list — the ones the character already has
-  // (the sheet stores titles, not catalog indices, so names are the join key).
-  // Offering a known spell again would let a pick silently waste itself, the
-  // same reasoning as ChosenOptionPicker's `alreadyKnown`. A row that's
-  // currently ticked in *this* list always stays visible, so a pick can't
-  // become un-untickable when a cross-listed choice lands elsewhere.
+  // Spell names to drop from the list (already known elsewhere on the
+  // sheet/wizard); a currently-ticked row in this list stays visible regardless.
   alreadyKnown?: string[];
   onChange: (next: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
-  // The row under the mouse (or holding focus) and its viewport rect, for the
-  // hover card. Cleared on scroll rather than repositioned — the rect is stale
-  // the moment the list moves, and the next mouseenter re-anchors it anyway.
+  // Row under the mouse/focus and its viewport rect, for the hover card.
+  // Cleared (not repositioned) on scroll — a stale rect, re-anchored on the
+  // next mouseenter.
   const [hovered, setHovered] = useState<{
     spell: CatalogSpell;
     anchor: DOMRect;
   } | null>(null);
   const levels = Array.isArray(level) ? level : [level];
-  // Keyed on the levels' *contents*: a caller passing a fresh array literal
-  // every render would otherwise re-filter the whole catalog on each one.
+  // Keyed on contents so a fresh array literal each render doesn't re-filter.
   const levelKey = levels.join(",");
-  // Same contents-keying as the levels, for callers building the list inline.
   const knownKey = (alreadyKnown ?? [])
     .map((n) => n.trim().toLowerCase())
     .join("\n");
@@ -550,12 +507,7 @@ export function SpellChecklist({
         levelKey.split(",").includes(String(s.level)) &&
         (selected.includes(s.index) || !known.has(s.name.toLowerCase())),
     );
-    // `selected` is deliberately keyed by contents too — a re-created array of
-    // the same picks shouldn't re-filter the catalog.
   }, [query, className, levelKey, knownKey, selected.join(",")]);
-  // A list spanning several levels is grouped under level headings rather than
-  // tagging each of ~300 rows: the level is the one axis a player scans by, and
-  // repeating "Cantrip" forty times says it worst.
   const showLevel = levels.length > 1;
   const sorted = showLevel
     ? [...spells].sort((a, b) => a.level - b.level)
@@ -643,14 +595,12 @@ export function FeatPicker({
   takenFeats = [],
 }: FeatPickerProps) {
   const feat = FEATS.find((f) => f.index === state.featIndex);
-  // Taken feats leave the list — except the current pick, which must stay
-  // renderable while it's the selection.
+  // Taken feats leave the list except the currently selected one.
   const taken = new Set(takenFeats);
   const offeredFeats = FEATS.filter(
     (f) => f.index === state.featIndex || !taken.has(f.name),
   );
   const grants = feat?.grants;
-  // The names of any always-granted spells, for an informational line.
   const fixedSpellNames = [
     ...(grants?.fixedCantrips ?? []),
     ...(grants?.fixedSpells ?? []),
@@ -658,10 +608,8 @@ export function FeatPicker({
     .map((i) => getCatalogSpell(i)?.name)
     .filter(Boolean);
 
-  // A new skill proficiency must be one you don't already have. Expertise can
-  // only apply to a skill you're proficient in — your existing proficiencies
-  // plus any skill you're gaining from this same feat — and not one you already
-  // have expertise in.
+  // Expertise applies only to a skill you're proficient in (existing or
+  // gained from this feat) and not already expert in.
   const alreadyProficient = proficientSkills;
   const alreadyExpert = expertSkills;
   const skillOptions = REAL_SKILLS.filter(
@@ -672,8 +620,7 @@ export function FeatPicker({
     ...state.featSkillChoices,
   ]).filter((s: SkillName) => !alreadyExpert.includes(s));
 
-  // When the chosen skill changes, drop any expertise pick that's no longer a
-  // valid target (e.g. it was the skill just deselected).
+  // Drop any expertise pick that's no longer valid when the skill changes.
   const setSkillChoices = (featSkillChoices: SkillName[]) => {
     const valid = new Set<SkillName>([
       ...alreadyProficient,
@@ -716,9 +663,7 @@ export function FeatPicker({
           )}
           <p className="builder-hint">{feat.effect}</p>
 
-          {/* Half-feat ability increase. A single fixed stat is shown as a
-              static line so the +1 is never invisible; a choice of stats gets a
-              picker. */}
+          {/* A single fixed stat renders as a static line; a choice of stats gets a picker. */}
           {feat.abilityIncrease &&
             (feat.abilityIncrease.from.length > 1 ? (
               <Field

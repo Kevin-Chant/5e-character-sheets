@@ -10,26 +10,13 @@ import { useDatastoreSelector } from "src/lib/hooks/use-datastore-selector";
 import { useSharingSessions } from "src/lib/hooks/use-sharing-session";
 import { writeLastDatastore } from "src/lib/last-datastore";
 
-// Moves the open character between the two places it can live: this browser's
-// localStorage and the user's Google Drive. A move is a copy into the target
-// plus a delete from the source — the uuid doesn't change, so live sessions
-// and the front door's shortcut keep working across it.
-//
-// The two directions are shaped very differently by auth:
-//
-// - Drive → browser happens inline: localStorage needs no round-trip, so the
-//   character is written there, the Drive file deleted, and the datastore
-//   swapped in one go.
-// - Browser → Drive can't: gapi isn't even script-loaded while the app runs on
-//   local storage, and Drive may need an OAuth prompt. So that direction rides
-//   the existing `/auth` route with a `moveToDrive` intent in router state
-//   (the same pattern as the lobby's `returnTo`), and the move itself is
-//   finished by `useCompleteMoveToDrive` after the swap.
-//
-// Either swap runs through `CharacterContext`'s defined→defined reset, which
-// closes the open sheet — deliberately, since that reset is what keeps
-// autosave from writing across backends. Both directions therefore reopen the
-// character by uuid on the far side rather than trying to keep it open.
+// Moves the open character between localStorage and Google Drive: a copy into
+// the target plus a delete from the source, uuid unchanged so live sessions
+// and the front-door shortcut keep working. Drive → browser happens inline;
+// browser → Drive needs gapi/OAuth, so it rides `/auth` with a `moveToDrive`
+// router-state intent, finished by `useCompleteMoveToDrive`. Both directions
+// reopen the character by uuid after the swap (which closes the sheet via
+// `CharacterContext`'s defined→defined reset).
 export function useMoveCharacter() {
   const { datastore, setDatastore } = useDatastoreSelector();
   const { character } = useCharacter();
@@ -37,10 +24,8 @@ export function useMoveCharacter() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
 
-  // Where the open character could move to; undefined when it can't. Only a
-  // character we own is ours to move (same rule as sharing), and a shared or
-  // imported Drive document stays put: other people hold links to that file,
-  // and "move" would either break their copy or silently fork it.
+  // Only a character we own is ours to move; a shared/imported Drive document
+  // stays put since other people hold links to that file.
   let target: "drive" | "local" | undefined;
   if (
     character &&
@@ -61,9 +46,8 @@ export function useMoveCharacter() {
     if (!character || !target) return;
 
     if (target === "drive") {
-      // Flush the latest in-memory state to localStorage first: the Drive
-      // swap resets the open character, so the completion effect reads the
-      // character back from local storage rather than from context.
+      // Flush to localStorage first: the datastore swap resets the open
+      // character, so the completion effect reads it back from storage.
       await LocalDatastore.saveToDatastore(character);
       navigate("/auth", {
         state: { returnTo: "/sheet", moveToDrive: character.uuid },
@@ -74,8 +58,7 @@ export function useMoveCharacter() {
     setBusy(true);
     try {
       await LocalDatastore.saveToDatastore(character);
-      // Best-effort: a leftover Drive copy is recoverable — the local one is
-      // now canonical — so a failed delete just logs.
+      // Best-effort: local copy is now canonical, so a failed delete just logs.
       Promise.resolve(
         GoogleDriveDatastore.deleteFromDatastore(character.uuid),
       ).catch((err) =>
@@ -83,8 +66,6 @@ export function useMoveCharacter() {
       );
       writeLastDatastore("local");
       setDatastore(LocalDatastore);
-      // The swap closed the sheet; the uuid in the URL reopens it once the
-      // local list is up.
       navigate(`/sheet/${character.uuid}`);
     } finally {
       setBusy(false);
@@ -94,16 +75,11 @@ export function useMoveCharacter() {
   return { target, busy, handleMove };
 }
 
-// Finishes a browser → Drive move once `/auth` has landed back on the sheet
-// with the Drive datastore selected. Mounted by `sheet-container`.
-//
-// The gating is the subtle part: this effect runs *before* the datastore
-// provider's own init effect (children's effects fire first), so on arrival
-// `characterLoading` is still stale-false while Drive init — which resets the
-// module-level caches — is about to start. Writing during that window can
-// orphan the new file from `knownFiles` and leave a duplicate behind. So the
-// move waits until it has seen the Drive init actually start (loading true)
-// and finish (loading false again).
+// Finishes a browser → Drive move once `/auth` has landed back with the Drive
+// datastore selected. Mounted by `sheet-container`. Waits until it has seen
+// Drive init actually start (loading true) and finish (loading false) before
+// writing — this effect runs before the datastore provider's own init effect,
+// so writing too early can orphan the new file from `knownFiles`.
 export function useCompleteMoveToDrive() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -135,21 +111,14 @@ export function useCompleteMoveToDrive() {
       // One-shot: strip the intent so back/refresh can't re-run the move.
       navigate(location.pathname, { replace: true, state: null });
       if (!character) return;
-      // Open the sheet immediately — the character is fully in memory, so the
-      // user shouldn't sit on a Drive picker that doesn't list it yet while
-      // the copy round-trips. `persistCharacter` stages the entry into the
-      // reactive character list right away (marked unsynced) and writes to
-      // Drive in the background.
+      // Open immediately rather than waiting on the Drive round-trip;
+      // persistCharacter stages the entry (marked unsynced) and writes in the background.
       dispatch(loadPersistedCharacter(character));
       const persisted = await persistCharacter(character);
       if (persisted) {
-        // Only once Drive actually holds the character does the browser copy
-        // stop being the canonical one.
         LocalDatastore.deleteFromDatastore(uuid);
       } else {
-        // The local copy was not deleted, so nothing is lost — surface that.
-        // The sheet stays open with the unsaved indicator up; a manual save
-        // (or the next autosaved edit) retries the Drive write.
+        // Local copy stays; sheet stays open with unsaved indicator, retried on next save.
         alert(
           "Couldn't copy the character to Google Drive. It's still saved in " +
             "this browser — check your connection and save again to retry.",

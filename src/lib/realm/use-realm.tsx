@@ -8,15 +8,8 @@ import {
   RealmStatus,
 } from "src/lib/realm/realm";
 
-// The React face of `realm.ts`, for a layer that wants exactly **one** realm
-// for as long as it is mounted — which is the party-session layer, because a
-// browser sits at one table.
-//
-// The transport itself is a plain factory (see the note at the top of
-// `realm.ts`): a hook can only ever hold one of a thing, and the character
-// layer needs one realm per shared sheet. This wrapper is what's left once that
-// moved out — instantiate, keep the handlers current, re-render on status
-// changes, dispose on unmount.
+// React wrapper over realm.ts for a layer that wants exactly one realm for
+// as long as it is mounted (the party-session layer).
 
 export type {
   RealmStatus,
@@ -44,9 +37,7 @@ export function useRealm<K extends string>({
     settings: { liveEditHost },
   } = useSettings();
 
-  // One instance for the lifetime of the component. `useMemo` rather than a
-  // lazy ref only because there is nothing to recompute it on: the identity is
-  // the point.
+  // One instance for the lifetime of the component.
   const instanceRef = useRef<RealmInstance<K>>();
   if (!instanceRef.current) {
     instanceRef.current = createRealm<K>({
@@ -60,11 +51,9 @@ export function useRealm<K extends string>({
   }
   const instance = instanceRef.current;
 
-  // The handlers-through-refs knot both layers used to tie by hand: the
-  // subscriptions are registered once, at connect, and would otherwise call the
-  // closures that existed at that moment for the rest of the session. Updated
-  // during render (not in an effect) so a connect started in the same commit
-  // already sees the current ones.
+  // Updated during render (not an effect) so a connect started in the same
+  // commit sees current handlers — subscriptions are registered once, at
+  // connect, and would otherwise close over stale callbacks.
   instance.update({
     clientId,
     liveEditHost,
@@ -79,8 +68,6 @@ export function useRealm<K extends string>({
     instance.getSnapshot,
   );
 
-  // A component that unmounts with a live interval keeps probing a socket
-  // nobody is listening to.
   useEffect(() => () => instance.dispose(), [instance]);
 
   return useMemo(

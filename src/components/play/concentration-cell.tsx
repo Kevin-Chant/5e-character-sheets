@@ -3,11 +3,8 @@ import { FaXmark } from "react-icons/fa6";
 import { useEncounter } from "src/lib/hooks/use-encounter";
 import { Participant } from "src/lib/play/encounter";
 
-// What one participant is holding, and the two ways it ends. One component for
-// both the player's rail and the DM's row — they were separate, and differed in
-// the one way that matters: the player's input had a Set button and the DM's was
-// a bare input in a bare form, where Enter was the only commit and an empty
-// entry looked exactly like a dropped keypress.
+// What one participant is concentrating on, and how it ends. Shared by the
+// player rail and the DM roster row.
 export default function ConcentrationCell({
   participant,
   checkDc,
@@ -15,12 +12,10 @@ export default function ConcentrationCell({
   showSince,
 }: {
   participant: Participant;
-  // A pending concentration check from damage that just landed. Advisory: a die
-  // is rolled somewhere at the table and the outcome is reported with a button.
+  // Pending concentration check from damage that just landed.
   checkDc?: number;
   onCheckResolved?: () => void;
-  // The round it started. Shown where there's room for it (the rail); folded
-  // away in a roster row, which is density rather than a different control.
+  // Round it started; shown in the rail, hidden in the denser roster row.
   showSince?: boolean;
 }) {
   const { concentrateOn, encounter } = useEncounter();

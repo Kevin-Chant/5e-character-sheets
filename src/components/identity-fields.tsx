@@ -5,14 +5,12 @@ import {
 } from "src/lib/hooks/use-sharing-session";
 
 interface IdentityFieldsProps {
-  // The session (character uuid) whose identity to edit. Omit to edit the
-  // persisted default identity (e.g. from Settings).
+  // Session (character uuid) to edit; omit to edit the persisted default.
   uuid?: UUID;
 }
 
-// Lets a participant pick the name and highlight color they broadcast. With a
-// `uuid` it edits that session's override; without one it edits the default
-// used by any session that hasn't set its own.
+// Picks the name and highlight color a participant broadcasts. With `uuid`
+// edits that session's override; without, edits the shared default.
 export default function IdentityFields({ uuid }: IdentityFieldsProps) {
   const {
     defaultIdentity,

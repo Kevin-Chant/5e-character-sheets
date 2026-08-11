@@ -173,10 +173,8 @@ export enum StatKey {
   cha = "cha",
 }
 
-// The draconic-ancestry table shared by the Dragonborn race and the sorcerer's
-// Draconic Bloodline: each dragon sets a damage type (for resistance and the
-// bloodline's affinity), plus — for the Dragonborn's breath weapon — a shape
-// and saving throw. Keyed by the label the wizard stores (color + type).
+// Shared by Dragonborn and sorcerer Draconic Bloodline. Keyed by the label
+// the wizard stores (color + type).
 export interface DraconicAncestryInfo {
   damage: DamageType;
   breath: "line" | "cone";
@@ -277,8 +275,6 @@ export const CoinValues: Record<CoinType, number> = {
   PP: 10,
 };
 
-// Creature size categories. PCs are almost always Small or Medium, but the full
-// set is modelled so Large/other homebrew and mount/wildshape notes have a home.
 export enum Size {
   Tiny = "Tiny",
   Small = "Small",
@@ -300,9 +296,7 @@ export enum Alignment {
   "Chaotic Evil" = "Chaotic Evil",
 }
 
-// Type definitions for the runtime-defined types of fields (not Typescript's compile-time types)
-// This is necessary for the edit modal to automatically select the appropriate input type for the
-// field being changed
+// Runtime type of a field, so the edit modal can pick the right input.
 export type FieldTypeNode =
   | "boolean"
   | "string"
@@ -336,11 +330,9 @@ export const EDITABLE_FIELD_OPTIONAL_DATA: Record<
   string,
   { title: string; hint?: string }
 > = {
-  // Without an entry here a field's modal is titled by `humanize()`ing its key,
-  // which prints the model's vocabulary at the player: "Exp", "Curr Hp", "Pb
-  // Override". Anything whose key doesn't already read as the words a player
-  // would use belongs in this map — the paper sheet's own wording is the
-  // reference, since that's the name they already know the field by.
+  // Without an entry, a field's modal title is `humanize()`d from its key
+  // (e.g. "Curr Hp"). Add an entry here when that doesn't read as a player
+  // would expect; prefer the paper sheet's own wording.
   name: { title: "Character Name" },
   exp: { title: "Experience Points" },
   maxHp: { title: "Hit Point Maximum" },
@@ -441,17 +433,15 @@ export enum DieOperation {
   "max" = "max",
 }
 
-// Standard recharge triggers for limited-use abilities. Stored as a plain
-// string so unusual triggers (e.g. "Dawn", "Initiative") are accepted too —
-// these are just the suggested presets. See `RechargeCriteria` in types.ts.
+// Suggested presets; `RechargeCriteria` (types.ts) stores a plain string so
+// unusual triggers (e.g. "Dawn", "Initiative") are still accepted.
 export enum RestType {
   shortRest = "Short Rest",
   longRest = "Long Rest",
 }
 
-// Every *real* skill. The `SkillName` enum also carries "Thieves Tools" — a
-// tool the sheet models as a pseudo-skill so it can be proficient/expert — so
-// anything offering "pick a skill" wants this list, not the raw enum.
+// `SkillName` also carries "Thieves Tools" as a pseudo-skill; use this list
+// (not the raw enum) anywhere offering "pick a skill".
 export const REAL_SKILLS = Object.values(SkillName).filter(
   (s) => s !== SkillName["Thieves Tools"],
 ) as SkillName[];
@@ -528,18 +518,15 @@ export const SPELLCASTING_ABILITIES: { [key in OfficialClass]?: StatKey } = {
   Wizard: StatKey.int,
 };
 
-// Well-known casting times get first-class treatment so that, in future, we can
-// surface all of a character's actions/bonus actions/reactions at a glance. Any
-// other casting time is stored as a free-form string.
+// Any other casting time is stored as a free-form string.
 export enum CastingTime {
   Action = "1 action",
   BonusAction = "1 bonus action",
   Reaction = "1 reaction",
 }
 
-// The eight schools of magic. A closed set in 5e, but stored on `Spell.school`
-// as `MagicSchool | string` so homebrew traditions aren't boxed out — the same
-// convention as `ClassName` and `RechargeCriteria`.
+// `Spell.school` stores this as `MagicSchool | string` so homebrew traditions
+// aren't boxed out.
 export enum MagicSchool {
   Abjuration = "Abjuration",
   Conjuration = "Conjuration",
@@ -553,17 +540,14 @@ export enum MagicSchool {
 
 export const MAGIC_SCHOOLS = Object.values(MagicSchool);
 
-// Spell levels are plain numbers: 0 = cantrip, 1–9 = leveled spell/slot levels.
-// This matches `SpellMechanics.level` and `damageTable` keys, so there's a single
-// representation across the model (the former "First"…"Ninth" word enum is gone).
+// 0 = cantrip, 1-9 = leveled spell/slot levels; matches `SpellMechanics.level`
+// and `damageTable` keys.
 export type SpellLevelNum = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 export type LeveledSpellLevel = Exclude<SpellLevelNum, 0>;
 export const LEVELED_SPELL_LEVELS: LeveledSpellLevel[] = [
   1, 2, 3, 4, 5, 6, 7, 8, 9,
 ];
 
-// Human label for a spell level: cantrips read "Cantrip", leveled slots "1st"…
-// (levels only ever run 1–9, so no teen-suffix special case is needed).
 export function spellLevelLabel(level: number): string {
   if (level === 0) return "Cantrip";
   const suffix = ["th", "st", "nd", "rd"][level] ?? "th";
@@ -577,13 +561,10 @@ export enum ArmorType {
   Shields = "Shields",
 }
 
-// AC-relevant classification of body armor — the three wearable tiers only
-// (unlike `ArmorType`, which also covers Shields and drives proficiencies).
+// The three wearable armor tiers (unlike `ArmorType`, which also covers Shields).
 export type ArmorCategory = "light" | "medium" | "heavy";
 
-// How a piece of armor lets DEX modify AC. Deliberately decoupled from
-// `ArmorCategory` so an armor that breaks its tier's default (e.g. a special
-// medium armor granting full DEX) is expressible: the editor defaults this from
-// the category but stores it explicitly. "capped" pairs with a numeric cap
-// (`ArmorMechanics.dexCap`, 2 for standard medium armor).
+// How armor lets DEX modify AC. Decoupled from `ArmorCategory` so an armor
+// that breaks its tier's default is expressible; "capped" pairs with
+// `ArmorMechanics.dexCap` (2 for standard medium armor).
 export type ArmorDexContribution = "full" | "capped" | "none";

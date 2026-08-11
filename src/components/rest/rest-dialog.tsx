@@ -17,12 +17,10 @@ import PrepareSpellsTask from "./prepare-spells-task";
 import RestLedger from "./rest-ledger";
 import { FaXmark } from "react-icons/fa6";
 
-// Running a rest. Two phases, no wizard steps: you pick short or long from cards
-// that already show what each one would restore (so the fork *is* the preview),
-// then the ledger commits as a single `replace_character` and the interactive
-// parts of the rest — hit dice, prepared spells — happen against the rested
-// sheet. That order is forced by the rules: under slow natural healing the dice
-// a long rest hands back are spendable in the same rest.
+// Pick short/long from cards showing what each restores, commit as a single
+// `replace_character`, then run the interactive parts (hit dice, prepared
+// spells) against the rested sheet — required because under slow natural
+// healing, dice a long rest hands back are spendable in the same rest.
 export default function RestDialog({
   preset,
   onClose,
@@ -32,20 +30,13 @@ export default function RestDialog({
 }) {
   const { character, dispatch } = useCharacter();
   const { settings } = useSettings();
-  // A called rest opens on its own workspace: the DM already said which rest
-  // this is, so making the player pick it again out of two cards would be
-  // asking a question that has been answered. "Back" still returns to the
-  // fork, because a player who wasn't there for the short rest is entitled to
-  // disagree with it.
+  // A called rest opens directly on its workspace, skipping the fork; "Back"
+  // still returns to it.
   const [kind, setKind] = useState<RestKind | undefined>(preset?.kind);
-  // Whether this rest passes daybreak — the player's call, defaulting to no so
-  // an "at dawn" item is never quietly recharged. Only offered when something
-  // on the sheet actually listens for dawn, and pre-answered when the table
-  // called the rest: daybreak is the DM's to narrate.
+  // Defaults to no, so an "at dawn" item is never quietly recharged.
   const [spansDawn, setSpansDawn] = useState(!!preset?.spansDawn);
-  // The plan as it stood at commit time. Kept rather than re-derived, because
-  // after the rest the sheet no longer shows what was missing — and that's
-  // exactly what the receipt has to report.
+  // The plan as it stood at commit time; kept rather than re-derived, since
+  // after the rest the sheet no longer shows what was missing.
   const [taken, setTaken] = useState<RestPlan>();
 
   const plans = useMemo(
@@ -148,11 +139,8 @@ export default function RestDialog({
   );
 }
 
-// The rest itself: the ledger and the tasks. Normally the ledger leads — it's
-// the answer to "what did that do?". The exception is a rest that restores
-// nothing automatically (a short rest for a character whose pools are all
-// long-rest ones), where leading with a "Stays spent" list reads as a failure
-// report; there the actionable part goes first and the caveats follow.
+// The ledger normally leads; when a rest restores nothing automatically, the
+// actionable tasks go first and the ledger's caveats follow.
 function RestWorkspace({
   plan,
   committed,
@@ -188,11 +176,7 @@ function RestWorkspace({
   );
 }
 
-// What a card advertises: the automatic restores, plus spending hit dice when
-// that's on offer. The follow-up matters here — a short rest for a hurt
-// character with dice left restores nothing automatically, and a card that
-// therefore said "Nothing to restore" would be flatly wrong about the most
-// useful thing a short rest does.
+// What a card advertises: automatic restores, plus spending hit dice when on offer.
 const forkLines = (plan: RestPlan): string[] => {
   const lines = plan.changes.map((change) => change.label);
   if (plan.followUps.some((f) => f.kind === "spendHitDice"))
@@ -200,10 +184,8 @@ const forkLines = (plan: RestPlan): string[] => {
   return lines;
 };
 
-// The fork. Each card carries its own rest's headline effects, so the choice is
-// made on evidence instead of on faith. A rest that does nothing is still
-// offered — resting for reasons of fiction or time is legal, and the sheet
-// shouldn't argue with the table.
+// Each card shows its rest's headline effects; a rest that does nothing is
+// still offered.
 function RestFork({
   character,
   plans,
@@ -263,8 +245,7 @@ function RestFork({
   );
 }
 
-// What's still to do once the rest is under way, named but not yet actionable —
-// the tasks work on the rested sheet, so they wait for the commit.
+// Named but not actionable yet: the tasks work on the rested sheet, after commit.
 function UpcomingTasks({ plan }: { plan: RestPlan }) {
   const notes = plan.followUps.map(describeFollowUp).filter(Boolean);
   if (notes.length === 0) return <></>;

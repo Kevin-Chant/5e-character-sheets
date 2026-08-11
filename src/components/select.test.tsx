@@ -5,8 +5,8 @@ import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import Select, { SelectOptions } from "./select";
 
-// The shared picker's contract, pinned here so the ~60 call sites don't each
-// have to re-prove that filtering, grouping and the keyboard work.
+// The shared picker's contract, pinned here so call sites don't each
+// re-prove that filtering, grouping and the keyboard work.
 
 const SKILLS = [
   "Acrobatics",
@@ -115,8 +115,7 @@ describe("Select", () => {
     render(<Harness />);
     await open(user);
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
-    // Opened with nothing chosen: the cursor starts at the top, so two steps
-    // down is the third option.
+    // Cursor starts at the top, so two steps down is the third option.
     expect(screen.getByRole("button", { name: "Skill" })).toHaveTextContent(
       "Arcana",
     );
@@ -164,8 +163,7 @@ describe("Select", () => {
     );
   });
 
-  // The hint is why you'd choose the option, so it has to reach a screen
-  // reader — but as the description, not glued onto the name.
+  // The hint reaches a screen reader as the description, not glued onto the name.
   it("names an option by its label and describes it with the hint", async () => {
     const user = userEvent.setup();
     render(

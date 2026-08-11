@@ -42,10 +42,8 @@ import { EMPTY_ENCOUNTER, Participant } from "src/lib/play/encounter";
 import { OutgoingRoll } from "src/lib/play/reports";
 import RollModal from "./roll-modal";
 
-// The roll dialog reads the character and the open roll request from context
-// and the crit house-rule from settings. The first two are datastore-coupled,
-// so they're mocked; settings uses its real provider seeded from localStorage,
-// which is the same path the app takes.
+// Character and roll request are datastore-coupled, so mocked; settings uses
+// its real provider seeded from localStorage.
 
 const character: Character = (() => {
   const c = structuredClone(defaultCharacter) as Character;
@@ -55,11 +53,9 @@ const character: Character = (() => {
 
 const dispatch = vi.fn();
 let spec: RollSpec;
-// Set by the one test that opens the dialog onto an exchange with attempts
-// already sent under it (a roll call answered a second time).
+// Set by the one test that opens the dialog onto an exchange with attempts already sent.
 let requestAttemptBase: number | undefined;
-// Stable, because it doubles as the exchange id every roll in the dialog is
-// reported under.
+// Doubles as the exchange id every roll in the dialog is reported under.
 const EXCHANGE = "exchange-1";
 
 vi.mock("src/lib/hooks/use-character", () => ({
@@ -90,10 +86,7 @@ const open = (
   s: RollSpec,
   settings: Record<string, unknown> = {},
   rollMode: RollMode = "app",
-  // The table, when there is one. Solo (the default) nothing is reported and
-  // no target is asked for, which is the shape most of this file tests.
-  // Two contexts because they answer two questions: who is in the fight
-  // (`encounter`), and what is being said about it (`talk`).
+  // The table, when there is one; solo (the default) reports nothing and asks no target.
   encounter?: Partial<EncounterContextData>,
   talk?: Partial<TableTalkData>,
 ) => {
@@ -216,9 +209,8 @@ describe("RollModal — save-based attacks", () => {
 });
 
 describe("RollModal — weapon conditions", () => {
-  // The rider conditions read the attack's tags; these come off the real preset
-  // catalog rather than being hand-written, so a change to the catalog data can't
-  // quietly make this test assert something the app doesn't do.
+  // Attacks come off the real preset catalog, not hand-written, so a catalog
+  // change can't quietly make this test assert something the app doesn't do.
   const preset = (name: string) =>
     WEAPON_PRESETS.flatMap((g) => g.options).find((w) => w.name === name)!;
   const longbow = () => buildAttackFromPreset(preset("Longbow"));
@@ -233,7 +225,7 @@ describe("RollModal — weapon conditions", () => {
 
   it("folds Archery into the to-hit modifier on a tagged ranged weapon", () => {
     open({ kind: "attack", toHit: 7, damage: GREATSWORD, attack: longbow() });
-    // +2 applied without asking — the whole point of tagging the weapon.
+    // +2 applied without asking.
     expect(screen.getByText("d20 +9")).toBeInTheDocument();
     expect(
       screen.queryByRole("checkbox", { name: /Archery/ }),
@@ -252,8 +244,7 @@ describe("RollModal — weapon conditions", () => {
   });
 
   it("falls back to an opt-in tick on an untagged attack", async () => {
-    // No `attack` at all — a spell attack, or a sheet whose weapon predates
-    // tags. The sheet can't tell, so it asks, exactly as it always did.
+    // No `attack` at all — a spell attack, or a sheet whose weapon predates tags.
     open({ kind: "attack", toHit: 7, damage: GREATSWORD });
     expect(screen.getByText("d20 +7")).toBeInTheDocument();
     const tick = screen.getByRole("checkbox", { name: /Archery/ });
@@ -262,9 +253,8 @@ describe("RollModal — weapon conditions", () => {
   });
 });
 
-// A feature invoked *on a hit* (a Rune Knight's Fire Rune) is a rider here, not
-// a button in the abilities panel: its dice ride the weapon's damage roll, and
-// the use it costs is spent afterwards by its own button — so a re-roll is free.
+// A rider like Fire Rune rides the weapon's damage roll; its use is spent
+// afterwards by its own button, so a re-roll is free.
 describe("RollModal — a pool-powered extra", () => {
   const fireRune = (): LimitedUseAbility => {
     const c = structuredClone(defaultCharacter) as Character;
@@ -360,8 +350,7 @@ describe("RollModal — real dice (manual mode)", () => {
       "20{enter}",
     );
     expect(screen.getByText("Critical Hit")).toBeInTheDocument();
-    // …and the damage half says so too — as a reminder naming the table's
-    // crit flavor, never a checkbox (the entered total is the authority).
+    // Reminder naming the table's crit flavor, never a checkbox — the entered total is the authority.
     expect(
       screen.getByText(/Critical hit — double the damage dice — apply it/),
     ).toBeInTheDocument();
@@ -374,18 +363,16 @@ describe("RollModal — real dice (manual mode)", () => {
     open({ kind: "attack", toHit: 7, damage: GREATSWORD }, {}, "manual");
     await userEvent.type(screen.getByLabelText("Total damage"), "17{enter}");
     expect(total()).toBe(17);
-    // The crit toggle is app-math; with real dice the player already doubled
-    // their own dice, so it isn't offered.
+    // App-math toggle isn't offered — with real dice the player already doubled their own.
     expect(
       screen.queryByRole("checkbox", { name: /Critical/ }),
     ).not.toBeInTheDocument();
   });
 });
 
-// Save-based spells: the catalog's `resolution: {kind: "save"}` has to reach
-// the dialog as a DC (it used to be dropped entirely), targeting is a set
-// rather than a pick, and a spell with no dice at all still crosses the wire
-// as an announced cast.
+// The catalog's `resolution: {kind: "save"}` reaches the dialog as a DC;
+// targeting is a set rather than a pick; a spell with no dice still crosses
+// the wire as an announced cast.
 describe("RollModal — save-based spells", () => {
   const spellBase = {
     spellcastingClass: randomUUID() as never,
@@ -425,8 +412,7 @@ describe("RollModal — save-based spells", () => {
   it("shows the save DC a spell's catalog resolution implies", () => {
     open({ kind: "attack", spell: FIREBALL });
     expect(screen.getByText("Saving Throw")).toBeInTheDocument();
-    // 8 + PB 4 (level 12) + INT 0 (no spellcasting entry falls back to the
-    // ability) — the point is the number exists at all; it used to be absent.
+    // 8 + PB 4 (level 12) + INT 0 (no spellcasting entry falls back to the ability).
     expect(screen.getByText(/DC 12/)).toBeInTheDocument();
     expect(screen.getByText(/Half damage on a success/)).toBeInTheDocument();
   });
@@ -440,8 +426,7 @@ describe("RollModal — save-based spells", () => {
       { encounter: { ...EMPTY_ENCOUNTER, participants: [GOBLIN, ORC] } },
       { reportsEnabled: true, sendReport, rememberTarget: vi.fn() },
     );
-    // No dice on this side of the screen: no roll button, an announce instead,
-    // gated on aiming it at someone.
+    // No dice: no roll button, an announce instead, gated on aiming it at someone.
     const announce = screen.getByRole("button", { name: "Announce cast" });
     expect(announce).toBeDisabled();
     await userEvent.click(screen.getByRole("checkbox", { name: "Goblin 1" }));
@@ -451,8 +436,7 @@ describe("RollModal — save-based spells", () => {
     const report = sendReport.mock.calls[0][0] as OutgoingRoll;
     expect(report.stage).toBe("cast");
     expect(report.targetIds).toEqual([GOBLIN.id, ORC.id]);
-    // The DC rides along; no onSuccess clause, because there's no damage for
-    // a successful save to scale.
+    // No onSuccess clause: no damage for a successful save to scale.
     expect(report.save).toEqual({ dc: 12, stat: StatKey.wis });
   });
 
@@ -484,10 +468,8 @@ describe("RollModal — save-based spells", () => {
   });
 });
 
-// The self-directed rolls: a hit die reports itself (the HP change reaches
-// the DM as a bare projection write — this is the "why" beside it), a heal
-// may target yourself, and a plain check must not inherit the target of your
-// last attack.
+// A hit die reports itself, a heal may target yourself, and a plain check
+// must not inherit the target of your last attack.
 describe("RollModal — self-directed rolls at a table", () => {
   const SELF: Participant = {
     id: "pc:self",
@@ -583,9 +565,9 @@ describe("RollModal — self-directed rolls at a table", () => {
   });
 });
 
-// Cast conditions: a spell with nothing to roll and no save (Bless) still
-// announces, names the condition it applies, and — once the bearer accepts —
-// the condition's wired riders reach their d20s from the bundled catalog.
+// A spell with nothing to roll and no save (Bless) still announces and names
+// the condition it applies; the condition's wired riders then reach their
+// d20s from the bundled catalog.
 describe("RollModal — cast conditions", () => {
   const SELF: Participant = {
     id: "pc:self",
@@ -619,11 +601,10 @@ describe("RollModal — cast conditions", () => {
       },
       { reportsEnabled: true, sendReport, rememberTarget: vi.fn() },
     );
-    // The dialog says what the cast applies…
     expect(
       screen.getByText(/attack rolls and saving throws/),
     ).toBeInTheDocument();
-    // …and yourself is a valid target of your own buff.
+    // Yourself is a valid target of your own buff.
     await userEvent.click(
       screen.getByRole("checkbox", { name: "Ellora (you)" }),
     );
@@ -641,8 +622,7 @@ describe("RollModal — cast conditions", () => {
     open({ kind: "check", modifier: 3, save: true }, {}, "app", {
       selfConditions: ["Bless"],
     });
-    // No tick needed: saves are exactly what Bless touches, and the roll
-    // kinds can say so now.
+    // No tick needed: saves are exactly what Bless touches.
     await userEvent.click(screen.getByRole("button", { name: "Roll" }));
     // Math.random pinned high: d20 = 20, d4 = 4 → 20 + 3 + 4.
     expect(total()).toBe(27);
@@ -759,16 +739,14 @@ describe("RollModal — result breakdowns", () => {
   it("names the flat modifier alongside the dice", async () => {
     open({ kind: "attack", toHit: 7, damage: GREATSWORD });
     await userEvent.click(screen.getByRole("button", { name: "Roll Damage" }));
-    // 2d6 (maxed to 6 each) + STR 5 = 17 — and the +5 is written out, not left
-    // for the player to infer from "(6 + 6)".
+    // The +5 is written out, not left for the player to infer from "(6 + 6)".
     expect(screen.getByText(/6 \+ 6 \+ 5/)).toBeInTheDocument();
   });
 });
 
-// An attack at a table is a small conversation, and the dialog now holds it:
-// the target is named before the dice, and each stage travels to the seat as
-// it lands. What these pin is invisible here — it shows up on a DM board this
-// test doesn't render — so they assert on the courier.
+// Target is named before the dice; each stage travels to the seat as it
+// lands. What's pinned here shows up on a DM board this test doesn't render,
+// so these assert on the courier.
 describe("RollModal — reporting to the table", () => {
   const GOBLIN: Participant = {
     id: "combatant:goblin",
@@ -848,9 +826,8 @@ describe("RollModal — reporting to the table", () => {
   });
 
   it("stamps a landed extra's condition onto the damage report", async () => {
-    // A Fire Rune-shaped rider: its invoke *is* the hit, so the condition
-    // rides the damage report of the swing it landed on — and only when the
-    // extra was actually ticked.
+    // Its invoke *is* the hit, so the condition rides the damage report of
+    // the swing it landed on — only when the extra was actually ticked.
     character.limitedUseAbilities.push({
       info: { title: "Fire Rune", titleFormulas: [] },
       maxUses: 1,
@@ -898,9 +875,7 @@ describe("RollModal — reporting to the table", () => {
   });
 
   it("numbers on from attempts sent before the dialog opened", async () => {
-    // A roll call answered a second time: the prompt re-opens the dialog onto
-    // the call's exchange with the attempts already sent under it, and the new
-    // roll must not claim to be an innocent first.
+    // A roll call answered a second time: the new roll must not claim to be an innocent first.
     requestAttemptBase = 2;
     sendReport = vi.fn();
     open(
@@ -916,8 +891,7 @@ describe("RollModal — reporting to the table", () => {
 
   it("holds a roll made before a target is named, then sends its true attempt", async () => {
     atTable();
-    // Rolling first and picking after would otherwise be the way to make a bad
-    // roll disappear — only the last would ever be seen, as an innocent first.
+    // Otherwise rolling first and picking after could make a bad roll disappear.
     await toHit();
     await toHit();
     await toHit();

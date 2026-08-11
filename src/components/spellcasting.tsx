@@ -72,10 +72,7 @@ function PactSlots({ character }: SpellsTableProps) {
   );
 }
 
-// "How many spells can I have prepared?" — the number a cleric, druid, wizard,
-// paladin or artificer needs at every long rest, and the one part of their
-// spellcasting the sheet never showed. Rendered per class, since a
-// cleric/wizard multiclass prepares from two separate allowances.
+// Prepared-spell counts, per class (a multiclass caster has separate allowances).
 function PreparedCounts({ character }: SpellsTableProps) {
   const rows = character.spellcastingClasses
     .map((entry) => {
@@ -100,8 +97,6 @@ function PreparedCounts({ character }: SpellsTableProps) {
           <span
             key={row.id}
             className={classNames("prepared-count", {
-              // Over the limit is the actionable state — you have to put one
-              // back. Under is normal: you can prepare fewer than your maximum.
               over: row.prepared > row.allowance,
             })}
             title={`${row.name}: ${row.prepared} of ${row.allowance} prepared`}
@@ -118,9 +113,8 @@ function PreparedCounts({ character }: SpellsTableProps) {
 function SpellsTable({ character }: SpellsTableProps) {
   const { dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
-  // Levels the user has manually revealed (e.g. to record a spell granted by a
-  // feat or background at a level they have no slots for). Session-only — once a
-  // spell is added the level stays visible on its own via `hasSpells`.
+  // Levels manually revealed (e.g. a spell granted at a level with no slots).
+  // Session-only — once a spell is added, `hasSpells` keeps the level visible.
   const [revealedLevels, setRevealedLevels] = useState<Set<LeveledSpellLevel>>(
     new Set(),
   );
@@ -128,12 +122,10 @@ function SpellsTable({ character }: SpellsTableProps) {
   const spellcastingClasses = character.spellcastingClasses.map(
     (klass) => klass.classId,
   );
-  // Show each spell's class only when multiclassing, where it's ambiguous.
   const showClassBadge = spellcastingClasses.length > 1;
 
-  // Warlocks (and other pact casters) learn spells up to their pact-slot level
-  // even though they have no standard slots, so the pact level extends which
-  // spell-level cards are shown.
+  // Pact casters learn spells up to their pact-slot level even with no
+  // standard slots, so pact level extends which spell-level cards show.
   const pactInfo = getPactSlotInfo(character);
   const pactActive = (character.pactSlots?.totalOverride ?? pactInfo.total) > 0;
   const pactLevel = pactActive
@@ -144,8 +136,6 @@ function SpellsTable({ character }: SpellsTableProps) {
     character.spellSlots[level]?.totalOverride ??
     getDefaultSpellSlots(character, level);
 
-  // A level card is shown when it has standard slots, holds spells, is covered
-  // by pact magic, or was manually revealed.
   const visibleLevels = LEVELED_SPELL_LEVELS.filter((level) => {
     const hasSpells = (character.spells[level]?.length ?? 0) > 0;
     return (
@@ -166,8 +156,6 @@ function SpellsTable({ character }: SpellsTableProps) {
       <div className="spell-levels">
         <div className="spell-level-card">
           <div className="spell-level-header">
-            {/* Same class as "Level 1"…"Level 9": it's the same kind of card
-                header and was the one rendering in plain body text. */}
             <span className="spell-level-number">Cantrips</span>
           </div>
           <SpellList
@@ -178,8 +166,7 @@ function SpellsTable({ character }: SpellsTableProps) {
         </div>
         {visibleLevels.map((level) => {
           const total = standardSlots(level);
-          // Clamped, so lowering the override (or losing the level that granted
-          // the slots) can't render more spent pips than exist.
+          // Clamped so lowering the override can't render more spent pips than exist.
           const expended = expendedSpellSlots(character, level);
           return (
             <div key={level} className="spell-level-card">
@@ -246,11 +233,8 @@ export default function Spellcasting() {
   const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
 
-  // Auto-populate the spellcasting class list from the character's classes:
-  // add an entry for each spellcasting class that isn't already listed. Manual
-  // entries and overrides are preserved, and removals are never undone — a
-  // class dropped from the class list keeps its spellcasting entry until the
-  // user deletes it.
+  // Auto-populate spellcasting entries for classes that don't have one yet.
+  // Removals are never undone: a dropped class keeps its entry until deleted.
   const existingClassIds = new Set(
     character?.spellcastingClasses.map((s) => s.classId),
   );
@@ -272,8 +256,7 @@ export default function Spellcasting() {
   }, [missingClassIds.join("|")]);
 
   const addSpellcastingClass = () => {
-    // Default to a character class that has no spellcasting entry yet, else the
-    // first class. (A classless sheet can't form a valid reference, so bail.)
+    // Default to a class with no spellcasting entry yet, else the first class.
     const target =
       character.class.find(
         (k) => !character.spellcastingClasses.some((s) => s.classId === k.id),
@@ -294,11 +277,7 @@ export default function Spellcasting() {
     dispatch(updateAt(charPath(FIELD.spellcastingClasses), newValue));
   };
 
-  // A Champion Fighter has no spellcasting at all, and used to be shown an empty
-  // "Cantrips" card anyway. Spellcasting is present when the character has a
-  // spellcasting class or has recorded a spell from anywhere (a feat, a race, a
-  // magic item). Otherwise there's nothing to show in play, and edit mode offers
-  // only the way to opt in.
+  // Present when the character has a spellcasting class or any recorded spell.
   const casts =
     character.spellcastingClasses.length > 0 ||
     Object.values(character.spells).some((list) => (list?.length ?? 0) > 0);

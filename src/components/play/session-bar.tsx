@@ -6,16 +6,9 @@ import { useEncounter } from "src/lib/hooks/use-encounter";
 import { copyToClipboard } from "src/lib/browser";
 import { inviteLink } from "src/lib/play/session";
 
-// Starting or joining a party session.
-//
-// The whole thing is one code read out over a call. There's no host who owns the
-// fight — everyone opens their own character and joins the same code, so a
-// player going to bed doesn't end anybody else's encounter.
-//
-// What leaves the browser is only the encounter: names, initiative, HP, AC,
-// conditions, concentration. No spell list, no inventory, no backstory. The
-// privacy default holds by construction rather than by a flag, which is why this
-// bar can say so plainly.
+// Starting or joining a party session by code. Only the encounter projection
+// (names, initiative, HP, AC, conditions, concentration) leaves the browser —
+// no spell list, inventory, or backstory.
 export default function SessionBar() {
   const navigate = useNavigate();
   const {
@@ -40,9 +33,6 @@ export default function SessionBar() {
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // Close the join form once we're actually in. Without this, leaving a session
-  // drops you back onto the form you used to get in — still holding the old
-  // code — instead of the normal bar with its rejoin shortcuts.
   const connected = sessionStatus === "connected";
   useEffect(() => {
     if (!connected) return;
@@ -57,10 +47,6 @@ export default function SessionBar() {
           <FaTowerBroadcast />
           <span>Live</span>
         </span>
-        {/* Copies the link rather than the bare code: a player who clicks it
-            lands in the lobby for this table having answered nothing, which is
-            a shorter set of instructions than any code plus a place to paste
-            it. The code stays on screen for reading out over the call. */}
         <button
           type="button"
           className="session-code"
@@ -77,16 +63,6 @@ export default function SessionBar() {
           <FaCopy />
         </button>
         {copied && <span className="session-hint">Invite link copied</span>}
-        {/* The seat gates which controls render, never who may write —
-            unclaimed means everyone gets them, which is what keeps the
-            encounter usable with no session at all.
-
-            There is no "take over" here any more. Starting a game claims the
-            seat, and a reload or a dropped connection reclaims it automatically
-            from this browser's DM token, so the two reasons to press it are
-            gone. What's left — a DM whose browser is genuinely never coming
-            back — is rare enough to live in Settings rather than sit on the bar
-            reading like something to race for. */}
         {isDm ? (
           <button type="button" className="session-btn" onClick={releaseDm}>
             Release DM seat
@@ -98,10 +74,7 @@ export default function SessionBar() {
             Claim DM seat
           </button>
         )}
-        {/* Leaving takes the code out of the URL as well as out of the
-            session. They are one act now: a `/play/<code>` this browser knows
-            reconnects on its own, so a URL left pointing at the table would
-            put you straight back in the seat you just stood up from. */}
+        {/* Also clears the URL — a /play/<code> this browser recognizes auto-rejoins. */}
         <button
           type="button"
           className="session-btn"
@@ -153,11 +126,6 @@ export default function SessionBar() {
         </form>
       ) : (
         <>
-          {/* Offered first, because an offline bar with a remembered session is
-              almost always a reload or a dropped connection rather than a
-              decision to leave — leaving on purpose clears it. For a DM this is
-              the only way back: the seat still knows them, but the code was
-              never written to a character, because they may not have one. */}
           {lastSession && (
             <button
               type="button"

@@ -6,11 +6,6 @@ import userEvent from "@testing-library/user-event";
 import { renderWithCharacter } from "src/lib/fixtures/render-with-character";
 import PlaySurface from "./play-surface";
 
-// The mission-facing behaviour of the surface: each round the board narrows to
-// what the moment calls for — and only advisorily. Off your turn the banner
-// says who is acting and the board dims by class; nothing is disabled, because
-// a readied action or a DM ruling outranks anything the app can see.
-
 function renderSurface() {
   return renderWithCharacter(
     <MemoryRouter initialEntries={["/play"]}>
@@ -24,10 +19,9 @@ async function intoCombatWithGoblin(
   user: ReturnType<typeof userEvent.setup>,
   container: HTMLElement,
 ) {
-  // The goblin's default initiative (10) beats the self participant's 0, so
-  // combat opens on the goblin's turn — the off-turn state.
+  // Goblin's default initiative (10) beats self's 0, opening combat off-turn.
   await user.type(screen.getByLabelText("Combatant name"), "Goblin");
-  // Scoped: the conditions panel in the vitals rail has an "Add" of its own.
+  // Scoped: the vitals rail's conditions panel has its own "Add".
   const add = container.querySelector(".initiative-add button[type=submit]");
   await user.click(add as HTMLElement);
   await user.click(screen.getByRole("button", { name: "Start combat" }));
@@ -39,15 +33,12 @@ describe("per-round guidance on the play surface", () => {
     const { container } = renderSurface();
     const disabledOnBoard = () =>
       container.querySelectorAll(".action-board button:disabled").length;
-    // Whatever is disabled before combat (zero-slot casts, steppers at their
-    // minimum) is disabled for its own reasons and stays that way.
     const disabledBefore = disabledOnBoard();
     await intoCombatWithGoblin(user, container);
 
     expect(screen.getByText("Goblin is acting")).toBeInTheDocument();
     expect(container.querySelector(".play-body.off-turn")).not.toBeNull();
-    // The escape hatch: dimming is a class, never `disabled` — going off-turn
-    // disables nothing that wasn't already.
+    // Dimming is a class, never `disabled`.
     expect(disabledOnBoard()).toBe(disabledBefore);
   });
 
@@ -66,13 +57,12 @@ describe("per-round guidance on the play surface", () => {
     const { container } = renderSurface();
     await intoCombatWithGoblin(user, container);
 
-    // Off-turn with nothing spent it's the slot-reset button, and inert.
+    // Off-turn with nothing spent, "End turn" is the inert slot-reset button.
     expect(screen.getByRole("button", { name: "End turn" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Next turn" }));
     expect(screen.getByText("Your turn")).toBeInTheDocument();
 
-    // On your turn it's the real thing — no ruling needed, the order moves.
     await user.click(screen.getByRole("button", { name: "End turn" }));
     expect(screen.getByText("Goblin is acting")).toBeInTheDocument();
     expect(container.querySelector(".play-body.off-turn")).not.toBeNull();

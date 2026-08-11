@@ -5,22 +5,11 @@ import {
   StatKey,
 } from "src/lib/data/data-definitions";
 
-// ---------------------------------------------------------------------------
-// Which editor a targeted field opens.
-//
-// A field's `STANDARD_EDITABLE_FIELD_TYPES` entry is the default, but many
-// fields have sub-paths that need a *different* editor — a formula leaf inside
-// an attack, the spell catalog instead of a blank spell, the consolidated skills
-// editor behind the "Skills" heading.
-//
-// This used to be a ten-branch if/else chain inside `charsheet.tsx`'s effect,
-// paired with a switch that mapped the result to a component. The two halves
-// had to be edited together (the docs said so in bold), and the routing bug
-// where a limited-use ability's save-DC path reopened the ability editor
-// instead of the formula builder shipped exactly because of that. Extracting
-// the decision makes it a pure function with a table of rules, testable
-// without rendering anything.
-// ---------------------------------------------------------------------------
+// Which editor a targeted field opens. A field's `STANDARD_EDITABLE_FIELD_TYPES`
+// entry is the default; many fields have sub-paths that need a different
+// editor (a formula leaf inside an attack, the spell catalog instead of a
+// blank spell, the consolidated skills editor). Expressed as a table of rules
+// so it's testable without rendering anything.
 
 /** A routing rule: when it matches, the field opens `type`. First match wins. */
 interface Route {
@@ -148,11 +137,8 @@ const ROUTES: Route[] = [
 ];
 
 /**
- * The editor a targeted field + sub-path opens.
- *
- * Falls back to the field's own `STANDARD_EDITABLE_FIELD_TYPES` entry when no
- * rule matches — which is the common case, and why the rules only need to
- * describe the exceptions.
+ * The editor a targeted field + sub-path opens. Falls back to the field's own
+ * `STANDARD_EDITABLE_FIELD_TYPES` entry when no rule matches.
  */
 export function resolveModalType(
   field: FIELD,
@@ -172,8 +158,7 @@ export function resolveModalType(
   return typeof match.type === "function" ? match.type(ctx) : match.type;
 }
 
-// Exported for a test that asserts every rule is reachable, so a rule shadowed
-// by an earlier one can't sit there looking load-bearing.
+// Exported for a test that asserts every rule is reachable.
 export const ROUTE_NAMES = ROUTES.map((r) => r.name);
 
 export function matchedRouteName(

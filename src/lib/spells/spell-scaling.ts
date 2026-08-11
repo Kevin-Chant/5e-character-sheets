@@ -28,11 +28,10 @@ const sameDie = (a: DieDefinition, b: DieDefinition): boolean =>
     ? a === b
     : !isStandardDie(a) && !isStandardDie(b) && a.numFaces === b.numFaces;
 
-// `base + steps * increment`, kept as a plain CustomFormula the engine already
-// evaluates. When both sides are the same die (e.g. 8d6 + N·1d6) it collapses to
-// a single dice-count bump; otherwise it falls back to an addition node. A dice
-// increment scales by its *count* (steps × N dice), never `steps × oneRoll` —
-// so an actual roll rolls the right number of dice, not one die multiplied.
+// `base + steps * increment`. Same-die sides (e.g. 8d6 + N·1d6) collapse to a
+// single dice-count bump; otherwise falls back to an addition node. A dice
+// increment scales by its count (steps × N dice), never by multiplying one
+// roll, so the result still rolls the right number of dice.
 function combine(
   base: CustomFormula,
   increment: CustomFormula,
@@ -54,8 +53,7 @@ function combine(
   return { operation: Operation.addition, operands: [base, scaledIncrement] };
 }
 
-// Largest table entry at or below `castLevel` (tables can be sparse — only the
-// levels where damage changes need an entry).
+// Largest table entry at or below `castLevel`; tables can be sparse.
 function tableEntryFor(
   table: Record<number, SpellDamageComponent[]>,
   castLevel: number,
@@ -76,11 +74,10 @@ const componentsToMap = (
   }, {});
 
 /**
- * The concrete damage of a spell cast at `castLevel` — a slot level, or the
- * character's total level for cantrips — as a `CustomFormulaWithDamage` the
- * existing engine renders and totals. An explicit `damageTable` entry wins;
- * otherwise each base component grows by `steps` copies of its matching scaling
- * increment. Returns `{}` for spells with no structured damage.
+ * Damage of a spell cast at `castLevel` (a slot level, or character total
+ * level for cantrips). An explicit `damageTable` entry wins; otherwise each
+ * base component grows by `steps` copies of its scaling increment. Returns
+ * `{}` for spells with no structured damage.
  */
 export function spellDamageAtLevel(
   m: SpellMechanics,
@@ -110,9 +107,8 @@ export function spellDamageAtLevel(
 }
 
 /**
- * The concrete healing formula of a spell cast at `castLevel` — base healing
- * grown by its per-step increment (e.g. Cure Wounds `1d8 + mod` gains `1d8` per
- * slot above 1st). Returns undefined for spells that don't heal.
+ * Healing of a spell cast at `castLevel`: base healing grown by its per-step
+ * increment (e.g. Cure Wounds `1d8 + mod` gains `1d8` per slot above 1st).
  */
 export function spellHealingAtLevel(
   m: SpellMechanics,

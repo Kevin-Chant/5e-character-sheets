@@ -43,13 +43,10 @@ export default function SheetContainer() {
   // state; this finishes it (copy in, delete local, reopen) once Drive is up.
   useCompleteMoveToDrive();
 
-  // Cold start (a refresh, a bookmark, a direct link): no datastore is
-  // selected, because that lives in React state — but the last-used backend is
-  // remembered, so re-select it instead of bouncing home. Local is instant;
-  // Drive resumes silently in the background (`ensureDriveToken`) and only
-  // detours to /auth when a genuine click is needed. A remote joiner has no
-  // datastore but does have a character pushed into context, so only someone
-  // with genuinely nothing to show goes home.
+  // Cold start: no datastore selected (that's React state), so re-select the
+  // remembered last-used backend instead of bouncing home. Drive resumes
+  // silently via ensureDriveToken and only detours to /auth when a click is
+  // needed.
   const driveBootStarted = useRef(false);
   useEffect(() => {
     if (datastore || character) return;
@@ -79,21 +76,17 @@ export default function SheetContainer() {
     navigate("/");
   }, [datastore, character]);
 
-  // The uuid in the URL names the sheet to open — it is read before any
-  // backend has loaded, so it resolves here once the list arrives. A uuid that
-  // isn't in the list (deleted, or a different Drive account) clears back to
-  // the plain picker, which is the right answer to a link that has gone stale.
+  // The uuid in the URL names the sheet to open, resolved once the list
+  // arrives. A uuid not in the list (deleted, different Drive account) clears
+  // back to the plain picker.
   //
-  // One effect rather than two, because the ordering matters: a sheet that
-  // just *closed* (deleted, or "back to character list") leaves its uuid in
-  // the URL, and the load arm must not see that uuid and immediately reopen
-  // what the user asked to close.
+  // One effect, not two: a sheet that just closed leaves its uuid in the URL,
+  // and the load arm must not reopen what the user asked to close.
   //
-  // Same gating subtlety as `useCompleteMoveToDrive`: this effect runs before
-  // the datastore provider's own init effect (children's effects fire first),
-  // so on arrival `characterLoading` is stale-false while the list fetch is
-  // about to start. "The uuid isn't in the list" only means anything after
-  // the list has actually loaded — hence the saw-it-load ref.
+  // This effect runs before the datastore provider's init effect, so
+  // `characterLoading` is stale-false while the list fetch is about to start;
+  // "uuid isn't in the list" only means something after the list has loaded,
+  // hence sawListLoad.
   const sawListLoad = useRef(false);
   useEffect(() => {
     if (characterLoading) sawListLoad.current = true;
@@ -118,10 +111,8 @@ export default function SheetContainer() {
     }
   }, [character, routeUuid, characters, characterLoading, datastore]);
 
-  // The other direction: whichever of our own sheets is open, its uuid belongs
-  // in the URL so a refresh can find its way back. Not for a sheet joined
-  // remotely or borrowed from a DM — neither is in any local list, so its URL
-  // would be a promise a refresh can't keep.
+  // The other direction: keep the open sheet's uuid in the URL, unless it was
+  // joined remotely or borrowed — neither is in any local list to reload from.
   useEffect(() => {
     if (!character || !datastore) return;
     if (getRole(character.uuid) === "remote" || isBorrowed(character.uuid))
@@ -133,12 +124,11 @@ export default function SheetContainer() {
       });
     }
     // location.pathname is a dep so landing on plain /sheet with this sheet
-    // still open (the drawer link, a back navigation) restores the uuid too.
+    // still open restores the uuid too.
   }, [character?.uuid, datastore, location.pathname]);
 
   if (!datastore && !character) {
-    // The Drive resume is in flight (or about to redirect); say so instead of
-    // flashing an empty page.
+    // Drive resume in flight (or about to redirect); avoid flashing empty page.
     return readLastDatastore() === "drive" ? (
       <p className="margin">
         <Spinner /> Opening your Google Drive characters...

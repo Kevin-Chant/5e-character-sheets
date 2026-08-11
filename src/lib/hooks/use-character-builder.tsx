@@ -13,11 +13,8 @@ const CharacterBuilderContext = createContext<CharacterBuilderContextData>({
   openBuilder: () => {},
 });
 
-// Mounts the guided builder once and exposes `openBuilder()` so every entry
-// point (the picker card, the sidebar button) runs the same flow. On finish it
-// opens the sheet immediately and persists in the background — the assembled
-// character already exists in memory, so there's nothing worth holding the
-// modal on; the nav save indicator carries the write's fate.
+// On finish, opens the sheet immediately and persists in the background; the
+// nav save indicator carries the write's fate.
 export function CharacterBuilderProvider({
   children,
 }: React.PropsWithChildren) {

@@ -67,9 +67,6 @@ describe("session codes", () => {
     }
   });
 
-  // Codes get pasted out of a group chat, so the mess a paste brings has to
-  // work: surrounding whitespace, wrong case, and the dash-less form some tools
-  // produce.
   it("accepts a code however it was pasted", () => {
     const code = newSessionCode();
     expect(normalizeSessionCode(`  ${code.toUpperCase()}\n`)).toBe(code);
@@ -77,10 +74,6 @@ describe("session codes", () => {
     expect(isValidSessionCode(code.replace(/-/g, ""))).toBe(true);
   });
 
-  // The uuid *is* the authentication, the same trust model the character realms
-  // run on — so anything short enough to guess has to be rejected. The six-char
-  // codes this replaced were ~9x10^8 against an unauthenticated, unthrottled
-  // openRealm.
   it("rejects anything that isn't a uuid", () => {
     expect(isValidSessionCode("")).toBe(false);
     expect(isValidSessionCode("w6bnsu")).toBe(false);
@@ -90,8 +83,6 @@ describe("session codes", () => {
     );
   });
 
-  // A session realm and a shared-character realm live on the same sidecar, and
-  // both are uuids now — so the prefix is the only thing keeping them apart.
   it("namespaces its realm away from the character realms", () => {
     const code = "ABCDEF12-3456-7890-ABCD-EF1234567890";
     expect(realmForSession(code)).toBe("sessabcdef1234567890abcdef1234567890");
@@ -109,8 +100,6 @@ describe("remembered sessions", () => {
     expect(sessions.map((s) => s.code)).toEqual([B, A]);
   });
 
-  // Rejoining is the common case — the list has to order itself by use rather
-  // than fill up with the same code.
   it("moves a rejoined session to the top instead of duplicating it", () => {
     let sessions = rememberSession(undefined, A, 100);
     sessions = rememberSession(sessions, B, 200);
@@ -158,20 +147,15 @@ describe("mergeEncounter", () => {
     expect(mergeEncounter(local, older, ALICE_CHAR)).toBe(local);
   });
 
-  // Two clients writing at once must not sit swapping states forever, so the
-  // tie is broken the same way in every browser.
   it("breaks a same-revision tie deterministically", () => {
     const base = party();
     const fromA = { ...base, revision: 4, revisedBy: "client-a" };
     const fromB = { ...base, revision: 4, revisedBy: "client-b" };
-    // Both browsers agree that B wins, whichever side is asking.
+    // Both sides agree B wins, whichever side is asking.
     expect(mergeEncounter(fromA, fromB, ALICE_CHAR).revisedBy).toBe("client-b");
     expect(mergeEncounter(fromB, fromA, ALICE_CHAR).revisedBy).toBe("client-b");
   });
 
-  // A peer's copy of your HP is only as fresh as the last state they received.
-  // Accepting it wholesale makes your own HP bar jump backwards whenever anyone
-  // else advances the turn.
   it("keeps your own vitals when a peer's copy of them is stale", () => {
     const local = bumpRevision(party(), "client-a");
     const hurt = {
@@ -189,16 +173,12 @@ describe("mergeEncounter", () => {
       merged.participants.find((p) => p.characterUuid === ALICE_CHAR)?.vitals
         ?.currHp,
     ).toBe(4);
-    // Everyone else's vitals come from the peer, as they should.
     expect(
       merged.participants.find((p) => p.characterUuid === BOB_CHAR)?.vitals
         ?.currHp,
     ).toBe(22);
   });
 
-  // The join case, and the one that silently breaks a party: you announce
-  // yourself, the peer replies with a state that predates you, and accepting it
-  // wholesale deletes you from your own roster.
   it("keeps participants this client contributed that the peer hasn't seen", () => {
     let local = EMPTY_ENCOUNTER;
     local = addParticipant(local, {
@@ -208,7 +188,6 @@ describe("mergeEncounter", () => {
       ownerClientId: "client-c",
       initiative: 0,
     });
-    // The party's state, from before Carol arrived.
     const incoming = bumpRevision(
       bumpRevision(party(), "client-a"),
       "client-a",
@@ -225,20 +204,14 @@ describe("mergeEncounter", () => {
       "Goblin",
       "Carol",
     ]);
-    // The caller uses this length difference to decide the merge is worth
-    // publishing back — otherwise nobody else ever learns Carol is here.
     expect(merged.participants.length).toBeGreaterThan(
       incoming.participants.length,
     );
   });
 
-  // The bug this guards: a joiner and the room routinely reach the *same*
-  // revision independently — each counted its own participant and its own
-  // vitals, neither has heard of the other — and the clientId tiebreak then
-  // decides who exists by comparing two random uuids. About half the time the
-  // joiner "won" and silently discarded the room. It failed intermittently and
-  // only against a live peer, which is exactly the kind of bug a unit test
-  // should be able to state.
+  // Guards against a joiner and the room reaching the same revision
+  // independently, where the clientId tiebreak used to discard the room
+  // about half the time.
   describe("a joiner adopts the room instead of racing it", () => {
     const joining = () => {
       const local = bumpRevision(
@@ -260,10 +233,8 @@ describe("mergeEncounter", () => {
     it("would otherwise discard the room's roster", () => {
       const { local, room } = joining();
       expect(local.revision).toBe(room.revision);
-      // Without `adopt`, the tiebreak keeps the newcomer's local *membership*
-      // — the whole party vanishes from their copy. (The fight's position now
-      // survives on its own lane, `turnSeq`; membership is what adoption is
-      // still for.)
+      // Without `adopt`, the tiebreak keeps the newcomer's local membership —
+      // the party vanishes from their copy.
       const raced = mergeEncounter(local, room, CAROL_CHAR, "client-c");
       expect(raced.participants.map((p) => p.name)).toEqual(["Carol"]);
       expect(raced.round).toBe(1);
@@ -290,21 +261,15 @@ describe("mergeEncounter", () => {
       expect(merged.participants.map((p) => p.name)).toContain("Alice");
     });
 
-    // Adoption is one-shot, for the first reply after joining. A host that kept
-    // adopting would let the next arrival's empty state wipe its own fight.
     it("is not how ordinary updates are merged", () => {
       const { local, room } = joining();
       const merged = mergeEncounter(local, room, CAROL_CHAR, "client-c");
-      // An ordinary merge still runs the document race on membership: the
-      // newcomer's tiebreak win keeps their own roster.
       expect(merged.participants.map((p) => p.name)).toEqual(["Carol"]);
     });
   });
 
   it("does not re-add a participant the peer legitimately removed", () => {
     const local = bumpRevision(party(), "client-b");
-    // Alice's client dropped Bob deliberately; Bob is client-b's, and this is
-    // client-a merging, so nothing of ours is missing.
     const incoming = bumpRevision(withoutClient(local, "client-b"), "client-a");
     const merged = mergeEncounter(local, incoming, ALICE_CHAR, "client-a");
     expect(merged.participants.map((p) => p.name)).toEqual(["Alice", "Goblin"]);
@@ -332,9 +297,6 @@ describe("mergeEncounter", () => {
 });
 
 describe("roster changes", () => {
-  // A player closing their laptop takes their character out of the order. The
-  // monsters they typed in stay: the fight still contains them, and somebody
-  // else is tracking them now.
   it("drops a departing client's character but keeps what they typed in", () => {
     const after = withoutClient(party(), "client-b");
     expect(after.participants.map((p) => p.name)).toEqual(["Alice", "Goblin"]);
@@ -351,9 +313,6 @@ describe("roster changes", () => {
     expect(withoutClient(base, "client-z")).toBe(base);
   });
 
-  // Found by driving two real browsers: the DM left, the seat stayed claimed to
-  // a client no longer in the realm, and everyone else lost the combat controls
-  // permanently — the exact failure the seat is a UI gate (not a lock) to avoid.
   it("releases the DM seat when its holder leaves", () => {
     const held = { ...party(), dmClientId: "client-b" };
     expect(withoutClient(held, "client-b").dmClientId).toBeUndefined();
@@ -369,17 +328,13 @@ describe("roster changes", () => {
     expect(withoutClient(held, "client-z").dmClientId).toBeUndefined();
   });
 
-  // The clear has to move the seat's own lane, not just the document revision.
-  // Otherwise a peer that missed the LEAVE while briefly offline — and edited
-  // enough meanwhile to win the document race on its way back — ties the seat
-  // lane with its stale copy and reseats a DM who already left, for everyone.
   it("clears the seat on its own lane, so a stale-but-ahead copy can't reseat the leaver", () => {
     const held = { ...party(), dmClientId: "client-b", seatRev: 3 };
     const cleared = withoutClient(held, "client-b");
     expect(cleared.seatRev).toBe(4);
 
-    // The peer that never heard the LEAVE: same seat, same seatRev, but far
-    // enough ahead on the document lane to become the merge's base.
+    // Peer that never heard the LEAVE: same seat/seatRev, but ahead enough on
+    // the document lane to become the merge's base.
     let stale: Encounter = held;
     stale = bumpRevision(stale, "client-c");
     stale = bumpRevision(stale, "client-c");
@@ -392,8 +347,6 @@ describe("roster changes", () => {
     expect(merged.dmClientId).toBeUndefined();
   });
 
-  // Same rule for the ownership revert: a borrowed sheet going back to the DM
-  // moves `ownerClientId`, which is the identity lane's field.
   it("reverts a borrowed sheet on the identity lane", () => {
     const withOffer = {
       ...party(),
@@ -413,9 +366,6 @@ describe("roster changes", () => {
 });
 
 describe("re-adding into a fight in progress", () => {
-  // The merge's re-add and the local addParticipant share `insertParticipant`:
-  // a joiner arriving mid-combat lands where their roll says on every peer's
-  // copy, not just their own.
   it("seats the re-added participant by initiative", () => {
     let local = EMPTY_ENCOUNTER;
     local = addParticipant(local, {
@@ -425,7 +375,7 @@ describe("re-adding into a fight in progress", () => {
       ownerClientId: "client-c",
       initiative: 14,
     });
-    // Order: Alice 15, Goblin 12, Bob 9 — Alice is acting.
+    // Order: Alice 15, Goblin 12, Bob 9.
     const incoming = bumpRevision(
       bumpRevision(startCombat(party()), "client-a"),
       "client-a",
@@ -449,7 +399,6 @@ describe("re-adding into a fight in progress", () => {
       ownerClientId: "client-c",
       initiative: 14,
     });
-    // Advance the room to the Goblin (12) before Carol's state merges in.
     let room = startCombat(party());
     room = advanceTurn(room).encounter;
     expect(room.participants[room.turnIndex].name).toBe("Goblin");
@@ -461,7 +410,6 @@ describe("re-adding into a fight in progress", () => {
       "Goblin",
       "Bob",
     ]);
-    // Carol's count already passed this round; the Goblin keeps acting.
     expect(merged.participants[merged.turnIndex].name).toBe("Goblin");
   });
 });
@@ -484,7 +432,6 @@ describe("invites", () => {
     expect(inviteLink("https://dndcharactersheets.net", code)).toBe(
       `https://dndcharactersheets.net/join/${code}`,
     );
-    // A trailing slash on the origin shouldn't double up.
     expect(inviteLink("http://localhost:3000/", code)).toBe(
       `http://localhost:3000/join/${code}`,
     );
@@ -505,7 +452,6 @@ describe("conditionOffersFor", () => {
       characterUuid: ALICE_CHAR,
       initiative: 10,
     }),
-    // one encounter per row just to reuse the helper; flatten below
   ]
     .flatMap((e) => e.participants)
     .concat([
@@ -580,8 +526,6 @@ describe("who a roll call reaches", () => {
     expect(rollCallReaches(asked, "c")).toBe(false);
   });
 
-  // The single-recipient compat field an older build reads. Ours prefers the
-  // list, so a call carrying both agrees with itself either way round.
   it("still honours a lone toClientId", () => {
     expect(rollCallReaches(call({ toClientId: "a" }), "a")).toBe(true);
     expect(rollCallReaches(call({ toClientId: "a" }), "b")).toBe(false);
@@ -593,9 +537,6 @@ describe("who a roll call reaches", () => {
 
 describe("the topic table", () => {
   it("gives every message kind its own topic", () => {
-    // A copy-paste collision here is silent and awful: two kinds sharing a
-    // topic means both handlers see both messages and each drops the other's
-    // as "wrong kind", so a feature simply stops working with nothing logged.
     const topics = Object.values(TOPIC_FOR);
     expect(new Set(topics).size).toBe(topics.length);
   });

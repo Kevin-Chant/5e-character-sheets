@@ -1,35 +1,21 @@
 import { SkillName } from "src/lib/data/data-definitions";
 
-// The standard Player's Handbook backgrounds, reduced to the mechanical facts
-// the guided builder needs. Only game mechanics (which are not copyrightable)
-// are stored here; the `feature.detail` strings are original short summaries of
-// each feature's benefit, not the published flavour text.
-//
-// A background grants two fixed skill proficiencies plus a mix of tool
-// proficiencies, extra languages, starting equipment, and a feature. Tool
-// grants that are player choices ("one type of artisan's tools") are kept as
-// free-form label strings, since we don't model the full tool taxonomy.
+// PHB backgrounds, reduced to mechanical facts. Only mechanics (not
+// copyrightable) are stored; `feature.detail` strings are original summaries,
+// not published flavour text. Tool grants that are player choices ("one type
+// of artisan's tools") are kept as free-form label strings.
 
 export interface Background {
   name: string;
-  // Which book it comes from, shown on the card. Absent means the PHB, which is
-  // where every background here is from — see `nonphb-backgrounds.ts`.
+  // Book it's from, shown on the card. Absent = PHB — see `nonphb-backgrounds.ts`.
   source?: string;
-  // Skill proficiencies granted outright. Usually two, but a background with a
-  // `skillChoices` grant may name fewer (or none, for one that lets you pick
-  // both).
   skills: SkillName[];
-  // "Choose N of these", for the backgrounds whose second skill is a choice
-  // (Cloistered Scholar's Arcana/Nature/Religion). Same shape as a class's, so
-  // the wizard's picker doesn't have to learn a new one.
+  // "Choose N of these", e.g. Cloistered Scholar's Arcana/Nature/Religion.
   skillChoices?: { choose: number; from: SkillName[] };
   // Free-form tool proficiency labels (may describe a choice).
   tools: string[];
-  // Number of additional languages of the player's choice.
   languages: number;
-  // Starting equipment lines (added to the sheet as equipment entries).
   equipment: string[];
-  // Starting coin, in gold pieces.
   gold: number;
   feature: { title: string; detail: string };
 }

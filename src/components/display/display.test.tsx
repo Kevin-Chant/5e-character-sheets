@@ -36,17 +36,9 @@ import MultiLineTextDisplay from "./multi-line-text-display";
 import OtherProficienciesDisplay from "./other-proficiencies-display";
 import CharacterInfoPanel from "../character-info-panel";
 
-// The sheet's read-side components. What's worth testing here isn't the markup
-// — it's the two decisions each of these makes that the pure-function tests
-// can't reach: **what edit mode changes** (which affordances disappear in play
-// mode, and which deliberately stay because you use them mid-session), and
-// **what a click dispatches** (an update carries the field's whole new value,
-// so a wrong slice shows up as a wrong payload).
-
 describe("CoinsDisplay", () => {
   it("shows every denomination as a field in edit mode", () => {
     renderWithCharacter(<CoinsDisplay />);
-    // defaultCharacter carries PP/GP/SP; EP and CP are zero but still editable.
     expect(screen.getAllByRole("spinbutton")).toHaveLength(5);
   });
 
@@ -54,7 +46,6 @@ describe("CoinsDisplay", () => {
     renderWithCharacter(<CoinsDisplay />, { editMode: false });
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     expect(screen.getByText("PP")).toBeInTheDocument();
-    // EP is zero, so play mode doesn't shout it.
     expect(screen.queryByText("EP")).not.toBeInTheDocument();
   });
 
@@ -72,7 +63,6 @@ describe("CoinsDisplay", () => {
     await userEvent.type(gp, "12");
     await userEvent.tab();
     expect(harness.character.coins[CoinType.GP]).toBe(12);
-    // Other denominations are untouched — the update carries only this leaf.
     expect(harness.character.coins[CoinType.PP]).toBe(4);
   });
 
@@ -81,7 +71,6 @@ describe("CoinsDisplay", () => {
     const gp = screen.getAllByRole("spinbutton")[1];
     await userEvent.clear(gp);
     await userEvent.type(gp, "150");
-    // Nothing written yet — this used to have already stored 1, then 15.
     expect(harness.dispatch).not.toHaveBeenCalled();
     await userEvent.tab();
     expect(harness.dispatch).toHaveBeenCalledTimes(1);
@@ -89,9 +78,6 @@ describe("CoinsDisplay", () => {
   });
 
   it("reverts a cleared field rather than storing zero or NaN", async () => {
-    // Clearing a field and leaving it is more often abandonment than an intent
-    // to zero it — and typing "0" says that unambiguously. (This used to store
-    // 0 on clear, back when every keystroke was committed.)
     const harness = renderWithCharacter(<CoinsDisplay />);
     const gp = screen.getAllByRole("spinbutton")[1];
     const before = harness.character.coins[CoinType.GP];
@@ -243,11 +229,9 @@ describe("AttunementDisplay", () => {
     });
     const boxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
     const [a, b, c, d] = boxes;
-    // The three attuned stay togglable so you can free a slot…
     expect(a.disabled).toBe(false);
     expect(b.disabled).toBe(false);
     expect(c.disabled).toBe(false);
-    // …but the fourth can't be attuned without freeing one first.
     expect(d.disabled).toBe(true);
   });
 
@@ -260,9 +244,6 @@ describe("AttunementDisplay", () => {
     expect(dispatchedValue(dispatch)).toEqual({ attuned: true });
   });
 
-  // Attuning is the other gate on an item-owned ability: for an already-worn
-  // item, the attune checkbox is what moves the ability in and out of the
-  // Limited-Use list (unattuning parks the live row back on the item).
   it("attuning brings an equipped item's ability in; unattuning parks it", async () => {
     const character = aCharacter();
     character.limitedUseAbilities = [];
@@ -312,7 +293,6 @@ describe("AmmunitionDisplay", () => {
       editMode: false,
     });
     expect(screen.getAllByRole("spinbutton")).toHaveLength(2);
-    // The name is only editable in edit mode, so it's plain text here.
     expect(
       screen.queryByRole("button", { name: "Arrows" }),
     ).not.toBeInTheDocument();
@@ -347,12 +327,8 @@ describe("AmmunitionDisplay", () => {
 });
 
 describe("OtherProficienciesDisplay separators", () => {
-  // The Tools & Other entries are rich TextComponents, so their label renders
-  // through TextWithFormulasDisplay while the comma separating them is a plain
-  // sibling. When that component wrapped its text in a <div>, the block took the
-  // whole line and pushed the comma onto the next one — an orphaned comma with a
-  // broken line height under it. jsdom has no layout, so pin the cause: the text
-  // run has to be phrasing content for the comma to sit beside it.
+  // jsdom has no layout, so pin the cause directly: the label must render as
+  // phrasing content (not a block-wrapping div) for the comma to sit beside it.
   it("keeps a tool's separator on the same line as its name", () => {
     const character = aCharacter();
     character.otherProficiencies.toolsAndOther = [
@@ -405,8 +381,6 @@ describe("EquipmentDisplay", () => {
     expect(harness.character.equipment).toHaveLength(count - 1);
   });
 
-  // A weapon item owns its attack: the row in `attacks` exists only while the
-  // item is equipped, mirroring how armor only counts toward AC while worn.
   const withWeaponItem = (): Character => {
     const character = aCharacter();
     character.equipment.push({
@@ -436,7 +410,6 @@ describe("EquipmentDisplay", () => {
       screen.getByRole("button", { name: "Longsword — equipped" }),
     );
     expect(harness.character.attacks).toHaveLength(baseAttacks);
-    // The attack is parked on the item (same id), ready for the next equip.
     expect(weaponItem(harness.character).weapon!.attack.id).toBe(attackId);
   });
 
@@ -456,9 +429,6 @@ describe("EquipmentDisplay", () => {
     );
   });
 
-  // A magic item owns its limited-use ability the same way a weapon owns its
-  // attack: the row exists in the Limited-Use list only while the item is
-  // active (equipped, and attuned where required).
   const withMagicItem = (attunement?: { attuned: boolean }): Character => {
     const character = aCharacter();
     character.limitedUseAbilities = [];
@@ -498,7 +468,6 @@ describe("EquipmentDisplay", () => {
       screen.getByRole("button", { name: "Circlet of Blasting — equipped" }),
     );
     expect(harness.character.limitedUseAbilities).toHaveLength(0);
-    // Parked on the item, same id, ready for the next equip.
     expect(magicItem(harness.character).ability!.id).toBe(abilityId);
   });
 
@@ -551,9 +520,7 @@ describe("LimitedUseAbilitiesDisplay", () => {
     const harness = renderWithCharacter(<LimitedUseAbilitiesDisplay />, {
       character: withPools(),
     });
-    // 12 uses is past the pip threshold, so it reads as "remaining / total"…
     expect(screen.getByText("8 / 12")).toBeInTheDocument();
-    // …with −/+ instead of a pip per use.
     await userEvent.click(screen.getByRole("button", { name: "Spend a use" }));
     expect(harness.character.limitedUseAbilities[1].expended).toBe(5);
   });
@@ -563,10 +530,8 @@ describe("LimitedUseAbilitiesDisplay", () => {
       character: withPools(),
       editMode: false,
     });
-    // The pools are still there and still spendable…
     expect(screen.getByText("8 / 12")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Spend a use" })).toBeEnabled();
-    // …but you can't restructure them mid-session.
     expect(
       screen.queryByRole("button", { name: /remove/i }),
     ).not.toBeInTheDocument();
@@ -577,7 +542,6 @@ describe("LimitedUseAbilitiesDisplay", () => {
     character.limitedUseAbilities.push({
       info: { title: "Bardic Inspiration", titleFormulas: [] },
       maxUses: 3,
-      // Homebrew triggers aren't presets and keep whatever case they were given.
       recharge: "Dawn",
       expended: 0,
     });
@@ -600,10 +564,6 @@ describe("LimitedUseAbilitiesDisplay", () => {
 });
 
 describe("AbilityActions — Lay on Hands", () => {
-  // The one ability whose action lets you choose how much of the pool to spend.
-  // Its amount field moved from a raw number input to the shared StepperInput,
-  // which commits on blur/Enter rather than per keystroke — so what's worth
-  // pinning is that a typed amount is still the one the button spends.
   const paladin = (): Character => {
     const c = aCharacter();
     c.currHp = 20;
@@ -655,10 +615,6 @@ describe("AbilityActions — Lay on Hands", () => {
 });
 
 describe("AbilityActions — condition-applying uses at a table", () => {
-  // Stunning Strike's `applies` grant: at a table the row asks whom, and the
-  // use reports a `cast` stage carrying the condition *name* — the same wire
-  // shape a condition-granting spell sends, so offers and DM apply buttons
-  // fall out of the existing fan-out.
   const SELF: Participant = {
     id: "pc:self",
     name: "Brakka",
@@ -723,7 +679,6 @@ describe("AbilityActions — condition-applying uses at a table", () => {
       targetId: GOBLIN.id,
       condition: { name: "Stunned", rounds: 1 },
     });
-    // The spend still happened — the report is a side channel, not the write.
     const ki = harness.character.limitedUseAbilities.find(
       (a) => a.info.title === "Ki",
     );
@@ -742,13 +697,9 @@ describe("AbilityActions — condition-applying uses at a table", () => {
   });
 
   it("offers a save-the-room use the checkbox set, self included", async () => {
-    // A Turn-shaped `multi` grant: the same targetIds shape Fireball sends,
-    // so per-target offers and DM apply buttons need nothing new. Unlike a
-    // strike, a room-wide effect may include your own row.
     const character = aCharacter();
     character.limitedUseAbilities.push({
-      // Not "Channel Divinity" — the fixture paladin already owns that pool,
-      // and two rows with one accessible name would make the click ambiguous.
+      // Not "Channel Divinity" — the fixture paladin already owns that pool, which would collide.
       info: { title: "Turning", titleFormulas: [] },
       maxUses: 1,
       recharge: RestType.shortRest,
@@ -797,10 +748,6 @@ describe("AbilityActions — condition-applying uses at a table", () => {
 });
 
 describe("TrackerValue", () => {
-  // Current/temp HP and exhaustion are the numbers that move during a fight, so
-  // they're edited in place rather than through the field modal. What's worth
-  // pinning is that the in-place control writes the same whole-value update the
-  // modal did, and that it respects the bounds the rules give it.
   const hp = (character: Character) => (
     <TrackerValue
       cursor={charPath(FIELD.currHp)}
@@ -844,9 +791,6 @@ describe("TrackerValue", () => {
   });
 
   it("doesn't write a value per keystroke", async () => {
-    // Typing 15 used to commit 1 and then 15 — two undo entries and two
-    // messages to every peer in a live session, with a flicker through a value
-    // the player never meant. Nothing is written until the edit is finished.
     const character = aCharacter();
     character.currHp = 12;
     const harness = renderWithCharacter(hp(character), { character });
@@ -862,8 +806,6 @@ describe("TrackerValue", () => {
   });
 
   it("never passes through an intermediate value the clamp would stick at", async () => {
-    // Against a maximum of 20, typing "25" per keystroke wrote 2, then clamped
-    // 25 to 20 — but a slower "5" first would have stuck at 5.
     const character = aCharacter();
     character.currHp = 12;
     const harness = renderWithCharacter(hp(character), { character });
@@ -875,8 +817,6 @@ describe("TrackerValue", () => {
   });
 
   it("commits a pending edit before a step button acts on it", async () => {
-    // Clicking a step blurs the field first, so the step has to apply to what
-    // was just typed rather than to the stale stored value.
     const character = aCharacter();
     character.currHp = 12;
     const harness = renderWithCharacter(hp(character), { character });
@@ -945,10 +885,6 @@ describe("TrackerValue", () => {
 });
 
 describe("DeathSavesDisplay", () => {
-  // Death saves matter at one hit point total: zero. The region keeps its
-  // position either way — what's pinned here is that it changes weight, and
-  // that it stays usable while dormant (a DM tracking HP elsewhere still needs
-  // to tick a failure).
   const at = (currHp: number, successes = 0, failures = 0) => {
     const character = aCharacter();
     character.currHp = currHp;
@@ -971,8 +907,6 @@ describe("DeathSavesDisplay", () => {
   });
 
   it("stays awake while saves are recorded, even once healed", () => {
-    // Rolled a success, then someone healed them — the set isn't resolved yet,
-    // so the tracker shouldn't collapse and lose the marks from view.
     const { container } = renderWithCharacter(<DeathSavesDisplay />, {
       character: at(4, 1, 0),
     });
@@ -984,17 +918,13 @@ describe("DeathSavesDisplay", () => {
       character: at(12),
     });
     const pips = screen.getAllByRole("button");
-    // Three successes then three failures; the fourth pip is the first failure.
+    // Pips 0-2 are successes, 3-5 are failures.
     await userEvent.click(pips[3]);
     expect(harness.character.deathSaves.failures).toBe(1);
   });
 });
 
 describe("empty sections", () => {
-  // A section with nothing in it keeps its place in the reading order but not
-  // the height of a box waiting to be written in: a strip in edit mode, gone in
-  // play mode where it can't be filled anyway. The paper sheet prints the empty
-  // box only because it can't know; the app can.
   const bare = () => {
     const character = aCharacter();
     character.personality = { traits: [], ideals: [], bonds: [], flaws: [] };
@@ -1012,7 +942,6 @@ describe("empty sections", () => {
       { character: bare() },
     );
     expect(container.querySelector(".section-empty")).toBeInTheDocument();
-    // The landmark survives — that's what a paper player navigates by.
     expect(screen.getByText("Bonds")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+" })).toBeInTheDocument();
   });
@@ -1058,10 +987,6 @@ describe("empty sections", () => {
 });
 
 describe("the personality setting", () => {
-  // Whether a table plays with personality traits, ideals, bonds and flaws is
-  // one question about the group, not four per-section toggles and not a
-  // per-character one — so it lives in Game settings and governs both the sheet
-  // and the creation wizard (see `builder-steps.test.tsx` for the other half).
   const withTraits = () => {
     const character = aCharacter();
     character.personality = {

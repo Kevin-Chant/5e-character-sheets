@@ -1,23 +1,15 @@
 // The link that turns a Drive share notification into something a player can
-// act on.
+// act on: Drive's own email button opens the raw `.5echar` JSON.
 //
-// Drive's own email is honest but useless to a human: its button opens the
-// `.5echar` file, which renders as a wall of JSON. The app's import flow, on
-// the other side, was a Picker buried in the nav overflow menu — the recipient
-// had to already know it existed and then find their friend's character among
-// everything ever shared with them. This module is the seam between the two.
-//
-// What the link deliberately does *not* do is import on arrival. The app holds
-// the `drive.file` scope, which grants per-file access only to files the user
-// created here or picked through the Google Picker. A file id in a URL is a
-// name we have no right to read yet, so the link's job is to carry the id and
-// the name far enough that the Picker can open on that one file. Widening the
-// scope would make the link self-sufficient and make every user approve
-// read-everything-in-your-Drive to accept one character sheet.
+// The link does not import on arrival. Under the `drive.file` scope, a file id
+// grants access only to files created here or picked through the Google
+// Picker, so a file id in a URL can't be read yet — the link carries id + name
+// far enough for the Picker to open on that one file. Widening to a broader
+// scope would let the link self-import, at the cost of every user approving
+// read-everything-in-your-Drive to accept one sheet.
 
-// A Drive file id is URL-safe already; the name needs encoding and is only ever
-// a hint, so a missing or stale one costs the recipient a search box, not the
-// import.
+// The file id is URL-safe already; the name is only a hint, so a missing or
+// stale one costs the recipient a search box, not the import.
 export function importLinkFor(
   origin: string,
   fileId: string,
@@ -27,9 +19,8 @@ export function importLinkFor(
   return `${origin}/import/${fileId}${query}`;
 }
 
-// The Picker searches Drive by name, and the stored name carries our extension
-// (`Tarion.5echar`). Searching for the whole thing matches nothing useful in
-// some locales, so query on the character's name alone.
+// The Picker searches by name; strip the `.5echar` extension so the query is
+// just the character's name.
 export function pickerQueryFor(fileName?: string): string | undefined {
   if (!fileName) return undefined;
   const stripped = fileName.replace(/\.5echar$/, "").trim();

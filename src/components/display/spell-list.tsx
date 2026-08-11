@@ -29,12 +29,9 @@ const schoolAbbreviation = (school: string): string =>
   SCHOOL_ABBREVIATIONS[school] ?? school.charAt(0).toUpperCase();
 
 interface SpellListProps {
-  // Cursor to this bucket within `character.spells` (the "cantrips" or a
-  // SpellLevel array). Optional since a level's array may not exist yet.
   bucket: Cursor<Spell[] | undefined>;
   // Cantrips are never prepared, so the prepared toggle is hidden for them.
   preparable: boolean;
-  // Show the originating class on each spell (only useful when multiclassing).
   showClassBadge: boolean;
 }
 
@@ -60,13 +57,8 @@ export default function SpellList({
     );
   };
 
-  // Open the editor on the next (empty) index; EditSpell seeds a blank spell
-  // into the modal draft, so nothing is persisted until the user saves.
   const addSpell = () => pushCursor(bucket.at(spells.length));
 
-  // Open the catalog browser for this level; the ".new" sentinel routes to the
-  // picker, which appends the chosen spell itself (see charsheet.tsx /
-  // add-spell-from-catalog.tsx).
   const browseCatalog = () => pushCursor(bucket.append());
 
   const togglePrepared = (index: number, prepared: boolean) =>
@@ -122,8 +114,6 @@ export default function SpellList({
                     "Unknown"}
                 </span>
               )}
-              {/* School as a single letter (A/C/D/En/Ev/I/N/T), spelled out on
-                  hover — full names would crowd the row. */}
               {spell.school && (
                 <span className="spell-badge school-badge" title={spell.school}>
                   {schoolAbbreviation(spell.school)}

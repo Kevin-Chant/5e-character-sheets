@@ -12,12 +12,9 @@ import {
 } from "src/lib/rules";
 import TextWithFormulasDisplay from "./text-with-formulas-display";
 
-// The Attunement sub-section of the equipment box: one row per item flagged as
-// requiring attunement (set in the item editor), each with an attuned toggle —
-// attuning happens during a rest, so the toggle stays live in play mode. The
-// slot counter in the heading tracks the cap (3 by default, editable in edit
-// mode for e.g. the Artificer). Rendered only when at least one item requires
-// attunement; there's no add button because items opt in via the item editor.
+// Attunement sub-section: one row per item flagged as requiring attunement
+// (set in the item editor). Toggle stays live in play mode. Rendered only
+// when at least one item requires attunement.
 export default function AttunementDisplay() {
   const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
@@ -36,13 +33,8 @@ export default function AttunementDisplay() {
   const attunedCount = countAttunedItems(equipment);
   const atAttunementCap = attunedCount >= attunementCap;
 
-  // Replace the whole `attunement` object (not the `attuned` leaf) so the
-  // optional-field cursor type-checks.
+  // Replaces the whole `attunement` object (not the `attuned` leaf) so the optional-field cursor type-checks.
   const setAttuned = (index: number, attuned: boolean) => {
-    // Attuning/un-attuning moves the item's granted ability in or out of the
-    // Limited-Use list, under the same park/copy contract as the equip toggle
-    // (see `EquipmentDisplay.setEquipped`) — un-attuning parks the live row,
-    // with any edits, back on the item.
     const item = equipment[index];
     const itemAbility = item.ability;
     if (itemAbility?.id) {

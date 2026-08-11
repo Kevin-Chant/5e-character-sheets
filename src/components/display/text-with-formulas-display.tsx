@@ -19,8 +19,6 @@ function FormulaTextWithTooltip({
 }: FormulaTextWithTooltipProps) {
   return (
     <ComponentWithPopover
-      // Phrasing content, so it nests validly inside the run above and stays on
-      // the same line as the words around it.
       ComponentType="span"
       componentClass="pos-relative editable inline underline bold"
       componentChildren={<>{calculatedValue}</>}
@@ -54,13 +52,8 @@ export default function TextWithFormulasDisplay({
     }
   });
 
-  // A span, not a div: this renders a *run of text*, and every one of its
-  // segments is already inline. As a block it swallowed the whole line, so
-  // anything a caller put next to it was pushed onto the next one — the Tools &
-  // Other list's separating comma ended up orphaned on a line of its own, and
-  // dragged the row's height with it. Nothing places this beside block content
-  // that needed the break; where the parent is a flex container it becomes a
-  // flex item exactly as the div did.
+  // Span, not div: this renders a run of text and must stay inline (a block
+  // would push a caller's adjacent content, e.g. a trailing comma, onto its own line).
   return (
     <span>
       {stringSegments.map((segment, i) => {

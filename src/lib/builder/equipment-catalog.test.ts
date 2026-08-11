@@ -8,11 +8,6 @@ import {
   shieldWithBonus,
 } from "./equipment-catalog";
 
-// The built-in item catalog behind the Add Item type-ahead. What matters here:
-// every SRD weapon made it in alongside the armor, entries carry the weights
-// the encumbrance readout needs, and the +N magic-bonus helpers raise the right
-// number in each kind of entry.
-
 const byName = (name: string) => {
   const entry = EQUIPMENT_CATALOG.find((e) => e.name === name);
   if (!entry) throw new Error(`${name} missing from catalog`);

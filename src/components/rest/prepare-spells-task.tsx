@@ -12,11 +12,10 @@ import {
 import { Spell } from "src/lib/types";
 import { ordinal } from "src/lib/utils";
 
-// A prepared caster's daily re-pick, inline. Deliberately NOT a second spell
-// browser: it lists only the leveled spells this class already knows, with the
-// same `prepared` toggle the spell list dispatches, so the rest panel and the
-// sheet can't disagree. Existing picks are kept rather than cleared — by the
-// book a long rest lets you *change* your prepared list, it doesn't wipe it.
+// A prepared caster's daily re-pick: lists only leveled spells the class
+// already knows, using the same `prepared` toggle the spell list dispatches.
+// Existing picks are kept, not cleared — a long rest lets you change your
+// prepared list, not wipe it.
 export default function PrepareSpellsTask({
   classId,
   className,
@@ -33,8 +32,6 @@ export default function PrepareSpellsTask({
   const prepared = preparedSpellsFor(character, classId);
   const overPrepared = prepared > allowed;
 
-  // Every leveled spell this class knows, with the bucket index each one needs
-  // for its dispatch path.
   const spells = Object.entries(character.spells)
     .filter(([bucket]) => Number(bucket) > 0)
     .flatMap(([bucket, list]) =>

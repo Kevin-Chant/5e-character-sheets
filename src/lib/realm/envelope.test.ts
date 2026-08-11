@@ -60,10 +60,6 @@ describe("accept", () => {
     });
   });
 
-  // v3 changed the convergence model itself: a document from an older build
-  // carries no lane counters, so its edits would silently lose every lane tie.
-  // The honest failure is a fresh join — drop the message whole and let each
-  // side keep its own working state — not a wrong merge.
   it("drops an older client's message the same way", () => {
     expect(accept(inbound({ v: PROTOCOL_VERSION - 1 }), options)).toEqual({
       ok: false,

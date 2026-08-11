@@ -12,27 +12,11 @@ import { createPortal } from "react-dom";
 import { FaChevronDown } from "react-icons/fa6";
 
 // The app's one closed-list picker: a button that opens a filtered listbox.
-//
-// It exists because the DM's "ask for a roll" typeahead was the only control in
-// the app you could *search*, and it was the one people said was the best thing
-// on the board. Everywhere else a list of thirty grouped items — every
-// condition, every skill, every spell level, every equipment slot — was a
-// native `<select>`, where "Perception" costs a scroll through three optgroups
-// on a laptop and a spun wheel on a phone. Searching is the interaction; a
-// native select is what you fall back to when you can't build one.
-//
-// So filtering is the default here rather than a feature a call site opts into.
-// The one thing that *is* conditional is the filter **box**: a list of four
-// (short/long rest, three sharing levels) has nothing to search, and a text
-// input over it would be furniture that raises a phone keyboard for no reason.
-// Below `filterThreshold` the box is omitted and typing still jumps, which is
-// the behaviour a native select already trained everyone to expect.
-//
-// The popup is portalled to `<body>` and positioned fixed. An absolutely
-// positioned list is clipped by the first ancestor that scrolls, and this
-// renders inside the sheet's scroll area, inside modals, and inside the play
-// board's horizontally scrolling roster — three places that would each have
-// cropped it differently.
+// Filtering is the default; below `filterThreshold` the filter box is omitted
+// and typing still jumps to a match. The popup is portalled to `<body>` and
+// positioned fixed, since an absolutely positioned list would be clipped by
+// whichever scrolling ancestor it renders inside (sheet scroll area, modals,
+// the play board's roster).
 
 export interface SelectOption {
   value: string;
@@ -94,10 +78,8 @@ function normalize(options: SelectOptions): SelectOption[] {
   );
 }
 
-// Fuzzy enough to be forgiving, strict enough to stay predictable: every query
-// word has to appear somewhere in the label or the group, in any order. That's
-// what makes "dex save" find "Dexterity" under "Saving throws" and "fire bolt"
-// find "Fire Bolt" without a scoring model nobody can reason about.
+// Every query word must appear somewhere in the label/group/hint/meta/keywords,
+// in any order — so "dex save" finds "Dexterity" under "Saving throws".
 function matches(option: SelectOption, words: string[]): boolean {
   if (!words.length) return true;
   const haystack = `${option.label} ${option.group ?? ""} ${
@@ -219,8 +201,7 @@ export default function Select({
       setActive(shown.length - 1);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      // Enter must not escape to a surrounding form: several of these sit in
-      // one ("Ask for a roll"), and submitting while picking is never meant.
+      // Must not escape to a surrounding form (several of these sit in one).
       e.stopPropagation();
       if (shown[active]) pick(shown[active]);
     } else if (e.key === "Escape") {
@@ -265,9 +246,7 @@ export default function Select({
         }}
       >
         <span className="app-select-value">{triggerText ?? placeholder}</span>
-        {/* The meta column follows its option out of the list: it is part of
-            the answer ("Standard — 1 hour / 8 hours"), and a closed picker
-            that dropped it would be hiding the thing being compared. */}
+        {/* meta follows its option out of the list — it's part of the answer. */}
         {!triggerLabel && chosen?.meta && (
           <span className="app-select-trigger-meta">{chosen.meta}</span>
         )}
@@ -347,9 +326,7 @@ function SelectPopup({
     const rect = trigger.getBoundingClientRect();
     const height = popup.offsetHeight;
     const below = window.innerHeight - rect.bottom;
-    // Flip above only when there is genuinely more room there — a phone with
-    // the keyboard up has almost none below, and a list that opens off-screen
-    // is a list nobody can pick from.
+    // Flip above only when there's genuinely more room there.
     const flip = below < height + 8 && rect.top > below;
     const width = Math.max(rect.width, 200);
     const left = Math.min(
@@ -374,8 +351,7 @@ function SelectPopup({
   }, []);
 
   useEffect(() => {
-    // Scroll anywhere in the page moves the anchor; capture catches the inner
-    // scrollers (the sheet's `#detail`, the roster) as well as the window.
+    // Capture catches inner scrollers (sheet `#detail`, roster) as well as the window.
     window.addEventListener("scroll", place, true);
     window.addEventListener("resize", place);
     return () => {
@@ -393,26 +369,20 @@ function SelectPopup({
     el?.scrollIntoView({ block: "nearest" });
   }, [active]);
 
-  // Contiguous runs of a shared heading, in first-seen order. Kept as runs
-  // rather than a map so the flat index the keyboard walks stays the index the
-  // options render at.
+  // Contiguous runs of a shared heading, so the flat index the keyboard walks
+  // stays the index the options render at.
   const runs: { group?: string; from: number; options: SelectOption[] }[] = [];
   for (const [i, option] of options.entries()) {
     const last = runs[runs.length - 1];
     if (last && last.group === option.group) last.options.push(option);
     else runs.push({ group: option.group, from: i, options: [option] });
   }
-  // Headings only survive where they still separate something: a query
-  // narrowed to one group ("perc") shouldn't wear a "Skills" heading over its
-  // single result.
+  // Headings only survive where they still separate something.
   const grouped = runs.length > 1 && runs.every((r) => r.group);
 
   const renderOption = (option: SelectOption, i: number) => {
-    // The name is the label alone; the modifier and the explanation are the
-    // *description*. Left as plain text they joined the accessible name, so
-    // "Stunned" became "Stunned Incapacitated, and you can't move…" — which
-    // is a paragraph where a screen reader wants a noun, and it's read again
-    // in full once the option is chosen.
+    // meta/hint are the accessible description, not part of the name — else
+    // they'd join it into a paragraph where a screen reader wants a noun.
     const described = [
       option.meta ? `${listId}-${i}-meta` : "",
       option.hint ? `${listId}-${i}-hint` : "",
@@ -505,10 +475,8 @@ function SelectPopup({
         )}
         {grouped
           ? runs.map((run) => (
-              // A real `group`, not a styled heading: "Enemies" and "Party"
-              // are the answer to half the question, and a screen reader
-              // reading thirty names in one flat list never says which side
-              // any of them is on.
+              // A real `group`, not a styled heading, so a screen reader can
+              // say which side each name is on.
               <li key={run.group} role="group" aria-label={run.group}>
                 <span className="app-select-group" aria-hidden>
                   {run.group}

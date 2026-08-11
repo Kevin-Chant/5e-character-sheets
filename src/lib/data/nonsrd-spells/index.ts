@@ -25,12 +25,10 @@ import { GAP_SPELLS_L9 } from "./gap-L9";
 // open-license SRD 5.1 the `srd-spells.json` snapshot covers. Unearthed Arcana
 // (beta) content is deliberately excluded.
 //
-// LICENSING (non-negotiable, same rule as `nonsrd-races.ts`/`subclasses.ts`):
-// these store only **mechanical facts** — level, school, casting time, range,
-// duration, components, save/attack, damage dice and type, area, class lists —
-// which are not copyrightable. Every `desc` is an **original paraphrase** of
-// what the spell does, written from scratch; never the published prose. Kept in
-// separate hand-authored files (not the SRD JSON) so the line stays bright.
+// LICENSING (same rule as `nonsrd-races.ts`/`subclasses.ts`): only mechanical
+// facts are stored (level, school, casting time, range, duration, components,
+// save/attack, damage dice and type, area, class lists), which are not
+// copyrightable. Every `desc` is an original paraphrase, never published prose.
 //
 // Merged into the searchable/grantable catalog by `src/lib/spells/spell-catalog.ts`
 // exactly like SRD spells, so the picker shows them and `getCatalogSpell(index)`

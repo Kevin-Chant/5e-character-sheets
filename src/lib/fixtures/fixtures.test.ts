@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 
-// Every fixture must survive the real load path (migrate + schema validation),
-// so a change to the Character model can't silently leave a fixture broken.
+// Every fixture must survive the real load path (migrate + schema validation).
 const fixtures = import.meta.glob("./*.json", { eager: true });
 
 describe("character fixtures", () => {

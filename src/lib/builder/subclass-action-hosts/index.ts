@@ -41,11 +41,8 @@ const convert = (table: HostTable): Record<string, ClassPoolDef[]> =>
     ]),
   );
 
-// Subclass action hosts, keyed by subclass name, merged into the pool grants by
-// `syncClassPools` alongside `SUBCLASS_POOLS`. Separate registry so each class
-// gets its own file (the tables are large and were authored per class), and so
-// the shared-resource spenders stay visibly distinct from the pools that own a
-// resource of their own.
+// Subclass action hosts, keyed by subclass name, merged into pool grants by
+// `syncClassPools` alongside `SUBCLASS_POOLS`.
 export const SUBCLASS_ACTION_HOSTS: Record<string, ClassPoolDef[]> = {
   ...convert(MONK_ACTION_HOSTS),
   ...convert(CLERIC_ACTION_HOSTS),

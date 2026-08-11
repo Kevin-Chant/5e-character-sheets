@@ -1,11 +1,9 @@
 import { SkillName, StatKey } from "src/lib/data/data-definitions";
 import { CatalogClass } from "src/lib/builder/types";
 
-// Official 5e classes outside the open-license SRD. Today that's just the
-// Artificer (Eberron: Rising from the Last War / Tasha's Cauldron). Merged into
-// `ALL_CLASSES` at load time by `class-catalog.ts` so it appears in the guided
-// builder alongside the SRD classes. Only the level-1 slice is modelled (as for
-// the SRD classes), and feature details are original short summaries.
+// Official 5e classes outside the open-license SRD (currently just Artificer).
+// Merged into `ALL_CLASSES` at load time; only the level-1 slice is modelled,
+// and feature details are original short summaries, not published prose.
 
 export const NONSRD_CLASSES: CatalogClass[] = [
   {

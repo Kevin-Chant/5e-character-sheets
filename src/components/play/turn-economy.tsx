@@ -7,20 +7,11 @@ import {
 } from "src/lib/play/use-turn";
 import { useTurnFlow } from "src/lib/play/use-turn-flow";
 
-// The three things a turn spends, as slots that empty as you use them.
-//
-// This is the one thing paper can't do — the sheet has never been able to answer
-// "have I used my bonus action yet?", and at a real table that question is asked
-// out loud every round. It's the spine of the play surface, so it gets the
-// weight; everything below it is quieter by comparison.
+// Action/bonus action/reaction, as slots that empty as they're used.
 export default function TurnEconomy({ turn }: { turn: PlayTurn }) {
   const { inCombat, current, self } = useEncounter();
   const { advance } = useTurnFlow();
-  // Unlike everything else on this surface, ending your own turn needs no
-  // ruling from the table — it's the one call that is entirely yours. So on
-  // your turn the button does the real thing and the order moves on; the DM's
-  // "Next turn" stays as the hatch for the player who forgets. Off-turn (or
-  // out of combat) it falls back to just clearing the slots below.
+  // On your turn "End turn" advances the order; off-turn it only clears the slots.
   const myTurn = inCombat && !!current && !!self && current.id === self.id;
   return (
     <div className="turn-economy">

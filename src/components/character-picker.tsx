@@ -34,10 +34,7 @@ export default function CharacterPicker() {
 
       <DriveAccountNotice />
 
-      {/* An empty list and an unreadable one look identical and mean opposite
-          things. Saying "no characters yet" over a failed fetch invites you to
-          make a new one in a store that couldn't be read — and, with Drive,
-          into an account whose sheets are still there. */}
+      {/* Distinguish a failed fetch from a genuinely empty list. */}
       {loadError && (
         <div className="character-picker-error">
           <FaTriangleExclamation />
@@ -94,10 +91,8 @@ export default function CharacterPicker() {
           );
         })}
 
-        {/* Withheld while the store is unreadable: a character created now
-            would be written into a backend we just failed to read, which is
-            the one situation where "create" can lose work rather than make
-            it. */}
+        {/* Withheld while the store is unreadable — a new character would be
+            written into a backend we just failed to read. */}
         {!loadError && (
           <button className="option-card create-card" onClick={openBuilder}>
             <span className="option-card-icon">

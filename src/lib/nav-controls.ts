@@ -1,15 +1,7 @@
-// Which nav controls belong on which surface.
-//
-// Pulled out of `root.tsx` because it's a decision table, and the bug it fixes
-// was a decision-table bug: every control keyed off `character` ("is a sheet
-// loaded"), which meant the same thing back when the sheet was the only place a
-// character could be open. Once /play, /host and /join became routes it stopped
-// meaning that, and Settings quietly inherited the sheet's whole toolbar — an
-// edit-mode lock toggling something you can't see, a share button for a sheet
-// you aren't looking at, an undo reverting an edit on another page.
-//
-// Keeping it here means the matrix is testable without mounting the nav's eight
-// context providers, and a new route has one obvious place to declare itself.
+// Which nav controls belong on which surface, keyed by route rather than by
+// "is a character loaded" — that condition used to give /settings the sheet's
+// whole toolbar once /play, /host and /join became routes too. Testable as a
+// pure table without mounting the nav's context providers.
 
 export interface NavContext {
   pathname: string;
@@ -19,7 +11,7 @@ export interface NavContext {
   // click.
   hasDatastore: boolean;
   // The open sheet is ours to offer — not joined remotely, not borrowed from a
-  // DM. Computed by the caller, which is where the sharing roles live.
+  // DM. Computed by the caller.
   canShare: boolean;
   // With autosave on (the default) an explicit save button duplicates the
   // indicator sitting next to it, and ⌘S covers the impatient.
@@ -73,8 +65,6 @@ export function navControls({
 // back to naming the surface when none is open.
 export function navTitle(pathname: string, characterName?: string): string {
   switch (pathname) {
-    // No "/settings" case: settings is an overlay now, and the alias route
-    // redirects before a title would ever be read.
     case "/host":
       return "Start a game";
     case "/auth":

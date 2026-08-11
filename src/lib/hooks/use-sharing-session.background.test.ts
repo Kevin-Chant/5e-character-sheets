@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
-// A session for a character this browser isn't looking at.
-//
-// The character layer used to hold one session because `CharacterContext` holds
-// one character: a session whose sheet wasn't open had no dispatch target, so
-// arriving edits went to whatever *was* open and were saved there. Holding one
-// session per character is only honest if a closed sheet has somewhere for its
-// edits to land — the stored copy, folded through the same pure reducer, and
-// written back in order.
+// A session for a character this browser isn't looking at — edits fold into
+// the stored copy instead of the open sheet.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import React from "react";
@@ -29,11 +23,8 @@ vi.mock("autobahn-browser", () => {
   class MockConnection {
     onopen: ((session: unknown) => void) | undefined;
     onclose: (() => boolean) | undefined;
-    // Keyed by topic, unlike the sibling file's simpler mock: a real broker
-    // delivers a message to the one subscription for its topic, and a mock that
-    // fans it out to all four turns one edit into four applies — which happens
-    // to converge here (whole-value actions are idempotent) and would hide a
-    // write path that fired more often than it should.
+    // Keyed by topic, unlike the sibling file's mock — delivers to only the
+    // one subscription for a topic, as a real broker would.
     handlers = new Map<string, (args: unknown[]) => void>();
     published: Record<string, unknown>[] = [];
     session = {
@@ -64,8 +55,8 @@ const deliver = (connection: any, message: Record<string, unknown>) => {
   connection.handlers.get(topic)?.([{ ...message, v: PROTOCOL_VERSION }]);
 };
 
-// Hosting awaits the `openRealm` fetch before it constructs a connection, so
-// the mock isn't there on the next line the way it is for a join.
+// Hosting awaits an `openRealm` fetch before constructing a connection, so the
+// mock isn't there on the next line the way it is for a join.
 const untilConnection = async () => {
   for (let i = 0; i < 20 && !mock.holder.connection; i += 1) {
     await Promise.resolve();
@@ -73,9 +64,8 @@ const untilConnection = async () => {
   return mock.holder.connection;
 };
 
-// Each background apply is load → reduce → save, all async, so settling one
-// takes several turns and settling a chain of them takes several more. A macro
-// task per round flushes both queues.
+// Each background apply is load -> reduce -> save, all async; a few macro
+// tasks flush a chain of them.
 const drain = async () => {
   for (let i = 0; i < 8; i += 1) {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -85,15 +75,11 @@ const drain = async () => {
 const wrapper = ({ children }: React.PropsWithChildren) =>
   React.createElement(SharingSessionsContextProvider, null, children);
 
-// A host whose *open* sheet is `OPEN` while it shares `SHARED` — the shape a DM
-// is in the moment they click to a second party sheet.
-//
-// Which is a shape that has to be *reached*, not declared: a session is opened
-// for the character on screen, so `SHARED` is hosted while it is open and the
-// sheet is switched to `OPEN` afterwards — `onScreen` below is the switch. The
-// short cut of hosting with `OPEN` already on screen and then delivering an
-// edit stamped `SHARED` describes something else entirely: a realm named for
-// one character carrying an edit for another, which is now dropped at the door.
+// A host whose open sheet is `OPEN` while it shares `SHARED` — a DM who
+// clicked to a second party sheet. Hosts `SHARED` while it's open, then
+// switches `onScreen` to `OPEN` — hosting with `OPEN` already on screen would
+// test a different case (a realm carrying an edit for a character it isn't
+// named for).
 function harness(
   store: Map<UUID, Character>,
   writes: Character[],
@@ -107,8 +93,7 @@ function harness(
         () => ({ uuid: onScreen.uuid, name: "On screen" }) as Character,
         {
           loadStored: async (uuid) => {
-            // Every read is a fresh copy, like a real datastore hand-back —
-            // so a queue that doesn't serialise really does lose a write.
+            // Fresh copy each read, like a real datastore hand-back.
             const found = store.get(uuid);
             return found ? structuredClone(found) : undefined;
           },
@@ -125,8 +110,7 @@ function harness(
 }
 
 describe("edits for a character that isn't open", () => {
-  // Hosting opens the realm over HTTP first (`create: true`); joining doesn't,
-  // which is why the sibling test file gets away without this.
+  // Hosting opens the realm over HTTP first (`create: true`); joining doesn't.
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
@@ -154,7 +138,6 @@ describe("edits for a character that isn't open", () => {
       connection.onopen(connection.session);
       await host;
     });
-    // Shared, then closed: the session stays, the sheet doesn't.
     onScreen.uuid = OPEN;
 
     await act(async () => {
@@ -168,13 +151,11 @@ describe("edits for a character that isn't open", () => {
     });
 
     expect(store.get(SHARED)?.name).toBe("After");
-    // The sheet actually on screen was never touched — the whole point.
     expect(store.has(OPEN)).toBe(false);
   });
 
-  // Two edits in one tick both read the stored copy. Without the per-uuid
-  // chain they read the *same* copy and the second write erases the first,
-  // silently and to a file nobody has open to notice.
+  // Without the per-uuid write chain, two edits in the same tick would read
+  // the same stored copy and the second write would erase the first.
   it("serialises two edits landing in the same tick", async () => {
     const store = new Map<UUID, Character>([
       [
@@ -217,11 +198,6 @@ describe("edits for a character that isn't open", () => {
     expect(writes).toHaveLength(2);
   });
 
-  // A realm is named for one character, and the uuid on the message is only a
-  // routing key — so a peer in `SHARED`'s room naming `OPEN` must not reach
-  // `OPEN` at all, whether it is on screen or in storage. Nothing this app
-  // publishes can produce that pairing; the point is that believing it is what
-  // turns a routing key into a write primitive for any uuid a peer can name.
   it("ignores an edit stamped with a character this realm isn't for", async () => {
     const store = new Map<UUID, Character>([
       [SHARED, { uuid: SHARED, name: "Shared" } as Character],
@@ -253,8 +229,6 @@ describe("edits for a character that isn't open", () => {
     expect(writes).toHaveLength(0);
   });
 
-  // A failed fold is the only copy of a peer's change, and the peer has already
-  // been told it landed. Held, reported, and replayable.
   it("holds a failed fold and replays it on retry", async () => {
     const store = new Map<UUID, Character>([
       [SHARED, { uuid: SHARED, name: "Before" } as Character],
@@ -319,11 +293,6 @@ describe("edits for a character that isn't open", () => {
     expect(result.current.backgroundSaveErrors).toEqual([]);
   });
 
-  // A sibling tab's edit reaching the realm for a sheet *this* tab isn't
-  // looking at. The forward used to hang off the open character, back when the
-  // only session a browser could hold was the open sheet's — so a host with a
-  // second sheet on screen stopped relaying, and its joiners went quietly stale
-  // while everything looked live.
   it("forwards a sibling tab's edit into a session whose sheet is closed", async () => {
     const store = new Map<UUID, Character>([
       [SHARED, { uuid: SHARED, name: "Before" } as Character],
@@ -340,8 +309,8 @@ describe("edits for a character that isn't open", () => {
     onScreen.uuid = OPEN;
     mock.holder.connection.published.length = 0;
 
-    // A second tab of this browser, on its own channel object — a channel never
-    // delivers to itself, which is exactly why the app's own posts don't loop.
+    // A second tab of this browser — a BroadcastChannel never delivers to
+    // itself.
     const sibling = new BroadcastChannel(TAB_SYNC_CHANNEL);
     await act(async () => {
       sibling.postMessage({

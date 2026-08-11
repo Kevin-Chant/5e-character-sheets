@@ -1,8 +1,6 @@
-// The auth machinery (config constants, token cache, silent refresh, the
-// 401-retry wrapper) lives in `src/lib/google-auth.ts`; this file holds the
-// raw Drive REST/gapi primitives. Every network call below goes through
-// `withDriveAuthRetry`, so a token that expires mid-session is refreshed
-// silently and retried once before the failure reaches a caller.
+// Raw Drive REST/gapi primitives; auth machinery lives in google-auth.ts.
+// Every network call below goes through `withDriveAuthRetry` for silent
+// refresh-and-retry on an expired token.
 import {
   API_KEY,
   CLIENT_ID,
@@ -42,9 +40,8 @@ export async function listAppDataFiles() {
   try {
     return await listAllPages({
       spaces: "appDataFolder",
-      // appDataFolder has no user-visible trash, so nothing here is ever
-      // trashed on purpose — but a trashed file keeps listing without this,
-      // which would resurrect anything that got there by another route.
+      // appDataFolder has no user-visible trash, but a trashed file still
+      // lists without this filter.
       q: "trashed=false",
       pageSize: 100,
       fields: "nextPageToken, files(id, name)",
@@ -78,10 +75,9 @@ export interface DriveAccount {
   limit?: number;
 }
 
-// Who we're signed in as, plus their Drive quota. `about.get` is reachable
-// under `drive.appdata`/`drive.file` — it needs *a* Drive scope, not a broad
-// one — so this costs no extra consent, which is why the email is read from
-// here rather than from the `userinfo` scopes.
+// `about.get` is reachable under drive.appdata/drive.file (needs *a* Drive
+// scope, not a broad one), so identity is read from here rather than a
+// separate `userinfo` scope.
 export async function getDriveAccount(): Promise<DriveAccount | undefined> {
   try {
     const res = await withDriveAuthRetry(() =>
@@ -132,10 +128,8 @@ export async function updateFile(fileId: string, fileContents: string) {
         body: fileContents,
       },
     );
-    // fetch only rejects on network failure; an expired token (401) or missing
-    // write access (403) resolves "successfully" and would otherwise be
-    // reported as a completed save. The typed error carries the status so the
-    // retry wrapper can recognize a 401 as an auth failure.
+    // fetch only rejects on network failure — a 401/403 resolves "successfully" —
+    // so the typed error carries status for the retry wrapper.
     if (!res.ok) {
       throw new DriveRequestError(
         `Failed to write Drive file ${fileId} (${res.status})`,
@@ -147,8 +141,7 @@ export async function updateFile(fileId: string, fileContents: string) {
 }
 
 interface CreateFileOptions {
-  // Where to create the file. Defaults to the hidden appDataFolder. Omit (pass
-  // an empty value) to create a first-class document in the user's My Drive.
+  // Defaults to the hidden appDataFolder; omit to create in My Drive.
   parents?: string[];
   appProperties?: Record<string, string>;
 }
@@ -181,9 +174,8 @@ export async function renameFile(fileId: string, name: string) {
   );
 }
 
-// Reads a file's app-private metadata (visible to every user who accesses the
-// file through this same app). Used for the lightweight editor-presence
-// heartbeat on shared documents.
+// Reads a file's app-private metadata; used for the editor-presence heartbeat
+// on shared documents.
 export async function getFileAppProperties(
   fileId: string,
 ): Promise<Record<string, string>> {
@@ -201,9 +193,8 @@ export async function getFileAppProperties(
   }
 }
 
-// Merges a partial appProperties patch into a file (metadata-only). Keys mapped
-// to null are removed; keys not mentioned are left untouched — so this never
-// disturbs the SHARED_* markers or other editors' heartbeats.
+// Merges a partial appProperties patch (metadata-only). Keys mapped to null
+// are removed; keys not mentioned are untouched.
 export async function patchFileAppProperties(
   fileId: string,
   appProperties: Record<string, string | null>,
@@ -211,16 +202,15 @@ export async function patchFileAppProperties(
   return withDriveAuthRetry(() =>
     window.gapi.client.drive.files.update({
       fileId,
-      // Drive treats a null appProperties value as "delete this key", but the
-      // gapi types only model string values — cast at this boundary.
+      // Drive treats a null value as "delete this key"; gapi types only model
+      // strings, hence the cast.
       resource: { appProperties } as gapi.client.drive.File,
     }),
   );
 }
 
-// The permissions.create URL for a share-by-email, with the notification
-// options in the query string where Drive expects them. Exported for its test
-// — this is a pure string, and the only thing that goes wrong here is silent.
+// The permissions.create URL for a share-by-email, with notification options
+// in the query string where Drive expects them.
 export function buildShareUrl(fileId: string, emailMessage?: string): string {
   const params = new URLSearchParams({ sendNotificationEmail: "true" });
   if (emailMessage) params.set("emailMessage", emailMessage);
@@ -228,17 +218,10 @@ export function buildShareUrl(fileId: string, emailMessage?: string): string {
 }
 
 // Grants a user write access to a file and emails them a notification.
-//
-// `emailMessage` is the one part of that email we control: Drive renders it as
-// a personal note inside its own template. The template's button points at the
-// raw file in Drive, which is a JSON blob to a human — so the note is where the
-// link back into this app goes. Google linkifies a bare URL in it.
-//
-// Both `emailMessage` and `sendNotificationEmail` are **query parameters**, not
-// fields of the Permission resource in the body. Drive ignores an unknown body
-// field rather than rejecting it, so getting this wrong costs no error and no
-// failed share — just an email with nothing in it. Hence `buildShareUrl` and
-// its test: the placement is the part that breaks silently.
+// `emailMessage` and `sendNotificationEmail` are query parameters, not body
+// fields of the Permission resource — Drive silently ignores an unknown body
+// field rather than rejecting it, so misplacing them costs no error, just an
+// empty email.
 export async function shareFileByEmail(
   fileId: string,
   email: string,
@@ -272,15 +255,11 @@ export async function deleteFile(fileId: string) {
   );
 }
 
-// Moves a file to the Drive trash instead of destroying it. For a promoted
-// (My Drive) character this is what "delete" means everywhere else in Drive —
-// recoverable for 30 days from a UI the user already knows. `files.delete` is
-// permanent and bypasses the trash entirely, which is the wrong default for
-// the only copy of a character somebody has been playing for a year.
-//
+// Moves a file to the Drive trash (recoverable for 30 days) instead of
+// permanently deleting it — used for promoted (My Drive) characters only.
 // Not used for appDataFolder files: that folder's trash isn't reachable from
-// the Drive UI, so trashing one would be exactly as unrecoverable while also
-// still consuming quota.
+// the Drive UI, so trashing there would be equally unrecoverable while still
+// consuming quota.
 export async function trashFile(fileId: string) {
   return withDriveAuthRetry(() =>
     window.gapi.client.drive.files.update({
@@ -290,8 +269,8 @@ export async function trashFile(fileId: string) {
   );
 }
 
-// The Drive UI page for a file. A plain string, not a request — `webViewLink`
-// would be a round-trip for a URL whose shape is fixed.
+// The Drive UI page for a file. A plain string — the URL shape is fixed, no
+// need for a `webViewLink` round-trip.
 export function fileViewLink(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/view`;
 }
@@ -304,9 +283,7 @@ export interface FilePermission {
   displayName?: string;
 }
 
-// Who currently has access to a shared document. Sharing was one-way before
-// this — you could grant access and never see, or take back, what you'd
-// granted.
+// Who currently has access to a shared document.
 export async function listFilePermissions(
   fileId: string,
 ): Promise<FilePermission[]> {
@@ -352,15 +329,13 @@ function loadPicker(): Promise<void> {
 }
 
 // Opens the Google Picker showing documents shared with the signed-in user.
-// Picking a file is what grants this app drive.file (per-file) access to it —
-// shared-with-me files are otherwise invisible to our scopes. Resolves with the
-// selected files, or an empty array if the user cancels.
+// Picking a file grants this app drive.file (per-file) access to it —
+// shared-with-me files are otherwise invisible to our scopes. Resolves with
+// the selected files, or an empty array on cancel.
 //
-// `query` prefills the Picker's search box. That is the whole mechanism behind
-// import links: the Picker has no "preselect this file id" API, so the closest
-// we can get to opening on one file is narrowing the list to its name. The user
-// still has to click it, and that click is what grants the access — which is
-// the point, not a limitation to route around.
+// `query` prefills the search box: the Picker has no "preselect this file id"
+// API, so narrowing by name is the closest we can get to opening one file —
+// the user still has to click it, which is what grants access.
 export async function pickSharedCharacters(
   query?: string,
 ): Promise<PickedFile[]> {

@@ -12,31 +12,13 @@ import {
 } from "src/lib/play/session-memory";
 import { Character } from "src/lib/types";
 
-// The step between resolving a code and becoming a participant.
+// The step between resolving a code and becoming a participant: which sheet
+// to bring (or none), where sheets live (offered, not required), and the
+// table-visibility notice.
 //
-// It exists because three separate questions have nowhere else to live, and all
-// three are about the sheet rather than the session:
-//
-//  1. **Which sheet am I bringing** — or none, for a player waiting on the DM
-//     and for a DM who isn't playing a character.
-//  2. **Where do my characters live** — this is the moment not having a
-//     datastore actually bites, so it's the moment worth offering one. Joining a
-//     game is meant to be tangential to storage, and it stays that way: the
-//     answer "nowhere, I'm just joining" is a real answer, not a dead end.
-//  3. **What leaves my browser** — said here, where you're choosing the sheet,
-//     rather than in a bar you've stopped reading.
-//
-// Which of those it leads with is the whole difference between the people who
-// arrive here. Someone whose DM told them not to worry about a character sheet
-// should not meet a storage picker; someone rejoining the table they run should
-// meet the sheets they brought last week, already ticked.
-//
-// Note that "hosting" and "running the table" aren't the same question. Hosting
-// opens a realm and is where sheets get brought; a DM whose tab dropped *joins*
-// the code again, and must not be asked about sheets a second time — the room
-// already holds their monsters, at whatever HP the fight has left them on, and
-// re-bringing would re-snapshot those from the full-health sheets. So there are
-// three shapes here, not two: start a table, rejoin the table you run, and join
+// Three shapes, not two: start a table, rejoin the table you run (asks
+// nothing — sheets are already in the room, at whatever HP the fight left
+// them on; re-bringing would re-snapshot from full health), and join
 // someone else's.
 
 export interface LobbySelection {
@@ -126,22 +108,16 @@ export default function SessionLobby({
   const { characters, characterLoading } = useDatastore();
   const location = useLocation();
 
-  // What this browser did at this table before. Read once — it's a localStorage
-  // read whose answer can't change while the lobby is open.
+  // Read once: a localStorage read whose answer can't change while open.
   const [remembered] = useState(() =>
     code ? sessionMemoryFor(code) : undefined,
   );
   const hosting = mode === "host";
-  // Coming back to a table this browser was running. The realm is still up (the
-  // probe said so), so everything they brought is already in it.
   const resumingAsDm = !hosting && remembered?.seat === "dm";
 
-  // Selections are held by uuid rather than by object because the character
-  // list arrives asynchronously — a Drive fetch resolves after this mounts, and
-  // a prefill has to survive that.
-  // Falls back to whoever this browser played last. Codes churn week to week —
-  // a DM who doesn't reopen the old one sends a new link every session — so the
-  // per-code memory is empty far more often than the player's habit changes.
+  // Held by uuid, not object: the character list arrives asynchronously (a
+  // Drive fetch resolves after mount), and a prefill has to survive that.
+  // Falls back to whoever this browser played last.
   const [playAsUuid, setPlayAsUuid] = useState<string | undefined>(
     () => remembered?.playAsUuid ?? lastPlayedCharacter()?.uuid,
   );
@@ -153,25 +129,18 @@ export default function SessionLobby({
 
   const playAs = characters.find((c) => c.uuid === playAsUuid);
   const selected = characters.filter((c) => broughtUuids.includes(c.uuid));
-  // Prefilled sheets that aren't in this datastore (deleted, or a different
-  // Drive account) are dropped silently rather than counted — the button would
-  // otherwise promise more sheets than it can bring.
+  // Prefilled sheets missing from this datastore (deleted, different Drive
+  // account) are dropped silently rather than counted.
   const prefilled = !!remembered && (!!playAs || selected.length > 0);
 
-  // A deep link (or a refresh) lands here with no datastore selected even when
-  // this browser has already answered the storage question — home normally
-  // re-selects it on the way through, but an invite link doesn't go through
-  // home at all. Adopt the remembered local choice instead of re-asking; Drive
-  // still needs its OAuth round-trip, so it stays a button.
+  // An invite link doesn't route through home, so a deep link can land here
+  // with no datastore selected even though local was already chosen.
   useEffect(() => {
     if (!datastore && readLastDatastore() === "local") {
       setDatastore(LocalDatastore);
     }
   }, [datastore, setDatastore]);
 
-  // Picking Drive leaves for an OAuth popup and comes back here. The lobby is a
-  // URL now, so "back here" is just this path — no half-answered lobby needs
-  // ferrying through router state.
   const driveLink = (
     <Link
       className="button-link no-underline"
@@ -199,9 +168,6 @@ export default function SessionLobby({
       ? "Back to your table"
       : "Join a game";
 
-  // Coming back to a table that's still running. There is nothing to ask: the
-  // sheets are already in the room, and asking again would offer to re-snapshot
-  // their HP from full-health sheets mid-fight.
   if (resumingAsDm) {
     return (
       <div className="lobby">
@@ -231,10 +197,6 @@ export default function SessionLobby({
     );
   }
 
-  // No datastore at all. For a DM that's an ordinary way to run a game — the
-  // players own the sheets — and for a player it's usually the one their DM
-  // told them not to worry about. Neither should be met with a storage picker,
-  // so the storage offer moves below the thing they came to do.
   if (!datastore) {
     return (
       <div className="lobby">
@@ -279,9 +241,6 @@ export default function SessionLobby({
           </button>
         </div>
         {error && <p className="session-error">{error}</p>}
-        {/* Offered, not required. Someone who does have sheets saved somewhere
-            is one click from bringing them; someone who doesn't never has to
-            read past the button above. */}
         <details className="lobby-storage-offer">
           <summary>
             {hosting
@@ -364,14 +323,10 @@ export default function SessionLobby({
 
       {hosting && <TableNameField value={tableName} onChange={setTableName} />}
 
-      {/* Only worth asking when no character will speak for you: the DM hands
-          sheets out by name, and a sheetless joiner otherwise has none. */}
       {!hosting && !playAs && (
         <NameField value={displayName} onChange={setDisplayName} />
       )}
 
-      {/* Said at the moment of choosing, because this is the only moment the
-          answer can still be no. */}
       <p className="lobby-privacy text-muted">
         The table sees name, initiative, HP, AC, conditions and concentration.
         Your sheet itself stays in this browser.

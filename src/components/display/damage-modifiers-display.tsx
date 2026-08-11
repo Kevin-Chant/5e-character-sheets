@@ -13,12 +13,9 @@ const ROWS: Array<[keyof DamageModifiers, string]> = [
 
 const MODS = charPath(FIELD.damageModifiers);
 
-// Damage resistances / immunities / vulnerabilities: three chip rows sharing the
-// printed-sheet Other-Proficiencies styling. Each entry is a free-text string
-// (damage types offered as a typeahead in the string editor), so qualified
-// entries like "nonmagical B/P/S" work. `damageModifiers` is the single source of
-// truth. In play mode empty categories are hidden; the whole box hides if there's
-// nothing to show, so it stays out of the way for characters with no modifiers.
+// Damage resistances / immunities / vulnerabilities: three chip rows. Each
+// entry is a free-text string (e.g. "nonmagical B/P/S"). In play mode empty
+// categories are hidden; the whole box hides if there's nothing to show.
 export default function DamageModifiersDisplay() {
   const { character, dispatch } = useLoadedCharacter();
   const { editMode } = useEditMode();
@@ -30,11 +27,7 @@ export default function DamageModifiersDisplay() {
     : ROWS.filter(([key]) => mods[key].length > 0);
   if (visibleRows.length === 0) return <></>;
 
-  // Most characters have none of the three, and three empty rows is a tall way
-  // to say so beside neighbours that collapse to a one-line strip. The strip's
-  // "+" opens Resistances — by far the most common of the three, and the string
-  // editor is one step from the other two — and the full table returns as soon
-  // as there's a single entry anywhere.
+  // Collapse to a strip when all three are empty; its "+" opens Resistances.
   if (ROWS.every(([key]) => mods[key].length === 0)) {
     return (
       <div className="column rounded-border-box other-proficiencies section-empty">

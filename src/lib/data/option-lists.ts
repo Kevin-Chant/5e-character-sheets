@@ -2,11 +2,9 @@ import { GroupedOptionsList, SingleOptionsList } from "src/lib/types";
 import { DamageType } from "./data-definitions";
 import { ALL_BACKGROUNDS } from "src/lib/builder/backgrounds";
 
-// Typeahead/suggestion lists for free-text fields. These are suggestions only —
-// every consumer also accepts arbitrary custom values.
+// Typeahead/suggestion lists for free-text fields; every consumer also accepts
+// arbitrary custom values.
 
-// The standard damage types, suggested for damage resistances / immunities /
-// vulnerabilities. Custom entries (e.g. "nonmagical B/P/S") are still accepted.
 export const DEFAULT_DAMAGE_TYPES: SingleOptionsList<string> =
   Object.values(DamageType);
 
@@ -39,10 +37,7 @@ export const DEFAULT_LANGUAGES: GroupedOptionsList<string> = [
   },
 ];
 
-// The standard tool proficiencies, for the fields that ask for one in prose
-// ("one type of artisan's tools") rather than from a class's closed list. The
-// sheet doesn't model a tool taxonomy — these are labels, and a custom entry
-// is as valid as any of them.
+// For prose-style tool fields ("one type of artisan's tools"); not a closed list.
 export const DEFAULT_TOOLS: GroupedOptionsList<string> = [
   {
     label: "Artisan's Tools",
@@ -105,9 +100,7 @@ export const DEFAULT_TOOLS: GroupedOptionsList<string> = [
   },
 ];
 
-// Suggestions for the sheet's free-text background field. Read off the same
-// catalog the builder offers, so a background added there can't go missing
-// here — this list used to be a hand-kept copy of the PHB thirteen.
+// Read off the builder's own catalog so a background added there isn't missed here.
 export const DEFAULT_BACKGROUNDS: SingleOptionsList<string> =
   ALL_BACKGROUNDS.map((b) => b.name);
 

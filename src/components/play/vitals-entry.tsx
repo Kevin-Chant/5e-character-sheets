@@ -8,23 +8,9 @@ import {
 } from "src/lib/play/encounter";
 import RevealNumber from "./reveal-number";
 
-// Hit points, written the way a table says them: "the goblin takes 9", "you
-// regain 10" — a delta, not a recomputed total. One widget, mounted both in the
-// DM's roster row and in the player's own rail, because it is the same sentence
-// either way and it used to be two different controls: the DM typed a delta and
-// the player clicked a ±1 stepper nine times.
-//
-// Which way the number goes is a *visible* mode, not a character you have to
-// remember to type. The old box read `9` as damage and `+10` as healing, a
-// switch hidden inside free text and documented only in a tooltip — a DM in a
-// hurry typed `10` meaning heal and dropped someone to zero. Now a coloured
-// glyph in front of the field says which it is before you commit, and the sign
-// keys still work: typing a leading + or − moves the glyph instead of sitting
-// in the field where nothing reads it.
-//
-// Deliberately not a stepper. `StepperInput` sits one cell away holding
-// initiative, and chevrons here would read as "step by 1" — the same twinning
-// the `dm-field-label` caption exists to prevent.
+// HP entry as a delta ("the goblin takes 9") rather than a recomputed total.
+// Direction (damage/heal) is a visible glyph toggle; a leading +/- sign also
+// switches it. Not a stepper — StepperInput nearby is for initiative.
 export function VitalsEntry({
   vitals,
   name,
@@ -32,9 +18,7 @@ export function VitalsEntry({
 }: {
   vitals: ParticipantVitals;
   name: string;
-  // `damageDealt` is what actually landed, absorbed or not — a concentration
-  // DC is set by damage taken, so the caller needs it separately from the
-  // resulting hit points.
+  // damageDealt is passed separately since it sets the concentration DC.
   apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
 }) {
   const [healing, setHealing] = useState(false);
@@ -48,13 +32,7 @@ export function VitalsEntry({
     if (healing) apply(applyHealing(vitals, amount), 0);
     else apply(applyDamage(vitals, amount), Math.floor(amount));
     setRaw("");
-    // Back to damage after every apply, rather than staying where it was left.
-    // The mode being visible isn't enough on its own — a DM types the number
-    // while looking at the roster, not at this glyph, so a healing mode left
-    // over from a minute ago would quietly heal the next hit. Damage is both
-    // the overwhelming majority and the direction you'd notice going wrong,
-    // and a heal is still one keystroke away via the sign key, so making every
-    // heal deliberate costs nothing and bounds a mis-set mode to one entry.
+    // Reset to damage after every apply so a stale healing mode can't linger.
     setHealing(false);
   };
 
@@ -93,8 +71,7 @@ export function VitalsEntry({
         value={raw}
         onChange={(e) => {
           const next = e.target.value;
-          // A leading sign is a mode key, not content. Keeps the muscle memory
-          // the old `+10` box built, and now you can see what it did.
+          // A leading sign switches mode rather than being entered as content.
           if (next.startsWith("+")) {
             setHealing(true);
             setRaw(next.slice(1));
@@ -106,10 +83,6 @@ export function VitalsEntry({
           }
         }}
       />
-      {/* Enter still applies, but it can't be the *only* way: this was a bare
-          input in a bare form, so an invalid entry and a lost keypress looked
-          identical. The button is the affordance and the disabled state is the
-          answer to "why did nothing happen". */}
       <button
         type="submit"
         className="vitals-apply icon-btn"
@@ -125,8 +98,7 @@ export function VitalsEntry({
   );
 }
 
-// The running total, doubling as the escape hatch for what a delta can't say
-// cleanly — a stat-block correction, an undo by hand. Click the number.
+// Running HP total; click to set directly (for corrections a delta can't express).
 export function HpTotal({
   vitals,
   name,
@@ -135,8 +107,7 @@ export function HpTotal({
 }: {
   vitals: ParticipantVitals;
   name: string;
-  // Shown only when there is one to show: an unset maximum should read as
-  // absent rather than as "/ 0".
+  // Undefined renders as absent, not "/ 0".
   max?: number;
   apply: (vitals: ParticipantVitals, damageDealt?: number) => void;
 }) {

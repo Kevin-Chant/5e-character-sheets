@@ -1,19 +1,12 @@
 // Per-unit weights in POUNDS for the gear the builder hands out, from the SRD
-// equipment tables. Carrying capacity is defined in lb (Strength × 15), so lb is
-// the storage unit; `weightInUnit` converts for display.
+// equipment tables. Carrying capacity is Strength × 15 lb, so lb is the
+// storage unit; `weightInUnit` converts for display.
 //
-// Why this exists: the builder produced equipment lines with no `weight` at all,
-// so encumbrance — on by default — read "0 lb" for every character created
-// through the wizard, however loaded down they were. The character model has
-// carried a `weight` field the whole time; nothing was filling it.
-//
-// Deliberately partial. Flavour items with no meaningful weight ("a letter from
-// a dead colleague", "the favor of an admirer") are absent rather than zeroed,
-// and an absent entry contributes nothing — same as it did before. A player can
-// still type a weight on any item by hand.
+// Deliberately partial: flavour items with no meaningful weight are absent
+// rather than zeroed. A player can still type a weight on any item by hand.
 
-// Keys are normalized by `normalizeItemName` below: lowercased, curly
-// apostrophes folded to straight ones, whitespace collapsed.
+// Keys are normalized by `normalizeItemName`: lowercased, curly apostrophes
+// folded to straight ones, whitespace collapsed.
 const WEIGHTS_LB: Record<string, number> = {
   // ---- Simple melee weapons ----
   club: 2,
@@ -125,16 +118,13 @@ const WEIGHTS_LB: Record<string, number> = {
   "a musical instrument": 2,
 };
 
-// Fold the spelling variations the data actually contains: SRD prose uses curly
-// apostrophes ("burglar’s pack") while the hand-authored lists use straight
-// ones, and labels arrive in mixed case.
+// SRD prose uses curly apostrophes ("burglar’s pack") while hand-authored
+// lists use straight ones; labels also arrive in mixed case.
 export function normalizeItemName(name: string): string {
   return name.toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/\s+/g, " ").trim();
 }
 
-// A trailing count on an equipment line — "Arrow (20)", "Javelin (4)" — which
-// the loadout builder appends when a grant gives more than one of something.
-// Returns the bare name and the count, defaulting to 1.
+// Splits a trailing count on an equipment line, e.g. "Arrow (20)".
 export function splitItemCount(label: string): {
   name: string;
   count: number;
@@ -145,9 +135,7 @@ export function splitItemCount(label: string): {
     : { name: label.trim(), count: 1 };
 }
 
-// The per-unit weight in pounds for an equipment label, or undefined when the
-// item isn't one we have a weight for. Handles a trailing "(N)" count, and falls
-// back to matching without a leading article ("a lute" → "lute").
+// Handles a trailing "(N)" count and a leading article ("a lute" → "lute").
 export function weightForItem(label: string): number | undefined {
   const { name } = splitItemCount(label);
   const key = normalizeItemName(name);

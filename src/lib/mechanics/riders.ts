@@ -10,15 +10,13 @@ import {
 import { ActiveRider, FeatureMechanics, RollKind } from "./types";
 import { AttackContext, needsOptIn } from "./conditions";
 
-// The roll-time interpreter: collects the riders in play for a roll and
-// applies them. Die-level adjustments (rerolls, minimum dice) hook into
-// `roll.ts`'s per-die loop; total-level ones (minimums, bonuses) apply to the
-// finished sum.
+// Roll-time interpreter: collects riders in play for a roll and applies them.
+// Die-level adjustments (rerolls, minimum dice) hook into roll.ts's per-die
+// loop; total-level ones (minimums, bonuses) apply to the finished sum.
 
-// Every rider active for this character and roll kind. Sources: feature
-// titles (feats land on the sheet as features), limited-use abilities (their
-// authored `mechanics` field, falling back to catalog-by-title), and the race
-// (for traits like Halfling Luck whose titles are too generic).
+// Every rider active for this character and roll kind, from feature titles,
+// limited-use abilities (authored `mechanics`, falling back to
+// catalog-by-title), and race traits (e.g. Halfling Luck).
 export function ridersFor(character: Character, kind: RollKind): ActiveRider[] {
   const out: ActiveRider[] = [];
   const collectEntry = (entry: FeatureMechanics | undefined, source: string) =>
@@ -31,10 +29,8 @@ export function ridersFor(character: Character, kind: RollKind): ActiveRider[] {
   character.limitedUseAbilities.forEach((a) =>
     collectEntry(mechanicsForAbility(a), a.info.title.trim()),
   );
-  // Chosen options (Metamagic, maneuvers, Pact Boon) match by name on the same
-  // title-keyed catalog — none carry riders today, but this is what keeps the
-  // field from being inert, and lets an option gain mechanics without moving it
-  // into `features`.
+  // Chosen options (Metamagic, maneuvers, Pact Boon) match by name on the
+  // same title-keyed catalog.
   character.chosenOptions?.forEach((o) =>
     collectEntry(FEATURE_MECHANICS[normalizeTitle(o.name)], o.name.trim()),
   );
@@ -51,10 +47,9 @@ export function ridersFor(character: Character, kind: RollKind): ActiveRider[] {
 
 // The `extraDamage` riders in play for a weapon attack: authored ones on
 // features / limited-use abilities, plus the level-scaled class ones (Sneak
-// Attack, Rage damage) baked from the character's class levels. Kept apart from
-// `ridersFor` on purpose — extra damage isn't a silent total fold: the roll
-// dialog gates it to weapon attacks, sequences it by `declareAt`, and lets the
-// player opt in — so it must never leak into spell damage or standalone rolls.
+// Attack, Rage damage). Kept separate from `ridersFor` since the roll dialog
+// gates this to weapon attacks and sequences it by `declareAt`, rather than
+// folding it silently into the total.
 export function extraDamageRiders(character: Character): ActiveRider[] {
   const out: ActiveRider[] = [];
   const collect = (entry: FeatureMechanics | undefined, source: string) =>
@@ -71,11 +66,8 @@ export function extraDamageRiders(character: Character): ActiveRider[] {
   return out;
 }
 
-// The `spellDamage` riders in play: authored ones on features / limited-use
-// abilities / chosen options, keyed by title on the same catalog. The mirror of
-// `extraDamageRiders` for the spell side — kept just as separate, so a spell
-// bonus never leaks onto a weapon and vice versa. The roll dialog scopes these
-// by the cast (cantrip vs leveled) and folds them into spell damage only.
+// The `spellDamage` mirror of `extraDamageRiders`, kept separate so a spell
+// bonus never leaks onto a weapon and vice versa.
 export function spellDamageRiders(character: Character): ActiveRider[] {
   const out: ActiveRider[] = [];
   const collect = (entry: FeatureMechanics | undefined, source: string) =>
@@ -139,13 +131,9 @@ export interface FlatBonusRider {
   rider: Extract<RollRider, { rider: "bonus" }>;
 }
 
-// The `bonus` riders in play, split by whether the sheet can apply them on its
-// own. The split is `needsOptIn`'s: a bonus whose condition the attack settles
-// (Archery on a weapon tagged `ranged`) folds silently, while one the sheet
-// can't verify — an untagged attack, or a condition that was never about the
-// weapon — is offered as a checkbox, in the same spirit as an opt-in
-// `extraDamage`. The default empty context is "we know nothing about the
-// attack", which puts every conditional bonus back on a prompt.
+// Splits `bonus` riders by `needsOptIn`: settled conditions fold silently,
+// unverifiable ones are offered as a checkbox. Default empty context means
+// "attack unknown", so every conditional bonus prompts.
 export function flatBonusRiders(
   riders: ActiveRider[],
   context: AttackContext = {},
@@ -157,16 +145,14 @@ export function flatBonusRiders(
   const optional: FlatBonusRider[] = [];
   for (const r of riders) {
     if (r.rider.rider !== "bonus") continue;
-    // Narrowed here so the dialog can read `value`/`note` without re-casting.
     const entry = { source: r.source, rider: r.rider };
     (needsOptIn(r, context) ? optional : always).push(entry);
   }
   return { always, optional };
 }
 
-// Flat additions to the total. Sums every `bonus` rider it's handed — callers
-// decide which are in play (see `flatBonusRiders`), so an opt-in bonus never
-// applies just by existing.
+// Flat additions to the total. Sums every `bonus` rider it's handed; callers
+// decide which are in play (see `flatBonusRiders`).
 export function riderFlatBonus(
   riders: ActiveRider[],
   character: Character,
@@ -180,12 +166,10 @@ export function riderFlatBonus(
   );
 }
 
-// Fold the total-level riders into a finished roll: raise to any minimum, then
-// add the unconditional flat bonuses (an `optional` one needs the player to opt
-// in, which is a dialog decision, so it's excluded here). Note the implicit
-// floor at 0 (riderMinimumTotal's base) — correct for the damage/healing/hit-die
-// totals this is meant for, so don't use it on d20 checks, whose totals can
-// legitimately be negative and whose bonuses fold into the modifier instead.
+// Fold total-level riders into a finished roll: raise to any minimum, then
+// add the unconditional flat bonuses (opt-in ones excluded, decided by the
+// dialog). Floors at 0 — correct for damage/healing/hit-die totals; don't use
+// on d20 checks, which can legitimately go negative.
 export function applyTotalRiders(
   total: number,
   riders: ActiveRider[],
@@ -215,10 +199,9 @@ export function advantageNotes(riders: ActiveRider[]): string[] {
   );
 }
 
-// HP regained from spending one hit die, given the rolled die + CON total:
-// never negative, raised by any minimum-total rider (Durable). Lives here
-// rather than rules.ts because rider values are formulas and rules.ts sits
-// below the formula engine in the import graph.
+// HP regained from spending one hit die (rolled die + CON), never negative,
+// raised by any minimum-total rider (Durable). Lives here rather than
+// rules.ts, which sits below the formula engine in the import graph.
 export function hitDieHealing(
   character: Character,
   rolledTotal: number,

@@ -6,9 +6,8 @@ import { Character } from "src/lib/types";
 import { hydrateCharacter } from "./hydrate-character";
 import { reconcileCharacterContent } from "./reconcile-content";
 
-// A sheet built before the Rune Knight's pools were authored (2026-07-30): the
-// class/subclass and the chosen runes' feature rows are on the sheet, but no
-// pool ever landed because pools only synced during creation/level-up.
+// A sheet with class/subclass and chosen runes' feature rows recorded, but no
+// pools synced yet (pools only sync during creation/level-up).
 const preWiringRuneKnight = (): Character => {
   const c = structuredClone(defaultCharacter);
   c.class = [
@@ -41,7 +40,7 @@ describe("reconcileCharacterContent", () => {
   it("withholds pools gated on a choice the sheet never recorded", () => {
     const c = preWiringRuneKnight();
     reconcileCharacterContent(c);
-    // Frost Rune was never picked, and Runic Shield needs 7th level.
+    // Frost Rune wasn't picked; Runic Shield needs 7th level.
     expect(titles(c)).not.toContain("Frost Rune");
     expect(titles(c)).not.toContain("Runic Shield");
   });

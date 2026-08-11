@@ -116,25 +116,15 @@ export function ChipMultiSelect<T extends string>({
 export interface SingleOption {
   value: string;
   label: string;
-  // Shown beside the radio, or under the select once chosen — so picking from a
-  // dropdown doesn't cost you the explanation the radio list gave for free.
+  // Shown beside the radio, or under the select once chosen.
   summary?: ReactNode;
 }
 
-// The list length past which a radio list becomes a dropdown. Four is where a
-// column of radios stops being scannable at a glance and starts being a wall:
-// a ranger's fourteen favored enemies, a druid's seven terrains.
+// Above this many options, a radio list becomes a filtering dropdown.
 const DROPDOWN_THRESHOLD = 3;
 
-/**
- * Pick exactly one option, rendered by how many there are.
- *
- * Three or fewer stay radios — every option visible, one click to choose. More
- * than that collapses to a filtering picker, with the chosen option's summary
- * kept below it. One component rather than a judgement call per step, so the wizard
- * is consistent and a list that grows past the threshold changes shape on its
- * own.
- */
+// Pick exactly one option, rendered as radios (<= threshold) or a filtering
+// dropdown, with the chosen option's summary kept below it either way.
 export function SingleChoice({
   options,
   value,
@@ -148,9 +138,7 @@ export function SingleChoice({
   onChange: (next: string | undefined) => void;
   // Radio-group name; required so two groups on one step don't share state.
   name: string;
-  // What to call the control out loud. Separate from `name` because that one
-  // is a DOM grouping id and is sometimes machine-shaped ("asi-slot-0") —
-  // which a screen reader would then read as the question being asked.
+  // Accessible label, separate from `name` (which is sometimes machine-shaped, e.g. "asi-slot-0").
   label?: string;
   placeholder?: string;
 }) {
@@ -163,15 +151,10 @@ export function SingleChoice({
           label={label ?? name}
           placeholder={placeholder}
           value={value ?? ""}
-          // Each option's summary rides in the list, where the choice is
-          // actually made. It stays below the closed picker too — that line
-          // answers "what did I pick", which is a different question you go
-          // on asking after the list has shut.
           options={options.map((o) => ({
             value: o.value,
             label: o.label,
-            // Only the plain-string summaries: the hint is also the filter's
-            // haystack, and a node has no text to match on.
+            // Only plain-string summaries: the hint doubles as filter text.
             hint: typeof o.summary === "string" ? o.summary : undefined,
           }))}
           onChange={(next) => onChange(next || undefined)}
@@ -223,8 +206,7 @@ export function Field({
   );
 }
 
-// A simple editor for a list of short text lines (personality traits, extra
-// equipment) — one entry per line of a textarea.
+// One entry per line of a textarea (personality traits, extra equipment).
 export function LinesInput({
   value,
   onChange,
@@ -266,9 +248,3 @@ export const patchPersonality = (
 ): Partial<BuilderState> => ({
   personality: { ...state.personality, [key]: lines },
 });
-
-// The feat's own choices, shared by both wizards. `LevelUpState` and
-// `BuilderState` both satisfy `FeatChoices` structurally, and the character's
-// existing proficiencies come in as plain lists rather than a `Character` — so
-// the creation wizard, which has no character yet, can pass what the wizard
-// state implies instead.

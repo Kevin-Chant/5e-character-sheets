@@ -5,9 +5,8 @@ import reducer from "./reducer";
 import { loadPersistedCharacter, replaceCharacter } from "./actions";
 
 describe("reducer", () => {
-  // Loads and replaces must deep-copy: the payload is routinely an entry in a
-  // datastore cache, and sharing nested objects with it means a later in-place
-  // mutation of the open character would corrupt the cached copy.
+  // Must deep-copy: the payload is routinely a datastore cache entry, and a
+  // shallow copy risks a later mutation corrupting the cache.
   it("load_character deep-copies the payload", () => {
     const payload = structuredClone(defaultCharacter) as Character;
     const loaded = reducer(undefined, loadPersistedCharacter(payload))!;

@@ -21,19 +21,10 @@ function isEconomySlot(cost: ActionCost): cost is EconomySlot {
   return (ECONOMY_SLOTS as ActionCost[]).includes(cost);
 }
 
-// What you've spent this turn.
-//
-// Deliberately **advisory**: nothing here blocks an action. A turn lasts about a
-// minute, and the app can't see the table — a DM ruling, a readied action, an
-// Action Surge — so a hard budget would be wrong more often than it was useful.
-// It marks what it saw you do and lets you correct it by clicking.
-//
-// This started as component state, on the reasoning that a turn isn't a fact
-// about the character. That's still true — but it *is* a fact about the
-// encounter, which is where it lives now, so a turn's economy clears when the
-// turn actually comes round again rather than when a component happens to
-// remount. Callers never changed: the shape below is the same one they used when
-// it was a `useState`.
+// What you've spent this turn. Advisory only — nothing blocks an action,
+// since the app can't see table rulings (readied actions, Action Surge,
+// etc). Lives on the encounter (not component state) so the economy clears
+// when the turn comes round again, not when a component remounts.
 export function usePlayTurn() {
   const { self, setSlotSpent } = useEncounter();
   const spent = self?.spent ?? NOTHING_SPENT;
@@ -45,18 +36,14 @@ export function usePlayTurn() {
 
   return {
     spent,
-    // Clicking a slot corrects the record in either direction — the board's
-    // guess is a convenience, not an authority.
     toggle: (slot: EconomySlot) => set(slot, !spent[slot]),
-    // Using something off the board marks its slot. Costs without a slot
-    // (`free`, `special`) pass through untouched.
+    // Costs without a slot (`free`, `special`) pass through untouched.
     markSpent: (cost: ActionCost) => {
       if (!isEconomySlot(cost)) return;
       set(cost, true);
     },
-    // Clearing by hand, for a turn taken outside the initiative order (or for
-    // the player who just wants the slots back). Advancing the turn does this on
-    // its own, for whoever's turn is starting.
+    // Manual clear; advancing the turn also does this for whoever's turn
+    // is starting.
     endTurn: () => ECONOMY_SLOTS.forEach((slot) => set(slot, false)),
     anySpent: ECONOMY_SLOTS.some((slot) => spent[slot]),
   };

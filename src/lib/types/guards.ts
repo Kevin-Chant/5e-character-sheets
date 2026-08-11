@@ -40,9 +40,7 @@ import {
   TextComponentWithoutDetails,
 } from "src/lib/types/character";
 
-// Runtime typeguards for the model above. Split out because they're the *only*
-// executable code in the type layer — everything else here is erased at compile
-// time, and mixing the two made `types.ts` look far bigger than the model is.
+// Runtime typeguards for the model in formula.ts / character.ts / mechanics.ts.
 
 export function isUuid(data: any): data is UUID {
   return (
@@ -63,8 +61,8 @@ export function isMap<K extends string | number | symbol, V>(
   kValidator: (data: any) => data is K,
   vValidator: (data: any) => data is V,
 ): data is Record<K, V> {
-  // Arrays are lodash "objects" whose keys (indices) would pass numeric key
-  // validators, so reject them explicitly.
+  // Reject arrays: lodash treats them as "objects" whose indices would pass
+  // numeric key validators.
   return (
     isObject(data) &&
     !isArray(data) &&
@@ -156,10 +154,8 @@ export function isCustomFormulaWithDamage(
   return isMap<DamageType, CustomFormula>(data, isDamageType, isCustomFormula);
 }
 
-// Both class-referencing formula leaves are tagged objects carrying a class
-// *id* (a UUID), never a bare string — so a class rename can't orphan them and
-// they're unambiguous among atomic variables (a bare string used to be misread
-// as a class name, which made *any* string a valid atomic).
+// Both class-referencing formula leaves carry a class id (UUID) in a tagged
+// object, never a bare string, so they're unambiguous among atomic variables.
 export function isSpellMod(data: any): data is SpellMod {
   return isObject(data) && !isArray(data) && isUuid((data as any).spellMod);
 }

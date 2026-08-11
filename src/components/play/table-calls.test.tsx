@@ -4,10 +4,6 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RestCallForm, RollCallForm } from "./table-calls";
 
-// Both forms are plain props over the chatter layer's senders, so they test
-// without a session: what's worth pinning is what a DM's typing turns into on
-// the wire — which check, and who was actually asked.
-
 // Six saves, six ability checks, nineteen skills.
 const CHECK_OPTION_COUNT = 31;
 
@@ -34,7 +30,6 @@ describe("the roll call's check picker", () => {
   it("filters the closed list down to what was typed", async () => {
     const { user } = renderRollCall();
     await openBox(user);
-    // Everything is on offer before a query — the list opens whole.
     expect(options().length).toBe(CHECK_OPTION_COUNT);
 
     await user.keyboard("perc");
@@ -65,10 +60,8 @@ describe("the roll call's check picker", () => {
     const { user, callForRoll } = renderRollCall();
     await openBox(user);
     await user.keyboard("dex");
-    // Two matches, the save and the check; the cursor opens on the first, so
-    // one step down lands on the check.
+    // Two matches (save, check); one step down lands on the check.
     await user.keyboard("{ArrowDown}{Enter}");
-    // Picking hands the cursor to Ask, so this Enter is the ask.
     await user.keyboard("{Enter}");
 
     expect(callForRoll).toHaveBeenCalledWith(
@@ -77,8 +70,6 @@ describe("the roll call's check picker", () => {
     );
   });
 
-  // Free text was a query and never an ask in the old bespoke typeahead; the
-  // shared picker makes that structural — there is nowhere to type a value.
   it("won't ask until something on the list is picked", async () => {
     const { user, callForRoll } = renderRollCall();
     expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
@@ -118,7 +109,6 @@ describe("the roll call's audience", () => {
     await ask(user);
 
     expect(callForRoll.mock.calls[0][1]).toEqual(["c-brakka", "c-maelina"]);
-    // Naming anyone takes the room off the hook.
     expect(screen.getByRole("button", { name: "Everyone" })).toHaveAttribute(
       "aria-pressed",
       "false",
@@ -138,8 +128,6 @@ describe("the roll call's audience", () => {
     expect(callForRoll.mock.calls[1][1]).toBeUndefined();
   });
 
-  // An ask aimed only at someone who has left would reach nobody, which reads
-  // at the table as the app having swallowed it.
   it("forgets a player who left the session", async () => {
     const callForRoll = vi.fn();
     const user = userEvent.setup();
@@ -166,8 +154,6 @@ describe("the rest call", () => {
     expect(callForRest).toHaveBeenCalledWith("short", false);
   });
 
-  // The party sleeping through the night is the ordinary long rest, so the box
-  // follows the choice rather than making the DM tick it every evening.
   it("assumes a long rest spans dawn, and lets that be untrue", async () => {
     const callForRest = vi.fn();
     const user = userEvent.setup();

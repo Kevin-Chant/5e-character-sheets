@@ -4,20 +4,11 @@ import { useTableTalk } from "src/lib/hooks/use-table-talk";
 import { isFoe } from "src/lib/play/encounter";
 import { SharedVitals } from "./initiative-rail";
 
-// The opposition, as a standing row of chips — the answer to "who can I
-// actually aim at", which used to live only inside the roll dialog's select.
-// Players told "you can target the NPCs" had nowhere to look: the initiative
-// rail lists everyone in turn order, which is a different question.
-//
-// Clicking a chip marks it as your current target (the same remembered choice
-// an attack re-uses), so "I'm on the ogre" is one tap here and every attack
-// dialog opens aimed at it. Advisory like everything on this surface: the
-// dialog can still pick anyone, this is just the shortlist.
+// Standing row of foe chips to pick a current target; clicking one aims every
+// subsequent attack dialog at it (still advisory — the dialog can target anyone).
 export default function TargetStrip() {
   const { encounter, self, sharing, hideDeathSaves } = useEncounter();
   const { reportsEnabled, lastTargetId, rememberTarget } = useTableTalk();
-  // The foes only — the party is never "targets" at a glance, and healing
-  // picks its own list in the dialog. Hidden rows stay hidden.
   const foes = encounter.participants.filter(
     (p) => !p.hidden && p.id !== self?.id && isFoe(p),
   );

@@ -13,8 +13,7 @@ import { updateData } from "src/lib/hooks/reducers/actions";
 import { FIELD } from "src/lib/data/data-definitions";
 
 // Node ships a real BroadcastChannel, so "the other tab" here is simply a
-// second channel object on the same name — delivery excludes the poster, which
-// is exactly the same-tab/self-echo property the module relies on.
+// second channel object on the same name.
 
 const UUID_A = "11111111-1111-4111-8111-111111111111" as UUID;
 
@@ -89,8 +88,7 @@ describe("tab-sync", () => {
     peer.postMessage("not a message");
     peer.postMessage({ kind: "presence" });
     peer.postMessage({ kind: "dispatch", uuid: UUID_A }); // no action
-    // A trailing valid message proves the bad ones were already delivered
-    // (channel delivery is ordered) and dropped, rather than still in flight.
+    // A trailing valid message proves the bad ones (ordered delivery) were dropped.
     const flushed = new Promise<void>((resolve) => {
       const stop = subscribeTabEdits(() => {
         stop();

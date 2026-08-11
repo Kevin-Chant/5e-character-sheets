@@ -6,9 +6,8 @@ import { defaultCharacter } from "src/lib/data/default-data";
 import { Character } from "src/lib/types";
 import SharingToggle from "./sharing-toggle";
 
-// Starting a live session is a network call that can fail. The component owns
-// the three states that come out of that (idle / connecting / failed), so those
-// are what's tested here — the session machinery itself is mocked.
+// Tests the component's idle/connecting/failed states around starting a live
+// session; the session machinery itself is mocked.
 
 const character = structuredClone(defaultCharacter) as Character;
 let role: string | undefined;
@@ -57,11 +56,9 @@ describe("SharingToggle", () => {
     );
     const button = await screen.findByRole("button", { name: /connecting/i });
     expect(button).toBeDisabled();
-    // Settling the promise flips state, so let React flush it.
     await act(async () => {
       release();
     });
-    // Resolving leaves no error behind.
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -75,7 +72,6 @@ describe("SharingToggle", () => {
     );
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Couldn't reach the sharing server.");
-    // And it recovers: the button is usable again, not stuck on "Connecting".
     expect(
       screen.getByRole("button", { name: /start live session/i }),
     ).toBeEnabled();

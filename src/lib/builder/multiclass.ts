@@ -5,20 +5,10 @@ import {
 } from "src/lib/data/data-definitions";
 import { getCatalogClass } from "src/lib/builder/class-catalog";
 
-// ---------------------------------------------------------------------------
-// Multiclassing proficiencies (PHB p.163; Artificer from TCE).
-//
-// Taking a class as a *second* class does not grant that class's level-1
-// proficiencies. Each class instead grants a defined, much smaller subset — a
-// barbarian brings shields and weapons but no armor training, a wizard brings
-// nothing at all. The wizard used to grant nothing in every case, which is
-// wrong in both directions: silently under-granting a multiclass fighter's
-// armor, and (via the level-1 tool table) over-granting a multiclass bard three
-// instruments where RAW allows one.
-//
-// Saving throws are deliberately absent: RAW you never gain saving-throw
-// proficiency from a multiclass, and `applyLevelUp` never granted them either.
-// ---------------------------------------------------------------------------
+// Multiclassing proficiencies (PHB p.163; Artificer from TCE). A second class
+// grants a much smaller subset than its own level-1 list, not the full one —
+// a barbarian brings shields and weapons but no armor training, a wizard
+// brings nothing. Saving throws are absent: RAW grants none from multiclass.
 
 export interface MulticlassProficiencies {
   // Armor grant strings, in the vocabulary `grantArmor` parses.
@@ -26,11 +16,10 @@ export interface MulticlassProficiencies {
   weapons: string[];
   // Tool proficiencies granted outright (no choice).
   tools: string[];
-  // "One skill from this class's skill list" — a count, since the list itself
-  // comes from the class data rather than being restated here.
+  // "One skill from this class's skill list."
   chooseSkills: number;
-  // "One musical instrument of your choice" (bard) — chosen from the class's
-  // own tool list, which for the bard *is* the instrument list.
+  // "One musical instrument of your choice" (bard), from the class's own tool
+  // list (the instrument list, for the bard).
   chooseTools: number;
   // Bard's skill is "one skill of your choice", not one from the class list.
   anySkill?: boolean;

@@ -6,10 +6,9 @@ import { useSave } from "./modals/modal-container";
 import OptionOrCustomValue from "./display/option-or-custom-value";
 import Select from "src/components/select";
 
-// Editor for the `race` identity object (name / subrace / size). The mechanical
-// grants a race confers live in their own homes and are edited there — languages
-// in Other Proficiencies, traits in Features, speeds in the Speed editor,
-// darkvision in the Senses editor — not on the race.
+// Editor for the `race` identity object (name / subrace / size) only. Racial
+// grants are edited elsewhere: languages in Other Proficiencies, traits in
+// Features, speeds and darkvision in their own editors.
 export default function EditRace() {
   const { character, dispatch } = useLoadedCharacter();
   const { saveData } = useSave();

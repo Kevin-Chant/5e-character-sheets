@@ -11,11 +11,8 @@ const RestContext = createContext<RestContextData>({
   openRest: () => {},
 });
 
-// Mounts the rest panel once and exposes `openRest()`, mirroring
-// `LevelUpProvider`. Unlike the level-up wizard this provider holds no state of
-// its own beyond the preset the panel opened with: a rest is applied through
-// ordinary dispatches on the open character (so it autosaves, syncs and undoes
-// like any edit), and the panel keeps its own short-lived phase state.
+// A rest applies through ordinary dispatches (autosaves/syncs/undoes like any
+// edit); this provider only holds the preset the panel opened with.
 export function RestProvider({ children }: React.PropsWithChildren) {
   const [preset, setPreset] = useState<RestPreset | undefined>();
   const [open, setOpen] = useState(false);
@@ -34,9 +31,7 @@ export function RestProvider({ children }: React.PropsWithChildren) {
       {open && character && (
         <RestDialog
           preset={preset}
-          // Keyed on the preset so a rest called while the panel is already
-          // open re-opens it on the new fork rather than leaving the player
-          // looking at the previous one.
+          // Re-keys so a rest called while the panel is already open re-opens on the new preset.
           key={preset ? `${preset.kind}:${preset.spansDawn}` : "manual"}
           onClose={() => setOpen(false)}
         />
