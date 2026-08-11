@@ -41,9 +41,9 @@ import {
   participantLiveness,
 } from "src/lib/play/liveness";
 import StepperInput from "src/components/stepper-input";
+import AskTheTable from "./ask-the-table";
 import ConditionsControl from "./conditions-control";
 import ConcentrationCell from "./concentration-cell";
-import { RestCallForm, RollCallForm } from "./table-calls";
 import TableSettingsModal from "./table-settings-modal";
 import { HpTotal, VitalsEntry } from "./vitals-entry";
 
@@ -79,8 +79,6 @@ export default function DmBoard() {
     ruleOnAttack,
     verdicts,
     offerHealing,
-    callForRoll,
-    callForRest,
   } = useTableTalk();
 
   const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
@@ -180,6 +178,8 @@ export default function DmBoard() {
     <div className={classNames("dm-board", { "has-rulings": !!rulingLane })}>
       {rulingLane}
       <div className="dm-board-main">
+        {/* Answers land in the ruling lane. */}
+        <AskTheTable />
         {order.length === 0 ? (
           <div className="dm-empty">
             <p className="text-muted">
@@ -355,15 +355,6 @@ export default function DmBoard() {
             </button>
           )}
         </div>
-
-        {/* Answers land in the ruling lane. */}
-        {sessionStatus === "connected" && (
-          <RollCallForm present={present} callForRoll={callForRoll} />
-        )}
-
-        {sessionStatus === "connected" && (
-          <RestCallForm callForRest={callForRest} />
-        )}
       </div>
 
       <div className="dm-table-rail">

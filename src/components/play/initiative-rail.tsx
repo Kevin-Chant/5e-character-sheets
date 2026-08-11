@@ -43,8 +43,6 @@ export default function InitiativeRail({
     canRun,
     sharing,
     hideDeathSaves,
-    callForInitiative,
-    sessionStatus,
   } = useEncounter();
   const { rollMode } = useRollMode();
   const { sendReport } = useTableTalk();
@@ -229,11 +227,6 @@ export default function InitiativeRail({
                   Add
                 </button>
               </form>
-            )}
-            {dmRail && sessionStatus === "connected" && (
-              <button type="button" onClick={callForInitiative}>
-                Call for initiative
-              </button>
             )}
             {canRun && (
               <button
