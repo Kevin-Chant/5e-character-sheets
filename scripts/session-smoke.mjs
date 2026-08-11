@@ -164,6 +164,23 @@ async function choose(page, selectLabel, optionLabel) {
     .click();
 }
 
+// Per-campaign controls (offer a sheet, hand it over, the invite, the seat)
+// live in the Table settings modal now, not on the roster rows.
+async function inTableSettings(page, act) {
+  await page.click('button:has-text("Table settings")');
+  await untilVisible(page, ".table-settings");
+  await act();
+  await page.click('.table-settings button[aria-label="Close"]');
+}
+
+// The three room-wide calls fold under one disclosure.
+async function openAsks(page) {
+  const panel = page.locator(".dm-asks-panel");
+  if (await panel.isVisible()) return;
+  await page.click('button:has-text("Ask the table")');
+  await untilVisible(page, ".dm-asks-panel");
+}
+
 async function openClient(browser, fixture, label, extraFixtures = [], mutate) {
   const load = (name) =>
     JSON.parse(readFileSync(join(FIXTURES, `${name}.json`), "utf8"));
@@ -583,7 +600,9 @@ const scenarios = {
 
     const code = await startGame(dm, [offeredName]);
     await untilVisible(dm.page, ".dm-board");
-    await dm.page.click("text=Offer sheet");
+    await inTableSettings(dm.page, () =>
+      dm.page.click('.brought-sheets button:has-text("Offer")'),
+    );
     await untilText(dm.page, "Offered");
 
     await joinGame(player, code);
@@ -646,7 +665,8 @@ const scenarios = {
     const code = await startGame(dm, [offeredName]);
     await joinGame(player, code, undefined, "Nadia");
 
-    await untilVisible(dm.page, ".dm-assign-select");
+    await dm.page.click('button:has-text("Table settings")');
+    await untilVisible(dm.page, ".hand-to-select");
     await dm.page.click(`button[aria-label="Hand ${offeredName} to a player"]`);
     const joiner = dm.page
       .locator('[role="listbox"] [role="option"]', { hasText: "Nadia" })
@@ -655,6 +675,7 @@ const scenarios = {
     check("the joiner's name reaches the DM", true, true);
 
     await joiner.click();
+    await dm.page.click('.table-settings button[aria-label="Close"]');
 
     await untilVisible(player.page, ".assign-prompt");
     check("the assignment prompt reaches the player", true, true);
@@ -681,7 +702,8 @@ const scenarios = {
     await joinGame(player, code, player.name);
     await untilRoster(dm.page, ["Maelina Vael", player.name]);
 
-    await dm.page.click("text=Call for initiative");
+    await openAsks(dm.page);
+    await dm.page.click('.dm-ask-row button:has-text("Ask everyone")');
 
     await until(
       dm.page,
@@ -855,6 +877,7 @@ const scenarios = {
     await joinGame(player, code, player.name);
     await joinGame(healer, code, healer.name);
 
+    await openAsks(dm.page);
     await until(
       dm.page,
       "the audience chips to know both players",
@@ -940,7 +963,9 @@ const scenarios = {
     await untilVisible(dm.page, ".dm-death-saves");
     await untilVisible(healer.page, ".initiative-death-saves");
     check("death saves reach the DM and the party", true, true);
-    await dm.page.click('[aria-label="Party sees death saves"]');
+    await inTableSettings(dm.page, () =>
+      dm.page.click(".table-policy .settings-checkbox input"),
+    );
     await until(
       healer.page,
       "the party's death-save chip to hide",
