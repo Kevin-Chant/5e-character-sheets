@@ -127,223 +127,244 @@ export default function DmBoard() {
         ]
       : undefined;
 
-  return (
-    <div className="dm-board">
-      {/* One card per act (to-hit then damage grouped). Amount is editable before applying. */}
-      {reports.length > 0 && (
-        <div className="dm-report-queue">
-          <div className="row space-between dm-queue-head">
-            <span className="text-muted">Rolls at the table</span>
-            <button type="button" onClick={clearReports}>
-              Clear all
-            </button>
-          </div>
-          <ul className="dm-damage-queue">
-            {exchanges(reports).map((exchange) => (
-              <ExchangeCard
-                key={exchange.exchangeId}
-                exchange={exchange}
-                participants={encounter.participants}
-                verdict={verdicts[exchange.exchangeId]}
-                onRule={(outcome) =>
-                  ruleOnAttack(
-                    exchange.exchangeId,
-                    exchange.fromClientId,
-                    outcome,
-                  )
-                }
-                onApply={applyVitals}
-                onOfferHealing={offerHealing}
-                onDone={() => dismissExchange(exchange.exchangeId)}
-              />
-            ))}
-          </ul>
-        </div>
-      )}
-      {order.length === 0 ? (
-        <div className="dm-empty">
-          <p className="text-muted">
-            The table is empty. Add the party and their opposition below —
-            anyone who joins with the code brings their own row.
-          </p>
-          {sessionStatus === "connected" && sessionCode && (
-            <InviteCode code={sessionCode} />
-          )}
-        </div>
-      ) : (
-        <ul className="dm-roster">
-          {/* Column captions for the aligned layout. Hidden from assistive
-              tech: every cell below carries its own label, and the roster
-              restacks out of columns on a narrow screen. */}
-          <li className="dm-roster-head" aria-hidden="true">
-            <span>Init</span>
-            <span>Combatant</span>
-            <span>Hit points</span>
-            <span>AC</span>
-            <span>Conditions</span>
-            <span>Concentration</span>
-            <span />
-          </li>
-          {order.map((participant) => (
-            <li
-              key={participant.id}
-              className={classNames("dm-row", {
-                active: inCombat && participant.id === current?.id,
-                down:
-                  participant.vitals !== undefined &&
-                  participant.vitals.currHp <= 0,
-                staged: participant.hidden,
-              })}
-            >
-              {/* Editable in combat: the row re-seats when the number changes. */}
-              <label className="dm-row-init dm-field-label">
-                <span>Init</span>
-                <StepperInput
-                  value={participant.initiative}
-                  min={-10}
-                  ariaLabel={`${participant.name} initiative`}
-                  onChange={(value) =>
-                    setCombatantInitiative(participant.id, value)
-                  }
-                />
-              </label>
-              <div className="dm-row-who">
-                <span className="dm-row-name">{participant.name}</span>
-                {participant.vitals !== undefined &&
-                  participant.vitals.currHp <= 0 && (
-                    <FaSkullCrossbones
-                      className="dm-down-mark"
-                      title="Down — at 0 hit points"
-                    />
-                  )}
-                {inCombat && participant.id === nextUp?.id && (
-                  <span className="dm-next-chip">next</span>
-                )}
-                <LivenessChip
-                  participant={participant}
-                  clientId={clientId}
-                  present={present}
-                  quietClients={quietClients}
-                  connected={sessionStatus === "connected"}
-                />
-                {/* Staging (hide from players) only applies to hand-typed rows. */}
-                {!participant.characterUuid && (
-                  <button
-                    type="button"
-                    className="icon-btn dm-hide-btn"
-                    aria-label={
-                      participant.hidden
-                        ? `Reveal ${participant.name}`
-                        : `Hide ${participant.name} from players`
-                    }
-                    title={
-                      participant.hidden
-                        ? "Hidden from players — click to reveal"
-                        : "Hide from players until it strikes"
-                    }
-                    onClick={() =>
-                      setCombatantHidden(participant.id, !participant.hidden)
-                    }
-                  >
-                    {participant.hidden ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                )}
-                {/* Side defaults from the sheet heuristic (no sheet → foe); flips with a click. */}
-                <button
-                  type="button"
-                  className={classNames("dm-side-btn", {
-                    foe: isFoe(participant),
-                  })}
-                  aria-label={`Mark ${participant.name} as ${isFoe(participant) ? "party" : "a foe"}`}
-                  title={
-                    isFoe(participant)
-                      ? "A foe — players see it in their target strip. Click to mark it party."
-                      : "Party — kept out of the players' target strip. Click to mark it a foe."
-                  }
-                  onClick={() =>
-                    setCombatantSide(
-                      participant.id,
-                      isFoe(participant) ? "party" : "foe",
-                    )
-                  }
-                >
-                  {isFoe(participant) ? "Foe" : "Party"}
-                </button>
-                {/* Offering and handing out live in Table settings; the row
-                    only reports where a sheet ended up. */}
-                {participant.claimable &&
-                  participant.ownerClientId === clientId && (
-                    <span className="dm-in-play" title="Offered for pickup">
-                      Offered
-                    </span>
-                  )}
-                {participant.claimable &&
-                  participant.ownerClientId !== clientId && (
-                    <span
-                      className="dm-in-play"
-                      title="A player picked this up"
-                    >
-                      In play
-                    </span>
-                  )}
-              </div>
-              <RowVitals
-                participant={participant}
-                apply={(vitals, dealt) =>
-                  applyVitals(participant, vitals, dealt)
-                }
-              />
-              {/* Same controls as the player rail, in a narrower box. */}
-              <div className="dm-row-conditions">
-                <ConditionsControl participant={participant} />
-              </div>
-              <div className="dm-row-concentration">
-                <ConcentrationCell
-                  participant={participant}
-                  checkDc={conChecks[participant.id]}
-                  onCheckResolved={() => resolveConCheck(participant.id)}
-                />
-              </div>
-              <button
-                type="button"
-                className="icon-btn dm-row-remove"
-                aria-label={`Remove ${participant.name}`}
-                title="Remove from the encounter"
-                onClick={() => removeCombatant(participant.id)}
-              >
-                <FaXmark />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="dm-board-tools">
-        <AddCombatants
-          onAdd={(name, initiative, opts) =>
-            addCombatant(name, initiative, opts)
-          }
-        />
-        {fallen.length > 0 && (
-          <button
-            type="button"
-            className="dm-clear-fallen"
-            title="Remove every hand-typed combatant at 0 HP"
-            onClick={clearFallen}
-          >
-            <FaSkullCrossbones /> Clear the fallen ({fallen.length})
+  const pending = exchanges(reports);
+  // A lane of its own once there are players to roll: a ruling accepted from
+  // a card above the roster used to reflow every row under the cursor that
+  // accepted it. Absent when nobody can send one (solo prep), where it would
+  // only be an empty column.
+  const rulingLane = sessionStatus === "connected" && (
+    <aside className="dm-rulings">
+      <div className="row space-between dm-queue-head">
+        <span className="text-muted">
+          Waiting on you {pending.length > 0 && `(${pending.length})`}
+        </span>
+        {pending.length > 0 && (
+          <button type="button" onClick={clearReports}>
+            Clear all
           </button>
         )}
       </div>
-
-      {/* Answers land in the report queue above. */}
-      {sessionStatus === "connected" && (
-        <RollCallForm present={present} callForRoll={callForRoll} />
+      {pending.length === 0 ? (
+        <p className="dm-rulings-empty text-muted">
+          Rolls your players make land here in the order they arrive. Nothing
+          else moves when they do.
+        </p>
+      ) : (
+        // One card per act (to-hit then damage grouped). Amount is editable
+        // before applying.
+        <ul className="dm-damage-queue">
+          {pending.map((exchange) => (
+            <ExchangeCard
+              key={exchange.exchangeId}
+              exchange={exchange}
+              participants={encounter.participants}
+              verdict={verdicts[exchange.exchangeId]}
+              onRule={(outcome) =>
+                ruleOnAttack(
+                  exchange.exchangeId,
+                  exchange.fromClientId,
+                  outcome,
+                )
+              }
+              onApply={applyVitals}
+              onOfferHealing={offerHealing}
+              onDone={() => dismissExchange(exchange.exchangeId)}
+            />
+          ))}
+        </ul>
       )}
+    </aside>
+  );
 
-      {sessionStatus === "connected" && (
-        <RestCallForm callForRest={callForRest} />
-      )}
+  return (
+    <div className={classNames("dm-board", { "has-rulings": !!rulingLane })}>
+      {rulingLane}
+      <div className="dm-board-main">
+        {order.length === 0 ? (
+          <div className="dm-empty">
+            <p className="text-muted">
+              The table is empty. Add the party and their opposition below —
+              anyone who joins with the code brings their own row.
+            </p>
+            {sessionStatus === "connected" && sessionCode && (
+              <InviteCode code={sessionCode} />
+            )}
+          </div>
+        ) : (
+          <ul className="dm-roster">
+            {/* Column captions for the aligned layout. Hidden from assistive
+              tech: every cell below carries its own label, and the roster
+              restacks out of columns on a narrow screen. */}
+            <li className="dm-roster-head" aria-hidden="true">
+              <span>Init</span>
+              <span>Combatant</span>
+              <span>Hit points</span>
+              <span>AC</span>
+              <span>Conditions</span>
+              <span>Concentration</span>
+              <span />
+            </li>
+            {order.map((participant) => (
+              <li
+                key={participant.id}
+                className={classNames("dm-row", {
+                  active: inCombat && participant.id === current?.id,
+                  down:
+                    participant.vitals !== undefined &&
+                    participant.vitals.currHp <= 0,
+                  staged: participant.hidden,
+                })}
+              >
+                {/* Editable in combat: the row re-seats when the number changes. */}
+                <label className="dm-row-init dm-field-label">
+                  <span>Init</span>
+                  <StepperInput
+                    value={participant.initiative}
+                    min={-10}
+                    ariaLabel={`${participant.name} initiative`}
+                    onChange={(value) =>
+                      setCombatantInitiative(participant.id, value)
+                    }
+                  />
+                </label>
+                <div className="dm-row-who">
+                  <span className="dm-row-name">{participant.name}</span>
+                  {participant.vitals !== undefined &&
+                    participant.vitals.currHp <= 0 && (
+                      <FaSkullCrossbones
+                        className="dm-down-mark"
+                        title="Down — at 0 hit points"
+                      />
+                    )}
+                  {inCombat && participant.id === nextUp?.id && (
+                    <span className="dm-next-chip">next</span>
+                  )}
+                  <LivenessChip
+                    participant={participant}
+                    clientId={clientId}
+                    present={present}
+                    quietClients={quietClients}
+                    connected={sessionStatus === "connected"}
+                  />
+                  {/* Staging (hide from players) only applies to hand-typed rows. */}
+                  {!participant.characterUuid && (
+                    <button
+                      type="button"
+                      className="icon-btn dm-hide-btn"
+                      aria-label={
+                        participant.hidden
+                          ? `Reveal ${participant.name}`
+                          : `Hide ${participant.name} from players`
+                      }
+                      title={
+                        participant.hidden
+                          ? "Hidden from players — click to reveal"
+                          : "Hide from players until it strikes"
+                      }
+                      onClick={() =>
+                        setCombatantHidden(participant.id, !participant.hidden)
+                      }
+                    >
+                      {participant.hidden ? <FaEyeSlash /> : <FaEye />}
+                    </button>
+                  )}
+                  {/* Side defaults from the sheet heuristic (no sheet → foe); flips with a click. */}
+                  <button
+                    type="button"
+                    className={classNames("dm-side-btn", {
+                      foe: isFoe(participant),
+                    })}
+                    aria-label={`Mark ${participant.name} as ${isFoe(participant) ? "party" : "a foe"}`}
+                    title={
+                      isFoe(participant)
+                        ? "A foe — players see it in their target strip. Click to mark it party."
+                        : "Party — kept out of the players' target strip. Click to mark it a foe."
+                    }
+                    onClick={() =>
+                      setCombatantSide(
+                        participant.id,
+                        isFoe(participant) ? "party" : "foe",
+                      )
+                    }
+                  >
+                    {isFoe(participant) ? "Foe" : "Party"}
+                  </button>
+                  {/* Offering and handing out live in Table settings; the row
+                    only reports where a sheet ended up. */}
+                  {participant.claimable &&
+                    participant.ownerClientId === clientId && (
+                      <span className="dm-in-play" title="Offered for pickup">
+                        Offered
+                      </span>
+                    )}
+                  {participant.claimable &&
+                    participant.ownerClientId !== clientId && (
+                      <span
+                        className="dm-in-play"
+                        title="A player picked this up"
+                      >
+                        In play
+                      </span>
+                    )}
+                </div>
+                <RowVitals
+                  participant={participant}
+                  apply={(vitals, dealt) =>
+                    applyVitals(participant, vitals, dealt)
+                  }
+                />
+                {/* Same controls as the player rail, in a narrower box. */}
+                <div className="dm-row-conditions">
+                  <ConditionsControl participant={participant} />
+                </div>
+                <div className="dm-row-concentration">
+                  <ConcentrationCell
+                    participant={participant}
+                    checkDc={conChecks[participant.id]}
+                    onCheckResolved={() => resolveConCheck(participant.id)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="icon-btn dm-row-remove"
+                  aria-label={`Remove ${participant.name}`}
+                  title="Remove from the encounter"
+                  onClick={() => removeCombatant(participant.id)}
+                >
+                  <FaXmark />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="dm-board-tools">
+          <AddCombatants
+            onAdd={(name, initiative, opts) =>
+              addCombatant(name, initiative, opts)
+            }
+          />
+          {fallen.length > 0 && (
+            <button
+              type="button"
+              className="dm-clear-fallen"
+              title="Remove every hand-typed combatant at 0 HP"
+              onClick={clearFallen}
+            >
+              <FaSkullCrossbones /> Clear the fallen ({fallen.length})
+            </button>
+          )}
+        </div>
+
+        {/* Answers land in the ruling lane. */}
+        {sessionStatus === "connected" && (
+          <RollCallForm present={present} callForRoll={callForRoll} />
+        )}
+
+        {sessionStatus === "connected" && (
+          <RestCallForm callForRest={callForRest} />
+        )}
+      </div>
 
       <div className="dm-table-rail">
         <span className="text-muted">
@@ -1042,6 +1063,9 @@ function RowVitals({
         )}
       </div>
       <span className="dm-row-ac">
+        {/* The column header names this where the board is columns; where it
+            stacks, the caption is all there is. */}
+        <span className="dm-cell-caption">AC</span>
         {participant.characterUuid ? (
           // Read-only: a character's AC derives from its own sheet.
           vitals.ac > 0 && <span className="dm-ac-value">{vitals.ac}</span>

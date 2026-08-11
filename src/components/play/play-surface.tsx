@@ -118,7 +118,7 @@ export default function PlaySurface() {
     <EditModeContext.Provider value={PLAY_EDIT_MODE}>
       <RollerProvider>
         <TurnFlowProvider>
-          <div className="play-surface">
+          <div className={classNames("play-surface", { dm: isDm })}>
             {/* Hidden during a reconnect — RejoinBanner takes its place. */}
             {!rejoin.rejoining && <SessionBar />}
             <RejoinBanner rejoin={rejoin} />

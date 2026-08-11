@@ -22,6 +22,13 @@
   margin: 0 auto;
 }
 
+/* The DM's board is a table of eight rows plus a lane of rulings beside it,
+   where a player's is one character's turn — the reading width that suits the
+   second is a squeeze on the first. */
+.play-surface.dm {
+  max-width: 1500px;
+}
+
 /* --- Party session ------------------------------------------------------ */
 
 .session-bar {
@@ -907,6 +914,69 @@
   padding-bottom: 2rem;
 }
 
+/* The board and the rulings awaiting one, side by side. A ruling used to sit
+   above the roster, so accepting one moved every row underneath the cursor
+   that had just accepted it — mid-fight, on the row you were about to hit. */
+.dm-board.has-rulings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  align-items: start;
+}
+
+.dm-board-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.dm-board.has-rulings .dm-board-main {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.dm-board.has-rulings .dm-rulings {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.dm-rulings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  /* Follows the roster down: a fight is long enough to scroll, and the thing
+     asking for an answer shouldn't leave the screen while you look for the
+     row it's about. */
+  position: sticky;
+  top: var(--space-2);
+  max-height: calc(100vh - 12rem);
+  overflow-y: auto;
+}
+
+.dm-rulings-empty {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Below this the lane has no width to be a lane; it goes back above the
+   roster, where the DOM already puts it. */
+@media (max-width: 1150px) {
+  .dm-board.has-rulings {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dm-rulings {
+    position: static;
+    max-height: none;
+  }
+}
+
 /* The tracks live on the list, not the row, so every row lands on the same
    ones and the board can be read down a column — "who is bloodied", "whose AC
    I can't beat" — which a per-row grid can't answer at a glance. Rows take
@@ -1079,8 +1149,18 @@
    the board instead of floating after however wide the HP cluster ended up. */
 .dm-row-ac {
   display: flex;
+  align-items: center;
+  gap: var(--space-1);
   justify-content: center;
   min-width: 2.5rem;
+}
+
+.dm-cell-caption {
+  display: none;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
 }
 
 .dm-ac-value {
@@ -1297,7 +1377,8 @@
     justify-content: flex-start;
   }
 
-  .dm-row-init > span:not(.stepper) {
+  .dm-row-init > span:not(.stepper),
+  .dm-cell-caption {
     display: inline;
   }
 
