@@ -678,8 +678,25 @@ takes a `variant`: the `dm` rail is just round + whose-turn callout + advance /
 end (and "Start combat" out of combat), and the board rows carry the
 initiative steppers (pre-combat — in combat the order is frozen and the score
 is a static badge), the add form and remove. A row is init | who | vitals |
-conditions | concentration | remove; the active row is spotlit and the next
-one carries a small "next" chip. The vitals cell speaks deltas first: a small
+AC | conditions | concentration | remove; the active row is spotlit and the
+next one carries a small "next" chip.
+
+**The columns belong to the list, not the row.** Each row used to carry its
+own grid, so nothing lined up between rows and "who is bloodied", "whose AC
+can I not beat" were a scan rather than a glance down a column — which is the
+question a DM asks mid-fight. The tracks live on `.dm-roster` and rows take
+them back with `grid-template-columns: subgrid`, under captions
+(`.dm-roster-head`, `aria-hidden` — every cell already carries its own label).
+Below 900px the columns have no room to be columns and the roster falls back
+to stacked rows, where the per-cell captions come back instead.
+
+**Rulings stand in a lane beside the roster** (`.dm-rulings`), not in a queue
+above it: an accepted roll used to reflow every row underneath the cursor that
+accepted it. The lane is sticky and stands whether or not anything is in it —
+one that appeared on arrival would move the board exactly as the old queue
+did — but only while connected, since nobody can send a roll otherwise. The
+DM's play surface takes a wider maximum than the player's (`.play-surface.dm`)
+to fit it. The vitals cell speaks deltas first: a small
 damage box ("takes 9"; `+N` heals) is the primary write, routed through
 `applyDamage`/`applyHealing` so temp HP drains first and the concentration
 reminder fires with the true dealt number — and the running total beside it
@@ -698,6 +715,12 @@ Workflow pieces the mission ("multiple combats, DM-orchestrated") forced:
   0 HP in one click; character-backed rows are exempt because a downed PC is
   making death saves, not leaving. That plus "End combat keeps the party" is
   the whole between-fights reset.
+- **Table-wide things are one modal, not a strip each.** Sharing, death saves,
+  the invite, the seat and the sheets you brought live in **Table settings**
+  (`table-settings-modal.tsx`); the three calls live under **Ask the table**
+  (`ask-the-table.tsx`). Both are per-scene or per-campaign acts that were
+  costing permanent bands under a roster edited every six seconds — and
+  offering a sheet was costing two controls on every character row.
 - **The invite is the empty table's job**: with nobody in the order and a
   session connected, the board shows a big copy-the-invite-code affordance —
   the code in the session bar is for later; at minute zero it's the whole
@@ -812,8 +835,9 @@ private — mapped by pure `vitalsVisibility(level, isCharacter)` onto
 exact-numbers, a `healthDescriptor` chip (Healthy / Bloodied at ≤half /
 Down), or nothing. It lives on the encounter rather than in settings because
 it's _table policy_ — it has to reach every client, and LWW merges it like
-any other table fact. Controlled from the DM board and mirrored in
-Settings → Game (gated by `canRun`). It never touches your own vitals, the
+any other table fact. Set from the board's **Table settings** modal, whose
+starting point is `Settings.defaultSharing` — see "Defaults and the copy a
+table keeps" below. It never touches your own vitals, the
 DM's board, or the hidden-row axis. Kevin's "perfect information" tier —
 players reading each other's full sheets, consented at join — is the one
 step not built: it rides on the deliberately-absent full-sheet-read
@@ -823,7 +847,7 @@ machinery and a join-consent flow, a feature of its own.
 (optional, no migration) travels in the projection, because "you take 12" is
 how tables speak and the DM can't drain a pool they can't see. Pure
 `applyDamage(vitals, amount)` takes temp first, remainder off HP, floored at
-0 — used by the report queue's Apply **and** by each DM row's damage box
+0 — used by the ruling lane's Apply **and** by each DM row's damage box
 (`applyHealing` is the `+N` counterpart, clamped to max); direct HP set is
 the click-the-total escape hatch. `receiveState.ownVitals` carries `tempHp`
 back onto the
@@ -831,8 +855,8 @@ target's sheet, and both concentration watchers count absorbed damage (5e
 keys the DC off damage _taken_), at the cost of a rare false prompt when
 temp HP merely expires.
 
-**The initiative call** (`CALL_INITIATIVE`, carries nothing): the DM rail's
-"Call for initiative" rolls d20 + modifier for every sheet this client
+**The initiative call** (`CALL_INITIATIVE`, carries nothing): the board's
+"Ask the table" rolls d20 + modifier for every sheet this client
 brought (`initiativeModifierFor` in `play/initiative.ts`, shared with the
 rail's self-roll button) and prompts every player. The prompt follows the
 roll-mode toggle (see `rolling.md`): app mode is one click with the sheet's
@@ -1038,8 +1062,9 @@ Four more loops on the same report-never-write pattern:
   Player side: a `CheckLauncher` select in the play header opens the ordinary
   roll dialog — advantage, condition notes and real-dice mode included. DM
   side: the board's "Ask for a roll" form (`components/play/table-calls.tsx`,
-  alongside the rest call — both are sentences said to the room rather than
-  edits to the roster) sends `ROLL_CALL {check, toClientIds?}` — **an absent
+  alongside the rest call and the initiative call under **Ask the table** —
+  all three are sentences said to the room rather than edits to the roster)
+  sends `ROLL_CALL {check, toClientIds?}` — **an absent
   audience means the whole table**, which is the common case and so the cheap
   one to encode. Addressing is read through `rollCallReaches`, never by
   comparing a field inline. The list replaced a single `toClientId`, which is
@@ -1097,10 +1122,30 @@ spansDawn?}` — never addressed,
 - **Death saves ride the projection** (`ParticipantVitals.deathSaves`,
   present only while down or mid-saves). The DM row always shows the "2✓ 1✗"
   chip; the party rail shows it by default behind
-  `Encounter.hideDeathSaves` — table policy like the sharing level, set from
-  the board's grouped visibility controls (`.dm-visibility`: the sharing
-  select + the death-saves checkbox) and mirrored in Settings → Game. Never
-  shown where the sharing level already hides vitals entirely.
+  `Encounter.hideDeathSaves` — table policy like the sharing level, set
+  beside it in the Table settings modal. Never shown where the sharing level
+  already hides vitals entirely.
+
+## Defaults and the copy a table keeps
+
+The two policy fields have a per-device default in `Settings`
+(`defaultSharing`, `defaultHideDeathSaves`, edited on **Settings → Table**)
+and a per-game value on the encounter (edited from the board's **Table
+settings** modal, `table-settings-modal.tsx`; both surfaces render the same
+`TablePolicyFields`).
+
+`encounterForTable` copies the defaults onto the encounter at the single
+moment they apply — opening a new table. Joining adopts the room's policy and
+reopening keeps the copy the table already made, so a default changed
+mid-campaign cannot reach backwards into a game in progress: the game holds
+its own copy from the moment it starts. The modal compares the two and says
+which it is on, offering the defaults back rather than treating an override as
+a fork.
+
+Settings → Game keeps house rules (crits, rest recovery) and the
+dead-browser seat takeover. It used to hold the sharing controls too, writing
+straight to the live encounter — which meant opening Settings outside a
+session showed controls with nothing to act on.
 
 ## The way in
 
