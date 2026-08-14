@@ -37,7 +37,7 @@ describe("per-round guidance on the play surface", () => {
     await intoCombatWithGoblin(user, container);
 
     expect(screen.getByText("Goblin is acting")).toBeInTheDocument();
-    expect(container.querySelector(".play-body.off-turn")).not.toBeNull();
+    expect(container.querySelector(".play-zones.off-turn")).not.toBeNull();
     // Dimming is a class, never `disabled`.
     expect(disabledOnBoard()).toBe(disabledBefore);
   });
@@ -49,7 +49,7 @@ describe("per-round guidance on the play surface", () => {
 
     await user.click(screen.getByRole("button", { name: "Next turn" }));
     expect(screen.getByText("Your turn")).toBeInTheDocument();
-    expect(container.querySelector(".play-body.off-turn")).toBeNull();
+    expect(container.querySelector(".play-zones.off-turn")).toBeNull();
   });
 
   it("End turn passes the turn for real when it's yours", async () => {
@@ -65,6 +65,6 @@ describe("per-round guidance on the play surface", () => {
 
     await user.click(screen.getByRole("button", { name: "End turn" }));
     expect(screen.getByText("Goblin is acting")).toBeInTheDocument();
-    expect(container.querySelector(".play-body.off-turn")).not.toBeNull();
+    expect(container.querySelector(".play-zones.off-turn")).not.toBeNull();
   });
 });

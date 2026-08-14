@@ -67,8 +67,27 @@ export default function InitiativeRail({
     : encounter.participants.filter((p) => !p.hidden);
   const order = inCombat ? listed : inInitiativeOrder(listed);
 
+  // The round's guidance, said once by the rail — the statement band below
+  // the order.
+  const myTurn = inCombat && !!current && !!self && current.id === self.id;
+  const offTurn = inCombat && !!current && !!self && current.id !== self.id;
+  // "You're on deck" — the heads-up every table gives out loud.
+  const nextUp =
+    inCombat && encounter.participants.length > 1
+      ? encounter.participants[
+          (encounter.turnIndex + 1) % encounter.participants.length
+        ]
+      : undefined;
+  const youAreNext = !!self && nextUp?.id === self.id;
+  const dying = !!character && character.currHp <= 0;
+
   return (
-    <div className={classNames("initiative-rail", { dm: dmRail })}>
+    <div
+      className={classNames("initiative-rail", {
+        dm: dmRail,
+        "your-turn": !dmRail && myTurn,
+      })}
+    >
       <div className="initiative-bar">
         {inCombat ? (
           <>
@@ -97,6 +116,11 @@ export default function InitiativeRail({
                       {participant.initiative}
                     </span>
                     <span className="initiative-name">{participant.name}</span>
+                    {/* On deck. Skipped while the same row is also acting. */}
+                    {participant.id === nextUp?.id &&
+                      participant.id !== current?.id && (
+                        <span className="next-chip">next</span>
+                      )}
                     <SharedVitals
                       participant={participant}
                       selfId={self?.id}
@@ -241,6 +265,36 @@ export default function InitiativeRail({
           </>
         )}
       </div>
+      {/* Whose round it is, in words; the board takes its dimming cue from
+          the same fact. A sheetless watcher gets the name alone. */}
+      {!dmRail && inCombat && current && (
+        <div className="rail-statement">
+          <span className="rail-statement-title">
+            {myTurn ? (
+              "Your turn"
+            ) : (
+              <>
+                {/* A staged combatant's name must not leak to players. */}
+                {current.hidden
+                  ? "The DM is up to something…"
+                  : `${current.name} is acting`}
+              </>
+            )}
+          </span>
+          {myTurn && dying && (
+            <span className="rail-statement-sub">
+              You&apos;re at 0 HP — death saving throw first.
+            </span>
+          )}
+          {offTurn && (
+            <span className="rail-statement-sub">
+              {youAreNext
+                ? "You're next — line your turn up."
+                : "Your reaction stays ready — and nothing here is locked if the table rules otherwise."}
+            </span>
+          )}
+        </div>
+      )}
       {receipt && <p className="initiative-receipt">{receipt}</p>}
     </div>
   );

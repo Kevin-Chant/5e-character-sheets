@@ -18,7 +18,7 @@
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
-  max-width: 1100px;
+  max-width: 1340px;
   margin: 0 auto;
 }
 
@@ -27,6 +27,97 @@
    second is a squeeze on the first. */
 .play-surface.dm {
   max-width: 1500px;
+}
+
+/* --- The three zones: you | the fight | the table ------------------------
+   Grouped by voice. On a phone the zone wrappers dissolve (display: contents)
+   and the leaves stack in urgency order; at width the wrappers become the
+   three columns. One DOM, two shapes. */
+.play-zones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.zone-you,
+.zone-fight,
+.zone-table {
+  display: contents;
+}
+
+/* The stack order; also holds inside each zone's own column at width. */
+.play-zones .table-calls {
+  order: 1;
+}
+.play-zones .play-header,
+.play-zones .play-no-sheet {
+  order: 2;
+}
+.play-zones .target-strip {
+  order: 3;
+}
+.play-zones .play-vitals {
+  order: 4;
+}
+.play-zones .action-board {
+  order: 5;
+}
+.play-zones .table-lane {
+  order: 6;
+}
+
+@media (min-width: 1020px) {
+  .play-zones {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr) 320px;
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  .zone-you,
+  .zone-fight,
+  .zone-table {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+
+  .play-no-sheet {
+    grid-column: 2;
+  }
+
+  /* In a column the economy reads as a checklist: full-width slots, name
+     left, state right, End turn beneath. */
+  .play-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .zone-you .turn-economy {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zone-you .turn-economy-slots {
+    flex-direction: column;
+    /* `.row` centers its items; a checklist wants its rows edge-to-edge. */
+    align-items: stretch;
+  }
+
+  .zone-you .turn-slot {
+    min-width: 0;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  .play-header-links {
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
 }
 
 /* --- Party session ------------------------------------------------------ */
@@ -139,36 +230,219 @@
   color: var(--danger);
 }
 
-/* The DM handed you a sheet and the answer is yours to give. Louder than the
-   session bar (it's a question, not status), quieter than "Your turn". */
-.assign-prompt {
+/* --- The table lane: the session as a place, not a bar -------------------
+   Who's here and what they're rolling — the player-side answer to the DM
+   board's liveness dots and exchange queue, rendered as ambience rather than
+   a queue to rule on. Quiet by design: the cards that need answering are the
+   call stack above it. */
+.table-lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  font-size: 0.85rem;
+}
+
+/* The session controls, folded into the lane's header: smaller type, and a
+   uuid that wraps instead of overflowing a 320px column. */
+.table-lane .session-bar {
+  font-size: 0.8rem;
+}
+
+.table-lane .session-code {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+}
+
+.table-lane .session-code code {
+  overflow-wrap: anywhere;
+}
+
+.table-lane .session-code-input {
+  width: 100%;
+}
+
+.table-presence ul,
+.table-chatter ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.table-presence-entry {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+/* The same three-state read as the DM's liveness dots: filled means heard
+   from just now, hollow means with us but not looking — a phone with its
+   screen off, the ordinary state of half a real table. */
+.table-presence-dot {
+  flex-shrink: 0;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.table-presence-entry.quiet {
+  color: var(--text-muted);
+}
+
+.table-presence-entry.quiet .table-presence-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.table-presence-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-presence-tag {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+
+.table-chatter ul {
+  gap: var(--space-2);
+}
+
+.table-chatter-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0 var(--space-2);
   flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+
+.table-chatter-who {
+  font-weight: 600;
+}
+
+.table-chatter-what {
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.table-chatter-total {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The honesty marks the DM's queue carries, at a whisper: a re-roll is
+   numbered, never hidden, and a typed total is a real die the app didn't
+   see. */
+.table-chatter-mark {
+  font-size: 0.7rem;
+  color: var(--arcane);
+}
+
+/* --- The table's calls: one anatomy for everything said to you -----------
+   Eyebrow (who's speaking), the ask, the answer, and — where the exchange has
+   an afterlife — a receipt. The tone is the border and the eyebrow, drawn
+   from the semantic hues the app already trained: accent for the DM's voice,
+   arcane for magic landing on you, crimson for "something is wrong with you
+   right now", green for healing. Louder than the lane's ambience (a question,
+   not status), quieter than "Your turn". */
+.table-calls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.table-calls:empty {
+  display: none;
+}
+
+.table-call {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--accent);
+  border-left-width: 4px;
   border-radius: var(--radius);
   background: var(--surface);
+  font-size: 0.9rem;
 }
 
-/* The real-dice initiative entry sits inline in the prompt — `.row`'s
-   full-width default would shove the other buttons onto their own line. */
-.assign-prompt .roll-manual {
-  width: auto;
+.table-call-eyebrow {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  /* One line, however grand the caster's name — the eyebrow names the voice,
+     the body carries the sentence. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Damage taken while concentrating: the save the table always forgets.
-   Shaped like the assign prompt — a question, answered and gone. */
-.con-check-banner {
+.table-call.magic {
+  border-color: var(--arcane);
+}
+
+.table-call.magic .table-call-eyebrow {
+  color: var(--arcane);
+}
+
+.table-call.life {
+  border-color: var(--health);
+}
+
+.table-call.life .table-call-eyebrow {
+  color: var(--health);
+}
+
+.table-call.gift {
+  border-color: var(--success);
+}
+
+.table-call.gift .table-call-eyebrow {
+  color: var(--success);
+}
+
+.table-call-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.table-call-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--arcane);
-  border-radius: var(--radius);
-  background: var(--surface);
+}
+
+/* What you answered and what the seat said back — the exchange's afterlife,
+   kept visible instead of evaporating on dismiss. */
+.table-call-receipt {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* The real-dice initiative entry sits inline in the card's actions — `.row`'s
+   full-width default would shove the other buttons onto their own line. */
+.table-call .roll-manual {
+  width: auto;
 }
 
 /* --- Initiative rail ---------------------------------------------------- */
@@ -239,10 +513,19 @@
   font-weight: 600;
 }
 
+/* The spotlight: the acting creature is physically bigger on the track, the
+   way the table's attention is. */
 .initiative-entry.active {
   border-color: var(--accent);
   background: var(--surface-2);
   color: var(--text);
+  font-size: 0.95rem;
+  padding: var(--space-2) var(--space-3);
+}
+
+.initiative-entry.active .initiative-name {
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 .initiative-score {
@@ -325,43 +608,79 @@
   font-family: var(--font-body);
 }
 
-/* --- The turn banner: the round's guidance, said once --------------------
-   Your turn is the loudest thing on the surface — it's the moment the whole
-   layer exists for. Someone else's turn is a quiet strip that hands the board
-   its cue to dim. */
-.turn-banner {
+/* --- The rail's statement: the round's guidance, said by the clock -------
+   The timeline shows whose turn it is; this says it, as a band welded to the
+   rail's bottom edge — one box for one fact, instead of the banner that used
+   to restate the rail from a strip below it. Your turn is the loudest thing
+   on the surface (it's the moment the whole layer exists for): the band
+   fills with the accent, the one orchestrated moment here. Someone else's
+   turn is a quiet line that hands the board its cue to dim. */
+.rail-statement {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
   flex-wrap: wrap;
+  margin: var(--space-2) calc(-1 * var(--space-3)) 0;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-soft);
-  border-left: 4px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border-top: 1px solid var(--border-soft);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
 }
 
-.turn-banner-title {
+/* Bleed to the rail's own corners when nothing follows. */
+.rail-statement:last-child {
+  margin-bottom: calc(-1 * var(--space-2));
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.rail-statement-title {
   font-family: var(--font-display);
   font-size: 1.05rem;
   font-weight: 700;
 }
 
-.turn-banner-sub {
+.rail-statement-sub {
   font-size: 0.82rem;
   color: var(--text-muted);
 }
 
-.turn-banner.your-turn {
+.initiative-rail.your-turn {
   border-color: var(--accent);
-  border-left-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-contrast);
 }
 
-.turn-banner.your-turn .turn-banner-title {
+.initiative-rail.your-turn .rail-statement {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-top-color: var(--accent);
+}
+
+.initiative-rail.your-turn .rail-statement-title {
   font-size: 1.2rem;
   letter-spacing: 0.03em;
+}
+
+.initiative-rail.your-turn .rail-statement-sub {
+  color: var(--accent-contrast);
+  opacity: 0.85;
+}
+
+/* On deck, on the timeline itself. */
+.next-chip {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-statement {
+    transition: none;
+  }
 }
 
 /* --- Turn economy: the signature element ------------------------------- */
@@ -460,6 +779,9 @@
   gap: var(--space-2);
   color: var(--text-muted);
   text-decoration: none;
+  /* Wrap as a unit when the links row runs out of column — "Open\nsheet"
+     mid-label reads as a rendering bug. */
+  white-space: nowrap;
   /* Also a <button> for the rest shortcut — strip the chrome so the two
      read as the same kind of quiet door. */
   border: none;
@@ -471,15 +793,6 @@
 
 .play-sheet-link:hover {
   color: var(--accent);
-}
-
-/* --- Body: board + vitals rail ----------------------------------------- */
-
-.play-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: var(--space-6);
-  align-items: start;
 }
 
 /* --- Action board ------------------------------------------------------ */
@@ -595,13 +908,13 @@
    live (hover or focus brings one back to full weight), because a readied
    action or a DM ruling outranks anything this surface can see. Reactions
    keep full weight — they're what an off-turn moment is for. */
-.play-body.off-turn .action-group:not(.action-group-reaction) {
+.play-zones.off-turn .action-group:not(.action-group-reaction) {
   opacity: 0.45;
   transition: opacity 160ms ease;
 }
 
-.play-body.off-turn .action-group:not(.action-group-reaction):hover,
-.play-body.off-turn .action-group:not(.action-group-reaction):focus-within {
+.play-zones.off-turn .action-group:not(.action-group-reaction):hover,
+.play-zones.off-turn .action-group:not(.action-group-reaction):focus-within {
   opacity: 1;
 }
 
@@ -615,8 +928,6 @@
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  position: sticky;
-  top: var(--space-4);
 }
 
 .play-hp-numbers {
@@ -869,14 +1180,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* --- Narrow: the rail goes above the board ------------------------------
-   Your hit points outrank the action list on a phone — you look at them more
-   often, and the board is a scroll away either way. */
+/* --- Narrow ------------------------------------------------------------- */
 @media (max-width: 760px) {
-  .play-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   /* On a phone the rail stacks: round + the advance controls stay on the
      first line where a thumb can reach them, and the order takes its own
      full-width line below instead of overflowing under the buttons. */
@@ -885,11 +1190,6 @@
   .initiative-add {
     flex-basis: 100%;
     order: 3;
-  }
-
-  .play-vitals {
-    order: -1;
-    position: static;
   }
 
   .turn-slot {
@@ -1368,6 +1668,17 @@
   min-width: 0;
 }
 
+/* The check chip ("CON DC 10 · Kept · Broke") can outgrow the track when a
+   spell name shares the cell. Wrap inside it rather than overflowing — the
+   spill ran under the remove button, which ate the very click the chip asks
+   for. */
+.dm-row-concentration .concentration-cell,
+.dm-row-concentration .concentration-check {
+  flex-wrap: wrap;
+  min-width: 0;
+  white-space: normal;
+}
+
 .dm-row-concentration input {
   width: 100%;
   min-width: 0;
@@ -1735,14 +2046,6 @@
   background-color: var(--accent);
   color: var(--surface);
   white-space: nowrap;
-}
-
-.play-claimables {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
 }
 
 /* --- Sharing policy + health descriptors -------------------------------- */

@@ -64,21 +64,24 @@ harmless guess.
   the useful part is what you haven't set up yet. Caught by screenshotting the
   real fixture, not by tests.
 
-## Per-round guidance: the turn banner and the off-turn dim
+## Per-round guidance: the rail's statement and the off-turn dim
 
-In combat the player surface answers "whose round is it" once, in a banner
-between the rail and the economy: **Your turn** (accent-filled, the loudest
-thing on the surface — it's the moment the layer exists for) or **"{name} is
-acting"** with a reminder that the reaction stays ready. The same fact drives
-the board: off-turn, `play-body.off-turn` dims every action group except
-reactions.
+In combat the player surface answers "whose round is it" once, in a statement
+band welded to the initiative rail's bottom edge — the timeline shows the fact
+and the band says it, one box for one fact (it used to be a separate banner
+below the rail, which restated the rail from a second strip): **Your turn**
+(accent-filled, the loudest thing on the surface — it's the moment the layer
+exists for) or **"{name} is acting"** with a reminder that the reaction stays
+ready. The on-deck row also carries a `next` chip on the timeline itself. The
+same fact drives the board: off-turn, `play-zones.off-turn` dims every action
+group except reactions.
 
 The dimming is the mission's "narrowing with an escape hatch" and it obeys the
 advisory rule below: it's opacity on a class, never `disabled`, and hovering or
 focusing a dimmed group restores it — a readied action, a held Sentinel swing
 or a DM ruling outranks anything the surface can see.
-(`play-surface.test.tsx` pins both halves: the banner swaps with the turn, and
-going off-turn disables nothing that wasn't already.)
+(`play-surface.test.tsx` pins both halves: the statement swaps with the turn,
+and going off-turn disables nothing that wasn't already.)
 
 ## Everything is advisory
 
@@ -205,6 +208,39 @@ the panels are only layout:
 Temporary hit points stay a `TrackerValue` Nudge rather than joining
 `VitalsEntry`: 5e temp HP replaces rather than accumulates, so "set it to 5" is
 the sentence and a delta would be answering the wrong question.
+
+## Layout: three zones, grouped by voice
+
+The player body is `play-zones` — **you** (`zone-you`: the economy as a
+checklist plus the vitals rail), **the fight** (`zone-fight`: target strip and
+action board), and **the table** (`zone-table`: the call stack, then the
+lane). The grouping is by who's speaking, the player-side sibling of the DM
+board's grouping by tempo. Two shapes from one DOM: on a phone the zone
+wrappers dissolve (`display: contents`) and the leaves stack in urgency order
+(the DM's unanswered asks first, hit points before the action list, ambience
+last — the `order` rules in `play.css`); at ≥1020px the wrappers become the
+three columns. The initiative rail sits above all three as the fight's clock.
+
+Two components carry the table zone:
+
+- **`call-cards.tsx`** — everything said _to this player_, one `CallCard`
+  anatomy (eyebrow naming the voice / the ask / the answer / a receipt that
+  outlives dismissal) for what used to be seven separately-shaped banners:
+  sheet assignment and pickups, the initiative call, roll calls (with the
+  sent-total + verdict receipt), rest calls, incoming healing, incoming
+  conditions, and the concentration check. Tone comes from the semantic hues
+  the app already trained: accent for the DM's voice, arcane for magic landing
+  on you, crimson for "something is wrong with you", green for healing. All
+  logic is unchanged from the banner era — every apply is still the
+  recipient's own write.
+- **`table-lane.tsx`** — the session as a place rather than a bar: the
+  session controls (still `session-bar.tsx`, rendered inside the lane for
+  players and as the old slim strip for the DM), a presence roster with the
+  DM board's live/quiet dot language, and a chatter feed of the table's
+  exchanges — every client always received every report, but only the DM
+  board rendered them, so a player heard "17!" across a real table and saw
+  nothing in the app. Chatter carries the same honesty marks the DM queue
+  does (re-rolled, real dice), at a whisper.
 
 ## Styling
 
@@ -814,8 +850,8 @@ are the DM's information (the rail shows character-backed vitals only), and a
 combatant can be **staged**: `Participant.hidden` (eye toggle on the DM row,
 hand-typed rows only — a character-backed row is somebody's seat, not a
 surprise). Hidden rows keep their slot in the order but don't render on
-player clients — rail, report-target list, and the turn banner says "The DM
-is up to something…" instead of leaking the name. This is dramaturgy, not
+player clients — rail, report-target list, and the rail's statement says
+"The DM is up to something…" instead of leaking the name. This is dramaturgy, not
 privacy: the row still travels inside the shared encounter object (no
 per-recipient copies exist), it just isn't drawn — real secrets never enter
 the encounter at all. Anyone holding the run-combat controls still sees
@@ -872,7 +908,7 @@ also disappears — the stepper beside it is the entry.
 **Advisories — the loop-smoothing prompts.** Concentration checks and damage
 reports (below); "You're next — line your turn up" when you're on deck; at 0
 HP the vitals rail surfaces the sheet's own `DeathSavesDisplay` with a
-flat-d20 roll shortcut, and the your-turn banner says the death save comes
+flat-d20 roll shortcut, and the rail's your-turn statement says the death save comes
 first; and out of combat the header offers **Rest** (the door to the
 globally-mounted rest dialog), because between fights is when a table rests
 and multiple-fights-per-session is the mission.
@@ -1046,7 +1082,7 @@ not omission — changing either is a product decision, not a gap fix:
   concentrating row — stepper or accepted report — raises a per-row "CON DC
   n [Kept] [Broke]" chip. Player side: the provider watches the _sheet's_
   `currHp` (not the projection), so any drop while the self participant
-  concentrates — own edit, DM oversight, applied report — raises a banner
+  concentrates — own edit, DM oversight, applied report — raises a call card
   with the DC, a "Roll the save" shortcut into the roll dialog (CON save
   modifier computed from the sheet), and Kept/Lost buttons. Nothing drops
   concentration except the buttons.
@@ -1117,7 +1153,7 @@ spansDawn?}` — never addressed,
   queue, approving splits by ownership: a
   hand-typed row applies directly (`applyHealing`); a character-backed row
   sends `HEAL {targetId, amount, fromName, label}` and the _recipient_ gets an
-  "N healing incoming from A — Apply / Ignore" banner whose Apply is their
+  "N healing — Apply / Ignore" call card (eyebrow naming the healer) whose Apply is their
   own sheet write. Nobody ever writes a sheet that isn't theirs.
 - **Death saves ride the projection** (`ParticipantVitals.deathSaves`,
   present only while down or mid-saves). The DM row always shows the "2✓ 1✗"

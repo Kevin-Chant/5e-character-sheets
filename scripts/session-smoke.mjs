@@ -94,7 +94,7 @@ const untilText = (page, text) =>
 // prompts at once, so `.btn-primary` alone is ambiguous — match on the
 // prompt's own text instead.
 const prompt = (page, text) =>
-  page.locator(".assign-prompt", { hasText: text }).locator(".btn-primary");
+  page.locator(".table-call", { hasText: text }).locator(".btn-primary");
 
 const untilRoster = (page, names) =>
   until(
@@ -677,9 +677,9 @@ const scenarios = {
     await joiner.click();
     await dm.page.click('.table-settings button[aria-label="Close"]');
 
-    await untilVisible(player.page, ".assign-prompt");
+    await untilVisible(player.page, ".table-call");
     check("the assignment prompt reaches the player", true, true);
-    await prompt(player.page, "handing you").click();
+    await prompt(player.page, "Hands you").click();
 
     await untilVisible(player.page, ".action-board");
     await untilText(player.page, offeredName);
@@ -900,14 +900,14 @@ const scenarios = {
       .locator(".dm-audience-chip", { hasText: player.name })
       .click();
     await dm.page.click('.dm-roll-call button[type="submit"]');
-    await untilText(player.page, "Your DM asks for a");
+    await untilText(player.page, "Asks for a");
     check(
       "the unaddressed player is not prompted",
-      await healer.page.locator("text=Your DM asks for a").count(),
+      await healer.page.locator("text=Asks for a").count(),
       0,
     );
     // The prompt opens the ordinary roll dialog rather than rolling inline.
-    await prompt(player.page, "asks for a").click();
+    await prompt(player.page, "Asks for a").click();
     await untilVisible(player.page, '[aria-label="Roll"]');
     await player.page.click('[aria-label="Roll"]');
     await player.page.click('[aria-label="Close"]');
@@ -939,7 +939,7 @@ const scenarios = {
     await healer.page.click('[aria-label="Close"]');
     await untilVisible(dm.page, ".dm-exchange .dm-hp-input");
     await dm.page.click(".dm-exchange .dm-hp-input + .btn-primary"); // Approve
-    await untilText(player.page, "incoming from");
+    await untilText(player.page, "Apply +");
     check("approved healing reaches the recipient", true, true);
     await player.page.click(`text=Apply +${healed}`);
     await untilHp(player.page, Math.min(49, 20 + healed));
@@ -948,8 +948,8 @@ const scenarios = {
     // A called rest reaches everyone; the rest is only taken when the player takes it.
     await choose(dm.page, "Which rest to call", "Long rest");
     await dm.page.click('.dm-rest-call button[type="submit"]');
-    await untilText(player.page, "Your DM calls a");
-    await untilText(healer.page, "Your DM calls a");
+    await untilText(player.page, "Calls a");
+    await untilText(healer.page, "Calls a");
     check("a called rest reaches the whole table", true, true);
     check(
       "and nothing is taken until the player takes it",
@@ -959,7 +959,7 @@ const scenarios = {
       ),
       Math.min(49, 20 + healed),
     );
-    await prompt(player.page, "calls a").click();
+    await prompt(player.page, "Calls a").click();
     await untilText(player.page, "Take rest");
     await player.page.click("text=Take rest");
     await untilText(player.page, "Long rest taken");
