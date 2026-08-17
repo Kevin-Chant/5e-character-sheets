@@ -35,7 +35,7 @@ being mangled. Rider authoring is data-only for now (no UI).
 
 ## Chosen options (`ChosenOption`)
 
-`Character.chosenOptions?: ChosenOption[]` (`{category, name, detail?}`) holds
+`Character.chosenOptions?: ChosenOption[]` (`{category, name, detail?, itemId?, active?}`) holds
 picks from a class's **closed** option lists — Metamagic, Battle Master
 maneuvers, Pact Boon. What makes these their own model rather than `features` is
 the pairing of a closed list with a **known count**, which is what lets the sheet
@@ -43,6 +43,16 @@ show "3 / 5 known" and offer only the unpicked rest. The catalog lives in
 `src/lib/builder/chosen-options.ts`; `availableOptionGroups(character)` returns
 the groups a character qualifies for (class, subclass, and level threshold all
 gate it) with their current allowance.
+
+**A group can know more than it can run at once.** `OptionGroup.active` is a
+second step table for that (artificer Infused Items: 4/6/8/10/12 known against
+2/3/4/5/6 active), and its presence is what changes the picker's shape — a
+group with one becomes a list of rows rather than a checkbox per option, since
+`perItem` picks are routinely taken twice for two different items.
+`ChosenOption` carries the `itemId` it rides and whether it's currently
+`active`. Infusions are deliberately absent from the level-up wizard: they're
+re-chosen after every long rest, so the sheet's picker is the only honest
+home.
 
 **A group belongs to a class _or_ to a race**, never both. `race` (Simic
 Hybrid's Animal Enhancement) reads its `known` thresholds as **total character
@@ -145,8 +155,10 @@ side of the table. It shows the DC, and the damage result reports both outcomes
 A `RollRider` modifies matching rolls: `minimumTotal` (Durable), `minimumDie`
 (Reliable Talent), `rerollBelow` (Great Weapon Fighting, Halfling Luck),
 `bonus`, `bonusDice` (a die rolled onto the check at roll time — Bless's d4),
-`critRange` (Improved/Superior Critical), `advantage` (advisory note
-only — advantage is situational). Each is granted with `appliesTo: RollKind[]`
+`critRange` (Improved/Superior Critical), `critExtraDice` (Brutal Critical —
+extra dice of the _weapon's own_ die, caused by a crit rather than doubled by
+one, so `resolveDamage` reads the die off the damage map), `advantage`
+(advisory note only — advantage is situational). Each is granted with `appliesTo: RollKind[]`
 tags — and **saving throws are their own kind** (`"save"`), split from
 ability/skill checks (`"check"`), because 5e treats them differently
 everywhere: author Dwarven Resilience against `save`, Reliable Talent against
@@ -164,11 +176,15 @@ bridge — the same one Durable detection and the builder already use — and ca
 be replaced by a structured field on the character later without touching the
 interpreters.
 
-### Weapon conditions: `requires` and the three-valued answer
+### Roll conditions: `requires` and the three-valued answer
 
-Every rider may carry `requires: RiderCondition` — the weapon shape it applies
-to, in terms of `AttackTag`s (`melee`, `ranged`, `thrown`, `finesse`, `heavy`,
-`two-handed`, …) and the ability the to-hit roll uses. `Attack.tags` supplies the
+Every rider may carry `requires: RiderCondition` — the shape of roll it applies
+to. For an attack that's `AttackTag`s (`melee`, `ranged`, `thrown`, `finesse`,
+`heavy`, `two-handed`, …) and the ability the to-hit roll uses; for a check
+it's `skill` (Silver Tongue is Persuasion and Deception only) and
+`proficiency` (Reliable Talent is proficient checks, Remarkable Athlete the
+ones that aren't). The context they read is a `RollContext`, which a skill row
+fills in from the row it sits on. `Attack.tags` supplies the
 weapon half; `buildAttackFromPreset` seeds it from the SRD catalog (melee/ranged
 from the weapon's group, `thrown` from a melee weapon having a range, `finesse`
 from its ability, `two-handed` from the versatile _(2H)_ variant), a v11
@@ -344,8 +360,11 @@ resolves to in practice.
 
 An `Effect` is one described state change: `heal`, `gainTempHp`, `spendUses` /
 `restoreUses` (the owning pool), `expendSlot` / `restoreSlot`, `spendHitDie`,
-`roll` (display-only, e.g. Stone's Endurance), `remind` (a table prompt — the
-deliberate boundary where automation stops). An `AbilityAction` bundles
+`roll` (display-only, e.g. Stone's Endurance), `table` (roll a die and read
+back the row it lands on — the Alchemist's Experimental Elixir; rows carry
+prose rather than nested effects, because every real 5e table's outcome is a
+ruling), `remind` (a table prompt — the deliberate boundary where automation
+stops). An `AbilityAction` bundles
 effects with an **action-economy cost** (`action` / `bonusAction` / `reaction`
 / `free` / `special` + `costNote`, rendered as a badge) and optional choices
 (a slot level, or a free amount capped at remaining uses — Lay on Hands).
