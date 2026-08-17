@@ -130,6 +130,46 @@ describe("getHpFormula", () => {
     c.class = [];
     expect(getHpFormula(c)).toBe(0);
   });
+
+  // Per-level HP features: the formula is rebuilt from scratch on every
+  // level-up, so these have to be derived rather than stored as a flat term.
+  const sorcerer = (level: number, features: string[]): Character => {
+    const c = structuredClone(defaultCharacter);
+    c.class = [
+      {
+        id: randomUUID(),
+        name: OfficialClass.Sorcerer,
+        subclass: "Draconic Bloodline",
+        level,
+      },
+    ];
+    c.stats.con = 10;
+    c.features = features.map((title) => ({ title, detail: "" }));
+    c.spells = {};
+    c.spellcastingClasses = [];
+    return c;
+  };
+
+  const maxHpOf = (c: Character) => calculateCustomFormula(getHpFormula(c), c);
+
+  it("adds a hit point per sorcerer level for Draconic Resilience", () => {
+    const bare = sorcerer(5, []);
+    const c = sorcerer(5, ["Draconic Resilience"]);
+    expect(maxHpOf(c)).toBe(maxHpOf(bare) + 5);
+  });
+
+  it("keeps scaling as the class levels, not as a frozen number", () => {
+    const at = (level: number) =>
+      maxHpOf(sorcerer(level, ["Draconic Resilience"]));
+    // A d6 hit die averages 4 rounded up, plus the feature's own 1.
+    expect(at(6) - at(5)).toBe(4 + 1);
+  });
+
+  it("gives Tough twice the levels, and stacks with a racial per-level bonus", () => {
+    const bare = sorcerer(4, []);
+    const c = sorcerer(4, ["Tough", "Dwarven Toughness"]);
+    expect(maxHpOf(c)).toBe(maxHpOf(bare) + 4 * 2 + 4);
+  });
 });
 
 describe("officialSpellcastingClasses", () => {

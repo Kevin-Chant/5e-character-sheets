@@ -327,6 +327,49 @@ export function equippedArmorAC(character: Character): number {
   return base + shieldBonus;
 }
 
+// Features adding hit points for every level, which the class tables can't
+// express: `perLevel` × the level in `className`, or × total character level
+// when no class is named. Derived here rather than stored as a flat term
+// because `applyLevelUp` rebuilds `maxHp` from this function every level, so
+// a hand-added scaling term would be discarded on the next one.
+const HP_PER_LEVEL: {
+  feature: string;
+  className?: OfficialClass;
+  perLevel: number;
+}[] = [
+  {
+    feature: "Draconic Resilience",
+    className: OfficialClass.Sorcerer,
+    perLevel: 1,
+  },
+  { feature: "Dwarven Toughness", perLevel: 1 },
+  { feature: "Tough", perLevel: 2 },
+];
+
+// The per-level HP terms a character's features earn, as formula operands.
+export function hpPerLevelTerms(character: Character): CustomFormula[] {
+  const titles = new Set(character.features.map((f) => f.title.trim()));
+  const out: CustomFormula[] = [];
+  for (const { feature, className, perLevel } of HP_PER_LEVEL) {
+    if (!titles.has(feature)) continue;
+    // Every class's level for an untargeted one; a `classLevel` leaf per
+    // class keeps it re-deriving as any of them levels.
+    const levels = className
+      ? character.class.filter((k) => k.name === className)
+      : character.class;
+    for (const klass of levels)
+      out.push(
+        perLevel === 1
+          ? { classLevel: klass.id }
+          : {
+              operation: Operation.multiplication,
+              operands: [{ classLevel: klass.id }, perLevel],
+            },
+      );
+  }
+  return out;
+}
+
 export function getHpFormula(character: Character): CustomFormula {
   const firstClass = character.class[0];
   // A classless character has no hit die to derive HP from.
@@ -367,10 +410,11 @@ export function getHpFormula(character: Character): CustomFormula {
         : [],
     ),
   } as CustomFormula;
-  if (rest.length === 0) return firstClassHp;
+  const perLevel = hpPerLevelTerms(character);
+  if (rest.length === 0 && perLevel.length === 0) return firstClassHp;
   return {
     operation: Operation.addition,
-    operands: [firstClassHp].concat(
+    operands: ([firstClassHp] as CustomFormula[]).concat(
       rest.map((classDef) => {
         return {
           operation: Operation.multiplication,
@@ -390,6 +434,7 @@ export function getHpFormula(character: Character): CustomFormula {
           ],
         };
       }),
+      perLevel,
     ),
   };
 }

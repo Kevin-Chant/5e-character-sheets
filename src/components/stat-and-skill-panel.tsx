@@ -124,6 +124,7 @@ function SkillsColumn({ pb, jack }: { pb: number; jack: boolean }) {
                 text={skillName}
                 subtext={`(${statKey})`}
                 rollLabel={skillName}
+                rollSkill={skillName}
                 onToggle={cycle}
               />
             );

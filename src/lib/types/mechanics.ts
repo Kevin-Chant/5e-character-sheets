@@ -2,6 +2,7 @@ import {
   DamageType,
   HitDie,
   LeveledSpellLevel,
+  SkillName,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -122,6 +123,13 @@ export interface RiderCondition {
   // Ability the attack must use. A finesse attack resolves to max(STR, DEX),
   // so which one is "used" is unknowable.
   ability?: StatKey[];
+  // Skills a check rider is scoped to (Eloquence's Silver Tongue is
+  // Persuasion and Deception only). A bare ability check has no skill, so it
+  // reads as unknown rather than excluded.
+  skill?: SkillName[];
+  // Whether the check must already add proficiency (Reliable Talent) or must
+  // not (Remarkable Athlete's unproficient clause).
+  proficiency?: "proficient" | "unproficient";
 }
 
 // `requires` (the weapon shape it applies to) is factored out here since it's

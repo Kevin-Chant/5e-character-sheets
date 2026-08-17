@@ -38,6 +38,7 @@ import {
   describeDeathSave,
   remainingHitDice,
   resolveDeathSave,
+  SKILL_SOURCE_STATS,
 } from "src/lib/rules";
 import { hitDieFormula } from "src/lib/rest";
 import {
@@ -67,7 +68,7 @@ import {
 } from "src/lib/play/condition-mechanics";
 import { spellConditionFor } from "src/lib/spells/spell-conditions";
 import {
-  AttackContext,
+  RollContext,
   applicableRiders,
   attackContext,
 } from "src/lib/mechanics/conditions";
@@ -107,7 +108,7 @@ const breakdown = (total: number, dice: number[], crit?: CritSpec) => {
 };
 
 // Stable empty identity so memoized rider lists don't churn on every render.
-const NO_CONTEXT: AttackContext = {};
+const NO_CONTEXT: RollContext = {};
 
 // In-dialog wording for each crit flavor.
 const CRIT_MODE_LABELS: Record<CritMode, string> = {
@@ -145,13 +146,17 @@ function RollBody({
   const [critical, setCritical] = useState(false);
   const [extraSets, setExtraSets] = useState(0);
   // Weapon properties for rider conditions, derived once so to-hit and damage agree.
-  const context = useMemo(
-    () =>
-      spec.kind === "attack" && spec.attack
-        ? attackContext(spec.attack)
-        : NO_CONTEXT,
-    [spec],
-  );
+  const context = useMemo(() => {
+    if (spec.kind === "attack" && spec.attack)
+      return attackContext(spec.attack);
+    if (spec.kind === "check" && !spec.save)
+      return {
+        skill: spec.skill,
+        proficient: spec.proficient,
+        ...(spec.skill ? { ability: SKILL_SOURCE_STATS[spec.skill] } : {}),
+      };
+    return NO_CONTEXT;
+  }, [spec]);
 
   const isHealing = spec.kind === "attack" && !!spec.spell?.mechanics?.healing;
   // A weapon/ability carries its own `save`; a spell's DC comes from spellSaveEffect.
@@ -245,6 +250,7 @@ function RollBody({
             character={character}
             modifier={spec.modifier}
             isSave={!!spec.save}
+            context={context}
             onRolled={(rolled) =>
               report({ stage: "check", label: request.label, ...rolled }, false)
             }
@@ -788,7 +794,7 @@ function CheckControls({
   target?: Participant;
   selfId?: string;
   // Weapon context for rider conditions; empty for a plain/spell check.
-  context?: AttackContext;
+  context?: RollContext;
   // Reports crit + exploding-crit count so the damage half can inflate dice;
   // re-rolling reports the new verdict.
   onCrit?: (crit: boolean, explosions: number) => void;
@@ -1093,7 +1099,7 @@ function EffectControls({
   // Present on a save-based attack; shows what a successful save leaves.
   save?: SaveEffect;
   // Weapon context for rider conditions.
-  context?: AttackContext;
+  context?: RollContext;
   // Target row — marks on it (Hex's d6) pay out here.
   target?: Participant;
   selfId?: string;

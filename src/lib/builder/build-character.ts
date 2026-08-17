@@ -15,7 +15,7 @@ import {
 } from "src/lib/data/data-definitions";
 import { randomUUID } from "src/lib/browser";
 import { UUID } from "crypto";
-import { modifier } from "src/lib/rules";
+import { hpPerLevelTerms, modifier } from "src/lib/rules";
 import {
   Attack,
   Character,
@@ -598,6 +598,15 @@ function guidedCharacter(state: BuilderState): Character {
   // After char.race and the class grants, so a race feature reads below the
   // class ones in the features list.
   applyRaceOptions(char, state, 1);
+
+  // Features adding HP per level (Dwarven Toughness, Draconic Resilience) can
+  // only be read once every grant has landed.
+  const perLevel = hpPerLevelTerms(char);
+  if (perLevel.length > 0 && char.maxHp !== undefined)
+    char.maxHp = {
+      operation: Operation.addition,
+      operands: [char.maxHp, ...perLevel],
+    };
 
   // For the two races that grant a level-1 feat. Applied last so its grants
   // layer over class/race/background proficiencies rather than being overwritten.

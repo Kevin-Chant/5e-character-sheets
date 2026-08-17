@@ -8,7 +8,7 @@ import {
   RACE_MECHANICS,
 } from "./catalog";
 import { ActiveRider, FeatureMechanics, RollKind } from "./types";
-import { AttackContext, needsOptIn } from "./conditions";
+import { RollContext, needsOptIn } from "./conditions";
 
 // Roll-time interpreter: collects riders in play for a roll and applies them.
 // Die-level adjustments (rerolls, minimum dice) hook into roll.ts's per-die
@@ -136,7 +136,7 @@ export interface FlatBonusRider {
 // "attack unknown", so every conditional bonus prompts.
 export function flatBonusRiders(
   riders: ActiveRider[],
-  context: AttackContext = {},
+  context: RollContext = {},
 ): {
   always: FlatBonusRider[];
   optional: FlatBonusRider[];
@@ -174,7 +174,7 @@ export function applyTotalRiders(
   total: number,
   riders: ActiveRider[],
   character: Character,
-  context: AttackContext = {},
+  context: RollContext = {},
 ): number {
   return (
     Math.max(total, riderMinimumTotal(riders, character)) +

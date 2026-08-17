@@ -4,6 +4,7 @@ import {
   DieOperation,
   Operation,
   PB,
+  SkillName,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -220,5 +221,69 @@ describe("hand-built attacks", () => {
         context,
       ),
     ).toBe("unknown");
+  });
+});
+
+describe("skill and proficiency clauses", () => {
+  const check = (
+    condition: Parameters<typeof conditionEligibility>[0],
+    context: Parameters<typeof conditionEligibility>[1],
+  ) => conditionEligibility(condition, context);
+
+  it("scopes a rider to named skills", () => {
+    const silverTongue = {
+      skill: [SkillName.Persuasion, SkillName.Deception],
+    };
+    expect(check(silverTongue, { skill: SkillName.Persuasion })).toBe("yes");
+    expect(check(silverTongue, { skill: SkillName.Stealth })).toBe("no");
+  });
+
+  it("treats a check with no skill as unknown, not excluded", () => {
+    expect(check({ skill: [SkillName.Persuasion] }, {})).toBe("unknown");
+  });
+
+  it("reads proficiency in both directions", () => {
+    expect(check({ proficiency: "proficient" }, { proficient: true })).toBe(
+      "yes",
+    );
+    expect(check({ proficiency: "proficient" }, { proficient: false })).toBe(
+      "no",
+    );
+    expect(check({ proficiency: "unproficient" }, { proficient: false })).toBe(
+      "yes",
+    );
+    expect(check({ proficiency: "unproficient" }, { proficient: true })).toBe(
+      "no",
+    );
+    expect(check({ proficiency: "proficient" }, {})).toBe("unknown");
+  });
+
+  it("keeps Remarkable Athlete off a proficient Athletics check", () => {
+    const remarkableAthlete = {
+      ability: [StatKey.str, StatKey.dex, StatKey.con],
+      proficiency: "unproficient" as const,
+    };
+    expect(
+      check(remarkableAthlete, {
+        skill: SkillName.Athletics,
+        ability: StatKey.str,
+        proficient: true,
+      }),
+    ).toBe("no");
+    expect(
+      check(remarkableAthlete, {
+        skill: SkillName.Acrobatics,
+        ability: StatKey.dex,
+        proficient: false,
+      }),
+    ).toBe("yes");
+    // An INT skill is out of scope whatever the proficiency.
+    expect(
+      check(remarkableAthlete, {
+        skill: SkillName.Arcana,
+        ability: StatKey.int,
+        proficient: false,
+      }),
+    ).toBe("no");
   });
 });

@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { FaDiceD20 } from "react-icons/fa6";
-import { HitDie } from "src/lib/data/data-definitions";
+import { HitDie, SkillName } from "src/lib/data/data-definitions";
 import {
   Attack,
   CustomFormula,
@@ -17,6 +17,10 @@ interface RollButtonProps {
   // Mutually exclusive with `check`; uses save-only riders.
   savingThrow?: number;
   formula?: CustomFormula;
+  // Which skill a check is for, and whether it already adds proficiency —
+  // what skill-scoped riders need to decide.
+  skill?: SkillName;
+  proficient?: boolean;
   hitDie?: HitDie;
   deathSave?: boolean;
   // `spell` gives level-scaled damage; `damage` is a fixed map. `save`
@@ -33,6 +37,8 @@ export default function RollButton({
   check,
   savingThrow,
   formula,
+  skill,
+  proficient,
   hitDie,
   deathSave,
   toHit,
@@ -49,7 +55,7 @@ export default function RollButton({
     toHit !== undefined || save !== undefined || damage !== undefined || spell;
   const spec: RollSpec | undefined =
     check !== undefined
-      ? { kind: "check", modifier: check }
+      ? { kind: "check", modifier: check, skill, proficient }
       : savingThrow !== undefined
         ? { kind: "check", modifier: savingThrow, save: true }
         : formula

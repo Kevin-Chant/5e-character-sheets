@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { randomUUID } from "src/lib/browser";
-import { HitDie } from "src/lib/data/data-definitions";
+import { HitDie, SkillName } from "src/lib/data/data-definitions";
 import {
   Attack,
   CustomFormula,
@@ -13,7 +13,15 @@ import {
 export type RollSpec =
   // d20 + flat modifier (skills, saves, checks, initiative); `save: true`
   // marks a saving throw so save-only riders (Bless's d4) apply correctly.
-  | { kind: "check"; modifier: number; save?: boolean }
+  // `skill`/`proficient` name which check it is, so skill-scoped riders
+  // (Silver Tongue) and proficiency-scoped ones (Reliable Talent) can decide.
+  | {
+      kind: "check";
+      modifier: number;
+      save?: boolean;
+      skill?: SkillName;
+      proficient?: boolean;
+    }
   | { kind: "formula"; formula: CustomFormula }
   // Spending a hit die: rolls 1d<die>+CON, offers to apply healing and mark
   // the die expended. Declarative so the modal can gate on the live

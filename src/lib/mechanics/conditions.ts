@@ -1,4 +1,4 @@
-import { StatKey } from "src/lib/data/data-definitions";
+import { SkillName, StatKey } from "src/lib/data/data-definitions";
 import {
   Attack,
   AttackTag,
@@ -12,20 +12,24 @@ import {
 } from "src/lib/types";
 import { ActiveRider } from "./types";
 
-// Whether a rider's condition (from catalog.ts) applies to a given attack,
-// based on the attack's weapon tags (`Attack.tags`). Three-valued: an attack
-// with no tags is `unknown` (offer it, let the player decide) rather than
-// guessing; only a decidable `no` hides a rider and only `yes` applies one
-// silently.
+// Whether a rider's condition (from catalog.ts) applies to the roll being
+// made — an attack's weapon tags (`Attack.tags`), or which skill a check is
+// for. Three-valued: a roll that carries no information about a clause is
+// `unknown` (offer it, let the player decide) rather than guessing; only a
+// decidable `no` hides a rider and only `yes` applies one silently.
 
 export type Eligibility = "yes" | "no" | "unknown";
 
-/** What we know about the attack being rolled, as the conditions see it. */
-export interface AttackContext {
+/** What we know about the roll being made, as the conditions see it. */
+export interface RollContext {
   /** Undefined when the attack carries no tags — "unknown", not "none". */
   tags?: AttackTag[];
   /** The ability the to-hit roll uses, when it resolves to exactly one. */
   ability?: StatKey;
+  /** Which skill a check is rolled for; absent for a bare ability check. */
+  skill?: SkillName;
+  /** Whether the roll already adds proficiency. Absent when unknown. */
+  proficient?: boolean;
 }
 
 // The stat leaves a to-hit formula mentions. A preset weapon is `ability +
@@ -51,7 +55,7 @@ function statsIn(formula: unknown, out: Set<StatKey>): Set<StatKey> {
 // `ability` is read off the to-hit formula rather than stored, since the
 // formula is the only source of truth; a finesse weapon (two stats) stays
 // undefined.
-export function attackContext(attack: Attack | undefined): AttackContext {
+export function attackContext(attack: Attack | undefined): RollContext {
   if (!attack) return {};
   const stats = [...statsIn(attack.bonus, new Set<StatKey>())];
   return {
@@ -64,7 +68,7 @@ export function attackContext(attack: Attack | undefined): AttackContext {
 // decidable `no` beats any number of unknowns.
 export function conditionEligibility(
   condition: RiderCondition | undefined,
-  context: AttackContext,
+  context: RollContext,
 ): Eligibility {
   if (!condition) return "yes";
   let unknown = false;
@@ -83,27 +87,36 @@ export function conditionEligibility(
     if (!context.ability) unknown = true;
     else if (!ability.includes(context.ability)) return "no";
   }
+  if (condition.skill?.length) {
+    if (!context.skill) unknown = true;
+    else if (!condition.skill.includes(context.skill)) return "no";
+  }
+  if (condition.proficiency) {
+    if (context.proficient === undefined) unknown = true;
+    else if (context.proficient !== (condition.proficiency === "proficient"))
+      return "no";
+  }
 
   return unknown ? "unknown" : "yes";
 }
 
 export const riderEligibility = (
   rider: ActiveRider,
-  context: AttackContext,
+  context: RollContext,
 ): Eligibility => conditionEligibility(rider.rider.requires, context);
 
 // Riders that plainly don't apply (eligibility "no") are dropped entirely,
 // not just unticked.
 export const applicableRiders = (
   riders: ActiveRider[],
-  context: AttackContext,
+  context: RollContext,
 ): ActiveRider[] => riders.filter((r) => riderEligibility(r, context) !== "no");
 
 // Prompts when a rider is explicitly optional (non-weapon condition, e.g.
 // "while raging"), or when the weapon condition is unknown.
 export const needsOptIn = (
   rider: ActiveRider,
-  context: AttackContext,
+  context: RollContext,
 ): boolean => {
   const r = rider.rider;
   const explicit =

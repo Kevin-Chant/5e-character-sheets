@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { useEditMode } from "src/lib/hooks/use-edit-mode";
+import { SkillName } from "src/lib/data/data-definitions";
 import { Character } from "src/lib/types";
 import { Cursor } from "src/lib/cursor";
 import { getFieldValue, traverse } from "src/lib/fields";
@@ -21,6 +22,8 @@ interface ProficiencyDisplayProps {
   rollLabel?: string;
   // Saving throw, not a skill check — routes to the save RollKind so save-only riders (Bless) reach it.
   rollIsSave?: boolean;
+  // Which skill this row rolls, for riders scoped to one (Silver Tongue).
+  rollSkill?: SkillName;
   // Cycles proficiency state: saves none<->proficient, skills none->proficient->expert->none.
   onToggle: () => void;
   // Skills only: opens the per-skill bonus formula editor.
@@ -40,6 +43,7 @@ export default function ProficiencyDisplay({
   readOnly,
   rollLabel,
   rollIsSave,
+  rollSkill,
   onToggle,
   onEditBonus,
   hasBonus,
@@ -82,7 +86,13 @@ export default function ProficiencyDisplay({
         {rollLabel && typeof value === "number" && (
           <RollButton
             label={rollLabel}
-            {...(rollIsSave ? { savingThrow: value } : { check: value })}
+            {...(rollIsSave
+              ? { savingThrow: value }
+              : {
+                  check: value,
+                  skill: rollSkill,
+                  proficient: proficient || expert,
+                })}
           />
         )}
         {editMode && onEditBonus && (

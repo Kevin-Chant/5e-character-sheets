@@ -306,6 +306,10 @@ export function applyLevelUp(
     if (feat) applyFeat(char, feat, state);
   }
 
+  // A feat taken just now can add HP per level (Tough), which step 3 was too
+  // early to see.
+  char.maxHp = withHpAdjustment(getHpFormula(char), hpAdjustmentOf(char.maxHp));
+
   // 6. Swapped-out known spell, removed before the new ones land.
   if (state.swapSpell) {
     const [bucket, index] = state.swapSpell.split(".");

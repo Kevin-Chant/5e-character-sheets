@@ -4,6 +4,7 @@ import {
   OfficialClass,
   Operation,
   PB,
+  SkillName,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -239,11 +240,59 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanics> = {
     ],
   },
 
-  // Reliable Talent (rogue 11): d20s of 9 or lower count as 10. Fidelity gap:
-  // RAW is proficient checks only; the sheet applies it to every check.
+  // Reliable Talent (rogue 11): on a check you're proficient in, a d20 of 9
+  // or lower counts as 10.
   "reliable talent": {
     riders: [
-      { appliesTo: ["check"], rider: { rider: "minimumDie", value: 10 } },
+      {
+        appliesTo: ["check"],
+        rider: {
+          rider: "minimumDie",
+          value: 10,
+          requires: { proficiency: "proficient" },
+        },
+      },
+    ],
+  },
+
+  // Silver Tongue (Eloquence bard 3): Reliable Talent's shape, scoped to two
+  // skills and not gated on proficiency.
+  "silver tongue": {
+    riders: [
+      {
+        appliesTo: ["check"],
+        rider: {
+          rider: "minimumDie",
+          value: 10,
+          requires: { skill: [SkillName.Persuasion, SkillName.Deception] },
+        },
+      },
+    ],
+  },
+
+  // Remarkable Athlete (Champion fighter 7): half PB, rounded up, on STR/DEX/
+  // CON checks that don't already add it. The jump-distance half has no roll
+  // to ride and stays in the feature's own prose.
+  "remarkable athlete": {
+    riders: [
+      {
+        appliesTo: ["check"],
+        rider: {
+          rider: "bonus",
+          value: {
+            operation: Operation.ceil,
+            operand1: {
+              operation: Operation.division,
+              operand1: PB,
+              operand2: 2,
+            },
+          },
+          requires: {
+            ability: [StatKey.str, StatKey.dex, StatKey.con],
+            proficiency: "unproficient",
+          },
+        },
+      },
     ],
   },
 

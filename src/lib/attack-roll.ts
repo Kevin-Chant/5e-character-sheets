@@ -26,7 +26,7 @@ import {
 import { ActiveRider } from "src/lib/mechanics/types";
 import { extraDamageRiders, spellDamageRiders } from "src/lib/mechanics/riders";
 import {
-  AttackContext,
+  RollContext,
   needsOptIn,
   riderEligibility,
 } from "src/lib/mechanics/conditions";
@@ -58,7 +58,7 @@ export function extrasForAttack(
   character: Character,
   damage: CustomFormulaWithDamage | undefined,
   spell: Spell | undefined,
-  context: AttackContext = {},
+  context: RollContext = {},
 ): ExtraDamageEntry[] {
   if (spell || !damage) return [];
   return extraDamageRiders(character).flatMap((r) =>
