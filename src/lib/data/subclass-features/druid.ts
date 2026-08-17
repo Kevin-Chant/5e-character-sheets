@@ -155,12 +155,8 @@ export const DRUID_SUBCLASS_FEATURES: SubclassFeatureTable = {
   },
   Stars: {
     2: [
-      // Star Map is a limited-use pool — see SUBCLASS_POOLS["Stars"].
-      {
-        title: "Starry Form",
-        detail:
-          "As a bonus action, expend a use of Wild Shape to take on a starry form for 10 minutes instead of transforming into a beast, glowing dimly and choosing one of three stances: Archer (bonus action ranged spell attack, 60 ft., 1d8 + Wisdom modifier radiant damage), Chalice (a healing spell you cast also restores 1d8 + Wisdom modifier hit points to another creature within 30 ft.), or Dragon (treat a roll of 9 or lower as a 10 on Intelligence and Wisdom checks and Constitution saves to maintain concentration).",
-      },
+      // Star Map and Starry Form are limited-use pools — see
+      // SUBCLASS_POOLS["Stars"].
     ],
     6: [
       // Cosmic Omen is a limited-use pool — see SUBCLASS_POOLS["Stars"].

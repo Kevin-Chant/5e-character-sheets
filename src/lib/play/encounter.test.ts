@@ -536,3 +536,18 @@ describe("the sharing policy", () => {
     expect(setSharing(EMPTY_ENCOUNTER, DEFAULT_SHARING)).toBe(EMPTY_ENCOUNTER);
   });
 });
+
+describe("stance conditions", () => {
+  it("replaces the sibling form rather than stacking, and leaves the rest alone", () => {
+    let e = roster();
+    e = addCondition(e, "a", { name: "Bless" });
+    e = addCondition(e, "a", { name: "Starry Form: Archer" });
+    const held = () =>
+      e.participants.find((p) => p.id === "a")!.conditions.map((c) => c.name);
+    expect(held()).toEqual(["Bless", "Starry Form: Archer"]);
+
+    e = addCondition(e, "a", { name: "Starry Form: Dragon" });
+    // Switching forms is the feature; being in two at once isn't a thing.
+    expect(held()).toEqual(["Bless", "Starry Form: Dragon"]);
+  });
+});

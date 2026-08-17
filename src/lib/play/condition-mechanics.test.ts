@@ -3,6 +3,7 @@ import {
   conditionRiders,
   conditionSummary,
   ridersAgainst,
+  stanceGroupOf,
   WIRED_CONDITION_NAMES,
 } from "src/lib/play/condition-mechanics";
 
@@ -104,5 +105,33 @@ describe("wired condition names", () => {
       const riders = conditionRiders([name], "damage");
       expect(riders.some((r) => r.rider.rider === "extraDamage")).toBe(true);
     }
+  });
+});
+
+describe("stances", () => {
+  const FORMS = [
+    "Starry Form: Archer",
+    "Starry Form: Chalice",
+    "Starry Form: Dragon",
+  ];
+
+  it("offers every form in the adder, riders or not", () => {
+    for (const form of FORMS) expect(WIRED_CONDITION_NAMES).toContain(form);
+    // Two of the three carry no rider at all, so being offered can't depend
+    // on having one.
+    expect(conditionRiders(["Starry Form: Archer"], "check")).toEqual([]);
+    expect(conditionSummary("Starry Form: Archer")).toBeTruthy();
+  });
+
+  it("groups the three forms and leaves ordinary conditions ungrouped", () => {
+    for (const form of FORMS) expect(stanceGroupOf(form)).toBe("Starry Form");
+    expect(stanceGroupOf("Bless")).toBeUndefined();
+    expect(stanceGroupOf("Prone")).toBeUndefined();
+  });
+
+  it("floors a Dragon-form Intelligence check at 10 on the die", () => {
+    const [dragon] = conditionRiders(["Starry Form: Dragon"], "check");
+    expect(dragon.rider).toMatchObject({ rider: "minimumDie", value: 10 });
+    expect(conditionRiders(["Starry Form: Dragon"], "attack")).toEqual([]);
   });
 });

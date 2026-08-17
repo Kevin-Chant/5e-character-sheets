@@ -219,7 +219,8 @@ export const FEATS: Feat[] = [
     summary: "A gifted student of languages and codes.",
     abilityIncrease: { by: 1, from: [StatKey.int] },
     effect:
-      "You learn three languages of your choice, and you can write ciphers that others can't decipher without your teaching, a successful Intelligence check against a DC of your Intelligence score + your proficiency bonus, or magic. Add the three languages under Other Proficiencies.",
+      "You can write ciphers that others can't decipher without your teaching, a successful Intelligence check against a DC of your Intelligence score + your proficiency bonus, or magic.",
+    grants: { chooseLanguages: 3 },
   },
 
   // ---- Pure feats (no ability score increase) ----

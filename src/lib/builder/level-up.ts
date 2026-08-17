@@ -139,6 +139,7 @@ export interface LevelUpState extends LevelChoices {
   featSkillChoices: SkillName[];
   featExpertiseChoices: SkillName[];
   featWeaponChoices: string[];
+  featLanguageChoices: string[];
   featSpellChoices: Record<number, string[]>;
   // Newly learned spells, by numeric level (0 = cantrips).
   newSpells: Record<number, string[]>;
@@ -187,6 +188,7 @@ export const emptyFeatChoices = () => ({
   featSkillChoices: [] as SkillName[],
   featExpertiseChoices: [] as SkillName[],
   featWeaponChoices: [] as string[],
+  featLanguageChoices: [] as string[],
   featSpellChoices: {} as Record<number, string[]>,
 });
 

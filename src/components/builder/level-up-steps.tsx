@@ -545,6 +545,7 @@ export function LevelUpAdvancementStep(props: LevelUpStepProps) {
             (s) => props.character.proficiencies.expertise[s],
           )}
           knownWeapons={props.character.otherProficiencies.weapons}
+          knownLanguages={props.character.otherProficiencies.languages}
           // Any class's spells count — a feat's grant is character-wide.
           knownSpells={Object.values(props.character.spells).flatMap((list) =>
             (list ?? []).map((sp) => sp.info.title),
@@ -790,6 +791,8 @@ export function LevelUpReviewStep({ character, state }: LevelUpStepProps) {
       }
       if (state.featSkillChoices.length)
         rows.push(["Skill proficiency", state.featSkillChoices.join(", ")]);
+      if (state.featLanguageChoices.length)
+        rows.push(["Languages", state.featLanguageChoices.join(", ")]);
       if (state.featExpertiseChoices.length)
         rows.push(["Expertise", state.featExpertiseChoices.join(", ")]);
       if (state.featWeaponChoices.length)

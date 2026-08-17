@@ -51,6 +51,7 @@ export interface FeatPickerProps {
   proficientSkills: SkillName[];
   expertSkills: SkillName[];
   knownWeapons: string[];
+  knownLanguages?: string[];
   // Spells already on the sheet, so a Magic Initiate can't "learn" a duplicate.
   knownSpells?: string[];
   // Feats already taken; each feat is takeable once.
@@ -591,6 +592,7 @@ export function FeatPicker({
   proficientSkills,
   expertSkills,
   knownWeapons,
+  knownLanguages = [],
   knownSpells,
   takenFeats = [],
 }: FeatPickerProps) {
@@ -722,6 +724,24 @@ export function FeatPicker({
                 max={grants.chooseExpertise}
                 onChange={(featExpertiseChoices) =>
                   patch({ featExpertiseChoices })
+                }
+              />
+            </Field>
+          )}
+
+          {grants?.chooseLanguages && (
+            <Field
+              label={`Languages (choose ${grants.chooseLanguages})`}
+              hint="Languages you already know are hidden."
+            >
+              <ChipMultiSelect
+                options={LANGUAGE_OPTIONS.filter(
+                  (l) => !knownLanguages.includes(l),
+                )}
+                selected={state.featLanguageChoices}
+                max={grants.chooseLanguages}
+                onChange={(featLanguageChoices) =>
+                  patch({ featLanguageChoices })
                 }
               />
             </Field>

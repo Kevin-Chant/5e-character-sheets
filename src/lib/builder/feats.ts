@@ -34,6 +34,7 @@ export interface FeatChoices {
   featSkillChoices: SkillName[];
   featExpertiseChoices: SkillName[];
   featWeaponChoices: string[];
+  featLanguageChoices: string[];
   featSpellChoices: Record<number, string[]>;
   // Optional: creation derives it from `classIndex`; addSpell falls back to
   // the character's first class when the name doesn't match one.
@@ -102,6 +103,11 @@ export function applyFeat(
     char.otherProficiencies.weapons = uniq([
       ...char.otherProficiencies.weapons,
       ...state.featWeaponChoices,
+    ]);
+  if (state.featLanguageChoices.length)
+    char.otherProficiencies.languages = uniq([
+      ...char.otherProficiencies.languages,
+      ...state.featLanguageChoices,
     ]);
   for (const indices of Object.values(state.featSpellChoices))
     for (const index of indices)

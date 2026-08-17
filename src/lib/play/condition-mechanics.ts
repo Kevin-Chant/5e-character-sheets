@@ -4,6 +4,7 @@ import {
   PB,
   StandardDie,
 } from "src/lib/data/data-definitions";
+import { StatKey } from "src/lib/data/data-definitions";
 import { ActiveRider } from "src/lib/mechanics/types";
 import { FeatureRider, RollKind } from "src/lib/types";
 import {
@@ -36,9 +37,47 @@ export interface ConditionMechanics {
   against?: TargetedRider[];
   // One-line summary for banners and the DM board.
   summary?: string;
+  // A switchable mode the bearer turns on rather than something done to
+  // them — a druid's Starry Form. The value names the group it's exclusive
+  // within, so taking one form drops the other two (`addCondition`), and it
+  // is offered by the condition adder even with no riders of its own.
+  stance?: string;
 }
 
 export const CONDITION_MECHANICS: Record<string, ConditionMechanics> = {
+  // Circle of Stars' three constellations. A stance is a temporary effect the
+  // player switches on, which is a condition's shape — so it lives here in
+  // the encounter rather than as state on the sheet, and ends with the fight
+  // the way Bless does. Only Dragon touches a roll; the other two are things
+  // you do on your turn, which the summary states and the table resolves.
+  "Starry Form: Archer": {
+    stance: "Starry Form",
+    summary:
+      "Bonus action: ranged spell attack within 60 ft. for 1d8 + WIS radiant (2d8 from 10th)",
+  },
+  "Starry Form: Chalice": {
+    stance: "Starry Form",
+    summary:
+      "On casting a healing spell with a slot: you or a creature within 30 ft. regains 1d8 + WIS (2d8 from 10th)",
+  },
+  "Starry Form: Dragon": {
+    stance: "Starry Form",
+    summary:
+      "Intelligence and Wisdom checks, and Constitution saves to concentrate, treat a d20 of 9 or lower as 10",
+    riders: [
+      {
+        appliesTo: ["check", "save"],
+        rider: {
+          rider: "minimumDie",
+          value: 10,
+          // The check half is INT/WIS; the save half is CON-to-concentrate,
+          // which the dialog can't tell from any other CON save. Scoping to
+          // the three abilities is as close as the sheet can see.
+          requires: { ability: [StatKey.int, StatKey.wis, StatKey.con] },
+        },
+      },
+    ],
+  },
   Bless: {
     summary: "+1d4 to attack rolls and saving throws",
     riders: [
@@ -1375,10 +1414,19 @@ export const WIRED_CONDITION_NAMES: string[] = Object.entries(
 )
   .filter(
     ([, entry]) =>
-      (entry.riders?.length ?? 0) > 0 || (entry.against?.length ?? 0) > 0,
+      (entry.riders?.length ?? 0) > 0 ||
+      (entry.against?.length ?? 0) > 0 ||
+      // A stance is worth offering whether or not it rides a roll: turning it
+      // on is the point, and the summary is what the table reads.
+      !!entry.stance,
   )
   .map(([name]) => name)
   .sort((a, b) => a.localeCompare(b));
+
+// The exclusive group a stance belongs to, or undefined for an ordinary
+// condition. `addCondition` uses it to drop the sibling forms.
+export const stanceGroupOf = (name: string): string | undefined =>
+  CONDITION_MECHANICS[name]?.stance;
 
 // One-line meaning of a condition, for banners and the seat's queue.
 export function conditionSummary(name: ConditionName): string | undefined {

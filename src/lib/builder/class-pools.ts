@@ -800,6 +800,67 @@ const SORCERER_WILD_MAGIC_TABLE: Effect = {
   ],
 };
 
+const STARRY_FORMS = ["Archer", "Chalice", "Dragon"] as const;
+
+// College of Spirits' Spirit Tales, rolled with the Bardic Inspiration die —
+// so the reachable rows grow with the bard. "N dice" below means N of that
+// same die. Paraphrased mechanical facts (TCE, non-SRD), as elsewhere here.
+const spiritTalesTable = (die: StandardDie): Effect => ({
+  effect: "table",
+  label: "Spirit Tale",
+  die,
+  rows: [
+    {
+      upTo: 1,
+      note: "Clever Animal — for 10 minutes the target adds one die to its Intelligence, Wisdom, and Charisma checks.",
+    },
+    {
+      upTo: 2,
+      note: "Renowned Duelist — make a melee spell attack against the target; on a hit it takes 2 dice + your Charisma modifier force damage.",
+    },
+    {
+      upTo: 3,
+      note: "Beloved Friends — the target and one creature within 5 ft. of it each gain 1 die + your Charisma modifier temporary hit points.",
+    },
+    {
+      upTo: 4,
+      note: "Runaway — the target teleports up to 30 ft., and may bring up to your Charisma modifier of creatures near it.",
+    },
+    {
+      upTo: 5,
+      note: "Avenger — for 1 minute, a creature that hits the target with a melee attack takes 1 die of force damage.",
+    },
+    {
+      upTo: 6,
+      note: "Traveler — the target gains 1 die + your bard level temporary hit points, and while they last has +10 ft. speed and +1 AC.",
+    },
+    {
+      upTo: 7,
+      note: "Beguiler — the target makes a Wisdom save or takes 2 dice of psychic damage and is incapacitated until the end of its next turn.",
+    },
+    {
+      upTo: 8,
+      note: "Phantom — the target takes 1 die of necrotic damage and is frightened of you until the end of its next turn, during which you are invisible to it.",
+    },
+    {
+      upTo: 9,
+      note: "Brute — each creature within 30 ft. of the target makes a Strength save or takes 3 dice of thunder damage and is knocked prone.",
+    },
+    {
+      upTo: 10,
+      note: "Dragon — each creature in a 30-ft. cone makes a Dexterity save, taking 4 dice of fire damage, or half on a success.",
+    },
+    {
+      upTo: 11,
+      note: "Angel — the target regains 2 dice + your Charisma modifier hit points, and you end one of blinded, deafened, paralyzed, petrified, or poisoned on it.",
+    },
+    {
+      upTo: 12,
+      note: "Mind-Bender — the target makes an Intelligence save or takes 3 dice of psychic damage and is stunned until the end of its next turn.",
+    },
+  ],
+});
+
 // Rune Knight (fighter, Tasha's). Giant's Might and Runic Shield are granted
 // at their level (PB uses/long rest); each rune is a separate once-per-short-
 // rest invocation gated by `requiresFeature` so only runes you know get a
@@ -1225,6 +1286,40 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
     },
   ],
   Stars: [
+    {
+      title: "Starry Form",
+      detail:
+        "As a bonus action, spend a use of Wild Shape to glow with starlight for 10 minutes in one of three stances. The stance itself rides as a condition on your row at the table, so switching drops the one you were in.",
+      level: 2,
+      recharge: long,
+      // Owns no charges of its own — it drains Wild Shape.
+      maxUses: () => 0,
+      mechanics: (k) => ({
+        actions: STARRY_FORMS.map((form) => ({
+          id: `starry-form-${form.toLowerCase()}`,
+          name: `Starry Form: ${form}`,
+          cost: "bonusAction" as const,
+          effects: [
+            {
+              effect: "spendUses" as const,
+              amount: { fixed: 1 },
+              pool: "Wild Shape",
+            },
+            {
+              effect: "remind" as const,
+              note:
+                `Add "Starry Form: ${form}" to your row for 10 minutes.` +
+                (k.level >= 10
+                  ? " Twinkling Constellations lets you switch stance at the start of each of your turns."
+                  : "") +
+                (k.level >= 14
+                  ? " Full of Stars: resistance to bludgeoning, piercing and slashing while it lasts."
+                  : ""),
+            },
+          ],
+        })),
+      }),
+    },
     {
       title: "Star Map",
       detail:
@@ -1816,14 +1911,38 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
     },
   ],
   Spirits: [
-    bardicSpender({
+    {
       title: "Tales from Beyond",
       detail:
-        "While holding your Spiritual Focus, expend a Bardic Inspiration die and roll it on the Spirit Tales table; you keep the tale until you bestow its effect or finish a rest.",
+        "While holding your Spiritual Focus, expend a Bardic Inspiration die and roll it on the Spirit Tales table; you keep the tale until you bestow its effect (an action, on a creature within 30 ft.) or finish a rest.",
       level: 3,
-      cost: "bonusAction",
-      note: "Roll on the Spirit Tales table for the effect you retain.",
-    }),
+      recharge: long,
+      maxUses: () => 0,
+      save: {
+        dc: saveDcFormula(StatKey.cha),
+        note: "Your spell save DC, for the tales that force a save.",
+      },
+      // The table is rolled *with* the Bardic Inspiration die, so which rows
+      // are reachable grows with the bard — rows 7-12 need a d8 or better.
+      mechanics: (k) => ({
+        actions: [
+          {
+            id: "tales-from-beyond",
+            name: "Tales from Beyond",
+            cost: "bonusAction",
+            costNote: "roll now; bestowing the tale is an action",
+            effects: [
+              {
+                effect: "spendUses",
+                amount: { fixed: 1 },
+                pool: "Bardic Inspiration",
+              },
+              spiritTalesTable(bardicInspirationDie(k.level)),
+            ],
+          },
+        ],
+      }),
+    },
     {
       title: "Spirit Session",
       detail:

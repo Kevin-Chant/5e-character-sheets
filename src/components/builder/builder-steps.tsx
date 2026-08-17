@@ -510,6 +510,10 @@ export function RaceStep({ state, patch }: StepProps) {
               ...(getSubrace(race, state.subraceIndex)?.proficiencies.weapons ??
                 []),
             ]}
+            knownLanguages={[
+              ...(race?.languages ?? []),
+              ...state.raceLanguageChoices,
+            ]}
             knownSpells={[
               state.highElfCantrip,
               ...state.cantripIndices,

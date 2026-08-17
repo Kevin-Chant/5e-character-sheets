@@ -178,6 +178,7 @@ export interface FeatGrants {
   chooseSkills?: number;
   chooseExpertise?: number;
   chooseWeapons?: number;
+  chooseLanguages?: number;
   // One entry per level (0 = cantrips): choose `count` at `level`.
   chooseSpells?: { level: number; count: number }[];
 }
@@ -262,6 +263,7 @@ export interface BuilderState extends LevelChoices {
   featSkillChoices: SkillName[];
   featExpertiseChoices: SkillName[];
   featWeaponChoices: string[];
+  featLanguageChoices: string[];
   featSpellChoices: Record<number, string[]>;
 
   // Ability scores, base (pre-racial).
@@ -340,6 +342,7 @@ export function defaultBuilderState(): BuilderState {
     featSkillChoices: [],
     featExpertiseChoices: [],
     featWeaponChoices: [],
+    featLanguageChoices: [],
     featSpellChoices: {},
     scoreMethod: "pointbuy",
     baseStats: { ...POINT_BUY_FLOOR },

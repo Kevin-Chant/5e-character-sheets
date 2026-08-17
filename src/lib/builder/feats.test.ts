@@ -43,11 +43,36 @@ describe("Tough", () => {
       featSkillChoices: [],
       featExpertiseChoices: [],
       featWeaponChoices: [],
+      featLanguageChoices: [],
       featSpellChoices: {},
     });
 
     expect(calculateCustomFormula(getHpFormula(c), c)).toBe(before + 10);
     c.class[0].level = 6;
     expect(calculateCustomFormula(getHpFormula(c), c)).toBe(before + 12 + 6);
+  });
+});
+
+describe("Linguist", () => {
+  it("adds the three chosen languages without disturbing the ones you had", () => {
+    const c = structuredClone(defaultCharacter);
+    c.otherProficiencies.languages = ["Common", "Elvish"];
+
+    applyFeat(c, getFeat("linguist")!, {
+      featSkillChoices: [],
+      featExpertiseChoices: [],
+      featWeaponChoices: [],
+      featLanguageChoices: ["Draconic", "Elvish", "Infernal"],
+      featSpellChoices: {},
+    });
+
+    // Elvish was already known — added once, not twice.
+    expect(c.otherProficiencies.languages).toEqual([
+      "Common",
+      "Elvish",
+      "Draconic",
+      "Infernal",
+    ]);
+    expect(getFeat("linguist")?.grants?.chooseLanguages).toBe(3);
   });
 });

@@ -1,5 +1,6 @@
 import { UUID } from "crypto";
 import { ConditionName } from "src/lib/play/conditions";
+import { stanceGroupOf } from "src/lib/play/condition-mechanics";
 
 // Action-economy slots. `free`/`special` are omitted: not finite per-turn resources.
 // Defined here (not in `usePlayTurn`) to avoid an import cycle; `use-turn` re-exports
@@ -504,16 +505,23 @@ export function clearSpent(encounter: Encounter, id: string): Encounter {
   }));
 }
 
-// Re-adding a condition already held replaces it (refresh, not stack).
+// Re-adding a condition already held replaces it (refresh, not stack). A
+// stance also replaces the other members of its group — you are in one Starry
+// Form at a time, and switching is the feature, not a second condition.
 export function addCondition(
   encounter: Encounter,
   id: string,
   condition: ActiveCondition,
 ): Encounter {
+  const group = stanceGroupOf(condition.name);
   return mapParticipant(encounter, id, "statusRev", (p) => ({
     ...p,
     conditions: [
-      ...p.conditions.filter((c) => c.name !== condition.name),
+      ...p.conditions.filter(
+        (c) =>
+          c.name !== condition.name &&
+          !(group && stanceGroupOf(c.name) === group),
+      ),
       condition,
     ],
   }));
