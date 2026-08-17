@@ -37,39 +37,11 @@ export const FIGHTER_SUBCLASS_FEATURES: SubclassFeatureTable = {
     ],
   },
   Banneret: {
-    3: [
-      {
-        title: "Rallying Cry",
-        detail:
-          "When you use Second Wind, you can also inspire up to three allies within 60 feet, each regaining hit points equal to your fighter level.",
-      },
-    ],
     7: [
       {
         title: "Royal Envoy",
         detail:
           "Gain proficiency in Persuasion, or double your proficiency bonus for Persuasion checks if already proficient.",
-      },
-    ],
-    10: [
-      {
-        title: "Inspiring Surge",
-        detail:
-          "When you use Action Surge, one ally within 60 feet who can see or hear you can immediately use their reaction to make one weapon attack.",
-      },
-    ],
-    15: [
-      {
-        title: "Bulwark",
-        detail:
-          "When you use Indomitable to reroll a failed Intelligence, Wisdom, or Charisma save, one ally within 60 feet who failed the same save can also reroll theirs (if they can see or hear you).",
-      },
-    ],
-    18: [
-      {
-        title: "Inspiring Surge (Improved)",
-        detail:
-          "When you use Action Surge, two allies within 60 feet (instead of one) can each use their reaction to make a weapon attack.",
       },
     ],
   },
@@ -183,24 +155,12 @@ export const FIGHTER_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "As a bonus action, summon a spectral echo of yourself in an unoccupied space within 15 feet; it has 1 hit point, AC 14 + your proficiency bonus, and can be moved or teleported near you as a bonus action.",
       },
-      {
-        title: "Unleash Incarnation",
-        detail:
-          "Once per turn when you take the Attack action, you can make one additional melee attack from your echo's space. Uses equal to your Constitution modifier (minimum 1) per long rest.",
-      },
     ],
     7: [
       {
         title: "Echo Avatar",
         detail:
           "As an action, see and hear through your echo's senses (you're blinded and deafened yourself) for up to 10 minutes; while doing so, the echo can be up to 1,000 feet from you without being destroyed.",
-      },
-    ],
-    10: [
-      {
-        title: "Shadow Martyr",
-        detail:
-          "As a reaction before an attack roll targets another creature you can see, teleport your echo within 5 feet of that creature so the attack instead targets the echo, once per short or long rest.",
       },
     ],
     15: [

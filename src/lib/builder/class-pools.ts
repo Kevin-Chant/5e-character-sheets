@@ -1152,6 +1152,105 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
     },
   ],
   "Rune Knight": runeKnightPools(),
+  // Banneret's three features all ride *other* features (Second Wind, Action
+  // Surge, Indomitable) and own no charges, so they're pool-less hosts: the
+  // board is where you look for what you can do, and Rallying Cry has a
+  // number worth computing.
+  Banneret: [
+    {
+      title: "Rallying Cry",
+      detail:
+        "When you use Second Wind, up to three allies within 60 feet each regain hit points equal to your fighter level.",
+      level: 3,
+      recharge: long,
+      maxUses: () => 0,
+      mechanics: (k) =>
+        atWillAction({
+          id: "rallying-cry",
+          name: "Rallying Cry",
+          cost: "free",
+          costNote: "with Second Wind",
+          note: `Up to three allies within 60 ft. each regain ${k.level} hit points.`,
+        }),
+    },
+    {
+      title: "Inspiring Surge",
+      detail:
+        "When you use Action Surge, an ally within 60 feet who can see or hear you can use their reaction to make one weapon attack.",
+      level: 10,
+      recharge: long,
+      maxUses: () => 0,
+      mechanics: (k) =>
+        atWillAction({
+          id: "inspiring-surge",
+          name: "Inspiring Surge",
+          cost: "free",
+          costNote: "with Action Surge",
+          note: `${k.level >= 18 ? "Two allies" : "One ally"} within 60 ft. who can see or hear you may use a reaction to make one weapon attack.`,
+        }),
+    },
+    {
+      title: "Bulwark",
+      detail:
+        "When you use Indomitable on a failed Intelligence, Wisdom, or Charisma save, an ally who failed the same save can reroll theirs.",
+      level: 15,
+      recharge: long,
+      maxUses: () => 0,
+      mechanics: () =>
+        atWillAction({
+          id: "bulwark",
+          name: "Bulwark",
+          cost: "free",
+          costNote: "with Indomitable",
+          note: "One ally within 60 ft. who failed the same Intelligence, Wisdom, or Charisma save may reroll it.",
+        }),
+    },
+  ],
+  // Unleash Incarnation and Shadow Martyr are the echo's two real resources;
+  // the echo itself stays prose until there's a creature model.
+  "Echo Knight": [
+    {
+      title: "Unleash Incarnation",
+      detail:
+        "Once per turn on the Attack action, make one extra melee attack from your echo's space.",
+      level: 3,
+      recharge: long,
+      maxUses: () => ({
+        operation: Operation.maximum,
+        operands: [1, StatKey.con],
+      }),
+      mechanics: () => ({
+        actions: [
+          spendRollRemind({
+            id: "unleash-incarnation",
+            name: "Unleash Incarnation",
+            cost: "free",
+            costNote: "once per turn, on the Attack action",
+            note: "Make one extra melee attack, originating from your echo's space. Roll it from the Attacks section.",
+          }),
+        ],
+      }),
+    },
+    {
+      title: "Shadow Martyr",
+      detail:
+        "As a reaction, teleport your echo into an attack's path so it is targeted instead.",
+      level: 10,
+      recharge: short,
+      maxUses: () => 1,
+      mechanics: () => ({
+        actions: [
+          spendRollRemind({
+            id: "shadow-martyr",
+            name: "Shadow Martyr",
+            cost: "reaction",
+            costNote: "before the attack roll",
+            note: "Teleport your echo within 5 ft. of the attacker's target; the attack targets the echo instead.",
+          }),
+        ],
+      }),
+    },
+  ],
   // The one random-effect table in the catalog whose rows this repo already
   // states in full (the feature's own prose). The barbarian/sorcerer Wild
   // Magic tables and the Spirit Tales table want the same `table` effect but
