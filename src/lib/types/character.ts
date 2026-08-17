@@ -278,6 +278,13 @@ export interface ChosenOption {
   name: string; // identity key for catalog lookups and rider matching
   // Paraphrase copied from the catalog at pick time; editable, free-text for homebrew.
   detail?: string;
+  // Equipment this pick is applied to (an artificer infusion's target item).
+  // Only groups whose picks attach to something set it.
+  itemId?: UUID;
+  // Currently in force, for a group that knows more than it can run at once
+  // (`OptionGroup.active`). Absent means inactive; a group with no `active`
+  // table ignores it.
+  active?: boolean;
 }
 
 // A feature with a finite, refreshing pool of uses (Sorcery Points, a

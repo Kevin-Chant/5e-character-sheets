@@ -21,8 +21,9 @@ export default function ChosenOptionsDisplay() {
 
   return (
     <div className="column rounded-border-box chosen-options">
-      {groups.map(({ group, known }) => {
+      {groups.map(({ group, known, active }) => {
         const picked = chosenIn(character, group.category);
+        const activeCount = picked.filter((o) => o.active).length;
         return (
           <div key={group.category} className="column chosen-option-group">
             <div className="row chosen-option-header">
@@ -33,6 +34,7 @@ export default function ChosenOptionsDisplay() {
                 }`}
               >
                 {picked.length} / {known} known
+                {active !== undefined && `, ${activeCount} / ${active} infused`}
               </i>
               {editMode && (
                 <button
@@ -52,23 +54,36 @@ export default function ChosenOptionsDisplay() {
               <i className="muted font-small">None chosen yet.</i>
             ) : (
               <div className="row chosen-option-list">
-                {picked.map((option) =>
-                  option.detail ? (
+                {picked.map((option, nth) => {
+                  const item = option.itemId
+                    ? character.equipment.find((i) => i.id === option.itemId)
+                    : undefined;
+                  const label = (
+                    <span>
+                      {option.name}
+                      {item && (
+                        <i className="font-small"> · {item.text.title}</i>
+                      )}
+                    </span>
+                  );
+                  // An active limit makes "known but not in force" a real
+                  // state, so an inactive pick reads as dormant.
+                  const cls = `rounded-border-box padding-small chosen-option${
+                    active !== undefined && !option.active ? " muted" : ""
+                  }`;
+                  return option.detail ? (
                     <ComponentWithPopover
-                      key={option.name}
-                      componentClass="rounded-border-box padding-small chosen-option"
-                      componentChildren={<span>{option.name}</span>}
+                      key={nth}
+                      componentClass={cls}
+                      componentChildren={label}
                       popoverChildren={<span>{option.detail}</span>}
                     />
                   ) : (
-                    <div
-                      key={option.name}
-                      className="rounded-border-box padding-small chosen-option"
-                    >
-                      {option.name}
+                    <div key={nth} className={cls}>
+                      {label}
                     </div>
-                  ),
-                )}
+                  );
+                })}
               </div>
             )}
           </div>

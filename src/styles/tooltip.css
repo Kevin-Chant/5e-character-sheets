@@ -312,6 +312,28 @@
 .chosen-option-choice input:disabled + span {
   opacity: 0.5;
 }
+/* A group with an active limit (artificer infusions) is rows, not checkboxes:
+   the same infusion can be learned twice for two items. */
+.chosen-option-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+.chosen-option-row .row {
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.chosen-option-active {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
 .roll-part {
   font-size: 0.9rem;
 }

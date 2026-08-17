@@ -11,6 +11,7 @@ import {
   takenOptionalFeatures,
 } from "src/lib/builder/optional-class-features";
 import {
+  ARTIFICER_INFUSIONS,
   ELEMENTAL_DISCIPLINES,
   KENSEI_WEAPONS,
   RUNE_KNIGHT_RUNES,
@@ -86,6 +87,13 @@ export interface OptionGroup {
   // How many you know at a given class level: the last threshold reached.
   // `[level, count]` pairs, ascending.
   known: [number, number][];
+  // Same shape, for a group that can only run some of what it knows at once
+  // (artificer infused items). Its presence is what turns the picker into a
+  // repeatable list of rows with an item and an on/off state.
+  active?: [number, number][];
+  // Picks name an equipment item they're applied to, and the same option may
+  // be taken several times for different items. Only meaningful with `active`.
+  perItem?: boolean;
   options: OptionDef[];
   // A damage resistance the pick confers, keyed by option name.
   resistances?: Record<string, DamageType>;
@@ -1406,15 +1414,53 @@ OPTION_GROUPS.push({
   options: OPTION_GROUPS.find((g) => g.category === "maneuvers")!.options,
 });
 
+OPTION_GROUPS.push({
+  category: "infusion",
+  label: "Artificer Infusion",
+  className: OfficialClass.Artificer,
+  known: [
+    [2, 4],
+    [6, 6],
+    [10, 8],
+    [14, 10],
+    [18, 12],
+  ],
+  active: [
+    [2, 2],
+    [6, 3],
+    [10, 4],
+    [14, 5],
+    [18, 6],
+  ],
+  perItem: true,
+  summary:
+    "You know these infusions; after a long rest you choose which of them are currently infused into items, up to the active limit.",
+  options: ARTIFICER_INFUSIONS,
+});
+
 export const optionGroup = (category: string): OptionGroup | undefined =>
   OPTION_GROUPS.find((g) => g.category === category);
+
+// How many of a group's known picks can be in force at once, or undefined for
+// the groups where knowing something is having it.
+export function activeLimitFor(
+  group: OptionGroup,
+  classLevel: number,
+): number | undefined {
+  return group.active ? knownAt(classLevel, group.active) : undefined;
+}
+
+export const activeIn = (
+  character: Character,
+  category: string,
+): ChosenOption[] => chosenIn(character, category).filter((o) => o.active);
 
 // The groups this character has access to, with how many picks each allows at
 // their current level. A group whose class/subclass isn't on the sheet, or
 // whose level threshold isn't reached, is omitted.
 export function availableOptionGroups(
   character: Character,
-): { group: OptionGroup; known: number }[] {
+): { group: OptionGroup; known: number; active?: number }[] {
   const total = totalLevel(character);
   const off = new Set(
     replacedOptionCategories(
@@ -1444,7 +1490,9 @@ export function availableOptionGroups(
       level = klass.level;
     }
     const known = knownAt(level, group.known);
-    return known > 0 ? [{ group, known }] : [];
+    return known > 0
+      ? [{ group, known, active: activeLimitFor(group, level) }]
+      : [];
   });
 }
 
@@ -1510,6 +1558,9 @@ export function newOptionPicksAt(
   return OPTION_GROUPS.flatMap((group) => {
     if (group.className !== className) return [];
     if (group.subclass && group.subclass !== subclass) return [];
+    // Infusions are re-chosen after every long rest, so a level-up is the
+    // wrong moment to ask; the sheet's own picker owns them.
+    if (group.perItem) return [];
     // A Tasha's swap can take a whole list off the table (a Favored Foe ranger
     // is never asked for a favored enemy).
     if (off.has(group.category)) return [];

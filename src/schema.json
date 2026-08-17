@@ -354,10 +354,17 @@
         },
         "ChosenOption": {
             "properties": {
+                "active": {
+                    "type": "boolean"
+                },
                 "category": {
                     "type": "string"
                 },
                 "detail": {
+                    "type": "string"
+                },
+                "itemId": {
+                    "pattern": "^.*-.*-.*-.*-.*$",
                     "type": "string"
                 },
                 "name": {

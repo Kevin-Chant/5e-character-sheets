@@ -13,6 +13,9 @@ import {
   newRaceOptionPicksAt,
   raceOptionFeaturesFor,
   taggedPicksAt,
+  activeIn,
+  activeLimitFor,
+  newOptionPicksAt,
 } from "./chosen-options";
 import { getCatalogSpell } from "src/lib/spells/spell-catalog";
 import { CLASS_POOLS, SUBCLASS_POOLS } from "src/lib/builder/class-pools";
@@ -395,5 +398,62 @@ describe("race option groups (Simic Hybrid's Animal Enhancement)", () => {
     expect(
       raceOptionFeaturesFor(picks, "Simic Hybrid", 5).map((f) => f.title),
     ).toEqual(["Nimble Climber", "Carapace"]);
+  });
+});
+
+describe("artificer infusions", () => {
+  const artificer = (level: number) =>
+    withClass({ name: OfficialClass.Artificer, level });
+
+  it("scales known and active counts on separate tables", () => {
+    const at = (level: number) => {
+      const entry = availableOptionGroups(artificer(level)).find(
+        ({ group }) => group.category === "infusion",
+      );
+      return entry && [entry.known, entry.active];
+    };
+    expect(at(1)).toBeUndefined();
+    expect(at(2)).toEqual([4, 2]);
+    expect(at(6)).toEqual([6, 3]);
+    expect(at(10)).toEqual([8, 4]);
+    expect(at(14)).toEqual([10, 5]);
+    expect(at(18)).toEqual([12, 6]);
+  });
+
+  it("reports an active limit only for groups that have one", () => {
+    const fighter = withClass({
+      name: OfficialClass.Fighter,
+      level: 3,
+      subclass: "Battle Master",
+    });
+    const maneuvers = availableOptionGroups(fighter).find(
+      ({ group }) => group.category === "maneuvers",
+    );
+    expect(maneuvers?.active).toBeUndefined();
+    expect(activeLimitFor(optionGroup("maneuvers")!, 3)).toBeUndefined();
+    expect(activeLimitFor(optionGroup("infusion")!, 6)).toBe(3);
+  });
+
+  it("counts only the picks currently in force as active", () => {
+    const c = artificer(6);
+    c.chosenOptions = [
+      { category: "infusion", name: "Enhanced Weapon", active: true },
+      { category: "infusion", name: "Enhanced Weapon" },
+      { category: "infusion", name: "Returning Weapon", active: true },
+    ];
+    expect(chosenIn(c, "infusion")).toHaveLength(3);
+    expect(activeIn(c, "infusion").map((o) => o.name)).toEqual([
+      "Enhanced Weapon",
+      "Returning Weapon",
+    ]);
+  });
+
+  it("is never offered as a level-up pick — infusions are re-chosen each rest", () => {
+    for (const level of [2, 6, 10, 14, 18])
+      expect(
+        newOptionPicksAt(OfficialClass.Artificer, level).map(
+          ({ group }) => group.category,
+        ),
+      ).not.toContain("infusion");
   });
 });

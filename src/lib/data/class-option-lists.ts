@@ -274,3 +274,92 @@ export const KENSEI_WEAPONS: OptionDef[] = [
     summary: "Named exception — allowed despite its heavy property.",
   },
 ];
+
+// Artificer, "Infuse Item": infusions known at 2nd level, more at 6/10/14/18.
+// A separate, smaller table caps how many are active at once — see the
+// `infusion` group's `active` in chosen-options.ts.
+//
+// Effects stay prose: an infusion's +1 rides the item it is applied to, and
+// the sheet's own weapon/armor rows are where a player writes that bonus.
+export const ARTIFICER_INFUSIONS: OptionDef[] = [
+  {
+    name: "Arcane Propulsion Armor",
+    summary:
+      "Requires 14th level. Attunement. Armor that raises walking speed by 5 feet, magically replaces missing limbs, and carries gauntlets that each deal 1d8 force damage and can be thrown (range 20/60), returning immediately.",
+  },
+  {
+    name: "Armor of Magical Strength",
+    summary:
+      "Attunement. Armor with charges equal to your Intelligence modifier (minimum 1): spend one to add that modifier to a Strength check or save, or as a reaction to avoid being knocked prone. Regains all charges at dawn.",
+  },
+  {
+    name: "Boots of the Winding Path",
+    summary:
+      "Requires 6th level. Attunement. As a bonus action, teleport up to 15 feet to an unoccupied space you can see.",
+  },
+  {
+    name: "Enhanced Arcane Focus",
+    summary:
+      "Attunement. A rod, staff, or wand granting +1 to spell attack rolls (+2 at 10th level) and letting you ignore half cover on spell attacks.",
+  },
+  {
+    name: "Enhanced Defense",
+    summary:
+      "A suit of armor or a shield gains +1 AC (+2 at 10th level). Can be taken more than once, for a different item each time.",
+  },
+  {
+    name: "Enhanced Weapon",
+    summary:
+      "A simple or martial weapon gains +1 to attack and damage rolls (+2 at 10th level). Can be taken more than once, for a different item each time.",
+  },
+  {
+    name: "Helm of Awareness",
+    summary:
+      "Requires 10th level. Attunement. Advantage on initiative rolls, and you can't be surprised while conscious.",
+  },
+  {
+    name: "Homunculus Servant",
+    summary:
+      "Attunement. Creates a Tiny construct companion that acts on your turn, can deliver a spell you cast through it, and can be reassembled over an hour if destroyed.",
+  },
+  {
+    name: "Mind Sharpener",
+    summary:
+      "Attunement. Clothing or armor with 4 charges: as a reaction to failing a Constitution save to keep concentration, spend one to succeed instead. Regains 1d4 charges at dawn.",
+  },
+  {
+    name: "Radiant Weapon",
+    summary:
+      "Requires 6th level. Attunement. A weapon granting +1 to attack and damage that sheds bright light out to 30 feet and holds 4 charges: as a reaction when hit, spend one to blind the attacker until the end of its next turn unless it succeeds on a Constitution save. Regains 1d4 charges at dawn.",
+  },
+  {
+    name: "Repeating Shot",
+    summary:
+      "Attunement. A ranged weapon with the ammunition property gains +1 to attack and damage, produces its own ammunition, and loses the loading property.",
+  },
+  {
+    name: "Replicate Magic Item",
+    summary:
+      "Reproduces a magic item from the infusion's own tables, gated by artificer level. Can be taken more than once, for a different item each time.",
+  },
+  {
+    name: "Repulsion Shield",
+    summary:
+      "Requires 6th level. Attunement. A shield granting +1 AC with 4 charges: as a reaction when hit in melee, spend one to push the attacker up to 15 feet away. Regains 1d4 charges at dawn.",
+  },
+  {
+    name: "Resistant Armor",
+    summary:
+      "Requires 6th level. Attunement. Armor granting resistance to one damage type chosen when the infusion is made: acid, cold, fire, force, lightning, necrotic, poison, psychic, radiant, or thunder.",
+  },
+  {
+    name: "Returning Weapon",
+    summary:
+      "A thrown weapon gains +1 to attack and damage and flies back to your hand after being thrown.",
+  },
+  {
+    name: "Spell-Refueling Ring",
+    summary:
+      "Requires 6th level. Attunement. Once per day as an action, the wearer recovers one expended spell slot of 3rd level or lower.",
+  },
+];
