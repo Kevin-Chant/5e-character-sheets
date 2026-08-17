@@ -19,6 +19,7 @@ import {
 import {
   ActionCost,
   AppliedCondition,
+  Effect,
   FeatureMechanics,
   RollKind,
 } from "src/lib/mechanics/types";
@@ -589,6 +590,216 @@ export const CLASS_POOLS: Partial<Record<OfficialClass, ClassPoolDef[]>> = {
   ],
 };
 
+// The two Wild Magic tables. Rows state mechanical facts in original wording
+// (dice, saves, durations, ranges, spells cast) — never the published prose —
+// and the flavour-only rows are named as such rather than described.
+
+const BARBARIAN_WILD_MAGIC_TABLE: Effect = {
+  effect: "table",
+  label: "Wild Magic",
+  die: StandardDie.d8,
+  rows: [
+    {
+      upTo: 1,
+      note: "Each creature you choose within 30 ft. makes a Constitution save or takes 1d12 necrotic damage. You gain 1d12 temporary hit points.",
+    },
+    {
+      upTo: 2,
+      note: "Teleport up to 30 ft. to an unoccupied space you can see, and again as a bonus action on each of your turns until the rage ends.",
+    },
+    {
+      upTo: 3,
+      note: "A spirit appears within 5 ft. of a creature you choose within 30 ft.; at the end of the turn it bursts, and each creature within 5 ft. of it makes a Dexterity save or takes 1d6 force damage. Repeatable as a bonus action each turn until the rage ends.",
+    },
+    {
+      upTo: 4,
+      note: "One weapon you hold deals force damage and gains the light and thrown properties (range 20/60) until the rage ends, returning to your hand at the end of the turn if it leaves.",
+    },
+    {
+      upTo: 5,
+      note: "Until the rage ends, a creature that hits you with an attack takes 1d6 force damage.",
+    },
+    {
+      upTo: 6,
+      note: "Until the rage ends, you and your allies within 10 ft. gain +1 AC.",
+    },
+    {
+      upTo: 7,
+      note: "Until the rage ends, the ground within 15 ft. of you is difficult terrain for your enemies.",
+    },
+    {
+      upTo: 8,
+      note: "One other creature you choose within 30 ft. makes a Constitution save or takes 1d6 radiant damage and is blinded until the start of your next turn. Repeatable as a bonus action each turn until the rage ends.",
+    },
+  ],
+};
+
+const SORCERER_WILD_MAGIC_TABLE: Effect = {
+  effect: "table",
+  label: "Wild Magic Surge",
+  die: { numFaces: 100 },
+  rows: [
+    {
+      upTo: 2,
+      note: "Roll on this table again at the start of each of your turns for 1 minute, ignoring further rolls of this row.",
+    },
+    {
+      upTo: 4,
+      note: "For 1 minute you can see any invisible creature you have line of sight to.",
+    },
+    {
+      upTo: 6,
+      note: "A modron under the DM's control appears within 5 ft., then vanishes after 1 minute.",
+    },
+    {
+      upTo: 8,
+      note: "Cast Fireball as a 3rd-level spell, centred on yourself.",
+    },
+    { upTo: 10, note: "Cast Magic Missile as a 5th-level spell." },
+    {
+      upTo: 12,
+      note: "Roll a d10: your height changes by that many inches, shrinking on an odd roll and growing on an even one.",
+    },
+    { upTo: 14, note: "Cast Confusion, centred on yourself." },
+    {
+      upTo: 16,
+      note: "Regain 5 hit points at the start of each of your turns for 1 minute.",
+    },
+    {
+      upTo: 18,
+      note: "Flavour only: you grow a beard of feathers until you sneeze.",
+    },
+    { upTo: 20, note: "Cast Grease, centred on yourself." },
+    {
+      upTo: 22,
+      note: "For 1 minute, creatures have disadvantage on saving throws against your next spell that calls for one.",
+    },
+    {
+      upTo: 24,
+      note: "Flavour only: your skin turns bright blue until Remove Curse ends it.",
+    },
+    {
+      upTo: 26,
+      note: "An eye opens on your forehead for 1 minute, giving advantage on Perception checks that rely on sight.",
+    },
+    {
+      upTo: 28,
+      note: "For 1 minute, spells with a casting time of 1 action take a bonus action instead.",
+    },
+    {
+      upTo: 30,
+      note: "Teleport up to 60 ft. to an unoccupied space you can see.",
+    },
+    {
+      upTo: 32,
+      note: "You are sent to the Astral Plane until the end of your next turn, then return.",
+    },
+    {
+      upTo: 34,
+      note: "The next damaging spell you cast within 1 minute deals maximum damage.",
+    },
+    {
+      upTo: 36,
+      note: "Roll a d10: your age changes by that many years, younger on an odd roll (minimum 1) and older on an even one.",
+    },
+    {
+      upTo: 38,
+      note: "1d6 flumphs under the DM's control appear within 60 ft., frightened of you, and vanish after 1 minute.",
+    },
+    { upTo: 40, note: "Regain 2d10 hit points." },
+    {
+      upTo: 42,
+      note: "You become a potted plant until the start of your next turn: incapacitated, and vulnerable to all damage.",
+    },
+    {
+      upTo: 44,
+      note: "For 1 minute you can teleport up to 20 ft. as a bonus action on each of your turns.",
+    },
+    { upTo: 46, note: "Cast Levitate on yourself." },
+    {
+      upTo: 48,
+      note: "A unicorn under the DM's control appears within 5 ft., then vanishes after 1 minute.",
+    },
+    {
+      upTo: 50,
+      note: "You can't speak for 1 minute; pink bubbles rise instead when you try.",
+    },
+    {
+      upTo: 52,
+      note: "A spectral shield hovers near you for 1 minute, giving +2 AC and immunity to Magic Missile.",
+    },
+    {
+      upTo: 54,
+      note: "You are immune to intoxication by alcohol for 5d6 days.",
+    },
+    {
+      upTo: 56,
+      note: "Flavour only: your hair falls out and fully regrows within 24 hours.",
+    },
+    {
+      upTo: 58,
+      note: "For 1 minute, any flammable object you touch that isn't worn or carried catches fire.",
+    },
+    { upTo: 60, note: "Regain your lowest-level expended spell slot." },
+    { upTo: 62, note: "For 1 minute you must shout to be understood." },
+    { upTo: 64, note: "Cast Fog Cloud, centred on yourself." },
+    {
+      upTo: 66,
+      note: "Up to three creatures you choose within 30 ft. take 4d10 lightning damage.",
+    },
+    {
+      upTo: 68,
+      note: "You are frightened by the nearest creature until the end of your next turn.",
+    },
+    {
+      upTo: 70,
+      note: "Up to three creatures you choose within 30 ft. turn invisible for 1 minute, each until it attacks or casts a spell.",
+    },
+    { upTo: 72, note: "You gain resistance to all damage for 1 minute." },
+    {
+      upTo: 74,
+      note: "A random creature within 60 ft. is poisoned for 1d4 hours.",
+    },
+    {
+      upTo: 76,
+      note: "You shed bright light in a 30-ft. radius for 1 minute; a creature that ends its turn within 5 ft. of you is blinded until the end of its next turn.",
+    },
+    {
+      upTo: 78,
+      note: "Cast Polymorph on yourself; failing the save turns you into a sheep for the duration.",
+    },
+    {
+      upTo: 80,
+      note: "Flavour only: illusory butterflies and petals drift around you for 1 minute.",
+    },
+    { upTo: 82, note: "Take one additional action immediately." },
+    {
+      upTo: 84,
+      note: "Each creature within 30 ft. takes 1d10 necrotic damage, and you regain hit points equal to the total dealt.",
+    },
+    { upTo: 86, note: "Cast Mirror Image." },
+    { upTo: 88, note: "Cast Fly on a random creature within 60 ft." },
+    {
+      upTo: 90,
+      note: "You turn invisible and inaudible for 1 minute, ending if you attack or cast a spell.",
+    },
+    {
+      upTo: 92,
+      note: "If you die within 1 minute, you return to life at once as though by Reincarnate.",
+    },
+    { upTo: 94, note: "Your size increases by one category for 1 minute." },
+    {
+      upTo: 96,
+      note: "You and each creature within 30 ft. gain vulnerability to piercing damage for 1 minute.",
+    },
+    {
+      upTo: 98,
+      note: "Flavour only: faint ethereal music plays around you for 1 minute.",
+    },
+    { upTo: 100, note: "Regain all your expended sorcery points." },
+  ],
+};
+
 // Rune Knight (fighter, Tasha's). Giant's Might and Runic Shield are granted
 // at their level (PB uses/long rest); each rune is a separate once-per-short-
 // rest invocation gated by `requiresFeature` so only runes you know get a
@@ -1152,6 +1363,79 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
     },
   ],
   "Rune Knight": runeKnightPools(),
+  // Both barbarian and sorcerer have a subclass named "Wild Magic", and
+  // SUBCLASS_POOLS is keyed by name alone — `requiresFeature` is what keeps
+  // each table on the class that owns it.
+  //
+  // Rows are paraphrased mechanical facts (TCE / PHB, non-SRD), same rule as
+  // the rest of this file.
+  "Wild Magic": [
+    {
+      title: "Wild Surge",
+      detail:
+        "On entering your rage, roll on the Wild Magic table for a random magical effect. Several rows call for a save against your Wild Magic DC (8 + proficiency bonus + Constitution modifier).",
+      level: 3,
+      recharge: long,
+      maxUses: () => 0,
+      // The barbarian's other 3rd-level Wild Magic feature — a discriminator
+      // that survives this pool replacing the Wild Surge prose row.
+      requiresFeature: "Magic Awareness",
+      save: {
+        dc: saveDcFormula(StatKey.con),
+        note: "8 + proficiency bonus + Constitution modifier, for the rows that force a save.",
+      },
+      mechanics: (k) => ({
+        actions: [
+          {
+            id: "wild-surge",
+            name: "Wild Surge",
+            cost: "free",
+            costNote:
+              k.level >= 14
+                ? "on entering rage — Controlled Surge lets you roll twice and choose"
+                : "on entering rage",
+            effects: [BARBARIAN_WILD_MAGIC_TABLE],
+          },
+          ...(k.level >= 10
+            ? [
+                {
+                  id: "unstable-backlash",
+                  name: "Unstable Backlash",
+                  cost: "reaction" as const,
+                  costNote:
+                    "after taking damage or failing a save while raging",
+                  effects: [BARBARIAN_WILD_MAGIC_TABLE],
+                },
+              ]
+            : []),
+        ],
+      }),
+    },
+    {
+      title: "Wild Magic Surge",
+      detail:
+        "After casting a sorcerer spell of 1st level or higher, the DM may have you roll a d20; on a 1, roll on the Wild Magic Surge table.",
+      level: 1,
+      recharge: long,
+      maxUses: () => 0,
+      // The sorcerer's other 1st-level Wild Magic grant, for the same reason.
+      requiresFeature: "Tides of Chaos",
+      mechanics: (k) => ({
+        actions: [
+          {
+            id: "wild-magic-surge",
+            name: "Roll a surge",
+            cost: "free",
+            costNote:
+              k.level >= 14
+                ? "when the DM calls for one — Controlled Chaos lets you roll twice and use either"
+                : "when the DM calls for one",
+            effects: [SORCERER_WILD_MAGIC_TABLE],
+          },
+        ],
+      }),
+    },
+  ],
   // Banneret's three features all ride *other* features (Second Wind, Action
   // Surge, Indomitable) and own no charges, so they're pool-less hosts: the
   // board is where you look for what you can do, and Rallying Cry has a

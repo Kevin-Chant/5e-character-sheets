@@ -865,11 +865,6 @@ export const SUBCLASSES: CatalogSubclass[] = [
       grants: {
         features: [
           {
-            title: "Wild Magic Surge",
-            detail:
-              "Your spellcasting can spark random magical effects, which the DM may trigger after you cast a sorcerer spell of 1st level or higher.",
-          },
-          {
             title: "Tides of Chaos",
             detail:
               "You can gain advantage on one attack roll, ability check, or saving throw. Once used, you regain it after a long rest (or sooner if a surge occurs).",

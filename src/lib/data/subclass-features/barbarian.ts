@@ -177,24 +177,12 @@ export const BARBARIAN_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "As an action, detect the presence and school of spells and magic items within 60 feet (not through total cover) until the end of your next turn; usable a number of times per long rest equal to your proficiency bonus.",
       },
-      {
-        title: "Wild Surge",
-        detail:
-          "On entering rage, roll a d8 on the Wild Magic Surge table for a random magical effect, several of which call for a Constitution save (DC 8 + proficiency bonus + Constitution modifier).",
-      },
     ],
     6: [
       {
         title: "Bolstering Magic",
         detail:
           "As an action, touch a creature (including yourself) and either grant a d3 bonus to its attack rolls or ability checks for 10 minutes, or restore one of its expended spell slots of d3 level (once per target per long rest); usable a number of times per long rest equal to your proficiency bonus.",
-      },
-    ],
-    10: [
-      {
-        title: "Unstable Backlash",
-        detail:
-          "As a reaction when you take damage or fail a saving throw while raging, roll on the Wild Magic Surge table and replace your current surge effect with the new result.",
       },
     ],
     14: [

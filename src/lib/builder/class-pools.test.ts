@@ -1102,3 +1102,75 @@ describe("at-will action hosts", () => {
     expect(c.features.map((f) => f.title)).not.toContain("Deflect Missiles");
   });
 });
+
+describe("Wild Magic tables", () => {
+  const withSubclass = (
+    name: OfficialClass,
+    level: number,
+    features: string[],
+  ): Character => {
+    const c = structuredClone(defaultCharacter);
+    c.class = [{ id: randomUUID(), name, level, subclass: "Wild Magic" }];
+    c.features = features.map((title) => ({ title, titleFormulas: [] }));
+    c.limitedUseAbilities = [];
+    syncClassPools(c, c.class[0]);
+    return c;
+  };
+
+  const poolTitles = (c: Character) =>
+    c.limitedUseAbilities.map((a) => a.info.title);
+
+  const tableOf = (c: Character, poolTitle: string) => {
+    const pool = c.limitedUseAbilities.find((a) => a.info.title === poolTitle);
+    const effects = pool?.mechanics?.actions?.[0]?.effects ?? [];
+    const table = effects.find((e) => e.effect === "table");
+    return table?.effect === "table" ? table : undefined;
+  };
+
+  it("covers every roll of the barbarian d8, with no gaps or overlaps", () => {
+    const table = tableOf(
+      withSubclass(OfficialClass.Barbarian, 3, ["Magic Awareness"]),
+      "Wild Surge",
+    );
+    expect(table?.die).toBe(StandardDie.d8);
+    expect(table?.rows.map((r) => r.upTo)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it("covers every roll of the sorcerer d100 in ascending pairs", () => {
+    const table = tableOf(
+      withSubclass(OfficialClass.Sorcerer, 1, ["Tides of Chaos"]),
+      "Wild Magic Surge",
+    );
+    expect(table?.die).toEqual({ numFaces: 100 });
+    expect(table?.rows).toHaveLength(50);
+    expect(table?.rows.map((r) => r.upTo)).toEqual(
+      Array.from({ length: 50 }, (_, i) => (i + 1) * 2),
+    );
+    for (const row of table!.rows) expect(row.note.length).toBeGreaterThan(0);
+  });
+
+  // Both classes have a subclass named "Wild Magic" and SUBCLASS_POOLS is
+  // keyed by name alone, so each table has to be gated onto its own class.
+  it("keeps each class's table off the other", () => {
+    const barb = poolTitles(
+      withSubclass(OfficialClass.Barbarian, 20, ["Magic Awareness"]),
+    );
+    const sorc = poolTitles(
+      withSubclass(OfficialClass.Sorcerer, 20, ["Tides of Chaos"]),
+    );
+
+    expect(barb).toContain("Wild Surge");
+    expect(barb).not.toContain("Wild Magic Surge");
+    expect(sorc).toContain("Wild Magic Surge");
+    expect(sorc).not.toContain("Wild Surge");
+  });
+
+  it("gives the barbarian Unstable Backlash only from 10th level", () => {
+    const actions = (level: number) =>
+      withSubclass(OfficialClass.Barbarian, level, ["Magic Awareness"])
+        .limitedUseAbilities.find((a) => a.info.title === "Wild Surge")
+        ?.mechanics?.actions?.map((a) => a.id) ?? [];
+    expect(actions(9)).toEqual(["wild-surge"]);
+    expect(actions(10)).toEqual(["wild-surge", "unstable-backlash"]);
+  });
+});
