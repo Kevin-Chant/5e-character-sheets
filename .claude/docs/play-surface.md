@@ -189,13 +189,22 @@ the panels are only layout:
   is the overwhelming majority and a heal is still one keystroke (`+9`), so
   making every heal deliberate costs nothing and bounds a mis-set mode to one
   entry.
+- **A stance is a condition, not sheet state.** A druid's Starry Form is a
+  mode you switch on for ten minutes — the same shape as Bless, and so it
+  lives in the encounter and ends with the fight rather than becoming a field
+  on `Character`. `ConditionMechanics.stance` names the group a form is
+  exclusive within, and `addCondition` drops the siblings when one arrives, so
+  switching forms is one act rather than an add and a remove. Only forms that
+  genuinely modify a roll carry riders (Starry Form's Dragon is
+  `minimumDie: 10`); the others carry a summary and the table resolves them.
 - `conditions-control.tsx` — chips plus the adder. The duration lives **on the
   chip**, not in the adder, so adding is one act and "for how long" is a
   separate thought answered on the thing it describes. That's also what makes a
   running duration correctable at all. The adder offers two groups: the
   fourteen standard conditions, and **"Spells & effects"** — the
   `CONDITION_MECHANICS` entries whose riders are actually wired
-  (`WIRED_CONDITION_NAMES`: Zephyr Strike's d8, Divine Favor's d4, Hex). The
+  (`WIRED_CONDITION_NAMES`: Zephyr Strike's d8, Divine Favor's d4, Hex), plus
+  **stances**, which are offered whether or not they ride a roll. The
   second group exists because the consent pipeline that normally delivers
   these (`sendReport` → offer → apply) only runs at a table with a separate
   DM client — solo, or as the caster-DM, "I cast Zephyr Strike" had no way
