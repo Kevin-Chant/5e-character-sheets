@@ -396,13 +396,6 @@ export const WIZARD_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail: "Add your Intelligence modifier to your initiative rolls.",
       },
     ],
-    6: [
-      {
-        title: "Power Surge",
-        detail:
-          "Store a number of charges equal to your Intelligence modifier (minimum 1) per long rest (also gained on a successful Counterspell or Dispel Magic); spend one charge, once per turn, to add force damage equal to half your wizard level to a damaging wizard spell you cast.",
-      },
-    ],
     10: [
       {
         title: "Durable Magic",

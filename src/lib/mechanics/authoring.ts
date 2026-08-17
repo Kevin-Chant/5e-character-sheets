@@ -133,6 +133,13 @@ export function defaultEffectOfKind(kind: Effect["effect"]): Effect {
         label: "Roll",
         amount: { fixed: [1, StandardDie.d6, DieOperation.roll] },
       };
+    case "table":
+      return {
+        effect: kind,
+        label: "Roll on the table",
+        die: { numFaces: 100 },
+        rows: [{ upTo: 100, note: "" }],
+      };
     case "remind":
       return { effect: kind, note: "" };
   }
@@ -147,5 +154,6 @@ export const EFFECT_KIND_LABELS: Record<Effect["effect"], string> = {
   restoreSlot: "Restore a spell slot",
   spendHitDie: "Spend a hit die",
   roll: "Roll dice (display only)",
+  table: "Roll on a table",
   remind: "Show a reminder",
 };

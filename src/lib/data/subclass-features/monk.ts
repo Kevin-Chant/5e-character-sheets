@@ -12,29 +12,12 @@ export const MONK_SUBCLASS_FEATURES: SubclassFeatureTable = {
         detail:
           "Once per long rest, reroll a failed Charisma (Intimidation or Persuasion) check. Choose a draconic ancestry (acid, cold, fire, lightning, or poison) that recolors your unarmed strike damage, and learn Draconic or another language.",
       },
-      {
-        title: "Breath of the Dragon",
-        detail:
-          "In place of one Attack-action strike, exhale a 20-foot cone or 30-foot line: targets make a Dexterity save (your ki save DC) or take 2 Martial Arts dice of your ancestry's damage type, half on a success. Usable a number of times per long rest equal to your proficiency bonus, or for 2 ki once those uses run out.",
-      },
-    ],
-    6: [
-      {
-        title: "Wings Unfurled",
-        detail:
-          "When you use Step of the Wind, you may also spend one of its uses to manifest spectral wings, gaining a flying speed equal to your walking speed until the end of the turn. Usable a number of times per long rest equal to your proficiency bonus.",
-      },
     ],
     11: [
       {
         title: "Breath of the Dragon (upgrade)",
         detail:
           "Breath of the Dragon's damage increases to 3 Martial Arts dice.",
-      },
-      {
-        title: "Aspect of the Wyrm",
-        detail:
-          "Bonus action, once per long rest (or for 3 ki): open a 10-foot aura for 1 minute, choosing one of two effects. Each turn, target one creature in the aura with a Wisdom save (your ki save DC), frightening it on a failure (repeatable save); or grant yourself and allies inside resistance to your ancestry's damage type for the duration.",
       },
     ],
     17: [

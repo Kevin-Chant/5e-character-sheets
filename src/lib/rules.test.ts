@@ -144,7 +144,7 @@ describe("getHpFormula", () => {
       },
     ];
     c.stats.con = 10;
-    c.features = features.map((title) => ({ title, detail: "" }));
+    c.features = features.map((title) => ({ title, titleFormulas: [] }));
     c.spells = {};
     c.spellcastingClasses = [];
     return c;

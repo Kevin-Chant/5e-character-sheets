@@ -563,3 +563,58 @@ describe("manual roll entry", () => {
     expect(rolls).toEqual([{ label: "Superiority die", total: 0, dice: [] }]);
   });
 });
+
+describe("table effect", () => {
+  const elixir = (rows: { upTo: number; note: string }[]): Effect => ({
+    effect: "table",
+    label: "Elixir",
+    die: StandardDie.d6,
+    rows,
+  });
+  const ROWS = [
+    { upTo: 1, note: "one" },
+    { upTo: 3, note: "two or three" },
+    { upTo: 6, note: "four to six" },
+  ];
+
+  it("reads back the row the roll lands on, and reports the roll", () => {
+    const c = classed(OfficialClass.Artificer, 3);
+    // A manual total stands in for the die, which is how a physical roller
+    // reaches the same table.
+    const out = resolveEffects([elixir(ROWS)], {
+      character: c,
+      manualTotals: [3],
+    });
+
+    expect(out.rolls).toEqual([{ label: "Elixir", total: 3, dice: [] }]);
+    expect(out.reminders).toEqual(["3: two or three"]);
+    expect(out.updates).toEqual([]);
+  });
+
+  it("picks the first row the roll doesn't exceed", () => {
+    const c = classed(OfficialClass.Artificer, 3);
+    const noteFor = (rolled: number) =>
+      resolveEffects([elixir(ROWS)], { character: c, manualTotals: [rolled] })
+        .reminders[0];
+    expect(noteFor(1)).toBe("1: one");
+    expect(noteFor(2)).toBe("2: two or three");
+    expect(noteFor(6)).toBe("6: four to six");
+  });
+
+  it("always owes the physical roller its die", () => {
+    expect(
+      manualRollAsks([elixir(ROWS)], {
+        character: classed(OfficialClass.Artificer, 3),
+      }).map((a) => a.label),
+    ).toEqual(["Elixir"]);
+  });
+
+  it("rolls within the die's range when nothing is entered", () => {
+    const c = classed(OfficialClass.Artificer, 3);
+    for (let i = 0; i < 20; i++) {
+      const rolled = resolveEffects([elixir(ROWS)], { character: c }).rolls[0];
+      expect(rolled.total).toBeGreaterThanOrEqual(1);
+      expect(rolled.total).toBeLessThanOrEqual(6);
+    }
+  });
+});

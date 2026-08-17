@@ -53,6 +53,19 @@ export type Effect =
   | { effect: "restoreSlot"; level?: LeveledSpellLevel }
   | { effect: "spendHitDie"; die: HitDie }
   | { effect: "roll"; label: string; amount: AmountExpr } // display only, no write
+  // Roll on a table and read back the row it lands on (Wild Magic surge,
+  // Experimental Elixir). Rows carry prose rather than nested effects because
+  // every real 5e table's outcome is a ruling, not a state change the sheet
+  // could make.
+  | {
+      effect: "table";
+      label: string;
+      // A `DieDefinition`, not a `StandardDie`: the sorcerer's Wild Magic
+      // table is d100.
+      die: DieDefinition;
+      // Ascending; the first row the roll doesn't exceed wins.
+      rows: { upTo: number; note: string }[];
+    }
   | { effect: "remind"; note: string }; // table prompt, not automation
 
 // A clickable use of an ability. All effects must be payable/meaningful for
@@ -162,6 +175,10 @@ type RollRiderKind =
       note?: string;
     }
   | { rider: "critRange"; value: number } // d20s at or above this crit (Improved Critical: 19)
+  // Extra dice of the weapon's *own* damage die, rolled only on a crit
+  // (Brutal Critical). Distinct from `extraDamage`, whose dice are the
+  // rider's and are inflated by a crit rather than caused by one.
+  | { rider: "critExtraDice"; count: number }
   | { rider: "advantage"; note: string } // advisory only, situational
   // Extra damage folded into a weapon attack (Sneak Attack, Rage, Divine
   // Smite/Strike). Handled directly by the roll dialog rather than the silent

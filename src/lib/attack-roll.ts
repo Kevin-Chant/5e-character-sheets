@@ -6,6 +6,11 @@ import {
 import {
   Character,
   CustomFormulaWithDamage,
+  DieDefinition,
+  isArbitraryOperandOperation,
+  isDieExpression,
+  isDoubleOperandOperation,
+  isExpression,
   RollRider,
   SaveEffect,
   Spell,
@@ -294,11 +299,63 @@ export function resolveDamage({
     });
   }
 
+  // Brutal Critical and kin: extra dice of the weapon's own damage die, rolled
+  // only because the hit crit. The die is read off the damage map rather than
+  // carried by the rider, which is the whole point of the kind.
+  if (crit) {
+    const die = firstDamageDie(map);
+    for (const { source, rider } of riders) {
+      if (rider.rider !== "critExtraDice" || !die) continue;
+      const dice: number[] = [];
+      results.push({
+        source,
+        total: rollFormula(
+          [rider.count, die, DieOperation.roll],
+          character,
+          dice,
+        ),
+        dice,
+        damageType: firstDamageType(map),
+      });
+    }
+  }
+
   const raw =
     parts.reduce((sum, p) => sum + p.total, 0) +
     results.reduce((sum, e) => sum + e.total, 0);
 
   return { parts, extras: results, total: applyTotals(raw), critical: crit };
+}
+
+// The damage map's own die and type — the first die expression found, since a
+// weapon's damage is a single leaf and anything else is already a rider.
+function firstDamageDie(
+  map: CustomFormulaWithDamage,
+): DieDefinition | undefined {
+  for (const formula of Object.values(map)) {
+    const found = findDie(formula);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+const firstDamageType = (
+  map: CustomFormulaWithDamage,
+): DamageType | undefined => (Object.keys(map) as DamageType[])[0];
+
+function findDie(formula: unknown): DieDefinition | undefined {
+  if (isDieExpression(formula)) return formula[1];
+  if (isExpression(formula)) {
+    if (isArbitraryOperandOperation(formula))
+      for (const operand of formula.operands) {
+        const found = findDie(operand);
+        if (found) return found;
+      }
+    else if (isDoubleOperandOperation(formula))
+      return findDie(formula.operand1) ?? findDie(formula.operand2);
+    else return findDie((formula as { operand1: unknown }).operand1);
+  }
+  return undefined;
 }
 
 /** What a successful save leaves of a rolled total. 5e rounds down. */

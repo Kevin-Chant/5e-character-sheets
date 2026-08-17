@@ -1162,6 +1162,20 @@ export function classDamageRiders(character: Character): ActiveRider[] {
       },
     });
 
+  // Brutal Critical (barbarian 9/13/17): one, two, then three extra dice of
+  // the weapon's own damage die on a critical hit. A `critExtraDice` rider
+  // rather than `extraDamage` — the dice are caused by the crit, not doubled
+  // by it, and they're the weapon's die, which only the damage map knows.
+  if (barb >= 9)
+    out.push({
+      source: "Brutal Critical",
+      rider: {
+        rider: "critExtraDice",
+        count: barb >= 17 ? 3 : barb >= 13 ? 2 : 1,
+        requires: { tags: ["melee"] },
+      },
+    });
+
   // Divine Smite (paladin 2+): expend a spell slot on a melee weapon hit for
   // 2d8 radiant, +1d8 per slot level above 1st (max 5d8), +1d8 vs undead or
   // fiends.

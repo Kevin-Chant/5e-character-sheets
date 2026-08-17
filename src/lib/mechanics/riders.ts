@@ -62,7 +62,36 @@ export function extraDamageRiders(character: Character): ActiveRider[] {
   character.limitedUseAbilities.forEach((a) =>
     collect(mechanicsForAbility(a), a.info.title.trim()),
   );
-  out.push(...classDamageRiders(character));
+  out.push(
+    ...classDamageRiders(character).filter(
+      (r) => r.rider.rider === "extraDamage",
+    ),
+  );
+  return out;
+}
+
+// `critExtraDice` riders (Brutal Critical). Collected apart from
+// `extraDamageRiders` because they aren't extras the player declares — they
+// only exist on a crit, and `resolveDamage` rolls them off the weapon's own
+// damage die.
+export function critDiceRiders(character: Character): ActiveRider[] {
+  const out: ActiveRider[] = [];
+  const collect = (entry: FeatureMechanics | undefined, source: string) =>
+    entry?.riders?.forEach((r) => {
+      if (r.rider.rider === "critExtraDice")
+        out.push({ source, rider: r.rider });
+    });
+  character.features.forEach((f) =>
+    collect(FEATURE_MECHANICS[normalizeTitle(f.title)], f.title.trim()),
+  );
+  character.limitedUseAbilities.forEach((a) =>
+    collect(mechanicsForAbility(a), a.info.title.trim()),
+  );
+  out.push(
+    ...classDamageRiders(character).filter(
+      (r) => r.rider.rider === "critExtraDice",
+    ),
+  );
   return out;
 }
 

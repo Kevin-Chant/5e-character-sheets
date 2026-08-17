@@ -4,13 +4,17 @@ import {
   DamageType,
   DieOperation,
   OfficialClass,
+  StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
+import { randomUUID } from "src/lib/browser";
+import { resolveDamage } from "src/lib/attack-roll";
 import { rollD20Check } from "src/lib/roll";
 import { Character, DieExpression } from "src/lib/types";
 import {
   adjustDieRoll,
   applyTotalRiders,
+  critDiceRiders,
   critThreshold,
   extraDamageRiders,
   flatBonusRiders,
@@ -413,5 +417,57 @@ describe("Foe Slayer", () => {
         >
       ).optional,
     ).toBe(true);
+  });
+});
+
+describe("critExtraDice (Brutal Critical)", () => {
+  const barbarian = (level: number): Character => {
+    const c = structuredClone(defaultCharacter);
+    c.class = [{ id: randomUUID(), name: OfficialClass.Barbarian, level }];
+    c.features = [];
+    return c;
+  };
+
+  it("arrives only from 9th level, and grows at 13 and 17", () => {
+    const count = (level: number) => {
+      const riders = critDiceRiders(barbarian(level));
+      const rider = riders[0]?.rider;
+      return rider?.rider === "critExtraDice" ? rider.count : 0;
+    };
+    expect(count(8)).toBe(0);
+    expect(count(9)).toBe(1);
+    expect(count(13)).toBe(2);
+    expect(count(17)).toBe(3);
+  });
+
+  it("stays out of the declared extras, which are the player's to tick", () => {
+    expect(
+      extraDamageRiders(barbarian(17)).map((r) => r.rider.rider),
+    ).not.toContain("critExtraDice");
+  });
+
+  it("rolls the weapon's own die, and only on a crit", () => {
+    const character = barbarian(9);
+    const riders = critDiceRiders(character);
+    const map = {
+      [DamageType.Slashing]: [1, StandardDie.d12, DieOperation.roll],
+    };
+    const roll = (crit: boolean) =>
+      resolveDamage({
+        character,
+        map: map as any,
+        extras: [],
+        chosen: new Set<string>(),
+        riders,
+        ...(crit ? { crit: { mode: "raw" as const } } : {}),
+        applyTotals: (t) => t,
+      });
+
+    expect(roll(false).extras).toHaveLength(0);
+    const crit = roll(true);
+    expect(crit.extras.map((e) => e.source)).toEqual(["Brutal Critical"]);
+    expect(crit.extras[0].dice).toHaveLength(1);
+    expect(crit.extras[0].dice[0]).toBeGreaterThanOrEqual(1);
+    expect(crit.extras[0].dice[0]).toBeLessThanOrEqual(12);
   });
 });

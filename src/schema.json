@@ -756,6 +756,45 @@
                 },
                 {
                     "properties": {
+                        "die": {
+                            "$ref": "#/definitions/DieDefinition"
+                        },
+                        "effect": {
+                            "const": "table",
+                            "type": "string"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "rows": {
+                            "items": {
+                                "properties": {
+                                    "note": {
+                                        "type": "string"
+                                    },
+                                    "upTo": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "note",
+                                    "upTo"
+                                ],
+                                "type": "object"
+                            },
+                            "type": "array"
+                        }
+                    },
+                    "required": [
+                        "die",
+                        "effect",
+                        "label",
+                        "rows"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
                         "effect": {
                             "const": "remind",
                             "type": "string"
@@ -1281,6 +1320,19 @@
                     },
                     "type": "array"
                 },
+                "proficiency": {
+                    "enum": [
+                        "proficient",
+                        "unproficient"
+                    ],
+                    "type": "string"
+                },
+                "skill": {
+                    "items": {
+                        "$ref": "#/definitions/SkillName"
+                    },
+                    "type": "array"
+                },
                 "tags": {
                     "items": {
                         "$ref": "#/definitions/AttackTag"
@@ -1480,6 +1532,34 @@
                             "required": [
                                 "rider",
                                 "value"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "properties": {
+                                "requires": {
+                                    "$ref": "#/definitions/RiderCondition"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "properties": {
+                                "count": {
+                                    "type": "number"
+                                },
+                                "rider": {
+                                    "const": "critExtraDice",
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "count",
+                                "rider"
                             ],
                             "type": "object"
                         },
@@ -1730,6 +1810,30 @@
                 "Large",
                 "Huge",
                 "Gargantuan"
+            ],
+            "type": "string"
+        },
+        "SkillName": {
+            "enum": [
+                "Acrobatics",
+                "Animal Handling",
+                "Arcana",
+                "Athletics",
+                "Deception",
+                "History",
+                "Insight",
+                "Intimidation",
+                "Investigation",
+                "Medicine",
+                "Nature",
+                "Perception",
+                "Performance",
+                "Persuasion",
+                "Religion",
+                "Sleight of Hand",
+                "Stealth",
+                "Survival",
+                "Thieves Tools"
             ],
             "type": "string"
         },

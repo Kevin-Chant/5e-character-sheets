@@ -24,6 +24,7 @@ import {
 } from "src/lib/mechanics/types";
 import { SUBCLASS_ACTION_HOSTS } from "src/lib/builder/subclass-action-hosts";
 import { saveDcFormula } from "src/lib/rules";
+import { martialArtsDie } from "src/lib/builder/class-features";
 import {
   Character,
   CustomFormula,
@@ -1151,6 +1152,224 @@ export const SUBCLASS_POOLS: Record<string, ClassPoolDef[]> = {
     },
   ],
   "Rune Knight": runeKnightPools(),
+  // The one random-effect table in the catalog whose rows this repo already
+  // states in full (the feature's own prose). The barbarian/sorcerer Wild
+  // Magic tables and the Spirit Tales table want the same `table` effect but
+  // need their rows verified against the source first.
+  Alchemist: [
+    {
+      title: "Experimental Elixir",
+      detail:
+        "Elixirs brewed after a long rest, each of a random kind rolled when it is brewed. More can be brewed by expending a spell slot.",
+      level: 3,
+      recharge: long,
+      maxUses: (k) => (k.level >= 15 ? 3 : k.level >= 6 ? 2 : 1),
+      mechanics: () => ({
+        actions: [
+          {
+            id: "experimental-elixir",
+            name: "Brew an elixir",
+            cost: "special",
+            costNote: "after a long rest, or for a spell slot",
+            effects: [
+              spendOneUse,
+              {
+                effect: "table",
+                label: "Elixir",
+                die: StandardDie.d6,
+                rows: [
+                  {
+                    upTo: 1,
+                    note: "Healing — the drinker regains 2d4 + your Intelligence modifier hit points.",
+                  },
+                  {
+                    upTo: 2,
+                    note: "Swiftness — the drinker's walking speed rises by 10 feet for 1 hour.",
+                  },
+                  {
+                    upTo: 3,
+                    note: "Resilience — the drinker gains +1 AC for 10 minutes.",
+                  },
+                  {
+                    upTo: 4,
+                    note: "Boldness — for 1 minute the drinker adds 1d4 to every attack roll and saving throw.",
+                  },
+                  {
+                    upTo: 5,
+                    note: "Flight — the drinker gains a flying speed of 10 feet for 10 minutes.",
+                  },
+                  {
+                    upTo: 6,
+                    note: "Transformation — the drinker's body is transformed as if by Alter Self for 10 minutes (they choose which option).",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    },
+  ],
+  // War Magic's Power Surge: a real pool (INT modifier, minimum 1) rather
+  // than prose. Counterspell/Dispel Magic successes also grant a charge, which
+  // has no trigger to hang off — the restore action is how you record one.
+  "War Magic": [
+    {
+      title: "Power Surge",
+      detail:
+        "Charges spent one per turn to add force damage equal to half your wizard level to a damaging wizard spell. Regained on a long rest, or by succeeding on a Counterspell or Dispel Magic.",
+      level: 6,
+      recharge: long,
+      maxUses: () => ({
+        operation: Operation.maximum,
+        operands: [1, StatKey.int],
+      }),
+      mechanics: (k) => ({
+        actions: [
+          {
+            id: "power-surge",
+            name: "Spend a power surge",
+            cost: "free",
+            costNote: "once per turn, on a damaging wizard spell",
+            effects: [
+              spendOneUse,
+              {
+                effect: "remind",
+                note: `The spell deals an extra ${Math.floor(k.level / 2)} force damage to one target.`,
+              },
+            ],
+          },
+          {
+            id: "power-surge-store",
+            name: "Store a surge",
+            cost: "free",
+            costNote: "after a successful Counterspell or Dispel Magic",
+            effects: [{ effect: "restoreUses", amount: { fixed: 1 } }],
+          },
+        ],
+      }),
+    },
+  ],
+  // Ascendant Dragon's two "PB per long rest, or spend ki instead" features.
+  // No single pool shape covers that, but two actions on one host do: one
+  // spends the pool, the other drains Ki by title once the pool is empty.
+  "Ascendant Dragon": [
+    {
+      title: "Breath of the Dragon",
+      detail:
+        "In place of one Attack-action strike, exhale a cone or line of your ancestry's damage type. Usable your proficiency bonus a day, or for 2 ki after that.",
+      level: 3,
+      recharge: long,
+      maxUses: () => PB,
+      save: {
+        dc: saveDcFormula(StatKey.wis),
+        note: "Dexterity save against your ki save DC; half damage on a success.",
+      },
+      // 2 Martial Arts dice, 3 at 11th, 4 when widened at 17th.
+      mechanics: (k) => {
+        const dice = k.level >= 11 ? 3 : 2;
+        const die = martialArtsDie(k.level);
+        const area =
+          k.level >= 17
+            ? "20-ft. cone or 30-ft. line (60/90 ft. for 1 extra ki)"
+            : "20-ft. cone or 30-ft. line";
+        return {
+          actions: [
+            spendRollRemind({
+              id: "breath-of-the-dragon",
+              name: "Breath of the Dragon",
+              cost: "special",
+              costNote: "in place of one Attack-action strike",
+              roll: { label: "Breath damage", count: dice, die },
+              note: `${area}. Each creature makes a Dexterity save for half.`,
+            }),
+            {
+              id: "breath-of-the-dragon-ki",
+              name: "Breath of the Dragon (2 ki)",
+              cost: "special",
+              costNote: "once your daily uses are gone",
+              effects: [
+                { effect: "spendUses", amount: { fixed: 2 }, pool: "Ki" },
+                {
+                  effect: "roll",
+                  label: "Breath damage",
+                  amount: {
+                    fixed: [dice, die, DieOperation.roll] as [
+                      number,
+                      StandardDie,
+                      DieOperation,
+                    ],
+                  },
+                },
+                {
+                  effect: "remind",
+                  note: `${area}. Each creature makes a Dexterity save for half.`,
+                },
+              ],
+            },
+          ],
+        };
+      },
+    },
+    {
+      title: "Wings Unfurled",
+      detail:
+        "When you use Step of the Wind, manifest spectral wings for a flying speed equal to your walking speed until the end of the turn.",
+      level: 6,
+      recharge: long,
+      maxUses: () => PB,
+      mechanics: () => ({
+        actions: [
+          spendRollRemind({
+            id: "wings-unfurled",
+            name: "Wings Unfurled",
+            cost: "free",
+            costNote: "with Step of the Wind",
+            note: "Flying speed equal to your walking speed until the end of this turn.",
+          }),
+        ],
+      }),
+    },
+    {
+      title: "Aspect of the Wyrm",
+      detail:
+        "A 10-foot aura for 1 minute that either frightens one creature a turn or grants resistance to your ancestry's damage type.",
+      level: 11,
+      recharge: long,
+      maxUses: () => 1,
+      save: {
+        dc: saveDcFormula(StatKey.wis),
+        note: "Wisdom save against your ki save DC, repeatable at the end of each of its turns.",
+      },
+      mechanics: (k) => ({
+        actions: [
+          spendRollRemind({
+            id: "aspect-of-the-wyrm",
+            name: "Aspect of the Wyrm",
+            cost: "bonusAction",
+            note:
+              "Open the aura for 1 minute: frighten one creature in it each turn, or give yourself and allies inside resistance to your ancestry's damage type." +
+              (k.level >= 17
+                ? " Creatures in the aura also make a Dexterity save, taking 3d10 of your ancestry's damage on a failure."
+                : ""),
+          }),
+          {
+            id: "aspect-of-the-wyrm-ki",
+            name: "Aspect of the Wyrm (3 ki)",
+            cost: "bonusAction",
+            costNote: "once your daily use is gone",
+            effects: [
+              { effect: "spendUses", amount: { fixed: 3 }, pool: "Ki" },
+              {
+                effect: "remind",
+                note: "Open the aura for 1 minute, as above.",
+              },
+            ],
+          },
+        ],
+      }),
+    },
+  ],
   Land: [
     {
       title: "Natural Recovery",

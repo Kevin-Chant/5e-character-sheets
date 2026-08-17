@@ -48,6 +48,7 @@ import {
   flatBonusRiders,
   hitDieHealing,
   riderFlatBonus,
+  critDiceRiders,
   ridersFor,
 } from "src/lib/mechanics/riders";
 import { maxHpValue, resolveEffects } from "src/lib/mechanics/resolve";
@@ -1252,6 +1253,7 @@ function EffectControls({
     // applyTotalRiders like a feature's).
     const damageRiders = [
       ...applicableRiders(ridersFor(character, "damage"), context),
+      ...applicableRiders(critDiceRiders(character), context),
       ...conditionRiders(selfConditions, "damage"),
       ...ridersAgainst(target?.conditions ?? [], selfId, "damage"),
     ];

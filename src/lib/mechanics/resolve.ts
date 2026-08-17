@@ -200,6 +200,15 @@ export function manualRollAsks(
 ): ManualRollAsk[] {
   const asks: ManualRollAsk[] = [];
   for (const effect of effects) {
+    // A table's die is always rolled, so it always owes the physical roller
+    // an entry — there's no amount to inspect.
+    if (effect.effect === "table") {
+      asks.push({
+        label: effect.label,
+        formula: [1, effect.die, DieOperation.roll],
+      });
+      continue;
+    }
     if (!("amount" in effect) || !amountRollsDice(effect.amount, ctx)) continue;
     const label =
       effect.effect === "heal"
@@ -399,6 +408,18 @@ export function resolveEffects(
         const dice: number[] = [];
         const total = rollAmount(effect.amount, ctx, dice) ?? 0;
         out.rolls.push({ label: effect.label, total, dice });
+        break;
+      }
+      case "table": {
+        const dice: number[] = [];
+        const rolled = ctx.manualTotals
+          ? Math.max(0, ctx.manualTotals.shift() ?? 0)
+          : rollFormula([1, effect.die, DieOperation.roll], character, dice);
+        const row =
+          effect.rows.find((r) => rolled <= r.upTo) ??
+          effect.rows[effect.rows.length - 1];
+        out.rolls.push({ label: effect.label, total: rolled, dice });
+        if (row) out.reminders.push(`${rolled}: ${row.note}`);
         break;
       }
       case "remind":

@@ -4,13 +4,6 @@ import { SubclassFeatureTable } from "src/lib/data/subclass-features/types";
 // class level. Mechanical facts with original paraphrased summaries only.
 export const ARTIFICER_SUBCLASS_FEATURES: SubclassFeatureTable = {
   Alchemist: {
-    3: [
-      {
-        title: "Experimental Elixir",
-        detail:
-          "After a long rest, brew one elixir (two at level 6, three at level 15; more by spending a spell slot); a drinker rolls d6 for one of six effects: healing (2d4 + INT), +10 ft speed for an hour, +1 AC for 10 minutes, a +1d4 bonus to attack rolls and saves for 1 minute, 10 ft of flight for 10 minutes, or an Alter Self-like transformation for 10 minutes.",
-      },
-    ],
     5: [
       {
         title: "Alchemical Savant",
