@@ -266,6 +266,13 @@ export default function Root() {
           <FaTriangleExclamation />
         </button>
       </Tooltip>
+    ) : saveError === "conflict" ? (
+      <Tooltip
+        className="tooltip-align-end"
+        label="Someone else saved this character since you opened it. Choose which version to keep on the sheet."
+      >
+        <FaTriangleExclamation className="save-indicator-error" />
+      </Tooltip>
     ) : saveError ? (
       <Tooltip
         className="tooltip-align-end"

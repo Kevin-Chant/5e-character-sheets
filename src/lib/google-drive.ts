@@ -58,7 +58,7 @@ export async function listSharedCharacterFiles() {
     return await listAllPages({
       q: `appProperties has { key='${SHARED_MARKER_KEY}' and value='true' } and trashed=false`,
       pageSize: 100,
-      fields: `nextPageToken, files(id, name, appProperties)`,
+      fields: `nextPageToken, files(id, name, appProperties, headRevisionId)`,
     });
   } catch (err: any) {
     console.error(err);
@@ -115,10 +115,14 @@ export async function getFileContents(fileId: string) {
   return response.body;
 }
 
-export async function updateFile(fileId: string, fileContents: string) {
+// Resolves with the revision the write produced, for conflict tracking.
+export async function updateFile(
+  fileId: string,
+  fileContents: string,
+): Promise<string | undefined> {
   return withDriveAuthRetry(async () => {
     const res = await fetch(
-      `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}?fields=headRevisionId`,
       {
         method: "PATCH",
         headers: new Headers({
@@ -136,8 +140,32 @@ export async function updateFile(fileId: string, fileContents: string) {
         res.status,
       );
     }
-    return res;
+    const meta = (await res.json().catch(() => ({}))) as {
+      headRevisionId?: string;
+    };
+    return meta.headRevisionId;
   });
+}
+
+// The file's current content revision. Metadata patches (the editor-presence
+// heartbeat stamps appProperties every ~25s) don't move it — which is why
+// conflict detection compares this and not modifiedTime. Failure reads as
+// "unknown" so a metadata hiccup can't block saving.
+export async function getHeadRevision(
+  fileId: string,
+): Promise<string | undefined> {
+  try {
+    const res = await withDriveAuthRetry(() =>
+      window.gapi.client.drive.files.get({
+        fileId,
+        fields: "headRevisionId",
+      }),
+    );
+    return res.result.headRevisionId ?? undefined;
+  } catch (err) {
+    console.error(err);
+    return undefined;
+  }
 }
 
 interface CreateFileOptions {

@@ -35,6 +35,7 @@ import EditEquipmentItem from "./edit-equipment-item";
 import PresenceBroadcaster from "./presence-broadcaster";
 import DriveLiveSessionBootstrap from "./drive-live-session-bootstrap";
 import SharePresenceWarning from "./share-presence-warning";
+import SaveConflictBanner from "./save-conflict-banner";
 import { FaAnglesUp } from "react-icons/fa6";
 import { useLevelUp } from "src/lib/hooks/use-level-up";
 
@@ -170,6 +171,7 @@ export default function CharSheet() {
         )}
         <div className="page-container">
           <SharePresenceWarning />
+          <SaveConflictBanner />
           <div className="character-info-header">
             <div className="row">
               <div className="rounded-border-box">

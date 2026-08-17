@@ -12,20 +12,30 @@ vi.mock("src/lib/google-drive", async () => {
     listAppDataFiles: vi.fn(),
     listSharedCharacterFiles: vi.fn(),
     getFileContents: vi.fn(),
+    getHeadRevision: vi.fn(),
+    updateFile: vi.fn(),
   };
 });
 
+import { UUID } from "crypto";
 import {
   getFileContents,
+  getHeadRevision,
   listAppDataFiles,
   listSharedCharacterFiles,
   SHARED_UUID_KEY,
+  updateFile,
 } from "src/lib/google-drive";
-import { countDriveCharacters } from "src/datastores/google-drive-datastore";
+import GoogleDriveDatastore, {
+  countDriveCharacters,
+} from "src/datastores/google-drive-datastore";
+import { defaultCharacter } from "src/lib/data/default-data";
+import { isSaveConflictError } from "src/lib/save-conflict";
 
 const INDEX = "imported-shared-characters.json";
 
 beforeEach(() => {
+  vi.resetAllMocks();
   vi.mocked(getFileContents).mockResolvedValue(undefined);
 });
 
@@ -82,5 +92,100 @@ describe("countDriveCharacters", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     expect((await countDriveCharacters()).importedCount).toBe(0);
+  });
+});
+
+describe("conflict guard on shared documents", () => {
+  const UUID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" as UUID;
+  const characterNamed = (name: string) => ({
+    ...structuredClone(defaultCharacter),
+    uuid: UUID_A,
+    name,
+  });
+
+  // A signed-in account holding one shared document at revision rev1.
+  const setup = async () => {
+    vi.mocked(listAppDataFiles).mockResolvedValue([]);
+    vi.mocked(listSharedCharacterFiles).mockResolvedValue([
+      {
+        id: "f1",
+        name: "Mine.5echar",
+        appProperties: { [SHARED_UUID_KEY]: UUID_A },
+        headRevisionId: "rev1",
+      },
+    ]);
+    const mine = characterNamed("Mine");
+    vi.mocked(getFileContents).mockResolvedValue(JSON.stringify(mine));
+    vi.mocked(updateFile).mockResolvedValue(undefined);
+    await GoogleDriveDatastore.initializeDatastore();
+    vi.mocked(updateFile).mockClear();
+    return mine;
+  };
+
+  it("writes when the stored revision is the one we read", async () => {
+    const mine = await setup();
+    vi.mocked(getHeadRevision).mockResolvedValue("rev1");
+    vi.mocked(updateFile).mockResolvedValue("rev2");
+    await GoogleDriveDatastore.saveToDatastore(mine);
+    expect(updateFile).toHaveBeenCalledWith("f1", JSON.stringify(mine));
+  });
+
+  it("refuses to erase a save it hasn't seen, carrying their copy", async () => {
+    const mine = await setup();
+    const theirs = characterNamed("Theirs");
+    vi.mocked(getHeadRevision).mockResolvedValue("rev9");
+    vi.mocked(getFileContents).mockResolvedValue(JSON.stringify(theirs));
+
+    const refusal = await GoogleDriveDatastore.saveToDatastore(mine).then(
+      () => undefined,
+      (error) => error,
+    );
+    expect(isSaveConflictError(refusal)).toBe(true);
+    expect(refusal.remoteRevision).toBe("rev9");
+    expect(refusal.theirs.name).toBe("Theirs");
+    expect(updateFile).not.toHaveBeenCalled();
+  });
+
+  it("accepting the refusing revision lets the next write through", async () => {
+    const mine = await setup();
+    vi.mocked(getHeadRevision).mockResolvedValue("rev9");
+    vi.mocked(getFileContents).mockResolvedValue(
+      JSON.stringify(characterNamed("Theirs")),
+    );
+    await expect(GoogleDriveDatastore.saveToDatastore(mine)).rejects.toThrow();
+
+    GoogleDriveDatastore.acceptRemoteRevision!(UUID_A, "rev9");
+    vi.mocked(updateFile).mockResolvedValue("rev10");
+    await GoogleDriveDatastore.saveToDatastore(mine);
+    expect(updateFile).toHaveBeenCalledWith("f1", JSON.stringify(mine));
+  });
+
+  it("a third save landing after acceptance refuses again", async () => {
+    const mine = await setup();
+    GoogleDriveDatastore.acceptRemoteRevision!(UUID_A, "rev9");
+    vi.mocked(getHeadRevision).mockResolvedValue("rev11");
+    vi.mocked(getFileContents).mockResolvedValue(
+      JSON.stringify(characterNamed("Third")),
+    );
+    await expect(GoogleDriveDatastore.saveToDatastore(mine)).rejects.toThrow();
+    expect(updateFile).not.toHaveBeenCalled();
+  });
+
+  it("a metadata hiccup doesn't block saving", async () => {
+    const mine = await setup();
+    vi.mocked(getHeadRevision).mockResolvedValue(undefined);
+    vi.mocked(updateFile).mockResolvedValue(undefined);
+    await GoogleDriveDatastore.saveToDatastore(mine);
+    expect(updateFile).toHaveBeenCalled();
+  });
+
+  it("overwrites rather than refusing blind when their copy is unreadable", async () => {
+    const mine = await setup();
+    vi.mocked(getHeadRevision).mockResolvedValue("rev9");
+    vi.mocked(getFileContents).mockResolvedValue("{ truncated");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(updateFile).mockResolvedValue("rev10");
+    await GoogleDriveDatastore.saveToDatastore(mine);
+    expect(updateFile).toHaveBeenCalled();
   });
 });

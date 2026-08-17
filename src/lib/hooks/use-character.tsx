@@ -13,9 +13,11 @@ import {
   invertAction,
   isNavigationAction,
   isUpdateAction,
+  loadPersistedCharacter,
   replaceCharacter,
   resetCharacter,
 } from "src/lib/hooks/reducers/actions";
+import { isSaveConflictError, SaveConflictError } from "src/lib/save-conflict";
 import reducer from "src/lib/hooks/reducers/reducer";
 import { Character } from "src/lib/types";
 import { missingProvider } from "src/lib/missing-provider";
@@ -48,9 +50,14 @@ interface CharacterContextData {
   canRedo: boolean;
   unsavedChanges: boolean;
   setUnsavedChanges: (isUnsaved: boolean) => void;
-  // false when saved; "auth" when a Drive sign-in click is needed; "error" otherwise.
-  saveError: false | "auth" | "error";
+  // false when saved; "auth" when a Drive sign-in click is needed; "conflict"
+  // when the store refused to erase someone else's save; "error" otherwise.
+  saveError: false | "auth" | "error" | "conflict";
   saveNow: () => void;
+  // The refused save behind saveError === "conflict", carrying their copy.
+  saveConflict: SaveConflictError | undefined;
+  // "mine" overwrites their save with this tab's sheet; "theirs" replaces it.
+  resolveSaveConflict: (choice: "mine" | "theirs") => void;
   // Persist an explicit character without blocking the caller (wizard finishes,
   // moves between backends). Stages into the reactive list immediately, resolves
   // true once confirmed (or not ours to persist), false on failed write.
@@ -72,6 +79,8 @@ export const CharacterContext = React.createContext<CharacterContextData>({
   setUnsavedChanges: missingProvider("setUnsavedChanges"),
   saveError: false,
   saveNow: missingProvider("saveNow"),
+  saveConflict: undefined,
+  resolveSaveConflict: missingProvider("resolveSaveConflict"),
   persistCharacter: missingProvider("persistCharacter", Promise.resolve(false)),
   openSharingSession: missingProvider("openSharingSession"),
   closeSharingSession: missingProvider("closeSharingSession"),
@@ -80,7 +89,12 @@ export const CharacterContext = React.createContext<CharacterContextData>({
 export function CharacterContextProvider(props: React.PropsWithChildren) {
   const [character, dispatch] = useReducer(reducer, undefined);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
-  const [saveError, setSaveError] = useState<false | "auth" | "error">(false);
+  const [saveError, setSaveError] = useState<
+    false | "auth" | "error" | "conflict"
+  >(false);
+  const [saveConflict, setSaveConflict] = useState<
+    SaveConflictError | undefined
+  >();
   const [past, setPast] = useState<HistoryEntry[]>([]);
   const [future, setFuture] = useState<HistoryEntry[]>([]);
   const characterRef = useRef(character);
@@ -132,8 +146,14 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
         // Only clear dirty if no newer edit landed while this write was in flight.
         if (editSeq.current === seq) setUnsavedChanges(false);
         setSaveError(false);
+        setSaveConflict(undefined);
       })
       .catch((error) => {
+        if (isSaveConflictError(error)) {
+          setSaveConflict(error);
+          setSaveError("conflict");
+          return;
+        }
         console.error("Failed to save character", error);
         setSaveError(isDriveAuthError(error) ? "auth" : "error");
       });
@@ -152,8 +172,14 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
         await save(next);
         if (editSeq.current === seq) setUnsavedChanges(false);
         setSaveError(false);
+        setSaveConflict(undefined);
         return true;
       } catch (error) {
+        if (isSaveConflictError(error)) {
+          setSaveConflict(error);
+          setSaveError("conflict");
+          return false;
+        }
         console.error("Failed to save character", error);
         setSaveError(isDriveAuthError(error) ? "auth" : "error");
         return false;
@@ -340,6 +366,33 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
     dispatchAndBroadcast(entry.action, true, false, false);
   }, [future, dispatchAndBroadcast]);
 
+  // Both arms first adopt the revision that refused us, so the next write is
+  // measured against what the user actually saw — a third save landing
+  // meanwhile refuses again rather than being erased by "keep mine".
+  const resolveSaveConflict = useCallback(
+    (choice: "mine" | "theirs") => {
+      if (!saveConflict) return;
+      datastore?.acceptRemoteRevision?.(
+        saveConflict.uuid,
+        saveConflict.remoteRevision,
+      );
+      setSaveConflict(undefined);
+      setSaveError(false);
+      if (choice === "mine") {
+        persist();
+      } else {
+        stageCharacter(saveConflict.theirs);
+        if (characterRef.current?.uuid === saveConflict.uuid) {
+          dispatchAndBroadcast(
+            loadPersistedCharacter(saveConflict.theirs),
+            false,
+          );
+        }
+      }
+    },
+    [saveConflict, datastore, persist, stageCharacter, dispatchAndBroadcast],
+  );
+
   // Cmd/Ctrl+S saves; Cmd/Ctrl+Z undoes; Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y redoes.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -431,6 +484,8 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       setUnsavedChanges,
       saveError,
       saveNow: persist,
+      saveConflict,
+      resolveSaveConflict,
       persistCharacter,
       openSharingSession,
       closeSharingSession,
@@ -446,6 +501,8 @@ export function CharacterContextProvider(props: React.PropsWithChildren) {
       unsavedChanges,
       saveError,
       persist,
+      saveConflict,
+      resolveSaveConflict,
       persistCharacter,
       openSharingSession,
       closeSharingSession,

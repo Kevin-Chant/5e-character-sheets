@@ -38,6 +38,9 @@ export interface Datastore {
     self: SharePresenceSelf,
   ) => Promise<SharePresenceEntry[]>;
   clearSharePresence?: (uuid: UUID, clientId: string) => Promise<void>;
+  // Adopt `revision` as the base for the next write — the resolution arm of
+  // a save the store refused with a `SaveConflictError`.
+  acceptRemoteRevision?: (uuid: UUID, revision: string) => void;
   // `hint` names the file an import link was for, letting the store skip the
   // picker if already imported. Returns undefined if nothing was picked.
   importSharedCharacter?: (hint?: ImportHint) => Promise<Character | undefined>;

@@ -6,6 +6,7 @@ import {
   fileViewLink,
   getFileAppProperties,
   getFileContents,
+  getHeadRevision,
   listAppDataFiles,
   listFilePermissions,
   listSharedCharacterFiles,
@@ -31,6 +32,7 @@ import {
 } from "src/lib/drive-import-link";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
 import { Character, Datastore, ImportHint, ShareGrant } from "src/lib/types";
+import { SaveConflictError } from "src/lib/save-conflict";
 import { randomUUID } from "src/lib/browser";
 
 interface KnownFile {
@@ -41,6 +43,10 @@ interface KnownFile {
   // Drive filename of a shared document, tracked to rename on Drive when the
   // character's name changes. Unused for private appData files (named by uuid).
   name?: string;
+  // headRevisionId of the shared document's content as of our last read or
+  // write; a remote revision that differs means someone else saved since.
+  // Untracked for private appData files, which have exactly one writer.
+  headRev?: string;
 }
 
 // Shared documents this user imported (via the Picker) but didn't create;
@@ -56,6 +62,29 @@ let importedIndexFileId: string | undefined;
 
 const sharedFileName = (character: Character) =>
   `${character.name || "Unnamed character"}.5echar`;
+
+// Sibling tabs each hold their own module caches, and tab-sync forwards the
+// edits between them — so their sheets agree while their recorded revisions
+// drift, and without sharing the revision a sibling's save would read as a
+// stranger's conflicting write.
+let revChannel: BroadcastChannel | undefined;
+const openRevChannel = () => {
+  if (revChannel || typeof window === "undefined") return;
+  if (!("BroadcastChannel" in window)) return;
+  revChannel = new BroadcastChannel("drive-file-revisions");
+  revChannel.onmessage = (event) => {
+    const { uuid, headRev } = event.data as { uuid: UUID; headRev: string };
+    const known = knownFiles[uuid];
+    if (known) known.headRev = headRev;
+  };
+};
+
+const recordRevision = (uuid: UUID, headRev: string | undefined) => {
+  const known = knownFiles[uuid];
+  if (!known || !headRev) return;
+  known.headRev = headRev;
+  revChannel?.postMessage({ uuid, headRev });
+};
 
 const parseImportedIndex = async (fileId: string): Promise<ImportedIndex> => {
   const contents = await getFileContents(fileId);
@@ -107,7 +136,12 @@ const discoverDriveFiles = async (): Promise<DriveDiscovery> => {
   for (const file of sharedFiles) {
     const uuid = file.appProperties?.[SHARED_UUID_KEY] as UUID | undefined;
     if (uuid && file.id) {
-      files[uuid] = { fileId: file.id, shared: true, name: file.name };
+      files[uuid] = {
+        fileId: file.id,
+        shared: true,
+        name: file.name,
+        headRev: file.headRevisionId,
+      };
     }
   }
   // Imported (shared-with-me) documents the query can't surface for us.
@@ -145,7 +179,13 @@ const readThroughCache = async (uuid: UUID): Promise<Character | undefined> => {
   } else if (!knownFiles[uuid]) {
     return undefined;
   }
-  const fileId = knownFiles[uuid].fileId;
+  const known = knownFiles[uuid];
+  const fileId = known.fileId;
+  // Revision before content: a write landing between the two reads then
+  // conflicts once spuriously, where the other order would miss a real one.
+  if (known.shared && !known.headRev) {
+    recordRevision(uuid, await getHeadRevision(fileId));
+  }
   const contents = await getFileContents(fileId);
   if (!contents) {
     console.warn("Drive file", fileId, "had no contents; skipping");
@@ -167,12 +207,32 @@ const readThroughCache = async (uuid: UUID): Promise<Character | undefined> => {
   // Best-effort: the importer may only have read access to a shared document.
   if (result.migrated) {
     try {
-      await updateFile(fileId, JSON.stringify(result.character));
+      recordRevision(
+        uuid,
+        await updateFile(fileId, JSON.stringify(result.character)),
+      );
     } catch (err) {
       console.error("Could not write migrated character back to Drive", err);
     }
   }
   return result.character;
+};
+
+// Their copy as it is right now, for the refusal to offer. `undefined` when
+// unreadable — the caller then overwrites rather than refusing blind, since a
+// refusal with nothing to choose between is just a broken save.
+const readRemoteCopy = async (
+  fileId: string,
+): Promise<Character | undefined> => {
+  const contents = await getFileContents(fileId);
+  if (!contents) return undefined;
+  try {
+    const result = hydrateCharacter(JSON.parse(contents));
+    return result.ok ? result.character : undefined;
+  } catch (err) {
+    console.error("Conflicting Drive copy could not be read", err);
+    return undefined;
+  }
 };
 
 const writeThroughCache = async (character: Character) => {
@@ -184,7 +244,23 @@ const writeThroughCache = async (character: Character) => {
     known = { fileId, shared: false };
     knownFiles[character.uuid] = known;
   }
-  await updateFile(known.fileId, JSON.stringify(character));
+  // A shared document has other writers; refuse to erase a save we haven't
+  // seen. Read-then-write, not compare-and-swap — Drive offers no revision
+  // precondition — so a write landing inside this call still loses, but the
+  // window shrinks from "since our last read" to one round trip.
+  if (known.shared && known.headRev) {
+    const remoteRev = await getHeadRevision(known.fileId);
+    if (remoteRev && remoteRev !== known.headRev) {
+      const theirs = await readRemoteCopy(known.fileId);
+      if (theirs) {
+        throw new SaveConflictError(character.uuid, theirs, remoteRev);
+      }
+    }
+  }
+  recordRevision(
+    character.uuid,
+    await updateFile(known.fileId, JSON.stringify(character)),
+  );
 
   if (known.shared) {
     const desiredName = sharedFileName(character);
@@ -209,8 +285,9 @@ const promoteCharacter = async (uuid: UUID) => {
   const fileId = await createFile(name, {
     appProperties: { [SHARED_MARKER_KEY]: "true", [SHARED_UUID_KEY]: uuid },
   });
-  await updateFile(fileId, JSON.stringify(character));
+  const headRev = await updateFile(fileId, JSON.stringify(character));
   knownFiles[uuid] = { fileId, shared: true, name };
+  recordRevision(uuid, headRev);
 
   if (previous && !previous.shared) {
     await deleteFile(previous.fileId);
@@ -297,6 +374,7 @@ const importSharedCharacter = async (
   const picked = await pickSharedCharacters(pickerQueryFor(hint?.name));
   let imported: Character | undefined;
   for (const file of picked) {
+    const headRev = await getHeadRevision(file.id);
     const contents = await getFileContents(file.id);
     if (!contents) {
       console.warn("Picked Drive file", file.id, "had no contents; skipping");
@@ -322,7 +400,12 @@ const importSharedCharacter = async (
     const character = result.character;
     const uuid = character.uuid;
     localCache[uuid] = character;
-    knownFiles[uuid] = { fileId: file.id, shared: true, name: file.name };
+    knownFiles[uuid] = {
+      fileId: file.id,
+      shared: true,
+      name: file.name,
+      headRev,
+    };
     importedIndex[uuid] = { fileId: file.id, name: file.name };
     imported = character;
   }
@@ -372,6 +455,7 @@ const GoogleDriveDatastore: Datastore = {
   savedSheetsCopy: "Characters saved in Google Drive:",
   debounceWait: 5000,
   initializeDatastore: async () => {
+    openRevChannel();
     // These caches are module-level and outlive sign-out/account switches;
     // reset them or a second sign-in would list/write the previous account's cache.
     knownFiles = {};
@@ -440,6 +524,7 @@ const GoogleDriveDatastore: Datastore = {
     if (!known?.shared) return undefined;
     return importLinkFor(window.location.origin, known.fileId, known.name);
   },
+  acceptRemoteRevision: recordRevision,
   heartbeatSharePresence,
   clearSharePresence,
   importSharedCharacter,

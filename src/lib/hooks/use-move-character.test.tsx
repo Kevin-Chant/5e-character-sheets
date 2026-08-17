@@ -58,6 +58,8 @@ function renderHook({
     setUnsavedChanges: vi.fn(),
     saveError: false as const,
     saveNow: vi.fn(),
+    saveConflict: undefined,
+    resolveSaveConflict: vi.fn(),
     persistCharacter: vi.fn(async () => true),
     openSharingSession: vi.fn(),
     closeSharingSession: vi.fn(),

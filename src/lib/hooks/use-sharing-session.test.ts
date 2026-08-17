@@ -183,8 +183,9 @@ describe("a joiner's reconnect", () => {
       connection.onclose();
     });
     await act(async () => {
-      // Past the first backoff delay, into the retry's own connect.
-      await vi.advanceTimersByTimeAsync(600);
+      // Past the first backoff delay (500ms plus up to a quarter of jitter),
+      // into the retry's own connect.
+      await vi.advanceTimersByTimeAsync(700);
       const fresh = mock.holder.connection;
       fresh.session.call = () => Promise.resolve(hostCopy);
       fresh.onopen(fresh.session);
