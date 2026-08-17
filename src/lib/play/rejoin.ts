@@ -1,3 +1,4 @@
+import { backoffDelayMs, RECONNECT_JITTER } from "src/lib/realm/backoff";
 import { normalizeSessionCode } from "src/lib/play/session";
 import { SessionMemory } from "src/lib/play/session-memory";
 import { SessionStatus } from "src/lib/hooks/use-play-session";
@@ -61,7 +62,7 @@ export function planRejoin({
 const REJOIN_BACKOFF_MS = [500, 2_000, 5_000, 15_000, 30_000, 60_000];
 
 export function rejoinDelayMs(attempt: number): number {
-  return REJOIN_BACKOFF_MS[Math.min(attempt, REJOIN_BACKOFF_MS.length - 1)];
+  return backoffDelayMs(attempt, REJOIN_BACKOFF_MS, RECONNECT_JITTER);
 }
 
 // The URL the surface should show; only a code we actually connected to.

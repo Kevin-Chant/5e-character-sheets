@@ -103,7 +103,15 @@ describe("planRejoin", () => {
 describe("rejoinDelayMs", () => {
   it("backs off and then holds", () => {
     expect(rejoinDelayMs(0)).toBeLessThan(rejoinDelayMs(1));
-    expect(rejoinDelayMs(99)).toBe(rejoinDelayMs(5));
+    for (const attempt of [6, 99]) {
+      expect(rejoinDelayMs(attempt)).toBeGreaterThanOrEqual(60_000);
+      expect(rejoinDelayMs(attempt)).toBeLessThanOrEqual(75_000);
+    }
+  });
+
+  it("spreads retries so a whole table doesn't reconnect in lockstep", () => {
+    const spread = new Set(Array.from({ length: 50 }, () => rejoinDelayMs(3)));
+    expect(spread.size).toBeGreaterThan(1);
   });
 });
 

@@ -39,6 +39,7 @@ export function useAutoRejoin(): AutoRejoin {
 
   const urlCode = rawCode ? normalizeSessionCode(rawCode) : undefined;
   const [attempts, setAttempts] = useState(0);
+  const [cycle, setCycle] = useState(0);
   // Guards against React dev-mode double-invoking the effect for one scheduled try.
   const busy = useRef(false);
   // Attempts are spent per code; reset when the table changes.
@@ -58,7 +59,16 @@ export function useAutoRejoin(): AutoRejoin {
   const actions = useRef({ joinSession, hostSession });
   actions.current = { joinSession, hostSession };
 
-  const retry = useCallback(() => setAttempts(0), []);
+  // An attempt is in flight for a whole network round trip, and anything that
+  // resets the ladder during it would otherwise be undone by that attempt's
+  // own failure counting up from the fresh zero.
+  const resets = useRef(0);
+  const resetAttempts = useCallback(() => {
+    resets.current++;
+    setAttempts(0);
+  }, []);
+
+  const retry = resetAttempts;
 
   // Network-back events reset the backoff schedule (rather than connecting
   // directly, keeping one connect call site) — but not past the cap, since a
@@ -69,8 +79,8 @@ export function useAutoRejoin(): AutoRejoin {
   attemptsRef.current = attempts;
   const wakeRetry = useCallback(() => {
     if (attemptsRef.current >= MAX_REJOIN_ATTEMPTS) return;
-    setAttempts(0);
-  }, []);
+    resetAttempts();
+  }, [resetAttempts]);
   const [visible, setVisible] = useState(
     () => document.visibilityState !== "hidden",
   );
@@ -78,7 +88,7 @@ export function useAutoRejoin(): AutoRejoin {
     const wake = () => {
       const shown = document.visibilityState !== "hidden";
       setVisible(shown);
-      if (shown) setAttempts(0);
+      if (shown) resetAttempts();
     };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wakeRetry);
@@ -118,6 +128,7 @@ export function useAutoRejoin(): AutoRejoin {
 
     const timer = setTimeout(async () => {
       busy.current = true;
+      const startedAt = resets.current;
       // Join first regardless of seat: a DM's own table is usually still open
       // (another client holding the realm), and joining reclaims the seat via
       // dmToken rather than opening a second realm for a room that exists.
@@ -128,10 +139,24 @@ export function useAutoRejoin(): AutoRejoin {
         result = await actions.current.hostSession(plan.code);
       }
       busy.current = false;
-      if (!result.ok) setAttempts((spent) => spent + 1);
+      if (!result.ok) {
+        // A reset that arrived mid-flight keeps its zero; the schedule then
+        // needs its own nudge, since `attempts` is the only other thing that
+        // would re-run this effect and it hasn't moved.
+        if (resets.current === startedAt) setAttempts((spent) => spent + 1);
+        else setCycle((n) => n + 1);
+      }
     }, rejoinDelayMs(attempts));
     return () => clearTimeout(timer);
-  }, [plan.action, urlCode, sessionCode, sessionStatus, attempts, visible]);
+  }, [
+    plan.action,
+    urlCode,
+    sessionCode,
+    sessionStatus,
+    attempts,
+    visible,
+    cycle,
+  ]);
 
   // Restore the sheet that was open when the tab died, per-table (not "last
   // sheet opened anywhere"). A DM's memory records no sheet, so nothing opens

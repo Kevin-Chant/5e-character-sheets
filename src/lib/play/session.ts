@@ -447,10 +447,13 @@ function clampTurn(encounter: Encounter): Encounter {
 export function mergeEncounter(
   local: Encounter,
   incoming: Encounter,
-  selfCharacterUuid: UUID | undefined,
-  selfClientId?: string,
-  adopt = false,
+  self: MergeSelf = {},
 ): Encounter {
+  const {
+    characterUuid: selfCharacterUuid,
+    clientId: selfClientId,
+    adopt = false,
+  } = self;
   // `adopt` (first state a joiner receives) skips the revision race: a
   // joiner's local encounter has its own unrelated revision count, which
   // routinely collides with the room's, and the clientId tiebreak would then
@@ -524,16 +527,21 @@ export function mergeEncounter(
   );
 }
 
-export interface SessionSelf {
-  clientId: string;
+// Who "you" are, as far as a merge is concerned.
+export interface MergeSelf {
   characterUuid?: UUID;
+  clientId?: string;
+  // True for the first state after joining. See `mergeEncounter`.
+  adopt?: boolean;
+}
+
+export interface SessionSelf extends MergeSelf {
+  clientId: string;
   // Durable per-browser DM key (see `Encounter.dmToken`). Withheld once the
   // seat has been reclaimed on this connection: token is per-browser but
   // clientId is per-tab, so without this guard two tabs of the same browser
   // would keep re-taking the seat from each other on every bump.
   dmToken?: string;
-  // True for the first state after joining. See `mergeEncounter`.
-  adopt?: boolean;
 }
 
 export interface StateReceipt {
@@ -556,13 +564,7 @@ export function receiveState(
   incoming: Encounter,
   self: SessionSelf,
 ): StateReceipt {
-  const merged = mergeEncounter(
-    local,
-    incoming,
-    self.characterUuid,
-    self.clientId,
-    self.adopt,
-  );
+  const merged = mergeEncounter(local, incoming, self);
   // Rejoining a session you DM'd: matching token reclaims the seat silently.
   const seated = reclaimDmSeat(merged, self.clientId, self.dmToken);
   const reclaimedSeat = seated !== merged;

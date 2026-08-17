@@ -9,9 +9,12 @@ import { useSettings } from "src/lib/hooks/use-settings";
 import { useConfirm } from "src/lib/hooks/confirm/confirm.hooks";
 import { loadPersistedCharacter } from "src/lib/hooks/reducers/actions";
 import { hydrateCharacter } from "src/lib/migrations/hydrate-character";
+import { backoffDelayMs, RECONNECT_JITTER } from "src/lib/realm/backoff";
 
-// How often a recipient re-attempts to join while the owner isn't online yet.
-const JOIN_RETRY_MS = 15_000;
+// How long a recipient waits between join attempts while the owner isn't
+// online yet. The tail rung repeats indefinitely: the owner may show up an
+// hour later, and a recipient who has given up has no other way back in.
+const JOIN_BACKOFF_MS = [5_000, 15_000, 30_000, 60_000];
 
 // Auto-connects both sides of a shared Google Drive character into one live
 // session. Realm = character uuid. "owner" auto-hosts; "recipient" auto-joins,
@@ -55,6 +58,7 @@ export default function DriveLiveSessionBootstrap() {
     // Recipient: poll until the owner's realm exists, then pull their character.
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
 
     const applyJoined = async () => {
       const hostCharacter = await getCharacter(uuid);
@@ -103,7 +107,12 @@ export default function DriveLiveSessionBootstrap() {
         await applyJoined();
       } catch {
         // Owner isn't online yet (realm not open) — retry quietly.
-        if (!cancelled) timer = setTimeout(attempt, JOIN_RETRY_MS);
+        if (!cancelled) {
+          timer = setTimeout(
+            attempt,
+            backoffDelayMs(attempts++, JOIN_BACKOFF_MS, RECONNECT_JITTER),
+          );
+        }
       }
     };
     attempt();

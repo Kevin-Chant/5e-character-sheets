@@ -11,6 +11,7 @@ import {
 import {
   bumpRevision,
   conditionOffersFor,
+  isEncounter,
   isValidSessionCode,
   mergeEncounter,
   forgetSession,
@@ -144,17 +145,46 @@ describe("remembered sessions", () => {
   });
 });
 
+describe("isEncounter", () => {
+  it("accepts a real encounter", () => {
+    expect(isEncounter(EMPTY_ENCOUNTER)).toBe(true);
+    expect(isEncounter(startCombat(party()))).toBe(true);
+  });
+
+  it("rejects what a peer on another build might send instead", () => {
+    for (const raw of [
+      undefined,
+      null,
+      42,
+      "an encounter",
+      [],
+      {},
+      { round: 1, turnIndex: 0 },
+      { round: 1, participants: [] },
+      { turnIndex: 0, participants: [] },
+      { round: "1", turnIndex: 0, participants: [] },
+      { round: 1, turnIndex: 0, participants: "none" },
+    ]) {
+      expect(isEncounter(raw)).toBe(false);
+    }
+  });
+});
+
 describe("mergeEncounter", () => {
   it("accepts a newer revision", () => {
     const local = bumpRevision(party(), "client-a");
     const incoming = bumpRevision(startCombat(local), "client-b");
-    expect(mergeEncounter(local, incoming, ALICE_CHAR).round).toBe(1);
+    expect(
+      mergeEncounter(local, incoming, { characterUuid: ALICE_CHAR }).round,
+    ).toBe(1);
   });
 
   it("ignores an older revision", () => {
     const older = bumpRevision(party(), "client-b");
     const local = bumpRevision(startCombat(older), "client-a");
-    expect(mergeEncounter(local, older, ALICE_CHAR)).toBe(local);
+    expect(mergeEncounter(local, older, { characterUuid: ALICE_CHAR })).toBe(
+      local,
+    );
   });
 
   it("breaks a same-revision tie deterministically", () => {
@@ -162,8 +192,12 @@ describe("mergeEncounter", () => {
     const fromA = { ...base, revision: 4, revisedBy: "client-a" };
     const fromB = { ...base, revision: 4, revisedBy: "client-b" };
     // Both sides agree B wins, whichever side is asking.
-    expect(mergeEncounter(fromA, fromB, ALICE_CHAR).revisedBy).toBe("client-b");
-    expect(mergeEncounter(fromB, fromA, ALICE_CHAR).revisedBy).toBe("client-b");
+    expect(
+      mergeEncounter(fromA, fromB, { characterUuid: ALICE_CHAR }).revisedBy,
+    ).toBe("client-b");
+    expect(
+      mergeEncounter(fromB, fromA, { characterUuid: ALICE_CHAR }).revisedBy,
+    ).toBe("client-b");
   });
 
   it("keeps your own vitals when a peer's copy of them is stale", () => {
@@ -178,7 +212,7 @@ describe("mergeEncounter", () => {
     };
     // A peer publishes a newer encounter still carrying Alice at full HP.
     const stale = bumpRevision(bumpRevision(party(), "client-b"), "client-b");
-    const merged = mergeEncounter(hurt, stale, ALICE_CHAR);
+    const merged = mergeEncounter(hurt, stale, { characterUuid: ALICE_CHAR });
     expect(
       merged.participants.find((p) => p.characterUuid === ALICE_CHAR)?.vitals
         ?.currHp,
@@ -202,12 +236,10 @@ describe("mergeEncounter", () => {
       bumpRevision(party(), "client-a"),
       "client-a",
     );
-    const merged = mergeEncounter(
-      local,
-      incoming,
-      "33333333-3333-3333-3333-333333333333" as UUID,
-      "client-c",
-    );
+    const merged = mergeEncounter(local, incoming, {
+      characterUuid: "33333333-3333-3333-3333-333333333333" as UUID,
+      clientId: "client-c",
+    });
     expect(merged.participants.map((p) => p.name)).toEqual([
       "Alice",
       "Bob",
@@ -245,7 +277,10 @@ describe("mergeEncounter", () => {
       expect(local.revision).toBe(room.revision);
       // Without `adopt`, the tiebreak keeps the newcomer's local membership —
       // the party vanishes from their copy.
-      const raced = mergeEncounter(local, room, CAROL_CHAR, "client-c");
+      const raced = mergeEncounter(local, room, {
+        characterUuid: CAROL_CHAR,
+        clientId: "client-c",
+      });
       expect(raced.participants.map((p) => p.name)).toEqual(["Carol"]);
       expect(raced.round).toBe(1);
     });
@@ -253,27 +288,32 @@ describe("mergeEncounter", () => {
     it("takes the room's round, order and DM seat", () => {
       const { local, room } = joining();
       const withDm = { ...room, dmClientId: "aaa-client-a" };
-      const merged = mergeEncounter(
-        local,
-        withDm,
-        CAROL_CHAR,
-        "client-c",
-        true,
-      );
+      const merged = mergeEncounter(local, withDm, {
+        characterUuid: CAROL_CHAR,
+        clientId: "client-c",
+        adopt: true,
+      });
       expect(merged.round).toBe(1);
       expect(merged.dmClientId).toBe("aaa-client-a");
     });
 
     it("still contributes its own participant", () => {
       const { local, room } = joining();
-      const merged = mergeEncounter(local, room, CAROL_CHAR, "client-c", true);
+      const merged = mergeEncounter(local, room, {
+        characterUuid: CAROL_CHAR,
+        clientId: "client-c",
+        adopt: true,
+      });
       expect(merged.participants.map((p) => p.name)).toContain("Carol");
       expect(merged.participants.map((p) => p.name)).toContain("Alice");
     });
 
     it("is not how ordinary updates are merged", () => {
       const { local, room } = joining();
-      const merged = mergeEncounter(local, room, CAROL_CHAR, "client-c");
+      const merged = mergeEncounter(local, room, {
+        characterUuid: CAROL_CHAR,
+        clientId: "client-c",
+      });
       expect(merged.participants.map((p) => p.name)).toEqual(["Carol"]);
     });
   });
@@ -281,7 +321,10 @@ describe("mergeEncounter", () => {
   it("does not re-add a participant the peer legitimately removed", () => {
     const local = bumpRevision(party(), "client-b");
     const incoming = bumpRevision(withoutClient(local, "client-b"), "client-a");
-    const merged = mergeEncounter(local, incoming, ALICE_CHAR, "client-a");
+    const merged = mergeEncounter(local, incoming, {
+      characterUuid: ALICE_CHAR,
+      clientId: "client-a",
+    });
     expect(merged.participants.map((p) => p.name)).toEqual(["Alice", "Goblin"]);
   });
 
@@ -298,7 +341,9 @@ describe("mergeEncounter", () => {
       },
       "client-b",
     );
-    const merged = mergeEncounter(local, incoming, ALICE_CHAR);
+    const merged = mergeEncounter(local, incoming, {
+      characterUuid: ALICE_CHAR,
+    });
     expect(
       merged.participants.find((p) => p.characterUuid === ALICE_CHAR)
         ?.conditions,
@@ -348,12 +393,10 @@ describe("roster changes", () => {
     let stale: Encounter = held;
     stale = bumpRevision(stale, "client-c");
     stale = bumpRevision(stale, "client-c");
-    const merged = mergeEncounter(
-      bumpRevision(cleared, "client-a"),
-      stale,
-      ALICE_CHAR,
-      "client-a",
-    );
+    const merged = mergeEncounter(bumpRevision(cleared, "client-a"), stale, {
+      characterUuid: ALICE_CHAR,
+      clientId: "client-a",
+    });
     expect(merged.dmClientId).toBeUndefined();
   });
 
@@ -390,7 +433,10 @@ describe("re-adding into a fight in progress", () => {
       bumpRevision(startCombat(party()), "client-a"),
       "client-a",
     );
-    const merged = mergeEncounter(local, incoming, CAROL_CHAR, "client-c");
+    const merged = mergeEncounter(local, incoming, {
+      characterUuid: CAROL_CHAR,
+      clientId: "client-c",
+    });
     expect(merged.participants.map((p) => p.name)).toEqual([
       "Alice",
       "Carol",
@@ -413,7 +459,10 @@ describe("re-adding into a fight in progress", () => {
     room = advanceTurn(room).encounter;
     expect(room.participants[room.turnIndex].name).toBe("Goblin");
     const incoming = bumpRevision(bumpRevision(room, "client-a"), "client-a");
-    const merged = mergeEncounter(local, incoming, CAROL_CHAR, "client-c");
+    const merged = mergeEncounter(local, incoming, {
+      characterUuid: CAROL_CHAR,
+      clientId: "client-c",
+    });
     expect(merged.participants.map((p) => p.name)).toEqual([
       "Alice",
       "Carol",

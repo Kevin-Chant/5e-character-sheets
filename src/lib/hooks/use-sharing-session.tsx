@@ -16,6 +16,7 @@ import { Character, Dispatch } from "../types";
 import { randomUUID } from "../browser";
 import { useSettings } from "./use-settings";
 import { createRealm, RealmInstance } from "src/lib/realm/realm";
+import { backoffDelayMs, RECONNECT_JITTER } from "src/lib/realm/backoff";
 import {
   createPresenceStore,
   PresenceStore,
@@ -516,7 +517,12 @@ export function SharingSessionsContextProvider(props: React.PropsWithChildren) {
       session.reconnecting = false;
       bump();
     };
-    for (const delay of RECONNECT_BACKOFF_MS) {
+    for (let attempt = 0; attempt < RECONNECT_BACKOFF_MS.length; attempt++) {
+      const delay = backoffDelayMs(
+        attempt,
+        RECONNECT_BACKOFF_MS,
+        RECONNECT_JITTER,
+      );
       await new Promise((resolve) => setTimeout(resolve, delay));
       // Superseded while waiting (left, hosted/joined elsewhere) — that wins.
       if (!stillOurs()) return finish();
