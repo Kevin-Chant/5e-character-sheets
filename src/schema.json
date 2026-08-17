@@ -91,7 +91,8 @@
                 "Chaotic Neutral",
                 "Lawful Evil",
                 "Neutral Evil",
-                "Chaotic Evil"
+                "Chaotic Evil",
+                "Unaligned"
             ],
             "type": "string"
         },
@@ -720,7 +721,7 @@
                 {
                     "properties": {
                         "die": {
-                            "$ref": "#/definitions/StandardDie"
+                            "$ref": "#/definitions/HitDie"
                         },
                         "effect": {
                             "const": "spendHitDie",
@@ -895,9 +896,6 @@
                 "d12": {
                     "type": "number"
                 },
-                "d20": {
-                    "type": "number"
-                },
                 "d4": {
                     "type": "number"
                 },
@@ -909,6 +907,16 @@
                 }
             },
             "type": "object"
+        },
+        "HitDie": {
+            "enum": [
+                "d10",
+                "d12",
+                "d4",
+                "d6",
+                "d8"
+            ],
+            "type": "string"
         },
         "IClass": {
             "properties": {

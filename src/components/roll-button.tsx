@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { FaDiceD20 } from "react-icons/fa6";
-import { StandardDie } from "src/lib/data/data-definitions";
+import { HitDie } from "src/lib/data/data-definitions";
 import {
   Attack,
   CustomFormula,
@@ -17,7 +17,7 @@ interface RollButtonProps {
   // Mutually exclusive with `check`; uses save-only riders.
   savingThrow?: number;
   formula?: CustomFormula;
-  hitDie?: StandardDie;
+  hitDie?: HitDie;
   deathSave?: boolean;
   // `spell` gives level-scaled damage; `damage` is a fixed map. `save`
   // replaces `toHit` when the target rolls to avoid.

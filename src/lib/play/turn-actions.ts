@@ -3,6 +3,7 @@ import { mechanicsForAbility } from "src/lib/mechanics/catalog";
 import {
   availableSpellSlots,
   classNameForId,
+  expendedPactSlots,
   getPactSlotInfo,
   isPreparedCaster,
 } from "src/lib/rules";
@@ -112,9 +113,7 @@ function hasSlotFor(character: Character, level: number): boolean {
   const pact = getPactSlotInfo(character);
   const pactLevel = character.pactSlots?.levelOverride ?? pact.level;
   const pactTotal = character.pactSlots?.totalOverride ?? pact.total;
-  return (
-    pactLevel >= level && pactTotal - (character.pactSlots?.expended ?? 0) > 0
-  );
+  return pactLevel >= level && pactTotal - expendedPactSlots(character) > 0;
 }
 
 // Prepared casters cast from today's prepared list; known casters cast their

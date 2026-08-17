@@ -1,4 +1,9 @@
-import { LeveledSpellLevel, StandardDie } from "src/lib/data/data-definitions";
+import {
+  HIT_DIE_SIZES,
+  HitDie,
+  LeveledSpellLevel,
+  StandardDie,
+} from "src/lib/data/data-definitions";
 import { Cursor, updateAt } from "src/lib/cursor";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import {
@@ -26,13 +31,7 @@ import Select from "src/components/select";
 
 const EFFECT_KINDS = Object.keys(EFFECT_KIND_LABELS) as Effect["effect"][];
 const COSTS = Object.keys(ACTION_COST_LABELS) as ActionCost[];
-const DICE = [
-  StandardDie.d4,
-  StandardDie.d6,
-  StandardDie.d8,
-  StandardDie.d10,
-  StandardDie.d12,
-];
+const DICE = HIT_DIE_SIZES;
 
 // Editor for an ability's homebrew mechanics: actions composed from the same
 // closed effect set the catalog uses. `choose` is derived from effects on
@@ -265,7 +264,7 @@ function EffectParams({
           label="Hit die size"
           value={effect.die}
           options={DICE.map((die) => ({ value: die, label: die }))}
-          onChange={(value) => update({ ...effect, die: value as StandardDie })}
+          onChange={(value) => update({ ...effect, die: value as HitDie })}
         />
       );
     case "remind":

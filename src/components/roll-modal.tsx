@@ -71,7 +71,11 @@ import {
   applicableRiders,
   attackContext,
 } from "src/lib/mechanics/conditions";
-import { LeveledSpellLevel, StandardDie } from "src/lib/data/data-definitions";
+import {
+  HitDie,
+  LeveledSpellLevel,
+  StandardDie,
+} from "src/lib/data/data-definitions";
 import {
   Character,
   CustomFormula,
@@ -1658,7 +1662,7 @@ function HitDieControls({
   onRolled,
 }: {
   character: Character;
-  die: StandardDie;
+  die: HitDie;
   // Reported as it lands, like every other roll, so the DM's queue explains
   // the HP change the projection is about to show.
   onRolled?: (rolled: Pick<OutgoingRoll, "total" | "manual">) => void;

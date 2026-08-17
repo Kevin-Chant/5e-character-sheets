@@ -4,6 +4,7 @@ import {
   DieOperation,
   OfficialClass,
   PB,
+  HitDie,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -114,5 +115,5 @@ export type DieExpression = [number, DieDefinition, DieOperation];
 export type ClassName = OfficialClass | string;
 
 export type HitDice = {
-  [key in StandardDie]?: number;
+  [key in HitDie]?: number;
 };

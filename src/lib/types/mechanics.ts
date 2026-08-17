@@ -1,5 +1,6 @@
 import {
   DamageType,
+  HitDie,
   LeveledSpellLevel,
   StandardDie,
   StatKey,
@@ -49,7 +50,7 @@ export type Effect =
   | { effect: "expendSlot"; level?: LeveledSpellLevel }
   // Sheet tracks expended-vs-total, so slot creation is modelled as restoration.
   | { effect: "restoreSlot"; level?: LeveledSpellLevel }
-  | { effect: "spendHitDie"; die: StandardDie }
+  | { effect: "spendHitDie"; die: HitDie }
   | { effect: "roll"; label: string; amount: AmountExpr } // display only, no write
   | { effect: "remind"; note: string }; // table prompt, not automation
 

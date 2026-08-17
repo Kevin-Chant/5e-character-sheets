@@ -5,6 +5,7 @@ import {
   LeveledSpellLevel,
   Operation,
   RestType,
+  HitDie,
   StandardDie,
   StatKey,
 } from "src/lib/data/data-definitions";
@@ -25,6 +26,7 @@ import { rollFormula } from "src/lib/roll";
 import {
   expendedSpellSlots,
   getHitDice,
+  expendedPactSlots,
   getPactSlotInfo,
   isPreparedCaster,
   preparedSpellCount,
@@ -198,13 +200,12 @@ export function hitDiceBudget(character: Character, rules: RestRules): number {
 }
 
 // Biggest first: the order recovery/spend UI offers dice in.
-const DIE_ORDER: StandardDie[] = [
+const DIE_ORDER: HitDie[] = [
   StandardDie.d12,
   StandardDie.d10,
   StandardDie.d8,
   StandardDie.d6,
   StandardDie.d4,
-  StandardDie.d20,
 ];
 
 // Spread a recovery budget over the dice actually spent, biggest first.
@@ -234,7 +235,7 @@ export function hitDieFormula(die: StandardDie): CustomFormula {
 }
 
 export interface HitDieRoll {
-  die: StandardDie;
+  die: HitDie;
   // The raw 1d<die> + CON total, and the individual dice behind it.
   total: number;
   dice: number[];
@@ -244,7 +245,7 @@ export interface HitDieRoll {
 }
 
 // Roll one hit die. Pure read — no writes; pair with `applyHitDieRoll`.
-export function rollHitDie(character: Character, die: StandardDie): HitDieRoll {
+export function rollHitDie(character: Character, die: HitDie): HitDieRoll {
   const dice: number[] = [];
   const total = rollFormula(
     hitDieFormula(die),
@@ -264,7 +265,7 @@ export function rollHitDie(character: Character, die: StandardDie): HitDieRoll {
 // for the dice, but still runs through minimum-total riders and the missing-HP clamp.
 export function manualHitDieRoll(
   character: Character,
-  die: StandardDie,
+  die: HitDie,
   total: number,
 ): HitDieRoll {
   const healing = hitDieHealing(character, total);
@@ -290,7 +291,7 @@ export function applyHitDieRoll(
 }
 
 // Hit dice sizes the character can still spend, biggest first.
-export function spendableHitDice(character: Character): StandardDie[] {
+export function spendableHitDice(character: Character): HitDie[] {
   return DIE_ORDER.filter((die) => remainingHitDice(character, die) > 0);
 }
 
@@ -475,7 +476,7 @@ export function planRest(
   );
   for (const [die, n] of Object.entries(recovered)) {
     if (!n) continue;
-    const key = die as StandardDie;
+    const key = die as HitDie;
     updates.push(
       updateAt(
         charPath(FIELD.expendedHitDice).k(key),
@@ -537,7 +538,7 @@ export function planRest(
   // --- Pact magic slots (a short rest is enough) ---
   const pactTotal =
     character.pactSlots?.totalOverride ?? getPactSlotInfo(character).total;
-  const pactExpended = Math.min(character.pactSlots?.expended ?? 0, pactTotal);
+  const pactExpended = expendedPactSlots(character);
   if (pactExpended > 0) {
     updates.push(updateAt(charPath(FIELD.pactSlots).k("expended"), 0));
     changes.push({
@@ -649,7 +650,7 @@ function clampHitDiceRecovery(
 ): HitDice {
   const out: HitDice = {};
   let left = budget;
-  for (const die of Object.keys(wanted) as StandardDie[]) {
+  for (const die of Object.keys(wanted) as HitDie[]) {
     if (left <= 0) break;
     const want = wanted[die] || 0;
     if (want <= 0) continue;

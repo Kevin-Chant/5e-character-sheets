@@ -279,3 +279,29 @@ describe("hydrateCharacter", () => {
     },
   );
 });
+
+describe("v13 — hit dice drop d20", () => {
+  it("strips a d20 from both pools and leaves the real sizes alone", () => {
+    const migrated = migrateCharacter({
+      ...structuredClone(defaultCharacter),
+      schemaVersion: 12,
+      totalHitDice: { d10: 3, d20: 1 },
+      expendedHitDice: { d10: 1, d20: 2 },
+    });
+
+    expect(migrated.totalHitDice).toEqual({ d10: 3 });
+    expect(migrated.expendedHitDice).toEqual({ d10: 1 });
+  });
+
+  it("leaves a character with no override and no d20 untouched", () => {
+    const migrated = migrateCharacter({
+      ...structuredClone(defaultCharacter),
+      schemaVersion: 12,
+      totalHitDice: undefined,
+      expendedHitDice: { d8: 2 },
+    });
+
+    expect(migrated.totalHitDice).toBeUndefined();
+    expect(migrated.expendedHitDice).toEqual({ d8: 2 });
+  });
+});

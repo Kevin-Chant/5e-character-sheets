@@ -259,6 +259,18 @@ export enum StandardDie {
   d20 = "d20",
 }
 
+// No class or creature in 5e has a d20 hit die, so hit-dice pools are keyed
+// on this rather than on the full die list.
+export type HitDie = Exclude<StandardDie, StandardDie.d20>;
+
+export const HIT_DIE_SIZES: HitDie[] = [
+  StandardDie.d4,
+  StandardDie.d6,
+  StandardDie.d8,
+  StandardDie.d10,
+  StandardDie.d12,
+];
+
 export enum CoinType {
   CP = "CP",
   SP = "SP",
@@ -294,6 +306,9 @@ export enum Alignment {
   "Lawful Evil" = "Lawful Evil",
   "Neutral Evil" = "Neutral Evil",
   "Chaotic Evil" = "Chaotic Evil",
+  // 5e's own term for a creature that doesn't hold one. Last so the nine
+  // stay in their grid order.
+  "Unaligned" = "Unaligned",
 }
 
 // Runtime type of a field, so the edit modal can pick the right input.
@@ -488,7 +503,7 @@ export enum FIELD {
   playSessions = "playSessions",
 }
 
-export const HIT_DICE: Record<OfficialClass, StandardDie> = {
+export const HIT_DICE: Record<OfficialClass, HitDie> = {
   Artificer: StandardDie.d8,
   Barbarian: StandardDie.d12,
   Bard: StandardDie.d8,

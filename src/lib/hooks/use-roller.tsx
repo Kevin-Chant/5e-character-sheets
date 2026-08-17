@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { randomUUID } from "src/lib/browser";
-import { StandardDie } from "src/lib/data/data-definitions";
+import { HitDie } from "src/lib/data/data-definitions";
 import {
   Attack,
   CustomFormula,
@@ -18,7 +18,7 @@ export type RollSpec =
   // Spending a hit die: rolls 1d<die>+CON, offers to apply healing and mark
   // the die expended. Declarative so the modal can gate on the live
   // character (remaining dice, max-HP clamp, Durable's minimum).
-  | { kind: "hitDie"; die: StandardDie }
+  | { kind: "hitDie"; die: HitDie }
   // A death save: reads its own outcome (10+ success, nat 1 two failures,
   // nat 20 stabilizes) and offers to write it onto the pips.
   | { kind: "deathSave" }

@@ -15,6 +15,7 @@ import {
   classNameForId,
   expendedSpellSlots,
   getDefaultSpellSlots,
+  expendedPactSlots,
   getPactSlotInfo,
   isSpellcastingClass,
   preparedSpellCount,
@@ -35,7 +36,7 @@ function PactSlots({ character }: SpellsTableProps) {
   const { dispatch } = useLoadedCharacter();
   const pactSlotInfo = getPactSlotInfo(character);
   const total = character.pactSlots?.totalOverride ?? pactSlotInfo.total;
-  const expended = character.pactSlots?.expended ?? 0;
+  const expended = expendedPactSlots(character);
   if (total <= 0) return <></>;
 
   return (

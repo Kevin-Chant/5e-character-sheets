@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { FIELD, StandardDie } from "src/lib/data/data-definitions";
+import { FIELD, HIT_DIE_SIZES, HitDie } from "src/lib/data/data-definitions";
 import { useLoadedCharacter } from "src/lib/hooks/use-character";
 import { getFieldValue } from "src/lib/fields";
 import { getHitDice } from "src/lib/rules";
@@ -21,7 +21,7 @@ export default function EditHitDice() {
 
   const updateHitDice = (
     e: React.ChangeEvent<HTMLInputElement>,
-    die: StandardDie,
+    die: HitDie,
   ) => {
     dispatch(updateAt(totalCursor.k(die), parseInt(e.target.value)));
   };
@@ -42,7 +42,7 @@ export default function EditHitDice() {
             </tr>
           </thead>
           <tbody>
-            {(Object.keys(StandardDie) as StandardDie[]).map((die) => {
+            {HIT_DIE_SIZES.map((die) => {
               return (
                 <tr key={die}>
                   <td>{die}</td>

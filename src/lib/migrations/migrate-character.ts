@@ -432,6 +432,28 @@ const migrations: Migration[] = [
       schemaVersion: 12,
     }),
   },
+  {
+    to: 13,
+    // Hit-dice pools drop d20: no class or creature in 5e has one, and the
+    // editor used to offer every standard die, so a stray entry could be
+    // sitting in either pool.
+    migrate: (character: any) => {
+      const withoutD20 = (pool: any) => {
+        if (!pool || typeof pool !== "object" || !("d20" in pool)) return pool;
+        const { d20: _dropped, ...rest } = pool;
+        void _dropped;
+        return rest;
+      };
+      return {
+        ...character,
+        ...(character?.totalHitDice
+          ? { totalHitDice: withoutD20(character.totalHitDice) }
+          : {}),
+        expendedHitDice: withoutD20(character?.expendedHitDice),
+        schemaVersion: 13,
+      };
+    },
+  },
 ];
 
 // Apply migrations in ascending order regardless of array order.

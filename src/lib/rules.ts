@@ -21,6 +21,7 @@ import {
   DieOperation,
   FIELD,
   HIT_DICE,
+  HitDie,
   OfficialClass,
   Operation,
   PB,
@@ -165,7 +166,7 @@ export function levelOfClassId(character: Character, id: UUID): number {
   return classById(character, id)?.level ?? 0;
 }
 
-function getHitDie(className: ClassName): StandardDie {
+function getHitDie(className: ClassName): HitDie {
   return isOfficialClass(className)
     ? HIT_DICE[className]
     : // TODO: Allow for homebrew classes to define hit dice
@@ -184,10 +185,7 @@ export function getHitDice(character: Character): HitDice {
 
 // Unspent hit dice of one size (total, respecting any override, minus
 // expended). Gates the spend-a-hit-die flow in the roll dialog.
-export function remainingHitDice(
-  character: Character,
-  die: StandardDie,
-): number {
+export function remainingHitDice(character: Character, die: HitDie): number {
   const total = (character.totalHitDice || getHitDice(character))[die] || 0;
   return Math.max(0, total - (character.expendedHitDice[die] || 0));
 }
@@ -691,6 +689,15 @@ export function expendedSpellSlots(
 ): number {
   const expended = character.spellSlots[slotLevel]?.expended ?? 0;
   return Math.min(Math.max(0, expended), totalSpellSlots(character, slotLevel));
+}
+
+// The pact-slot mirror of `expendedSpellSlots`, clamped for the same reason:
+// lowering the override (or losing warlock levels) after spending leaves a
+// stored count above the total.
+export function expendedPactSlots(character: Character): number {
+  const total =
+    character.pactSlots?.totalOverride ?? getPactSlotInfo(character).total;
+  return Math.min(Math.max(0, character.pactSlots?.expended ?? 0), total);
 }
 
 export function availableSpellSlots(

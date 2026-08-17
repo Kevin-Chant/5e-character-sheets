@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StandardDie } from "src/lib/data/data-definitions";
+import { HitDie, StandardDie } from "src/lib/data/data-definitions";
 import { useCharacter } from "src/lib/hooks/use-character";
 import { useRollMode } from "src/lib/hooks/use-roll-mode";
 import { useTableTalk } from "src/lib/hooks/use-table-talk";
@@ -18,13 +18,12 @@ import { ManualRollInput } from "../roll-modal";
 // Hit dice as spendable tokens: each click rolls one die and applies it
 // individually, so a bad roll can be undone without unwinding the whole rest.
 
-const DIE_DISPLAY_ORDER: StandardDie[] = [
+const DIE_DISPLAY_ORDER: HitDie[] = [
   StandardDie.d12,
   StandardDie.d10,
   StandardDie.d8,
   StandardDie.d6,
   StandardDie.d4,
-  StandardDie.d20,
 ];
 
 // A die the player spent while this panel was open, so its token can show what
@@ -37,7 +36,7 @@ interface SessionRoll {
   healed: number;
 }
 
-const diceSizesOnSheet = (character: Character): StandardDie[] => {
+const diceSizesOnSheet = (character: Character): HitDie[] => {
   const totals = character.totalHitDice ?? getHitDice(character);
   return DIE_DISPLAY_ORDER.filter((die) => (totals[die] || 0) > 0);
 };
@@ -51,7 +50,7 @@ export default function HitDiceTray() {
   const { rollMode } = useRollMode();
   const { sendReport } = useTableTalk();
   // Real dice: the die size clicked, awaiting its typed-in total.
-  const [pendingDie, setPendingDie] = useState<StandardDie | null>(null);
+  const [pendingDie, setPendingDie] = useState<HitDie | null>(null);
 
   if (!character) return <></>;
 
@@ -82,7 +81,7 @@ export default function HitDiceTray() {
     });
   };
 
-  const spend = (die: StandardDie) => {
+  const spend = (die: HitDie) => {
     // Real dice: the click asks for the total instead of rolling; clicking
     // the same size again cancels the ask.
     if (rollMode === "manual") {
