@@ -812,7 +812,8 @@ export function preparedSpellsFor(character: Character, classId: UUID): number {
       (n, [, list]) =>
         n +
         (list ?? []).filter(
-          (s) => s.prepared && s.spellcastingClass === classId,
+          (s) =>
+            s.prepared && !s.alwaysPrepared && s.spellcastingClass === classId,
         ).length,
       0,
     );

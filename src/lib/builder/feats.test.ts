@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { StatKey } from "src/lib/data/data-definitions";
-import { FEATS, getFeat } from "src/lib/builder/feats";
+import { OfficialClass, StatKey } from "src/lib/data/data-definitions";
+import { defaultCharacter } from "src/lib/data/default-data";
+import { randomUUID } from "src/lib/browser";
+import { calculateCustomFormula } from "src/lib/formula";
+import { getHpFormula } from "src/lib/rules";
+import { applyFeat, FEATS, getFeat } from "src/lib/builder/feats";
 
 const STATS = new Set(Object.values(StatKey));
 
@@ -23,5 +27,27 @@ describe("feat catalog", () => {
       for (const stat of feat.abilityIncrease.from)
         expect(STATS, `${feat.name} / ${stat}`).toContain(stat);
     }
+  });
+});
+
+describe("Tough", () => {
+  it("raises max HP by 2 per level, and keeps doing so as you level", () => {
+    const c = structuredClone(defaultCharacter);
+    const id = randomUUID();
+    c.class = [{ id, name: OfficialClass.Fighter, level: 5 }];
+    c.features = [];
+    c.stats.con = 10;
+    const before = calculateCustomFormula(getHpFormula(c), c);
+
+    applyFeat(c, getFeat("tough")!, {
+      featSkillChoices: [],
+      featExpertiseChoices: [],
+      featWeaponChoices: [],
+      featSpellChoices: {},
+    });
+
+    expect(calculateCustomFormula(getHpFormula(c), c)).toBe(before + 10);
+    c.class[0].level = 6;
+    expect(calculateCustomFormula(getHpFormula(c), c)).toBe(before + 12 + 6);
   });
 });

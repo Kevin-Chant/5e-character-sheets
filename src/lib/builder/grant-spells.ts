@@ -2,6 +2,7 @@ import { randomUUID } from "src/lib/browser";
 import { Character, Spell } from "src/lib/types";
 import { getCatalogSpell } from "src/lib/spells/spell-catalog";
 import { buildSpellFromCatalog } from "src/lib/spells/spell-adapter";
+import { isPreparedCaster } from "src/lib/rules";
 
 /**
  * Push a catalog spell (by index) into the right `character.spells` bucket,
@@ -14,6 +15,7 @@ export function addCatalogSpell(
   char: Character,
   index: string,
   className: string,
+  alwaysPrepared = false,
 ): void {
   const entry = getCatalogSpell(index);
   if (!entry) return;
@@ -23,6 +25,12 @@ export function addCatalogSpell(
     char.class[0]?.id ??
     randomUUID();
   const spell: Spell = buildSpellFromCatalog(entry, classId);
+  // Only a prepared caster has an allowance for this to sit outside; for a
+  // known caster an expanded list is still a list of spells to learn.
+  if (alwaysPrepared && entry.level > 0 && isPreparedCaster(className)) {
+    spell.alwaysPrepared = true;
+    spell.prepared = true;
+  }
   const bucket = (char.spells[entry.level as keyof typeof char.spells] ??= []);
   bucket.push(spell);
 }
@@ -36,11 +44,12 @@ export function addCatalogSpellOnce(
   char: Character,
   index: string,
   className: string,
+  alwaysPrepared = false,
 ): void {
   const entry = getCatalogSpell(index);
   if (!entry) return;
   const bucket = char.spells[entry.level as keyof typeof char.spells] ?? [];
   const name = entry.name.trim().toLowerCase();
   if (bucket.some((s) => s.info.title.trim().toLowerCase() === name)) return;
-  addCatalogSpell(char, index, className);
+  addCatalogSpell(char, index, className, alwaysPrepared);
 }

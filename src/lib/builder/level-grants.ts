@@ -374,7 +374,7 @@ export function applyClassLevel(
     if (grant.speedBonus && fresh.length) char.speeds.walk += grant.speedBonus;
     if (grant.effects) applyLevelEffects(char, grant.effects);
     for (const index of grant.spellIndices ?? [])
-      addCatalogSpellOnce(char, index, className);
+      addCatalogSpellOnce(char, index, className, true);
   }
 
   // 2. Feature prose for this class level (level 1 from SRD class data, 2+
@@ -412,7 +412,7 @@ export function applyClassLevel(
     klass.subclass,
     level,
   ))
-    addCatalogSpellOnce(char, index, className);
+    addCatalogSpellOnce(char, index, className, true);
 
   // 2d. Effects this level writes straight to a character field: save
   //     proficiencies, resistances, speeds, initiative modifier (`LevelEffects`).
@@ -574,7 +574,7 @@ export function applyClassLevel(
     className,
     level,
   ))
-    addCatalogSpellOnce(char, index, className);
+    addCatalogSpellOnce(char, index, className, true);
 
   // 9c. Feature prose a sub-choice confers (a Totem Warrior's totem, a Storm
   //     Herald's environment).

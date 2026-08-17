@@ -213,6 +213,15 @@ export const FEATS: Feat[] = [
     effect:
       "Once per turn when you deal bludgeoning damage you can move the target 5 feet, and on a critical hit attackers have advantage against it until your next turn.",
   },
+  {
+    index: "linguist",
+    name: "Linguist",
+    summary: "A gifted student of languages and codes.",
+    abilityIncrease: { by: 1, from: [StatKey.int] },
+    effect:
+      "You learn three languages of your choice, and you can write ciphers that others can't decipher without your teaching, a successful Intelligence check against a DC of your Intelligence score + your proficiency bonus, or magic. Add the three languages under Other Proficiencies.",
+  },
+
   // ---- Pure feats (no ability score increase) ----
   {
     index: "alert",
@@ -221,6 +230,36 @@ export const FEATS: Feat[] = [
     effect:
       "You can't be surprised while conscious, and hidden or unseen attackers don't gain advantage against you.",
     grants: { initiativeBonus: 5 },
+  },
+  {
+    index: "tough",
+    name: "Tough",
+    summary: "Harder to put down than you look.",
+    effect:
+      "Your hit point maximum increases by twice your level when you take this feat, and by 2 more every level after.",
+  },
+  {
+    index: "skilled",
+    name: "Skilled",
+    summary: "Broadly trained.",
+    effect:
+      "You gain proficiency in any combination of three skills or tools. Pick skills below; add a tool instead under Other Proficiencies.",
+    grants: { chooseSkills: 3 },
+  },
+  {
+    index: "medium-armor-master",
+    name: "Medium Armor Master",
+    prerequisite: "Proficiency with medium armor",
+    summary: "Medium armor that moves like light.",
+    effect:
+      "Medium armor no longer imposes disadvantage on Stealth checks, and if your Dexterity is 16 or higher you add 3 rather than 2 to your AC from it. Raise the armor's Dexterity cap on the item itself.",
+  },
+  {
+    index: "mounted-combatant",
+    name: "Mounted Combatant",
+    summary: "Deadly, and hard to unseat, from the saddle.",
+    effect:
+      "While mounted you have advantage on melee attacks against unmounted creatures smaller than your mount, can force an attack aimed at your mount to target you instead, and your mount takes no damage on a successful Dexterity save (half on a failure).",
   },
   {
     index: "charger",

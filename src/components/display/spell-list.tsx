@@ -101,9 +101,18 @@ export default function SpellList({
                   <input
                     type="checkbox"
                     className="prepared-toggle"
-                    title="Prepared"
-                    aria-label="Prepared"
+                    title={
+                      spell.alwaysPrepared
+                        ? "Always prepared — doesn't count against your allowance"
+                        : "Prepared"
+                    }
+                    aria-label={
+                      spell.alwaysPrepared ? "Always prepared" : "Prepared"
+                    }
                     checked={!!spell.prepared}
+                    // An always-prepared spell can't be un-prepared, so the
+                    // tick is a statement rather than a control.
+                    disabled={spell.alwaysPrepared}
                     onChange={(e) => togglePrepared(i, e.target.checked)}
                   />
                 )}

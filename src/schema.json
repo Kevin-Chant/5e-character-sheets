@@ -1862,6 +1862,9 @@
         },
         "Spell": {
             "properties": {
+                "alwaysPrepared": {
+                    "type": "boolean"
+                },
                 "castingTime": {
                     "type": "string"
                 },

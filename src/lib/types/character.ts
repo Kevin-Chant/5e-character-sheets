@@ -234,6 +234,11 @@ export interface Spell {
   spellcastingClass: UUID; // class id this spell is cast with (spellMod/bonus/DC source)
   info: TextComponent;
   prepared?: boolean;
+  // Granted already-prepared and not counting against the allowance (a
+  // cleric's domain spells, a paladin's oath spells, a Land druid's circle
+  // spells). Only set for prepared casters — a warlock's expanded list still
+  // has to be learned.
+  alwaysPrepared?: boolean;
   ritual?: boolean;
   concentration?: boolean;
   components?: SpellComponents;
